@@ -244,6 +244,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
+name = "example-webp"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "aviutl2",
+ "image",
+]
+
+[[package]]
 name = "exr"
 version = "1.73.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -353,15 +362,6 @@ dependencies = [
  "tiff",
  "zune-core",
  "zune-jpeg",
-]
-
-[[package]]
-name = "image-rs"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "aviutl2",
- "image",
 ]
 
 [[package]]

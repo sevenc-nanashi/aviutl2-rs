@@ -1,5 +1,5 @@
 [workspace]
-members = ["./crates/aviutl2-sys", "./examples/image-rs", "crates/aviutl2"]
+members = ["./crates/aviutl2-sys", "./examples/webp", "crates/aviutl2"]
 resolver = "3"
 
 [workspace.package]

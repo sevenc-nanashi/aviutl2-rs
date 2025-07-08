@@ -1,9 +1,10 @@
 [package]
-name = "image-rs"
+name = "example-webp"
 version = "0.1.0"
 edition = "2024"
 
 [lib]
+name = "rusty_webp"
 crate-type = ["cdylib"]
 
 [dependencies]
