@@ -9,7 +9,7 @@ use std::ffi::c_void;
 
 pub use windows_sys::Win32::{
     Foundation::{HINSTANCE, HWND},
-    Graphics::Gdi::BITMAPINFOHEADER,
+    Graphics::Gdi::{BITMAPINFOHEADER, BI_RGB},
     Media::Audio::WAVEFORMATEX,
 };
 

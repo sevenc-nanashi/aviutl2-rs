@@ -359,6 +359,7 @@ dependencies = [
 name = "image-rs"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "aviutl2",
  "image",
 ]

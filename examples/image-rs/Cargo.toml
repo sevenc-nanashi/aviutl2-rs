@@ -7,5 +7,6 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
+anyhow = "1.0.98"
 aviutl2.workspace = true
 image = "0.25.6"
