@@ -9,4 +9,5 @@ input = []
 output = []
 
 [dependencies]
+anyhow = "1.0.98"
 aviutl2-sys.workspace = true

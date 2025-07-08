@@ -1,8 +1,13 @@
-#![allow(non_snake_case, non_camel_case_types, non_upper_case_globals, dead_code)]
+#![allow(
+    non_snake_case,
+    non_camel_case_types,
+    non_upper_case_globals,
+    dead_code
+)]
 
 use std::ffi::c_void;
 
-use windows_sys::Win32::{
+pub use windows_sys::Win32::{
     Foundation::{HINSTANCE, HWND},
     Graphics::Gdi::BITMAPINFOHEADER,
     Media::Audio::WAVEFORMATEX,

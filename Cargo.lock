@@ -79,6 +79,7 @@ dependencies = [
 name = "aviutl2"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "aviutl2-sys",
 ]
 

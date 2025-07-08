@@ -1,4 +1,4 @@
-task :default => [:download_sdk, :fix_sdk, :bindgen]
+task :default => [:download_sdk]
 
 task :download_sdk do
   require 'open-uri'
@@ -6,9 +6,9 @@ task :download_sdk do
   url =  "https://spring-fragrance.mints.ne.jp/aviutl/aviutl2_sdk.zip"
   filename = "aviutl2_sdk.zip"
   File.open(filename, 'wb') do |file|
-    file.write(open(url).read)
+    file.write(URI.open(url).read)
   end
   puts "Downloaded #{filename} from #{url}"
 
-  sh "powershell -Command \"Expand-Archive -Path '#{filename}' -DestinationPath .\""
+  sh "powershell -ExecutionPolicy Bypass -Command \"Expand-Archive -Path '#{filename}' -DestinationPath sdk/aviutl2_sdk\""
 end
