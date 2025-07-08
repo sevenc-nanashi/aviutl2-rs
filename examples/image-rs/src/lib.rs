@@ -1,3 +1,4 @@
+use aviutl2::input::InputFilter;
 use aviutl2::input::InputPlugin;
 
 struct ImageRsPlugin {}
@@ -12,7 +13,15 @@ impl InputPlugin for ImageRsPlugin {
     fn info(&self) -> aviutl2::input::InputPluginTable {
         aviutl2::input::InputPluginTable {
             name: "ImageRs Plugin".to_string(),
-            filefilter: "Image Files (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp".to_string(),
+            filefilter: vec![InputFilter {
+                name: "Image Files".to_string(),
+                extensions: vec![
+                    "png".to_string(),
+                    "jpg".to_string(),
+                    "jpeg".to_string(),
+                    "bmp".to_string(),
+                ],
+            }],
             information: "A plugin to handle image files using the image crate.".to_string(),
             can_config: false,
         }

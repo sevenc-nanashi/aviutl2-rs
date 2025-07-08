@@ -1,9 +1,14 @@
 pub struct InputPluginTable {
     pub name: String,
-    pub filefilter: String,
+    pub filefilter: Vec<InputFilter>,
     pub information: String,
 
     pub can_config: bool,
+}
+
+pub struct InputFilter {
+    pub name: String,
+    pub extensions: Vec<String>,
 }
 
 pub struct InputInfo {
