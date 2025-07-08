@@ -9,11 +9,11 @@ impl ImageFormat {
             biPlanes: 1,
             biBitCount: 32, // Assuming RGBA format
             biCompression: aviutl2_sys::input2::BI_RGB,
-            biSizeImage: 0, // Not used
-            biXPelsPerMeter: 0, // Not used
-            biYPelsPerMeter: 0, // Not used
-            biClrUsed: 0, // Not used
-            biClrImportant: 0, // Not used
+            biSizeImage: (self.width * self.height * 4) as u32, // 4 bytes per pixel for RGBA
+            biXPelsPerMeter: 0,                                 // Not used
+            biYPelsPerMeter: 0,                                 // Not used
+            biClrUsed: 0,                                       // Not used
+            biClrImportant: 0,                                  // Not used
         }
     }
 }
@@ -53,7 +53,7 @@ pub fn create_table<T: InputPlugin>(
         extern "C" fn(aviutl2_sys::input2::HWND, aviutl2_sys::input2::HINSTANCE) -> bool,
     >,
 ) -> aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
-    let table = plugin.info();
+    let table = plugin.plugin_info();
     let mut file_filter = String::new();
     for filter in table.file_filters {
         if !file_filter.is_empty() {
@@ -102,7 +102,7 @@ pub fn func_open<T: InputPlugin>(
     let path = String::from_utf16_lossy(&path_vec);
     match plugin.open(std::path::PathBuf::from(path)) {
         Some(handle) => {
-            let boxed_handle: Box<dyn std::any::Any + Send + Sync> = Box::new(handle);
+            let boxed_handle: Box<T::InputHandle> = Box::new(handle);
             Box::into_raw(boxed_handle) as aviutl2_sys::input2::INPUT_HANDLE
         }
         None => std::ptr::null_mut(),
@@ -110,8 +110,7 @@ pub fn func_open<T: InputPlugin>(
 }
 pub fn func_close<T: InputPlugin>(plugin: &T, ih: aviutl2_sys::input2::INPUT_HANDLE) -> bool {
     free_leaked_memory();
-    let boxed_handle = unsafe { Box::from_raw(ih as *mut dyn std::any::Any) };
-    let handle = *boxed_handle.downcast::<T::InputHandle>().unwrap();
+    let handle = *unsafe { Box::from_raw(ih as *mut T::InputHandle) };
     T::close(plugin, handle)
 }
 pub fn func_info_get<T: InputPlugin>(
@@ -120,35 +119,34 @@ pub fn func_info_get<T: InputPlugin>(
     iip: *mut aviutl2_sys::input2::INPUT_INFO,
 ) -> bool {
     free_leaked_memory();
-    let boxed_handle = unsafe { Box::from_raw(ih as *mut dyn std::any::Any) };
-    let handle = boxed_handle.downcast_ref::<T::InputHandle>().unwrap();
-    match T::get_info(plugin, handle) {
-        Ok(info) => {
-            match (info.video, info.audio) {
-                (Some(video_info), None) => {
-                    let image_format = video_info.image_format.into_raw();
-                    let image_format = Box::new(image_format);
-                    let image_format_ptr = Box::into_raw(image_format);
-                    WILL_FREE_ON_NEXT_CALL
-                        .lock()
-                        .unwrap()
-                        .push(image_format_ptr as usize);
-                    unsafe {
-                        (*iip).flag = aviutl2_sys::input2::INPUT_INFO::FLAG_VIDEO;
-                        (*iip).rate = video_info.fps;
-                        (*iip).scale = video_info.scale;
-                        (*iip).n = video_info.num_frames;
-                        (*iip).format = image_format_ptr;
-                        (*iip).format_size = std::mem::size_of::<aviutl2_sys::input2::BITMAPINFOHEADER>() as i32;
-                        (*iip).audio_n = 0;
-                        (*iip).audio_format = std::ptr::null_mut();
-                        (*iip).audio_format_size = 0;
-                    }
-                    true
+    let handle = unsafe { &*(ih as *mut T::InputHandle) };
+
+    match T::get_input_info(plugin, handle) {
+        Ok(info) => match (info.video, info.audio) {
+            (Some(video_info), None) => {
+                let image_format = video_info.image_format.into_raw();
+                let image_format = Box::new(image_format);
+                let image_format_ptr = Box::into_raw(image_format);
+                WILL_FREE_ON_NEXT_CALL
+                    .lock()
+                    .unwrap()
+                    .push(image_format_ptr as usize);
+                unsafe {
+                    (*iip).flag = aviutl2_sys::input2::INPUT_INFO::FLAG_VIDEO;
+                    (*iip).rate = video_info.fps;
+                    (*iip).scale = video_info.scale;
+                    (*iip).n = video_info.num_frames;
+                    (*iip).format = image_format_ptr;
+                    (*iip).format_size =
+                        (4 * video_info.image_format.width * video_info.image_format.height) as i32;
+                    (*iip).audio_n = 0;
+                    (*iip).audio_format = std::ptr::null_mut();
+                    (*iip).audio_format_size = 0;
                 }
-                _ => todo!(),
+                true
             }
-        }
+            _ => todo!(),
+        },
         Err(_) => false,
     }
 }
@@ -159,24 +157,44 @@ pub fn func_read_video<T: InputPlugin>(
     buf: *mut std::ffi::c_void,
 ) -> i32 {
     free_leaked_memory();
-    let boxed_handle = unsafe { Box::from_raw(ih as *mut dyn std::any::Any) };
-    let handle = boxed_handle.downcast_ref::<T::InputHandle>().unwrap();
+    let handle = unsafe { &*(ih as *mut T::InputHandle) };
     match T::read_video(plugin, handle, frame) {
         Ok(image_buffer) => {
             let image_data = image_buffer.0;
             let len = image_data.len();
+            let format_info = plugin
+                .get_input_info(handle)
+                .unwrap()
+                .video
+                .unwrap()
+                .image_format;
+            let width = format_info.width as usize;
+            let height = format_info.height as usize;
+            debug_assert!(len % (width * 4) == 0, "Image data length mismatch");
             if len > 0 {
                 unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        image_data.as_ptr() as *const u8,
-                        buf as *mut u8,
-                        len,
-                    );
+                    for y in 0..height {
+                        for x in 0..width {
+                            let idx = (y * width + x) * 4;
+                            let r = image_data[idx];
+                            let g = image_data[idx + 1];
+                            let b = image_data[idx + 2];
+                            let a = image_data[idx + 3];
+                            // bgrA
+                            let pixel = (b as u32)
+                                | (g as u32) << 8
+                                | (r as u32) << 16
+                                | ((a as u32) << 24);
+                            let dest_ptr =
+                                buf.add(((height - 1 - y as usize) * width + x) * 4) as *mut u32;
+                            dest_ptr.write(pixel);
+                        }
+                    }
                 }
             }
             len as i32
         }
-        Err(_) => -1,
+        Err(_) => 0,
     }
 }
 
@@ -188,8 +206,7 @@ pub fn func_read_audio<T: InputPlugin>(
     buf: *mut std::ffi::c_void,
 ) -> i32 {
     free_leaked_memory();
-    let boxed_handle = unsafe { Box::from_raw(ih as *mut dyn std::any::Any) };
-    let handle = boxed_handle.downcast_ref::<T::InputHandle>().unwrap();
+    let handle = unsafe { &*(ih as *mut T::InputHandle) };
     match T::read_audio(plugin, handle, start, length) {
         Ok(audio_buffer) => {
             let audio_data = audio_buffer.0;
@@ -205,7 +222,7 @@ pub fn func_read_audio<T: InputPlugin>(
             }
             len as i32
         }
-        Err(_) => -1,
+        Err(_) => 0,
     }
 }
 
@@ -252,21 +269,16 @@ macro_rules! register_input_plugin {
                 Box::into_raw(Box::new(table))
             }
 
-            #[unsafe(no_mangle)]
             extern "C" fn func_open(
                 file: aviutl2::sys::input2::LPCWSTR,
             ) -> aviutl2::sys::input2::INPUT_HANDLE {
                 unsafe { $crate::input::__bridge::func_open(&*PLUGIN, file) }
             }
 
-            #[unsafe(no_mangle)]
-            extern "C" fn func_close(
-                ih: aviutl2::sys::input2::INPUT_HANDLE,
-            ) -> bool {
+            extern "C" fn func_close(ih: aviutl2::sys::input2::INPUT_HANDLE) -> bool {
                 unsafe { $crate::input::__bridge::func_close(&*PLUGIN, ih) }
             }
 
-            #[unsafe(no_mangle)]
             extern "C" fn func_info_get(
                 ih: aviutl2::sys::input2::INPUT_HANDLE,
                 iip: *mut aviutl2::sys::input2::INPUT_INFO,
@@ -274,7 +286,6 @@ macro_rules! register_input_plugin {
                 unsafe { $crate::input::__bridge::func_info_get(&*PLUGIN, ih, iip) }
             }
 
-            #[unsafe(no_mangle)]
             extern "C" fn func_read_video(
                 ih: aviutl2::sys::input2::INPUT_HANDLE,
                 frame: i32,
@@ -283,17 +294,17 @@ macro_rules! register_input_plugin {
                 unsafe { $crate::input::__bridge::func_read_video(&*PLUGIN, ih, frame, buf) }
             }
 
-            #[unsafe(no_mangle)]
             extern "C" fn func_read_audio(
                 ih: aviutl2::sys::input2::INPUT_HANDLE,
                 start: i32,
                 length: i32,
                 buf: *mut std::ffi::c_void,
             ) -> i32 {
-                unsafe { $crate::input::__bridge::func_read_audio(&*PLUGIN, ih, start, length, buf) }
+                unsafe {
+                    $crate::input::__bridge::func_read_audio(&*PLUGIN, ih, start, length, buf)
+                }
             }
 
-            #[unsafe(no_mangle)]
             extern "C" fn func_config(
                 hwnd: aviutl2::sys::input2::HWND,
                 dll_hinst: aviutl2::sys::input2::HINSTANCE,

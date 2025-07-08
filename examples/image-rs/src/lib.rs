@@ -13,9 +13,9 @@ impl InputPlugin for ImageRsPlugin {
         ImageRsPlugin {}
     }
 
-    fn info(&self) -> aviutl2::input::InputPluginTable {
+    fn plugin_info(&self) -> aviutl2::input::InputPluginTable {
         aviutl2::input::InputPluginTable {
-            name: "ImageRs Plugin".to_string(),
+            name: "image-rs".to_string(),
             input_type: aviutl2::input::InputType::Video,
             file_filters: vec![InputFilter {
                 name: "Image Files".to_string(),
@@ -24,9 +24,10 @@ impl InputPlugin for ImageRsPlugin {
                     "jpg".to_string(),
                     "jpeg".to_string(),
                     "bmp".to_string(),
+                    "webp".to_string(),
                 ],
             }],
-            information: "A plugin to handle image files using the image crate.".to_string(),
+            information: "image-rs for AviUtl2 / created by Nanashi.".to_string(),
             can_config: false,
         }
     }
@@ -41,16 +42,16 @@ impl InputPlugin for ImageRsPlugin {
         }
     }
 
-    fn get_info(&self, handle: &Self::InputHandle) -> AnyResult<aviutl2::input::InputInfo> {
+    fn get_input_info(&self, handle: &Self::InputHandle) -> AnyResult<aviutl2::input::InputInfo> {
         let width = handle.width() as u32;
         let height = handle.height() as u32;
         let format = aviutl2::input::ImageFormat { width, height };
 
         Ok(aviutl2::input::InputInfo {
             video: Some(aviutl2::input::VideoInputInfo {
-                fps: 30,       // Default FPS for images
-                scale: 1,      // No scaling
-                num_frames: 1, // Single frame for image
+                fps: 30,
+                scale: 1,
+                num_frames: 1,
                 image_format: format,
             }),
             audio: None, // No audio for image files
@@ -65,7 +66,7 @@ impl InputPlugin for ImageRsPlugin {
         anyhow::ensure!(frame == 0, "Only frame 0 is valid for image input");
         let buffer = handle
             .pixels()
-            .map(|p| (p.0[0], p.0[1], p.0[2], p.0[3]))
+            .map(|p| (p[0], p[1], p[2], p[3]))
             .collect::<Vec<_>>();
         buffer.into_image()
     }

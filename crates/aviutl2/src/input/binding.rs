@@ -72,6 +72,7 @@ pub trait IntoImage {
 }
 
 impl IntoImage for Vec<u8> {
+    /// `Vec<u8>`から [`ImageBuffer`] へ変換します。
     fn into_image(self) -> AnyResult<ImageBuffer> {
         debug_assert!(self.len() % 4 == 0, "Image data length must be a multiple of 4");
         // Assuming the Vec<u8> is already in a suitable format
@@ -81,7 +82,7 @@ impl IntoImage for Vec<u8> {
 
 impl IntoImage for Vec<(u8, u8, u8)> {
     fn into_image(self) -> AnyResult<ImageBuffer> {
-        let mut image_data = Vec::with_capacity(self.len() * 3);
+        let mut image_data = Vec::with_capacity(self.len() * 4);
         for (r, g, b) in self {
             image_data.push(r);
             image_data.push(g);
@@ -131,12 +132,12 @@ pub trait InputPlugin: Send + Sync {
 
     fn new() -> Self;
 
-    fn info(&self) -> InputPluginTable;
+    fn plugin_info(&self) -> InputPluginTable;
 
     fn open(&self, file: std::path::PathBuf) -> Option<Self::InputHandle>;
     fn close(&self, handle: Self::InputHandle) -> bool;
 
-    fn get_info(&self, handle: &Self::InputHandle) -> AnyResult<InputInfo>;
+    fn get_input_info(&self, handle: &Self::InputHandle) -> AnyResult<InputInfo>;
     fn read_video(&self, handle: &Self::InputHandle, frame: i32) -> AnyResult<ImageBuffer> {
         Ok(ImageBuffer(vec![])) // Default implementation, can be overridden
     }
