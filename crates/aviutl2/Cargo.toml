@@ -1,0 +1,12 @@
+[package]
+name = "aviutl2"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = ["input", "output"]
+input = []
+output = []
+
+[dependencies]
+aviutl2-sys.workspace = true
