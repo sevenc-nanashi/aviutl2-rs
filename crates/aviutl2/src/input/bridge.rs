@@ -1,4 +1,5 @@
 use super::{AudioFormat, ImageFormat, InputPlugin, IntoAudio, IntoImage};
+use crate::common::format_file_filters;
 
 impl ImageFormat {
     fn into_raw(&self) -> aviutl2_sys::input2::BITMAPINFOHEADER {
@@ -67,23 +68,7 @@ pub fn create_table<T: InputPlugin>(
     >,
 ) -> aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
     let table = plugin.plugin_info();
-    let mut file_filter = String::new();
-    for filter in table.file_filters {
-        if !file_filter.is_empty() {
-            file_filter.push('\x00');
-        }
-        file_filter.push_str(&filter.name);
-        file_filter.push('\x00');
-        file_filter.push_str(
-            &filter
-                .extensions
-                .iter()
-                .map(|ext| format!("*.{}", ext))
-                .collect::<Vec<_>>()
-                .join(";"),
-        );
-        file_filter.push('\x00');
-    }
+    let file_filter = format_file_filters(&table.file_filters);
 
     return aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
         flag: table.input_type.to_bits(),
@@ -172,6 +157,12 @@ pub fn func_info_get<T: InputPlugin>(
                     (*iip).audio_format = audio_format_ptr;
                     (*iip).audio_format_size =
                         std::mem::size_of_val(&audio_info.audio_format) as i32;
+                }
+            }
+
+            if info.concurrent {
+                unsafe {
+                    (*iip).flag |= aviutl2_sys::input2::INPUT_INFO::FLAG_CONCURRENT;
                 }
             }
 

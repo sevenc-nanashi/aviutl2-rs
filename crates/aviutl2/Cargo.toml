@@ -11,3 +11,4 @@ output = []
 [dependencies]
 anyhow = "1.0.98"
 aviutl2-sys.workspace = true
+num-rational = "0.4.2"

@@ -1,0 +1,12 @@
+[package]
+name = "ffmpeg-output"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "rusty_ffmpeg_output"
+crate-type = ["cdylib"]
+
+[dependencies]
+aviutl2.workspace = true
+ez-ffmpeg = { version = "0.5.1", features = ["static"] }

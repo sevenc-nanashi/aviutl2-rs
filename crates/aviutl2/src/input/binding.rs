@@ -2,18 +2,15 @@ use crate::sys::input2::{HINSTANCE, HWND};
 
 pub use anyhow::Result as AnyResult;
 
+use super::FileFilter;
+
 pub struct InputPluginTable {
     pub name: String,
     pub input_type: InputType,
-    pub file_filters: Vec<InputFilter>,
+    pub file_filters: Vec<FileFilter>,
     pub information: String,
 
     pub can_config: bool,
-}
-
-pub struct InputFilter {
-    pub name: String,
-    pub extensions: Vec<String>,
 }
 
 pub struct VideoInputInfo {
@@ -36,6 +33,8 @@ pub struct AudioFormat {
 pub struct InputInfo {
     pub video: Option<VideoInputInfo>,
     pub audio: Option<AudioInputInfo>,
+
+    pub concurrent: bool,
 }
 
 pub enum InputType {
