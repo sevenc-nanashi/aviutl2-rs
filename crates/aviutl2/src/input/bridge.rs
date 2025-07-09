@@ -1,4 +1,4 @@
-use super::{ImageFormat, InputPlugin};
+use super::{AudioFormat, ImageFormat, InputPlugin, IntoAudio, IntoImage};
 
 impl ImageFormat {
     fn into_raw(&self) -> aviutl2_sys::input2::BITMAPINFOHEADER {
@@ -14,6 +14,19 @@ impl ImageFormat {
             biYPelsPerMeter: 0,                                 // Not used
             biClrUsed: 0,                                       // Not used
             biClrImportant: 0,                                  // Not used
+        }
+    }
+}
+impl AudioFormat {
+    fn into_raw(&self) -> aviutl2_sys::input2::WAVEFORMATEX {
+        aviutl2_sys::input2::WAVEFORMATEX {
+            wFormatTag: aviutl2_sys::input2::WAVE_FORMAT_PCM as u16,
+            nChannels: self.channels as u16,
+            nSamplesPerSec: self.sample_rate as u32,
+            nAvgBytesPerSec: (self.sample_rate * (self.channels as u32) * 4),
+            nBlockAlign: (self.channels * 4) as u16, // 4 bytes per sample for float
+            wBitsPerSample: 32,                      // Assuming float samples
+            cbSize: 0,                               // No extra data
         }
     }
 }
@@ -111,7 +124,7 @@ pub fn func_open<T: InputPlugin>(
 pub fn func_close<T: InputPlugin>(plugin: &T, ih: aviutl2_sys::input2::INPUT_HANDLE) -> bool {
     free_leaked_memory();
     let handle = *unsafe { Box::from_raw(ih as *mut T::InputHandle) };
-    T::close(plugin, handle)
+    T::close(plugin, handle).is_ok()
 }
 pub fn func_info_get<T: InputPlugin>(
     plugin: &T,
@@ -122,8 +135,8 @@ pub fn func_info_get<T: InputPlugin>(
     let handle = unsafe { &*(ih as *mut T::InputHandle) };
 
     match T::get_input_info(plugin, handle) {
-        Ok(info) => match (info.video, info.audio) {
-            (Some(video_info), None) => {
+        Ok(info) => {
+            if let Some(video_info) = info.video {
                 let image_format = video_info.image_format.into_raw();
                 let image_format = Box::new(image_format);
                 let image_format_ptr = Box::into_raw(image_format);
@@ -132,7 +145,7 @@ pub fn func_info_get<T: InputPlugin>(
                     .unwrap()
                     .push(image_format_ptr as usize);
                 unsafe {
-                    (*iip).flag = aviutl2_sys::input2::INPUT_INFO::FLAG_VIDEO;
+                    (*iip).flag |= aviutl2_sys::input2::INPUT_INFO::FLAG_VIDEO;
                     (*iip).rate = video_info.fps;
                     (*iip).scale = video_info.scale;
                     (*iip).n = video_info.num_frames;
@@ -143,10 +156,27 @@ pub fn func_info_get<T: InputPlugin>(
                     (*iip).audio_format = std::ptr::null_mut();
                     (*iip).audio_format_size = 0;
                 }
-                true
             }
-            _ => todo!(),
-        },
+
+            if let Some(audio_info) = info.audio {
+                let audio_format = audio_info.audio_format.into_raw();
+                let audio_format = Box::new(audio_format);
+                let audio_format_ptr = Box::into_raw(audio_format);
+                WILL_FREE_ON_NEXT_CALL
+                    .lock()
+                    .unwrap()
+                    .push(audio_format_ptr as usize);
+                unsafe {
+                    (*iip).flag |= aviutl2_sys::input2::INPUT_INFO::FLAG_AUDIO;
+                    (*iip).audio_n = audio_info.num_samples;
+                    (*iip).audio_format = audio_format_ptr;
+                    (*iip).audio_format_size =
+                        std::mem::size_of_val(&audio_info.audio_format) as i32;
+                }
+            }
+
+            true
+        }
         Err(_) => false,
     }
 }
@@ -160,7 +190,7 @@ pub fn func_read_video<T: InputPlugin>(
     let handle = unsafe { &*(ih as *mut T::InputHandle) };
     match T::read_video(plugin, handle, frame) {
         Ok(image_buffer) => {
-            let image_data = image_buffer.0;
+            let image_data = image_buffer.into_image().0;
             let len = image_data.len();
             let format_info = plugin
                 .get_input_info(handle)
@@ -209,7 +239,7 @@ pub fn func_read_audio<T: InputPlugin>(
     let handle = unsafe { &*(ih as *mut T::InputHandle) };
     match T::read_audio(plugin, handle, start, length) {
         Ok(audio_buffer) => {
-            let audio_data = audio_buffer.0;
+            let audio_data = audio_buffer.into_audio().0;
             let len = audio_data.len();
             if len > 0 {
                 unsafe {
@@ -227,13 +257,15 @@ pub fn func_read_audio<T: InputPlugin>(
 }
 
 pub fn func_config<T: InputPlugin>(
-    _plugin: &T,
-    _hwnd: aviutl2_sys::input2::HWND,
-    _dll_hinst: aviutl2_sys::input2::HINSTANCE,
+    plugin: &T,
+    hwnd: aviutl2_sys::input2::HWND,
+    dll_hinst: aviutl2_sys::input2::HINSTANCE,
 ) -> bool {
     free_leaked_memory();
-    // Placeholder for configuration function
-    false
+    match plugin.config(hwnd, dll_hinst) {
+        Ok(_) => true,
+        Err(_) => false,
+    }
 }
 
 fn into_large_string(s: &str) -> Vec<u16> {
