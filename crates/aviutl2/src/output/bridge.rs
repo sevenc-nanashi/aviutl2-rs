@@ -265,10 +265,8 @@ duplicate::duplicate! {
 pub fn create_table<T: OutputPlugin>(
     plugin: &T,
     func_output: extern "C" fn(*mut aviutl2_sys::output2::OUTPUT_INFO) -> bool,
-    func_config: Option<
-        extern "C" fn(aviutl2_sys::output2::HWND, aviutl2_sys::output2::HINSTANCE) -> bool,
-    >,
-    func_get_config_text: Option<extern "C" fn() -> LPCWSTR>,
+    func_config: extern "C" fn(aviutl2_sys::output2::HWND, aviutl2_sys::output2::HINSTANCE) -> bool,
+    func_get_config_text: extern "C" fn() -> LPCWSTR,
 ) -> aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
     free_leaked_memory();
     let plugin_info = plugin.plugin_info();
@@ -283,8 +281,8 @@ pub fn create_table<T: OutputPlugin>(
         filefilter,
         information,
         func_output: Some(func_output),
-        func_config,
-        func_get_config_text,
+        func_config: plugin_info.can_config.then_some(func_config),
+        func_get_config_text: Some(func_get_config_text),
     }
 }
 
@@ -319,7 +317,8 @@ pub fn func_get_config_text<T: OutputPlugin>(plugin: &T) -> *mut u16 {
 #[macro_export]
 macro_rules! register_output_plugin {
     ($struct:ident) => {
-        mod __au2_register_plugin {
+        #[doc(hidden)]
+        mod __au2_register_output_plugin {
             use super::*;
 
             static PLUGIN: std::sync::LazyLock<$struct> = std::sync::LazyLock::new($struct::new);
@@ -330,8 +329,8 @@ macro_rules! register_output_plugin {
                 let table = $crate::output::__bridge::create_table::<$struct>(
                     &*PLUGIN,
                     func_output,
-                    Some(func_config),
-                    Some(func_get_config_text),
+                    func_config,
+                    func_get_config_text,
                 );
                 Box::into_raw(Box::new(table))
             }

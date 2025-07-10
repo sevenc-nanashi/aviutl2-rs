@@ -123,14 +123,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                             .set_format("f32le")
                             .set_audio_codec("pcm_f32le")
                             .set_input_opt("sample_rate", &format!("{}", audio.sample_rate))
-                            .set_input_opt(
-                                "ch_layout",
-                                if audio.num_channels == 2 {
-                                    "stereo"
-                                } else {
-                                    "mono"
-                                },
-                            ),
+                            .set_input_opt("ch_layout", "stereo"),
                     ),
                     Some(tx),
                 )
@@ -147,7 +140,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                         let f = match (video_input, audio_input) {
                             (Some(video), Some(audio)) => ez_ffmpeg::FfmpegContext::builder()
                                 .inputs(vec![video, audio])
-                                .output(output)
+                                .output(output.add_stream_map("0:v").add_stream_map("1:a"))
                                 .build()?,
                             (Some(video), None) => ez_ffmpeg::FfmpegContext::builder()
                                 .input(video)
@@ -186,10 +179,14 @@ impl OutputPlugin for FfmpegOutputPlugin {
                     .name("aviutl2_ffmpeg_video_output".to_string())
                     .spawn({
                         let info = Arc::clone(&info);
+                        let killed = Arc::clone(&killed);
                         move || -> anyhow::Result<()> {
                             for (_i, frames) in info.get_video_frames_iter() {
                                 for frame in frames {
                                     tx.send(frame).expect("Failed to send video frame");
+                                }
+                                if killed.load(std::sync::atomic::Ordering::Relaxed) {
+                                    return Err(anyhow::anyhow!("Output was killed"));
                                 }
                             }
 
@@ -203,16 +200,22 @@ impl OutputPlugin for FfmpegOutputPlugin {
             threads.push(
                 std::thread::Builder::new()
                     .name("aviutl2_ffmpeg_audio_output".to_string())
-                    .spawn(move || -> anyhow::Result<()> {
-                        for (_i, samples) in
-                            info.get_stereo_audio_samples_iter((sample_rate / 10) as i32)
-                        {
-                            for sample in samples {
-                                tx.send(sample).expect("Failed to send audio sample");
+                    .spawn({
+                        let killed = Arc::clone(&killed);
+                        move || -> anyhow::Result<()> {
+                            for (_i, samples) in
+                                info.get_stereo_audio_samples_iter((sample_rate / 10) as i32)
+                            {
+                                for sample in samples {
+                                    tx.send(sample).expect("Failed to send audio sample");
+                                }
+                                if killed.load(std::sync::atomic::Ordering::Relaxed) {
+                                    return Err(anyhow::anyhow!("Output was killed"));
+                                }
                             }
-                        }
 
-                        Ok(())
+                            Ok(())
+                        }
                     })?,
             );
         }

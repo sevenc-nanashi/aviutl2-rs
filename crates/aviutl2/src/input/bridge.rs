@@ -67,9 +67,7 @@ pub fn create_table<T: InputPlugin>(
         i32,
         *mut std::ffi::c_void,
     ) -> i32,
-    func_config: Option<
-        extern "C" fn(aviutl2_sys::input2::HWND, aviutl2_sys::input2::HINSTANCE) -> bool,
-    >,
+    func_config: extern "C" fn(aviutl2_sys::input2::HWND, aviutl2_sys::input2::HINSTANCE) -> bool,
 ) -> aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
     let table = plugin.plugin_info();
     let file_filter = format_file_filters(&table.file_filters);
@@ -84,7 +82,7 @@ pub fn create_table<T: InputPlugin>(
         func_info_get: Some(func_info_get),
         func_read_video: Some(func_read_video),
         func_read_audio: Some(func_read_audio),
-        func_config,
+        func_config: table.can_config.then_some(func_config),
     };
 }
 pub fn func_open<T: InputPlugin>(
@@ -266,7 +264,8 @@ pub fn func_config<T: InputPlugin>(
 #[macro_export]
 macro_rules! register_input_plugin {
     ($struct:ident) => {
-        mod __au2_register_plugin {
+        #[doc(hidden)]
+        mod __au2_register_input_plugin {
             use super::*;
 
             static PLUGIN: std::sync::LazyLock<$struct> = std::sync::LazyLock::new($struct::new);
@@ -280,7 +279,7 @@ macro_rules! register_input_plugin {
                     func_info_get,
                     func_read_video,
                     func_read_audio,
-                    Some(func_config),
+                    func_config,
                 );
                 Box::into_raw(Box::new(table))
             }

@@ -1,5 +1,5 @@
+use aviutl2::FileFilter;
 use aviutl2::input::AnyResult;
-use aviutl2::input::InputFilter;
 use aviutl2::input::InputPlugin;
 use aviutl2::input::IntoImage;
 use aviutl2::register_input_plugin;
@@ -17,7 +17,7 @@ impl InputPlugin for ImageRsPlugin {
         aviutl2::input::InputPluginTable {
             name: "Rusty WebP".to_string(),
             input_type: aviutl2::input::InputType::Video,
-            file_filters: vec![InputFilter {
+            file_filters: vec![FileFilter {
                 name: "Image Files".to_string(),
                 extensions: vec!["webp".to_string()],
             }],
@@ -26,14 +26,10 @@ impl InputPlugin for ImageRsPlugin {
         }
     }
 
-    fn open(&self, file: std::path::PathBuf) -> Option<Self::InputHandle> {
-        match image::open(file) {
-            Ok(img) => Some(img.to_rgba8()),
-            Err(e) => {
-                eprintln!("Failed to open image: {}", e);
-                None
-            }
-        }
+    fn open(&self, file: std::path::PathBuf) -> AnyResult<Self::InputHandle> {
+        image::open(file)
+            .map(|img| img.into_rgba8())
+            .map_err(|e| anyhow::anyhow!("Failed to open image file: {}", e))
     }
 
     fn get_input_info(&self, handle: &Self::InputHandle) -> AnyResult<aviutl2::input::InputInfo> {
@@ -49,25 +45,22 @@ impl InputPlugin for ImageRsPlugin {
                 image_format: format,
             }),
             audio: None, // No audio for image files
+            concurrent: false,
         })
     }
 
-    fn read_video(
-        &self,
-        handle: &Self::InputHandle,
-        frame: i32,
-    ) -> AnyResult<aviutl2::input::ImageBuffer> {
+    fn read_video(&self, handle: &Self::InputHandle, frame: i32) -> AnyResult<impl IntoImage> {
         anyhow::ensure!(frame == 0, "Only frame 0 is valid for image input");
         let buffer = handle
             .pixels()
             .map(|p| (p[0], p[1], p[2], p[3]))
             .collect::<Vec<_>>();
-        buffer.into_image()
+        Ok(buffer.into_image())
     }
 
-    fn close(&self, handle: Self::InputHandle) -> bool {
+    fn close(&self, handle: Self::InputHandle) -> AnyResult<()> {
         drop(handle);
-        true
+        Ok(())
     }
 }
 
