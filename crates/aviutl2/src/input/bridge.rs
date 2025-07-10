@@ -1,5 +1,9 @@
-use super::{AudioFormat, ImageFormat, InputPlugin, IntoAudio, IntoImage};
-use crate::common::format_file_filters;
+use crate::{
+    common::{format_file_filters, leak_large_string, load_large_string},
+    input::{AudioFormat, ImageFormat, InputPlugin, IntoAudio, IntoImage},
+};
+
+use super::{alert_error, result_to_bool_with_dialog};
 
 impl ImageFormat {
     fn into_raw(&self) -> aviutl2_sys::input2::BITMAPINFOHEADER {
@@ -88,28 +92,22 @@ pub fn func_open<T: InputPlugin>(
     file: aviutl2_sys::input2::LPCWSTR,
 ) -> aviutl2_sys::input2::INPUT_HANDLE {
     free_leaked_memory();
-    let mut path_vec = vec![];
-    let pointer = file as *const u16;
-    for i in 0.. {
-        let c = unsafe { *pointer.add(i) };
-        if c == 0 {
-            break;
-        }
-        path_vec.push(c);
-    }
-    let path = String::from_utf16_lossy(&path_vec);
+    let path = load_large_string(file);
     match plugin.open(std::path::PathBuf::from(path)) {
-        Some(handle) => {
+        Ok(handle) => {
             let boxed_handle: Box<T::InputHandle> = Box::new(handle);
             Box::into_raw(boxed_handle) as aviutl2_sys::input2::INPUT_HANDLE
         }
-        None => std::ptr::null_mut(),
+        Err(e) => {
+            alert_error(&e);
+            std::ptr::null_mut()
+        }
     }
 }
 pub fn func_close<T: InputPlugin>(plugin: &T, ih: aviutl2_sys::input2::INPUT_HANDLE) -> bool {
     free_leaked_memory();
     let handle = *unsafe { Box::from_raw(ih as *mut T::InputHandle) };
-    T::close(plugin, handle).is_ok()
+    result_to_bool_with_dialog(T::close(plugin, handle))
 }
 pub fn func_info_get<T: InputPlugin>(
     plugin: &T,
@@ -168,7 +166,10 @@ pub fn func_info_get<T: InputPlugin>(
 
             true
         }
-        Err(_) => false,
+        Err(e) => {
+            alert_error(&e);
+            false
+        }
     }
 }
 pub fn func_read_video<T: InputPlugin>(
@@ -215,7 +216,10 @@ pub fn func_read_video<T: InputPlugin>(
             }
             len as i32
         }
-        Err(_) => 0,
+        Err(e) => {
+            alert_error(&e);
+            0
+        }
     }
 }
 
@@ -243,7 +247,10 @@ pub fn func_read_audio<T: InputPlugin>(
             }
             len as i32
         }
-        Err(_) => 0,
+        Err(e) => {
+            alert_error(&e);
+            0
+        }
     }
 }
 
@@ -253,21 +260,7 @@ pub fn func_config<T: InputPlugin>(
     dll_hinst: aviutl2_sys::input2::HINSTANCE,
 ) -> bool {
     free_leaked_memory();
-    match plugin.config(hwnd, dll_hinst) {
-        Ok(_) => true,
-        Err(_) => false,
-    }
-}
-
-fn into_large_string(s: &str) -> Vec<u16> {
-    s.encode_utf16().collect()
-}
-
-fn leak_large_string(s: &str) -> *mut u16 {
-    let mut vec = into_large_string(s);
-    let ptr = vec.as_mut_ptr();
-    std::mem::forget(vec); // Prevent Rust from deallocating the memory
-    ptr
+    result_to_bool_with_dialog(plugin.config(hwnd, dll_hinst))
 }
 
 #[macro_export]

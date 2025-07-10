@@ -3,10 +3,18 @@ name = "ffmpeg-output"
 version.workspace = true
 edition.workspace = true
 
-[lib]
-name = "rusty_ffmpeg_output"
-crate-type = ["cdylib"]
+# TODO: 動かす（ez_ffmpegでrawvideoへのエンコードがうまく行かない...）
+# [lib]
+# name = "rusty_ffmpeg_output"
+# crate-type = ["cdylib"]
+#
+[[bin]]
+name = "ffmpeg-output"
+path = "src/main.rs"
 
 [dependencies]
+anyhow = "1.0.98"
 aviutl2.workspace = true
-ez-ffmpeg = { version = "0.5.1", features = ["static"] }
+# ez-ffmpeg = { version = "0.5.1", features = ["static"] }
+ez-ffmpeg = { version = "0.5.1" }
+ffmpeg-sys-next = "7.1.3"

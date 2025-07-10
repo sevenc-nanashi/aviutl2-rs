@@ -1,10 +1,10 @@
-use crate::sys::input2::{HINSTANCE, HWND};
-
-pub use anyhow::Result as AnyResult;
+use crate::{
+    common::{AnyResult, FileFilter},
+    sys::input2::{HINSTANCE, HWND},
+};
 use aviutl2_sys::output2::OUTPUT_INFO;
-pub use num_rational::Rational32;
 
-use super::FileFilter;
+pub use num_rational::Rational32;
 
 pub struct OutputPluginTable {
     pub name: String,
@@ -36,8 +36,11 @@ pub struct OutputInfo {
     pub audio: Option<AudioOutputInfo>,
     pub path: std::path::PathBuf,
 
-    internal: OUTPUT_INFO,
+    pub(crate) internal: *mut OUTPUT_INFO,
 }
+
+unsafe impl Send for OutputInfo {}
+unsafe impl Sync for OutputInfo {}
 
 pub struct VideoOutputInfo {
     pub width: u32,
@@ -53,19 +56,17 @@ pub struct AudioOutputInfo {
 }
 
 pub trait OutputPlugin: Send + Sync {
-    type OutputHandle: std::any::Any + Send + Sync;
-
     fn new() -> Self;
 
     fn plugin_info(&self) -> OutputPluginTable;
 
-    fn output(&self, info: OutputInfo) -> Option<Self::OutputHandle>;
+    fn output(&self, info: OutputInfo) -> AnyResult<()>;
 
     fn config(&self, _hwnd: HWND, _dll_hinst: HINSTANCE) -> AnyResult<()> {
-        anyhow::bail!("This plugin does not support configuration");
+        Ok(())
     }
 
     fn config_text(&self) -> AnyResult<String> {
-        anyhow::bail!("This plugin does not support configuration");
+        Ok(String::new())
     }
 }

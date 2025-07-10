@@ -7,7 +7,10 @@
 
 use std::ffi::c_void;
 
-pub use windows_sys::Win32::Foundation::{HINSTANCE, HWND};
+pub use windows_sys::Win32::{
+    Foundation::{HINSTANCE, HWND},
+    Graphics::Gdi::{BI_RGB, BITMAPINFOHEADER},
+};
 
 pub type LPCWSTR = *const u16;
 

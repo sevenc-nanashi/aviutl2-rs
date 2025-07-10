@@ -1,8 +1,7 @@
-use crate::sys::input2::{HINSTANCE, HWND};
-
-pub use anyhow::Result as AnyResult;
-
-use super::FileFilter;
+use crate::{
+    common::{AnyResult, FileFilter},
+    sys::input2::{HINSTANCE, HWND},
+};
 
 pub struct InputPluginTable {
     pub name: String,
@@ -170,7 +169,7 @@ pub trait InputPlugin: Send + Sync {
 
     fn plugin_info(&self) -> InputPluginTable;
 
-    fn open(&self, file: std::path::PathBuf) -> Option<Self::InputHandle>;
+    fn open(&self, file: std::path::PathBuf) -> AnyResult<Self::InputHandle>;
     fn close(&self, handle: Self::InputHandle) -> AnyResult<()>;
 
     fn get_input_info(&self, handle: &Self::InputHandle) -> AnyResult<InputInfo>;
@@ -187,6 +186,6 @@ pub trait InputPlugin: Send + Sync {
     }
 
     fn config(&self, _hwnd: HWND, _dll_hinst: HINSTANCE) -> AnyResult<()> {
-        anyhow::bail!("This plugin does not support configuration");
+        Ok(())
     }
 }
