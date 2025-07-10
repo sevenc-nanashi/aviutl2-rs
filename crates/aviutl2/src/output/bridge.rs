@@ -11,7 +11,7 @@ use num_rational::Rational32;
 
 use crate::common::format_file_filters;
 
-pub type VideoFrame = Vec<(u8, u8, u8, u8)>; // RGBA format
+pub type VideoFrame = Vec<(u8, u8, u8)>; // RGB format
 
 impl OutputInfo {
     pub(crate) fn from_raw(oip: *mut aviutl2_sys::output2::OUTPUT_INFO) -> Self {
@@ -55,8 +55,18 @@ impl OutputInfo {
 
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         for i in 0..(video.width * video.height) as usize {
-            let pixel = unsafe { *(frame_data_ptr.add(i * 4) as *const (u8, u8, u8, u8)) };
-            frame_buffer.push((pixel.2, pixel.1, pixel.0, pixel.3));
+            let pixel_r = unsafe { *frame_data_ptr.add(i * 3 + 2) };
+            let pixel_g = unsafe { *frame_data_ptr.add(i * 3 + 1) };
+            let pixel_b = unsafe { *frame_data_ptr.add(i * 3) };
+            frame_buffer.push((pixel_r, pixel_g, pixel_b));
+        }
+        for y in 0..(video.height as usize / 2) {
+            for x in 0..video.width as usize {
+                frame_buffer.swap(
+                    y * video.width as usize + x,
+                    (video.height as usize - 1 - y) * video.width as usize + x,
+                );
+            }
         }
 
         Some(frame_buffer)

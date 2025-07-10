@@ -1,7 +1,34 @@
 use aviutl2::{output::OutputPlugin, register_output_plugin};
+use std::io::Write;
 use std::sync::Arc;
 
 struct FfmpegOutputPlugin {}
+
+fn tcp_server_for_callback<T: Fn(std::net::TcpStream) -> anyhow::Result<()> + Send + 'static>(
+    callback: T,
+) -> (
+    std::net::SocketAddr,
+    std::thread::JoinHandle<anyhow::Result<()>>,
+) {
+    let server = std::net::TcpListener::bind("127.0.0.1:0").expect("Failed to bind server");
+    let local_addr = server.local_addr().expect("Failed to get local address");
+    let server_thread = std::thread::spawn(move || {
+        let stream = server.incoming().next();
+        match stream {
+            Some(Ok(stream)) => {
+                println!("Accepted connection from {}", stream.peer_addr().unwrap());
+                let ret = callback(stream.try_clone().expect("Failed to clone stream"));
+                stream
+                    .shutdown(std::net::Shutdown::Both)
+                    .expect("Failed to close stream");
+                ret
+            }
+            Some(Err(e)) => Err(anyhow::anyhow!("Failed to accept connection: {}", e)),
+            None => Ok(()), // No incoming connections
+        }
+    });
+    (local_addr, server_thread)
+}
 
 impl OutputPlugin for FfmpegOutputPlugin {
     fn new() -> Self {
@@ -24,39 +51,45 @@ impl OutputPlugin for FfmpegOutputPlugin {
     fn output(&self, info: aviutl2::output::OutputInfo) -> aviutl2::AnyResult<()> {
         let output = ez_ffmpeg::Output::new(&*info.path.to_string_lossy());
         let killed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let mut threads: Vec<std::thread::JoinHandle<anyhow::Result<()>>> = Vec::new();
 
         let (video_input, video_tx) = match &info.video {
             Some(video) => {
+                anyhow::ensure!(video.num_frames > 0, "空の動画は出力できません。");
                 let buf_size = video.fps.to_integer() as usize;
+                let (tx, rx) = std::sync::mpsc::sync_channel::<(u8, u8, u8)>(buf_size);
 
-                let (tx, rx) = std::sync::mpsc::sync_channel::<(u8, u8, u8, u8)>(buf_size);
+                // TODO: ez_ffmpegのnew_by_read_callbackを使ってデータを読み込む。
+                // （TCPサーバーは普通に回りくどいしアンチウイルスに引っかかる可能性があるので）
+                let (local_addr, server_thread) = tcp_server_for_callback({
+                    let killed = Arc::clone(&killed);
+                    move |mut stream: std::net::TcpStream| -> anyhow::Result<()> {
+                        let mut buf = [0u8; 3];
+                        while !killed.load(std::sync::atomic::Ordering::Relaxed)
+                            && let Ok(read) = rx.recv()
+                        {
+                            buf[0] = read.0;
+                            buf[1] = read.1;
+                            buf[2] = read.2;
+                            stream.write_all(&buf)?;
+                        }
+                        stream.flush()?;
+                        Ok(())
+                    }
+                });
+                threads.push(server_thread);
+
                 (
                     Some(
-                        ez_ffmpeg::Input::new_by_read_callback(move |buf| {
-                            let mut current = 0;
-                            dbg!(buf.len());
-                            while (current + 1) * 4 < buf.len() {
-                                let Ok(read) = rx.recv() else {
-                                    break;
-                                };
-                                buf[current * 4] = read.0;
-                                buf[current * 4 + 1] = read.1;
-                                buf[current * 4 + 2] = read.2;
-                                buf[current * 4 + 3] = read.3;
-                                current += 1;
-                            }
-
-                            if current == 0 {
-                                ffmpeg_sys_next::AVERROR_EOF
-                            } else {
-                                (current * 4) as i32
-                            }
-                        })
-                        .set_format("rawvideo")
-                        .set_video_codec("rawvideo")
-                        .set_input_opt("pixel_format", "rgba")
-                        .set_input_opt("video_size", &format!("{}x{}", video.width, video.height))
-                        .set_input_opt("framerate", &format!("{}", video.fps.to_integer())),
+                        ez_ffmpeg::Input::new(format!("tcp://{}", local_addr))
+                            .set_format("rawvideo")
+                            .set_video_codec("rawvideo")
+                            .set_input_opt("pixel_format", "rgb24")
+                            .set_input_opt(
+                                "video_size",
+                                &format!("{}x{}", video.width, video.height),
+                            )
+                            .set_input_opt("framerate", &format!("{}", video.fps.to_integer())),
                     ),
                     Some(tx),
                 )
@@ -67,41 +100,37 @@ impl OutputPlugin for FfmpegOutputPlugin {
             Some(audio) => {
                 let (tx, rx) =
                     std::sync::mpsc::sync_channel::<(f32, f32)>(audio.sample_rate as usize);
+                let (local_addr, server_thread) = tcp_server_for_callback({
+                    let killed = Arc::clone(&killed);
+                    move |mut stream: std::net::TcpStream| -> anyhow::Result<()> {
+                        let mut buf = [0u8; 8]; // 2 f32 values, each 4 bytes
+                        while !killed.load(std::sync::atomic::Ordering::Relaxed)
+                            && let Ok(read) = rx.recv()
+                        {
+                            buf[0..4].copy_from_slice(&read.0.to_le_bytes());
+                            buf[4..8].copy_from_slice(&read.1.to_le_bytes());
+                            stream.write_all(&buf)?;
+                        }
+                        stream.flush()?;
+                        Ok(())
+                    }
+                });
+                threads.push(server_thread);
+
                 (
                     Some(
-                        ez_ffmpeg::Input::new_by_read_callback(move |buf| {
-                            let mut current = 0;
-                            while (current + 1) * 8 < buf.len() {
-                                let Ok((read_l, read_r)) = rx.recv() else {
-                                    break;
-                                };
-                                let l_bytes = read_l.to_le_bytes();
-                                let r_bytes = read_r.to_le_bytes();
-                                for i in 0..4 {
-                                    buf[current * 8 + i] = l_bytes[i];
-                                    buf[current * 8 + i + 4] = r_bytes[i];
-                                }
-
-                                current += 1;
-                            }
-
-                            if current == 0 {
-                                ffmpeg_sys_next::AVERROR_EOF
-                            } else {
-                                (current * 8) as i32
-                            }
-                        })
-                        .set_format("f32le")
-                        .set_audio_codec("pcm_f32le")
-                        .set_input_opt("sample_rate", &format!("{}", audio.sample_rate))
-                        .set_input_opt(
-                            "ch_layout",
-                            if audio.num_channels == 2 {
-                                "stereo"
-                            } else {
-                                "mono"
-                            },
-                        ),
+                        ez_ffmpeg::Input::new(format!("tcp://{}", local_addr))
+                            .set_format("f32le")
+                            .set_audio_codec("pcm_f32le")
+                            .set_input_opt("sample_rate", &format!("{}", audio.sample_rate))
+                            .set_input_opt(
+                                "ch_layout",
+                                if audio.num_channels == 2 {
+                                    "stereo"
+                                } else {
+                                    "mono"
+                                },
+                            ),
                     ),
                     Some(tx),
                 )
@@ -109,7 +138,6 @@ impl OutputPlugin for FfmpegOutputPlugin {
             None => (None, None),
         };
 
-        let mut threads: Vec<std::thread::JoinHandle<anyhow::Result<()>>> = Vec::new();
         threads.push(
             std::thread::Builder::new()
                 .name("aviutl2_ffmpeg_output".to_string())
@@ -159,7 +187,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                     .spawn({
                         let info = Arc::clone(&info);
                         move || -> anyhow::Result<()> {
-                            for (i, frames) in info.get_video_frames_iter() {
+                            for (_i, frames) in info.get_video_frames_iter() {
                                 for frame in frames {
                                     tx.send(frame).expect("Failed to send video frame");
                                 }
@@ -176,7 +204,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 std::thread::Builder::new()
                     .name("aviutl2_ffmpeg_audio_output".to_string())
                     .spawn(move || -> anyhow::Result<()> {
-                        for (i, samples) in
+                        for (_i, samples) in
                             info.get_stereo_audio_samples_iter((sample_rate / 10) as i32)
                         {
                             for sample in samples {

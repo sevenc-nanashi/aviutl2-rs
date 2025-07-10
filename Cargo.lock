@@ -483,6 +483,7 @@ dependencies = [
  "anyhow",
  "aviutl2",
  "ez-ffmpeg",
+ "ffmpeg-next",
  "ffmpeg-sys-next",
 ]
 
