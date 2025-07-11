@@ -6,28 +6,29 @@ struct FfmpegOutputPlugin {}
 
 fn tcp_server_for_callback<T: Fn(std::net::TcpStream) -> anyhow::Result<()> + Send + 'static>(
     callback: T,
-) -> (
+) -> anyhow::Result<(
     std::net::SocketAddr,
     std::thread::JoinHandle<anyhow::Result<()>>,
-) {
+)> {
     let server = std::net::TcpListener::bind("127.0.0.1:0").expect("Failed to bind server");
     let local_addr = server.local_addr().expect("Failed to get local address");
-    let server_thread = std::thread::spawn(move || {
-        let stream = server.incoming().next();
-        match stream {
-            Some(Ok(stream)) => {
-                println!("Accepted connection from {}", stream.peer_addr().unwrap());
-                let ret = callback(stream.try_clone().expect("Failed to clone stream"));
-                stream
-                    .shutdown(std::net::Shutdown::Both)
-                    .expect("Failed to close stream");
-                ret
+    let server_thread = std::thread::Builder::new()
+        .name("aviutl2_ffmpeg_output_tcp_server".to_string())
+        .spawn(move || {
+            let stream = server.incoming().next();
+            match stream {
+                Some(Ok(stream)) => {
+                    let ret = callback(stream.try_clone()?);
+                    stream
+                        .shutdown(std::net::Shutdown::Both)
+                        .expect("Failed to close stream");
+                    ret
+                }
+                Some(Err(e)) => Err(anyhow::anyhow!("Failed to accept connection: {}", e)),
+                None => Ok(()), // No incoming connections
             }
-            Some(Err(e)) => Err(anyhow::anyhow!("Failed to accept connection: {}", e)),
-            None => Ok(()), // No incoming connections
-        }
-    });
-    (local_addr, server_thread)
+        })?;
+    Ok((local_addr, server_thread))
 }
 
 impl OutputPlugin for FfmpegOutputPlugin {
@@ -76,7 +77,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                         stream.flush()?;
                         Ok(())
                     }
-                });
+                })?;
                 threads.push(server_thread);
 
                 (
@@ -114,7 +115,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                         stream.flush()?;
                         Ok(())
                     }
-                });
+                })?;
                 threads.push(server_thread);
 
                 (

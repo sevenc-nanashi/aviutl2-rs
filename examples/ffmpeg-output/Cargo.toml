@@ -3,11 +3,13 @@ name = "ffmpeg-output"
 version.workspace = true
 edition.workspace = true
 
-
-
 [lib]
 name = "rusty_ffmpeg_output"
 crate-type = ["cdylib"]
+
+[[bin]]
+name = "ffmpeg-output-test"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.98"
