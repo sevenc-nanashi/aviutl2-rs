@@ -123,7 +123,8 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 // （TCPサーバーは普通に回りくどいしアンチウイルスに引っかかる可能性があるので）
                 let (local_addr, server_thread) = tcp_server_for_callback({
                     let killed = Arc::clone(&killed);
-                    move |mut stream: std::net::TcpStream| -> anyhow::Result<()> {
+                    move |stream: std::net::TcpStream| -> anyhow::Result<()> {
+                        let mut writer = std::io::BufWriter::new(stream);
                         let mut buf = [0u8; 3];
                         while !killed.load(std::sync::atomic::Ordering::Relaxed)
                             && let Ok(read) = rx.recv()
@@ -132,11 +133,11 @@ impl OutputPlugin for FfmpegOutputPlugin {
                                 buf[0] = pixel.0;
                                 buf[1] = pixel.1;
                                 buf[2] = pixel.2;
-                                stream.write_all(&buf)?;
+                                writer.write_all(&buf)?;
                             }
-                            stream.flush()?;
+                            writer.flush()?;
                         }
-                        stream.flush()?;
+                        writer.flush()?;
                         Ok(())
                     }
                 })?;
@@ -153,19 +154,20 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 );
                 let (local_addr, server_thread) = tcp_server_for_callback({
                     let killed = Arc::clone(&killed);
-                    move |mut stream: std::net::TcpStream| -> anyhow::Result<()> {
+                    move |stream: std::net::TcpStream| -> anyhow::Result<()> {
                         let mut buf = [0u8; 8]; // 2 f32 values, each 4 bytes
+                        let mut writer = std::io::BufWriter::new(stream);
                         while !killed.load(std::sync::atomic::Ordering::Relaxed)
                             && let Ok(read) = rx.recv()
                         {
                             for sample in &read {
                                 buf[0..4].copy_from_slice(&sample.0.to_le_bytes());
                                 buf[4..8].copy_from_slice(&sample.1.to_le_bytes());
-                                stream.write_all(&buf)?;
+                                writer.write_all(&buf)?;
                             }
-                            stream.flush()?;
+                            writer.flush()?;
                         }
-                        stream.flush()?;
+                        writer.flush()?;
                         Ok(())
                     }
                 })?;
