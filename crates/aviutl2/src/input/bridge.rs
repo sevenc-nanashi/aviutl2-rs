@@ -48,6 +48,12 @@ fn free_leaked_memory() {
     }
 }
 
+struct InternalInputHandle<T: Send + Sync> {
+    width: u32,
+    height: u32,
+    handle: T,
+}
+
 pub fn create_table<T: InputPlugin>(
     plugin: &T,
     func_open: extern "C" fn(aviutl2_sys::input2::LPCWSTR) -> aviutl2_sys::input2::INPUT_HANDLE,
@@ -93,7 +99,12 @@ pub fn func_open<T: InputPlugin>(
     let path = load_large_string(file);
     match plugin.open(std::path::PathBuf::from(path)) {
         Ok(handle) => {
-            let boxed_handle: Box<T::InputHandle> = Box::new(handle);
+            let boxed_handle: Box<InternalInputHandle<T::InputHandle>> =
+                Box::new(InternalInputHandle {
+                    width: 0,
+                    height: 0,
+                    handle,
+                });
             Box::into_raw(boxed_handle) as aviutl2_sys::input2::INPUT_HANDLE
         }
         Err(e) => {
@@ -104,8 +115,8 @@ pub fn func_open<T: InputPlugin>(
 }
 pub fn func_close<T: InputPlugin>(plugin: &T, ih: aviutl2_sys::input2::INPUT_HANDLE) -> bool {
     free_leaked_memory();
-    let handle = *unsafe { Box::from_raw(ih as *mut T::InputHandle) };
-    result_to_bool_with_dialog(T::close(plugin, handle))
+    let handle = *unsafe { Box::from_raw(ih as *mut InternalInputHandle<T::InputHandle>) };
+    result_to_bool_with_dialog(T::close(plugin, handle.handle))
 }
 pub fn func_info_get<T: InputPlugin>(
     plugin: &T,
@@ -113,11 +124,13 @@ pub fn func_info_get<T: InputPlugin>(
     iip: *mut aviutl2_sys::input2::INPUT_INFO,
 ) -> bool {
     free_leaked_memory();
-    let handle = unsafe { &*(ih as *mut T::InputHandle) };
+    let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
 
-    match T::get_input_info(plugin, handle) {
+    match T::get_input_info(plugin, &handle.handle) {
         Ok(info) => {
             if let Some(video_info) = info.video {
+                handle.width = video_info.image_format.width;
+                handle.height = video_info.image_format.height;
                 let image_format = video_info.image_format.into_raw();
                 let image_format = Box::new(image_format);
                 let image_format_ptr = Box::into_raw(image_format);
@@ -177,42 +190,22 @@ pub fn func_read_video<T: InputPlugin>(
     buf: *mut std::ffi::c_void,
 ) -> i32 {
     free_leaked_memory();
-    let handle = unsafe { &*(ih as *mut T::InputHandle) };
-    match T::read_video(plugin, handle, frame) {
+    let handle = unsafe { &*(ih as *mut InternalInputHandle<T::InputHandle>) };
+    match T::read_video(plugin, &handle.handle, frame) {
         Ok(image_buffer) => {
-            let image_data = image_buffer.into_image().0;
-            let len = image_data.len();
-            let format_info = plugin
-                .get_input_info(handle)
-                .unwrap()
-                .video
-                .unwrap()
-                .image_format;
-            let width = format_info.width as usize;
-            let height = format_info.height as usize;
-            debug_assert!(len % (width * 4) == 0, "Image data length mismatch");
-            if len > 0 {
+            let width = handle.width;
+            let height = handle.height;
+            let image_data = image_buffer.into_image(width, height).0;
+            if !image_data.is_empty() {
                 unsafe {
-                    for y in 0..height {
-                        for x in 0..width {
-                            let idx = (y * width + x) * 4;
-                            let r = image_data[idx];
-                            let g = image_data[idx + 1];
-                            let b = image_data[idx + 2];
-                            let a = image_data[idx + 3];
-                            // bgrA
-                            let pixel = (b as u32)
-                                | (g as u32) << 8
-                                | (r as u32) << 16
-                                | ((a as u32) << 24);
-                            let dest_ptr =
-                                buf.add(((height - 1 - y as usize) * width + x) * 4) as *mut u32;
-                            dest_ptr.write(pixel);
-                        }
-                    }
+                    std::ptr::copy_nonoverlapping(
+                        image_data.as_ptr() as *const u8,
+                        buf as *mut u8,
+                        image_data.len(),
+                    );
                 }
             }
-            len as i32
+            image_data.len() as i32
         }
         Err(e) => {
             alert_error(&e);

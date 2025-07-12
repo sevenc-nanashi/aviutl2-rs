@@ -51,11 +51,25 @@ impl InputPlugin for ImageRsPlugin {
 
     fn read_video(&self, handle: &Self::InputHandle, frame: i32) -> AnyResult<impl IntoImage> {
         anyhow::ensure!(frame == 0, "Only frame 0 is valid for image input");
-        let buffer = handle
-            .pixels()
-            .map(|p| (p[0], p[1], p[2], p[3]))
-            .collect::<Vec<_>>();
-        Ok(buffer.into_image())
+        let mut final_buffer =
+            Vec::with_capacity(handle.width() as usize * handle.height() as usize * 4);
+        let buffer_writer = final_buffer.spare_capacity_mut();
+        let width = handle.width();
+        let height = handle.height();
+        for y in 0..handle.height() {
+            for x in 0..handle.width() {
+                let pixel = handle.get_pixel(x, y).0;
+                let dest_idx = ((height - 1 - y) * width + x) as usize * 4;
+                buffer_writer[dest_idx].write(pixel[2]);
+                buffer_writer[dest_idx + 1].write(pixel[1]);
+                buffer_writer[dest_idx + 2].write(pixel[0]);
+                buffer_writer[dest_idx + 3].write(pixel[3]);
+            }
+        }
+        unsafe {
+            final_buffer.set_len(handle.width() as usize * handle.height() as usize * 4);
+        }
+        Ok(final_buffer)
     }
 
     fn close(&self, handle: Self::InputHandle) -> AnyResult<()> {

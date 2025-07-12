@@ -72,49 +72,69 @@ pub struct ImageFormat {
 pub struct ImageBuffer(pub Vec<u8>);
 
 pub trait IntoImage {
-    fn into_image(self) -> ImageBuffer;
+    fn into_image(self, width: u32, height: u32) -> ImageBuffer;
 }
 
 impl IntoImage for ImageBuffer {
-    fn into_image(self) -> ImageBuffer {
+    fn into_image(self, _width: u32, _height: u32) -> ImageBuffer {
         self
     }
 }
 
 impl IntoImage for Vec<u8> {
     /// `Vec<u8>`から [`ImageBuffer`] へ変換します。
-    fn into_image(self) -> ImageBuffer {
+    /// > [!NOTE]
+    /// > BGRA、下から上に並んだピクセルデータを想定しています。
+    fn into_image(self, width: u32, height: u32) -> ImageBuffer {
         debug_assert!(
-            self.len() % 4 == 0,
-            "Image data length must be a multiple of 4"
+            self.len() == (width * height * 4) as usize,
+            "Image data length does not match the specified width and height."
         );
         ImageBuffer(self)
     }
 }
 
 impl IntoImage for Vec<(u8, u8, u8)> {
-    fn into_image(self) -> ImageBuffer {
-        let mut image_data = Vec::with_capacity(self.len() * 4);
-        for (r, g, b) in self {
-            image_data.push(r);
-            image_data.push(g);
-            image_data.push(b);
-            image_data.push(255);
+    /// `Vec<(u8, u8, u8)>`から [`ImageBuffer`] へ変換します。
+    /// > [!NOTE]
+    /// > RGB、上から下に並んだピクセルデータを想定しています。
+    fn into_image(self, width: u32, height: u32) -> ImageBuffer {
+        let mut new_image_data = Vec::with_capacity(self.len() * 4);
+        let new_image_data_writer = new_image_data.spare_capacity_mut();
+        for x in 0..width {
+            for y in 0..height {
+                let (r, g, b) = self[(y * width + x) as usize];
+                let dest_idx = (((height - 1 - y) * width + x) as usize) * 4;
+                new_image_data_writer[dest_idx].write(b);
+                new_image_data_writer[dest_idx + 1].write(g);
+                new_image_data_writer[dest_idx + 2].write(r);
+                new_image_data_writer[dest_idx + 3].write(255);
+            }
         }
-        ImageBuffer(image_data)
+        unsafe { new_image_data.set_len(width as usize * height as usize * 4) };
+        ImageBuffer(new_image_data)
     }
 }
 
 impl IntoImage for Vec<(u8, u8, u8, u8)> {
-    fn into_image(self) -> ImageBuffer {
-        let mut image_data = Vec::with_capacity(self.len() * 4);
-        for (r, g, b, a) in self {
-            image_data.push(r);
-            image_data.push(g);
-            image_data.push(b);
-            image_data.push(a);
+    /// `Vec<(u8, u8, u8, u8)>`から [`ImageBuffer`] へ変換します。
+    /// > [!NOTE]
+    /// > RGBA、上から下に並んだピクセルデータを想定しています。
+    fn into_image(self, width: u32, height: u32) -> ImageBuffer {
+        let mut new_image_data = Vec::with_capacity(self.len() * 4);
+        let new_image_data_writer = new_image_data.spare_capacity_mut();
+        for x in 0..width {
+            for y in 0..height {
+                let (r, g, b, a) = self[(y * width + x) as usize];
+                let dest_idx = (((height - 1 - y) * width + x) as usize) * 4;
+                new_image_data_writer[dest_idx].write(b);
+                new_image_data_writer[dest_idx + 1].write(g);
+                new_image_data_writer[dest_idx + 2].write(r);
+                new_image_data_writer[dest_idx + 3].write(a);
+            }
         }
-        ImageBuffer(image_data)
+        unsafe { new_image_data.set_len(width as usize * height as usize * 4) };
+        ImageBuffer(new_image_data)
     }
 }
 
