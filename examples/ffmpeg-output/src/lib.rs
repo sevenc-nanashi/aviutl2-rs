@@ -117,7 +117,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
             Some(video) => {
                 anyhow::ensure!(video.num_frames > 0, "空の動画は出力できません。");
                 let buf_size = video.fps.to_integer() as usize;
-                let (tx, rx) = std::sync::mpsc::sync_channel::<(u8, u8, u8)>(buf_size);
+                let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<(u8, u8, u8)>>(buf_size);
 
                 // TODO: ez_ffmpegのnew_by_read_callbackを使ってデータを読み込む。
                 // （TCPサーバーは普通に回りくどいしアンチウイルスに引っかかる可能性があるので）
@@ -128,10 +128,13 @@ impl OutputPlugin for FfmpegOutputPlugin {
                         while !killed.load(std::sync::atomic::Ordering::Relaxed)
                             && let Ok(read) = rx.recv()
                         {
-                            buf[0] = read.0;
-                            buf[1] = read.1;
-                            buf[2] = read.2;
-                            stream.write_all(&buf)?;
+                            for pixel in &read {
+                                buf[0] = pixel.0;
+                                buf[1] = pixel.1;
+                                buf[2] = pixel.2;
+                                stream.write_all(&buf)?;
+                            }
+                            stream.flush()?;
                         }
                         stream.flush()?;
                         Ok(())
@@ -145,8 +148,9 @@ impl OutputPlugin for FfmpegOutputPlugin {
         };
         let (audio_input, audio_tx) = match &info.audio {
             Some(audio) => {
-                let (tx, rx) =
-                    std::sync::mpsc::sync_channel::<(f32, f32)>(audio.sample_rate as usize);
+                let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<(f32, f32)>>(
+                    (audio.sample_rate / 10) as usize,
+                );
                 let (local_addr, server_thread) = tcp_server_for_callback({
                     let killed = Arc::clone(&killed);
                     move |mut stream: std::net::TcpStream| -> anyhow::Result<()> {
@@ -154,9 +158,12 @@ impl OutputPlugin for FfmpegOutputPlugin {
                         while !killed.load(std::sync::atomic::Ordering::Relaxed)
                             && let Ok(read) = rx.recv()
                         {
-                            buf[0..4].copy_from_slice(&read.0.to_le_bytes());
-                            buf[4..8].copy_from_slice(&read.1.to_le_bytes());
-                            stream.write_all(&buf)?;
+                            for sample in &read {
+                                buf[0..4].copy_from_slice(&sample.0.to_le_bytes());
+                                buf[4..8].copy_from_slice(&sample.1.to_le_bytes());
+                                stream.write_all(&buf)?;
+                            }
+                            stream.flush()?;
                         }
                         stream.flush()?;
                         Ok(())
@@ -181,9 +188,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                         let killed = Arc::clone(&killed);
                         move || -> anyhow::Result<()> {
                             for (_i, frames) in info.get_video_frames_iter() {
-                                for frame in frames {
-                                    tx.send(frame).expect("Failed to send video frame");
-                                }
+                                tx.send(frames).expect("Failed to send video frame");
                                 if killed.load(std::sync::atomic::Ordering::Relaxed) {
                                     return Err(anyhow::anyhow!("Output was killed"));
                                 }
@@ -206,9 +211,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                             for (_i, samples) in
                                 info.get_stereo_audio_samples_iter((sample_rate / 10) as i32)
                             {
-                                for sample in samples {
-                                    tx.send(sample).expect("Failed to send audio sample");
-                                }
+                                tx.send(samples).expect("Failed to send audio sample");
                                 if killed.load(std::sync::atomic::Ordering::Relaxed) {
                                     return Err(anyhow::anyhow!("Output was killed"));
                                 }
