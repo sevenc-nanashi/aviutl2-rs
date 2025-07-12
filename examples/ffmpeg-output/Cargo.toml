@@ -7,14 +7,9 @@ edition.workspace = true
 name = "rusty_ffmpeg_output"
 crate-type = ["cdylib"]
 
-[[bin]]
-name = "ffmpeg-output-test"
-path = "src/main.rs"
-
 [dependencies]
 anyhow = "1.0.98"
 aviutl2.workspace = true
-ez-ffmpeg = { version = "0.5.1", features = ["static"] }
-# ez-ffmpeg = { version = "0.5.1" }
-ffmpeg-next = "7.1.0"
-ffmpeg-sys-next = "7.1.3"
+process_path = "0.1.4"
+ureq = "3.0.12"
+zip-extract = "0.4.0"

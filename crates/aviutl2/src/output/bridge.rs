@@ -112,7 +112,7 @@ impl OutputInfo {
     }
 
     pub fn get_mono_audio_samples_iter(&self, length: i32) -> MonoAudioSamplesIterator {
-        MonoAudioSamplesIterator::new(self, 0, length)
+        MonoAudioSamplesIterator::new(self, length)
     }
 
     pub fn get_stereo_audio_samples(&self, start: i32, length: i32) -> Option<Vec<(f32, f32)>> {
@@ -130,7 +130,7 @@ impl OutputInfo {
     }
 
     pub fn get_stereo_audio_samples_iter(&self, length: i32) -> StereoAudioSamplesIterator {
-        StereoAudioSamplesIterator::new(self, 0, length)
+        StereoAudioSamplesIterator::new(self, length)
     }
 
     pub fn is_aborted(&self) -> bool {
@@ -222,17 +222,17 @@ duplicate::duplicate! {
 
     pub struct Name<'a> {
         output_info: &'a OutputInfo,
-        start: i32,
         length: i32,
+        total_length: i32,
         readed: i32,
     }
 
     impl<'a> Name<'a> {
-        pub fn new(output_info: &'a OutputInfo, start: i32, length: i32) -> Self {
+        pub fn new(output_info: &'a OutputInfo, length: i32) -> Self {
             Self {
                 output_info,
-                start,
                 length,
+                total_length: output_info.audio.as_ref().map_or(0, |a| a.num_samples as i32),
                 readed: 0,
             }
         }
@@ -242,17 +242,17 @@ duplicate::duplicate! {
         type Item = (usize, Vec<IterType>);
 
         fn next(&mut self) -> Option<Self::Item> {
-            if self.readed >= self.length {
+            if self.readed >= self.total_length {
                 return None;
             }
             if self.output_info.is_aborted() {
                 return None;
             }
 
-            let remaining_length = self.length - self.readed;
-            let samples = self.output_info.method(self.start + self.readed, remaining_length);
+            let length_to_read = self.length.min(self.total_length - self.readed);
+            let samples = self.output_info.method(self.readed, length_to_read);
             if let Some(samples) = samples {
-                let start_frame = self.start + self.readed;
+                let start_frame = self.readed;
                 self.readed += samples.len() as i32;
                 Some((start_frame as usize, samples))
             } else {
