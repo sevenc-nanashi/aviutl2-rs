@@ -10,8 +10,9 @@ AviUtl2 SDKのRust版です。
 
 - `./crates/aviutl2-sys`：AviUtl2 SDKのRustバインディング。ほぼ1:1の対応です。
 - `./crates/aviutl2`：AviUtl2 SDKのRustラッパー。`aviutl2-sys`を使用して、よりRustらしいAPIを提供します。
+
 - `./examples/`：AviUtl2 SDKを使用したサンプルコード。
-    - `./examples/webp-input`：WebP形式の画像を入力として使用するサンプル。
+    - `./examples/image-rs-input`：image-rsを使用して画像を読み込むサンプル。
     - `./examples/ffmpeg-output`：FFmpegを使用して動画を出力するサンプル。
 
 ## ライセンス
