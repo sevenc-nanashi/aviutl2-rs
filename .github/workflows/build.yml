@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: "Name of the release"
+        required: true
+        default: "latest"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: "recursive"
+
+      - name: Set up Rust
+        run: |
+          rustup toolchain install --profile minimal
+
+      - name: Cache rust
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build project
+        run: |
+          cargo build --release
+
+      - name: Rename
+        shell: bash
+        run: |
+          mv ./target/release/rusty_images.{dll,aui2}
+          mv ./target/release/rusty_ffmpeg_output.{dll,auo2}
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.name }}
+          body: |
+            `C:/ProgramData/aviutl2/Plugin/`下に入れてください。
+
+          files: |
+            ./target/release/rusty_images.aui2
+            ./target/release/rusty_ffmpeg_output.auo2
