@@ -1,3 +1,5 @@
+use std::num::NonZeroIsize;
+
 use crate::{
     common::{
         alert_error, free_leaked_memory, leak_large_string, load_large_string,
@@ -270,16 +272,25 @@ pub fn create_table<T: OutputPlugin>(
 ) -> aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
     free_leaked_memory();
     let plugin_info = plugin.plugin_info();
-    let name = leak_large_string(&plugin_info.name);
     let filefilter = format_file_filters(&plugin_info.file_filters);
     let filefilter = leak_large_string(&filefilter);
-    let information = leak_large_string(&plugin_info.information);
+
+    let name = if cfg!(debug_assertions) {
+        format!("{} (Debug)", plugin_info.name)
+    } else {
+        plugin_info.name
+    };
+    let information = if cfg!(debug_assertions) {
+        format!("{} (Debug Build)", plugin_info.information)
+    } else {
+        plugin_info.information
+    };
 
     aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
         flag: plugin_info.input_type.to_bits(),
-        name,
+        name: leak_large_string(&name),
         filefilter,
-        information,
+        information: leak_large_string(&information),
         func_output: Some(func_output),
         func_config: plugin_info.can_config.then_some(func_config),
         func_get_config_text: Some(func_get_config_text),
@@ -300,7 +311,10 @@ pub fn func_config<T: OutputPlugin>(
     hwnd: aviutl2_sys::output2::HWND,
     dll_hinst: aviutl2_sys::output2::HINSTANCE,
 ) -> bool {
-    result_to_bool_with_dialog(plugin.config(hwnd, dll_hinst))
+    let mut handle =
+        raw_window_handle::Win32WindowHandle::new(NonZeroIsize::new(hwnd as isize).unwrap());
+    handle.hinstance = Some(NonZeroIsize::new(dll_hinst as isize).unwrap());
+    result_to_bool_with_dialog(plugin.config(handle))
 }
 
 pub fn func_get_config_text<T: OutputPlugin>(plugin: &T) -> *mut u16 {

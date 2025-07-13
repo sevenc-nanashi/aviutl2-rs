@@ -1,10 +1,8 @@
-use crate::{
-    common::{AnyResult, FileFilter},
-    sys::input2::{HINSTANCE, HWND},
-};
+use crate::common::{AnyResult, FileFilter};
 use aviutl2_sys::output2::OUTPUT_INFO;
 
 pub use num_rational::Rational32;
+pub use raw_window_handle::Win32WindowHandle;
 
 pub struct OutputPluginTable {
     pub name: String,
@@ -62,7 +60,7 @@ pub trait OutputPlugin: Send + Sync {
 
     fn output(&self, info: OutputInfo) -> AnyResult<()>;
 
-    fn config(&self, _hwnd: HWND, _dll_hinst: HINSTANCE) -> AnyResult<()> {
+    fn config(&self, _hwnd: Win32WindowHandle) -> AnyResult<()> {
         Ok(())
     }
 

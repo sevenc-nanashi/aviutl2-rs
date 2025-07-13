@@ -1,9 +1,13 @@
+use std::num::NonZeroIsize;
+
 use crate::{
     common::{format_file_filters, leak_large_string, load_large_string},
     input::{AudioFormat, ImageFormat, InputPlugin, IntoAudio, IntoImage},
 };
 
 use super::{alert_error, result_to_bool_with_dialog};
+
+pub use raw_window_handle::RawWindowHandle;
 
 impl ImageFormat {
     fn into_raw(&self) -> aviutl2_sys::input2::BITMAPINFOHEADER {
@@ -75,20 +79,31 @@ pub fn create_table<T: InputPlugin>(
     ) -> i32,
     func_config: extern "C" fn(aviutl2_sys::input2::HWND, aviutl2_sys::input2::HINSTANCE) -> bool,
 ) -> aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
-    let table = plugin.plugin_info();
-    let file_filter = format_file_filters(&table.file_filters);
+    let plugin_info = plugin.plugin_info();
+    let file_filter = format_file_filters(&plugin_info.file_filters);
+
+    let name = if cfg!(debug_assertions) {
+        format!("{} (Debug)", plugin_info.name)
+    } else {
+        plugin_info.name.clone()
+    };
+    let information = if cfg!(debug_assertions) {
+        format!("{} (Debug Build)", plugin_info.information)
+    } else {
+        plugin_info.information.clone()
+    };
 
     return aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
-        flag: table.input_type.to_bits(),
-        name: leak_large_string(&table.name),
+        flag: plugin_info.input_type.to_bits(),
+        name: leak_large_string(&name),
         filefilter: leak_large_string(&file_filter),
-        information: leak_large_string(&table.information),
+        information: leak_large_string(&information),
         func_open: Some(func_open),
         func_close: Some(func_close),
         func_info_get: Some(func_info_get),
         func_read_video: Some(func_read_video),
         func_read_audio: Some(func_read_audio),
-        func_config: table.can_config.then_some(func_config),
+        func_config: plugin_info.can_config.then_some(func_config),
     };
 }
 pub fn func_open<T: InputPlugin>(
@@ -251,7 +266,10 @@ pub fn func_config<T: InputPlugin>(
     dll_hinst: aviutl2_sys::input2::HINSTANCE,
 ) -> bool {
     free_leaked_memory();
-    result_to_bool_with_dialog(plugin.config(hwnd, dll_hinst))
+    let mut handle =
+        raw_window_handle::Win32WindowHandle::new(NonZeroIsize::new(hwnd as isize).unwrap());
+    handle.hinstance = Some(NonZeroIsize::new(dll_hinst as isize).unwrap());
+    result_to_bool_with_dialog(plugin.config(handle))
 }
 
 #[macro_export]

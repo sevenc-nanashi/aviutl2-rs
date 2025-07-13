@@ -1,7 +1,5 @@
-use crate::{
-    common::{AnyResult, FileFilter},
-    sys::input2::{HINSTANCE, HWND},
-};
+use crate::common::{AnyResult, FileFilter};
+pub use raw_window_handle::Win32WindowHandle;
 
 pub struct InputPluginTable {
     pub name: String,
@@ -205,7 +203,7 @@ pub trait InputPlugin: Send + Sync {
         Ok(AudioBuffer(vec![])) // Default implementation, can be overridden
     }
 
-    fn config(&self, _hwnd: HWND, _dll_hinst: HINSTANCE) -> AnyResult<()> {
+    fn config(&self, _hwnd: Win32WindowHandle) -> AnyResult<()> {
         Ok(())
     }
 }

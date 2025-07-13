@@ -1,9 +1,55 @@
+mod config;
+mod dialog;
+use crate::{
+    config::{FfmpegOutputConfig, load_config, save_config},
+    dialog::FfmpegOutputConfigDialog,
+};
 use anyhow::Context;
 use aviutl2::{output::OutputPlugin, register_output_plugin};
-use std::io::Write;
-use std::sync::Arc;
+use eframe::egui;
+use std::{
+    io::Write,
+    sync::{Arc, Mutex},
+};
 
-struct FfmpegOutputPlugin {}
+struct FfmpegOutputPlugin {
+    config: Mutex<FfmpegOutputConfig>,
+}
+
+pub static DEFAULT_ARGS: &[&str] = &[
+    "-y",
+    "-f",
+    "rawvideo",
+    "-pix_fmt",
+    "rgb24",
+    "-video_size",
+    "{video_size}",
+    "-framerate",
+    "{video_fps}",
+    "-i",
+    "{video_source}",
+    "-f",
+    "f32le",
+    "-ar",
+    "{audio_sample_rate}",
+    "-ac",
+    "2",
+    "-i",
+    "{audio_source}",
+    "-map",
+    "0:v:0",
+    "-map",
+    "1:a:0",
+    "{output_path}",
+];
+pub static REQUIRED_ARGS: &[&str] = &[
+    "{video_source}",
+    "{video_size}",
+    "{video_fps}",
+    "{audio_source}",
+    "{audio_sample_rate}",
+    "{output_path}",
+];
 
 fn tcp_server_for_callback<T: Fn(std::net::TcpStream) -> anyhow::Result<()> + Send + 'static>(
     callback: T,
@@ -90,15 +136,25 @@ fn download_ffmpeg_if_missing() -> anyhow::Result<std::path::PathBuf> {
 
     Ok(ffmpeg_dir)
 }
-
 impl OutputPlugin for FfmpegOutputPlugin {
     fn new() -> Self {
-        FfmpegOutputPlugin {}
+        let config = match load_config() {
+            Ok(config) => config,
+            Err(e) => {
+                eprintln!("Failed to load FFmpeg output plugin config: {}", e);
+                FfmpegOutputConfig {
+                    args: DEFAULT_ARGS.iter().map(|s| s.to_string()).collect(),
+                }
+            }
+        };
+        FfmpegOutputPlugin {
+            config: Mutex::new(config),
+        }
     }
 
     fn plugin_info(&self) -> aviutl2::output::OutputPluginTable {
         aviutl2::output::OutputPluginTable {
-            name: "FFmpeg Output Plugin".to_string(),
+            name: "Rusty FFmpeg Output Plugin".to_string(),
             input_type: aviutl2::output::OutputType::Both,
             file_filters: vec![aviutl2::output::FileFilter {
                 name: "Video Files".to_string(),
@@ -113,75 +169,64 @@ impl OutputPlugin for FfmpegOutputPlugin {
         let killed = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let mut threads: Vec<std::thread::JoinHandle<anyhow::Result<()>>> = Vec::new();
 
-        let (video_input, video_tx) = match &info.video {
-            Some(video) => {
-                anyhow::ensure!(video.num_frames > 0, "空の動画は出力できません。");
-                let buf_size = video.fps.to_integer() as usize;
-                let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<(u8, u8, u8)>>(buf_size);
+        let buf_size = info
+            .video
+            .as_ref()
+            .map_or(1, |v| v.fps.to_integer() as usize);
+        let (video_tx, video_rx) = std::sync::mpsc::sync_channel::<Vec<(u8, u8, u8)>>(buf_size);
 
-                // TODO: ez_ffmpegのnew_by_read_callbackを使ってデータを読み込む。
-                // （TCPサーバーは普通に回りくどいしアンチウイルスに引っかかる可能性があるので）
-                let (local_addr, server_thread) = tcp_server_for_callback({
-                    let killed = Arc::clone(&killed);
-                    move |stream: std::net::TcpStream| -> anyhow::Result<()> {
-                        let mut writer = std::io::BufWriter::new(stream);
-                        let mut buf = [0u8; 3];
-                        while !killed.load(std::sync::atomic::Ordering::Relaxed)
-                            && let Ok(read) = rx.recv()
-                        {
-                            for pixel in &read {
-                                buf[0] = pixel.0;
-                                buf[1] = pixel.1;
-                                buf[2] = pixel.2;
-                                writer.write_all(&buf)?;
-                            }
-                            writer.flush()?;
-                        }
-                        writer.flush()?;
-                        Ok(())
+        let (video_local_addr, video_server_thread) = tcp_server_for_callback({
+            let killed = Arc::clone(&killed);
+            move |stream: std::net::TcpStream| -> anyhow::Result<()> {
+                let mut writer = std::io::BufWriter::new(stream);
+                let mut buf = [0u8; 3];
+                while !killed.load(std::sync::atomic::Ordering::Relaxed)
+                    && let Ok(read) = video_rx.recv()
+                {
+                    for pixel in &read {
+                        buf[0] = pixel.0;
+                        buf[1] = pixel.1;
+                        buf[2] = pixel.2;
+                        writer.write(&buf)?;
                     }
-                })?;
-                threads.push(server_thread);
-
-                (Some(local_addr), Some(tx))
+                    writer.flush()?;
+                }
+                writer.flush()?;
+                Ok(())
             }
-            None => (None, None),
-        };
-        let (audio_input, audio_tx) = match &info.audio {
-            Some(audio) => {
-                let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<(f32, f32)>>(
-                    (audio.sample_rate / 10) as usize,
-                );
-                let (local_addr, server_thread) = tcp_server_for_callback({
-                    let killed = Arc::clone(&killed);
-                    move |stream: std::net::TcpStream| -> anyhow::Result<()> {
-                        let mut buf = [0u8; 8]; // 2 f32 values, each 4 bytes
-                        let mut writer = std::io::BufWriter::new(stream);
-                        while !killed.load(std::sync::atomic::Ordering::Relaxed)
-                            && let Ok(read) = rx.recv()
-                        {
-                            for sample in &read {
-                                buf[0..4].copy_from_slice(&sample.0.to_le_bytes());
-                                buf[4..8].copy_from_slice(&sample.1.to_le_bytes());
-                                writer.write_all(&buf)?;
-                            }
-                            writer.flush()?;
-                        }
-                        writer.flush()?;
-                        Ok(())
+        })?;
+        threads.push(video_server_thread);
+
+        let (audio_tx, audio_rx) = std::sync::mpsc::sync_channel::<Vec<(f32, f32)>>(
+            info.audio
+                .as_ref()
+                .map_or(1, |audio| audio.sample_rate as usize / 10),
+        );
+        let (audio_local_addr, audio_server_thread) = tcp_server_for_callback({
+            let killed = Arc::clone(&killed);
+            move |stream: std::net::TcpStream| -> anyhow::Result<()> {
+                let mut buf = [0u8; 8]; // 2 f32 values, each 4 bytes
+                let mut writer = std::io::BufWriter::new(stream);
+                while !killed.load(std::sync::atomic::Ordering::Relaxed)
+                    && let Ok(read) = audio_rx.recv()
+                {
+                    for sample in &read {
+                        buf[0..4].copy_from_slice(&sample.0.to_le_bytes());
+                        buf[4..8].copy_from_slice(&sample.1.to_le_bytes());
+                        writer.write(&buf)?;
                     }
-                })?;
-                threads.push(server_thread);
-
-                (Some(local_addr), Some(tx))
+                    writer.flush()?;
+                }
+                writer.flush()?;
+                Ok(())
             }
-            None => (None, None),
-        };
+        })?;
+        threads.push(audio_server_thread);
 
-        let sample_rate = info.audio.as_ref().map(|a| a.sample_rate);
+        let sample_rate = info.audio.as_ref().map_or(0, |a| a.sample_rate);
         let info = Arc::new(info);
 
-        if let Some(tx) = video_tx {
+        if info.video.is_some() {
             threads.push(
                 std::thread::Builder::new()
                     .name("aviutl2_ffmpeg_video_output".to_string())
@@ -190,7 +235,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                         let killed = Arc::clone(&killed);
                         move || -> anyhow::Result<()> {
                             for (_i, frames) in info.get_video_frames_iter() {
-                                tx.send(frames).expect("Failed to send video frame");
+                                video_tx.send(frames).expect("Failed to send video frame");
                                 if killed.load(std::sync::atomic::Ordering::Relaxed) {
                                     return Err(anyhow::anyhow!("Output was killed"));
                                 }
@@ -200,9 +245,11 @@ impl OutputPlugin for FfmpegOutputPlugin {
                         }
                     })?,
             );
+        } else {
+            drop(video_tx);
         }
 
-        if let (Some(sample_rate), Some(tx)) = (sample_rate, audio_tx) {
+        if info.audio.is_some() {
             threads.push(
                 std::thread::Builder::new()
                     .name("aviutl2_ffmpeg_audio_output".to_string())
@@ -213,7 +260,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                             for (_i, samples) in
                                 info.get_stereo_audio_samples_iter((sample_rate / 10) as i32)
                             {
-                                tx.send(samples).expect("Failed to send audio sample");
+                                audio_tx.send(samples).expect("Failed to send audio sample");
                                 if killed.load(std::sync::atomic::Ordering::Relaxed) {
                                     return Err(anyhow::anyhow!("Output was killed"));
                                 }
@@ -223,10 +270,12 @@ impl OutputPlugin for FfmpegOutputPlugin {
                         }
                     })?,
             );
+        } else {
+            drop(audio_tx);
         }
 
         assert!(
-            video_input.is_some() || audio_input.is_some(),
+            info.video.is_some() || info.audio.is_some(),
             "At least one of video_input or audio_input must be provided"
         );
 
@@ -240,46 +289,41 @@ impl OutputPlugin for FfmpegOutputPlugin {
             ));
         }
         let mut args = vec![];
-        args.push("-y".to_string()); // Overwrite output files without asking
-        if let Some(video_input) = video_input {
-            args.push("-f".to_string());
-            args.push("rawvideo".to_string());
-            args.push("-pix_fmt".to_string());
-            args.push("rgb24".to_string());
-            args.push("-video_size".to_string());
-            args.push(format!(
-                "{}x{}",
-                info.video.as_ref().unwrap().width,
-                info.video.as_ref().unwrap().height
-            ));
-            args.push("-framerate".to_string());
-            args.push(info.video.as_ref().unwrap().fps.to_string());
-            args.push("-i".to_string());
-            args.push(format!("tcp://{}", video_input));
-        } else {
-            args.push("-f".to_string());
-            args.push("null".to_string());
-            args.push("-".to_string());
+        let config_args = self
+            .config
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock FFmpeg Output Plugin config: {}", e))?
+            .args
+            .clone();
+        for arg in config_args {
+            args.push(
+                arg.replace("{video_source}", &format!("tcp://{}", video_local_addr))
+                    .replace(
+                        "{video_size}",
+                        &format!(
+                            "{}x{}",
+                            info.video.as_ref().map_or(0, |v| v.width),
+                            info.video.as_ref().map_or(0, |v| v.height)
+                        ),
+                    )
+                    .replace(
+                        "{video_fps}",
+                        &info
+                            .video
+                            .as_ref()
+                            .map_or("30".to_string(), |v| v.fps.to_string()),
+                    )
+                    .replace("{audio_source}", &format!("tcp://{}", audio_local_addr))
+                    .replace(
+                        "{audio_sample_rate}",
+                        &info
+                            .audio
+                            .as_ref()
+                            .map_or("44100".to_string(), |a| a.sample_rate.to_string()),
+                    )
+                    .replace("{output_path}", &info.path.to_string_lossy().to_string()),
+            );
         }
-        if let Some(audio_input) = audio_input {
-            args.push("-f".to_string());
-            args.push("f32le".to_string());
-            args.push("-ar".to_string());
-            args.push(info.audio.as_ref().unwrap().sample_rate.to_string());
-            args.push("-ac".to_string());
-            args.push("2".to_string());
-            args.push("-i".to_string());
-            args.push(format!("tcp://{}", audio_input));
-        } else {
-            args.push("-f".to_string());
-            args.push("null".to_string());
-            args.push("-".to_string());
-        }
-        args.push("-map".to_string());
-        args.push("0:v:0".to_string());
-        args.push("-map".to_string());
-        args.push("1:a:0".to_string());
-        args.push(info.path.to_string_lossy().to_string());
 
         threads.push(
             std::thread::Builder::new()
@@ -339,6 +383,82 @@ impl OutputPlugin for FfmpegOutputPlugin {
             return Err(anyhow::anyhow!("Output was killed"));
         }
         Ok(())
+    }
+
+    fn config(&self, _handle: aviutl2::output::Win32WindowHandle) -> anyhow::Result<()> {
+        let (result_sender, result_receiver) = std::sync::mpsc::channel();
+        // TODO: eframeで親ウィンドウを指定できるようになったらそうする
+        eframe::run_native(
+            "Rusty FFmpeg Output Plugin",
+            Default::default(),
+            Box::new(|cc| {
+                if !egui::FontDefinitions::default()
+                    .font_data
+                    .contains_key("M+ 1")
+                {
+                    let mut fonts = egui::FontDefinitions::default();
+                    fonts.font_data.insert(
+                        "M+ 1".to_owned(),
+                        std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
+                            "../fonts/fonts/otf/Mplus1-Regular.otf"
+                        ))),
+                    );
+                    fonts
+                        .families
+                        .get_mut(&egui::FontFamily::Proportional)
+                        .unwrap()
+                        .insert(0, "M+ 1".to_owned());
+
+                    fonts.font_data.insert(
+                        "M+ 1 Code".to_owned(),
+                        std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
+                            "../fonts/fonts/otf/Mplus1Code-Medium.otf"
+                        ))),
+                    );
+                    fonts
+                        .families
+                        .get_mut(&egui::FontFamily::Monospace)
+                        .unwrap()
+                        .insert(0, "M+ 1 Code".to_owned());
+
+                    cc.egui_ctx.set_fonts(fonts);
+                }
+                Ok(Box::new(FfmpegOutputConfigDialog::new(
+                    self.config
+                        .lock()
+                        .map_err(|e| {
+                            anyhow::anyhow!("Failed to lock FFmpeg Output Plugin config: {}", e)
+                        })?
+                        .clone(),
+                    result_sender,
+                )))
+            }),
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to run FFmpeg Output Plugin configuration: {}", e))?;
+
+        if let Ok(new_config) = result_receiver.try_recv() {
+            save_config(&new_config).map_err(|e| {
+                anyhow::anyhow!("Failed to save FFmpeg Output Plugin config: {}", e)
+            })?;
+            self.config
+                .lock()
+                .map_err(|e| anyhow::anyhow!("Failed to lock FFmpeg Output Plugin config: {}", e))?
+                .args = new_config.args;
+        }
+        return Ok(());
+    }
+
+    fn config_text(&self) -> anyhow::Result<String> {
+        let config = self
+            .config
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock FFmpeg Output Plugin config: {}", e))?;
+        let args = if config.args == DEFAULT_ARGS {
+            "デフォルト"
+        } else {
+            "カスタム"
+        };
+        Ok(format!("引数：{args}"))
     }
 }
 
