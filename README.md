@@ -2,6 +2,18 @@
 
 AviUtl2 SDKのRust版です。
 
+> [!NOTE]
+> これは自分の好奇心で作成したものであり、パフォーマンスなどの問題から、使用することは推奨されていません。
+> 基本的には枯れているAviUtl1のプラグインを使用することをお勧めします。
+
+## 構成
+
+- `./crates/aviutl2-sys`：AviUtl2 SDKのRustバインディング。ほぼ1:1の対応です。
+- `./crates/aviutl2`：AviUtl2 SDKのRustラッパー。`aviutl2-sys`を使用して、よりRustらしいAPIを提供します。
+- `./examples/`：AviUtl2 SDKを使用したサンプルコード。
+    - `./examples/webp-input`：WebP形式の画像を入力として使用するサンプル。
+    - `./examples/ffmpeg-output`：FFmpegを使用して動画を出力するサンプル。
+
 ## ライセンス
 
 MIT Licenseで公開されています。

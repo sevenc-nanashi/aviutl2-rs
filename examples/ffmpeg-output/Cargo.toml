@@ -1,5 +1,5 @@
 [package]
-name = "ffmpeg-output"
+name = "example-ffmpeg-output"
 version.workspace = true
 edition.workspace = true
 

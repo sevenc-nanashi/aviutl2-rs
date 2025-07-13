@@ -1,5 +1,5 @@
 [workspace]
-members = ["./crates/aviutl2-sys", "./examples/webp-input", "crates/aviutl2", "examples/ffmpeg-output"]
+members = ["./crates/*", "./examples/*"]
 resolver = "3"
 
 [workspace.package]

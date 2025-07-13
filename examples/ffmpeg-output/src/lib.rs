@@ -160,7 +160,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 name: "Video Files".to_string(),
                 extensions: vec!["mp4".to_string(), "mkv".to_string(), "avi".to_string()],
             }],
-            information: "Outputs video and audio using FFmpeg".to_string(),
+            information: "FFmpeg for AviUtl, written in Rust / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/ffmpeg-output".to_string(),
             can_config: true,
         }
     }
@@ -168,22 +168,15 @@ impl OutputPlugin for FfmpegOutputPlugin {
     fn output(&self, info: aviutl2::output::OutputInfo) -> aviutl2::AnyResult<()> {
         let killed = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let mut threads: Vec<std::thread::JoinHandle<anyhow::Result<()>>> = Vec::new();
-
-        let buf_size = info
-            .video
-            .as_ref()
-            .map_or(1, |v| v.fps.to_integer() as usize);
-        let (video_tx, video_rx) = std::sync::mpsc::sync_channel::<Vec<(u8, u8, u8)>>(buf_size);
+        let info = Arc::new(info);
 
         let (video_local_addr, video_server_thread) = tcp_server_for_callback({
-            let killed = Arc::clone(&killed);
+            let info = Arc::clone(&info);
             move |stream: std::net::TcpStream| -> anyhow::Result<()> {
                 let mut writer = std::io::BufWriter::new(stream);
                 let mut buf = [0u8; 3];
-                while !killed.load(std::sync::atomic::Ordering::Relaxed)
-                    && let Ok(read) = video_rx.recv()
-                {
-                    for pixel in &read {
+                for (_, frame) in info.get_video_frames_iter() {
+                    for pixel in frame {
                         buf[0] = pixel.0;
                         buf[1] = pixel.1;
                         buf[2] = pixel.2;
@@ -197,20 +190,15 @@ impl OutputPlugin for FfmpegOutputPlugin {
         })?;
         threads.push(video_server_thread);
 
-        let (audio_tx, audio_rx) = std::sync::mpsc::sync_channel::<Vec<(f32, f32)>>(
-            info.audio
-                .as_ref()
-                .map_or(1, |audio| audio.sample_rate as usize / 10),
-        );
         let (audio_local_addr, audio_server_thread) = tcp_server_for_callback({
-            let killed = Arc::clone(&killed);
+            let info = Arc::clone(&info);
             move |stream: std::net::TcpStream| -> anyhow::Result<()> {
                 let mut buf = [0u8; 8]; // 2 f32 values, each 4 bytes
                 let mut writer = std::io::BufWriter::new(stream);
-                while !killed.load(std::sync::atomic::Ordering::Relaxed)
-                    && let Ok(read) = audio_rx.recv()
-                {
-                    for sample in &read {
+                for (_, samples) in info.get_stereo_audio_samples_iter(
+                    (info.audio.as_ref().map_or(44100, |a| a.sample_rate) / 10) as i32,
+                ) {
+                    for sample in &samples {
                         buf[0..4].copy_from_slice(&sample.0.to_le_bytes());
                         buf[4..8].copy_from_slice(&sample.1.to_le_bytes());
                         writer.write(&buf)?;
@@ -222,57 +210,6 @@ impl OutputPlugin for FfmpegOutputPlugin {
             }
         })?;
         threads.push(audio_server_thread);
-
-        let sample_rate = info.audio.as_ref().map_or(0, |a| a.sample_rate);
-        let info = Arc::new(info);
-
-        if info.video.is_some() {
-            threads.push(
-                std::thread::Builder::new()
-                    .name("aviutl2_ffmpeg_video_output".to_string())
-                    .spawn({
-                        let info = Arc::clone(&info);
-                        let killed = Arc::clone(&killed);
-                        move || -> anyhow::Result<()> {
-                            for (_i, frames) in info.get_video_frames_iter() {
-                                video_tx.send(frames).expect("Failed to send video frame");
-                                if killed.load(std::sync::atomic::Ordering::Relaxed) {
-                                    return Err(anyhow::anyhow!("Output was killed"));
-                                }
-                            }
-
-                            Ok(())
-                        }
-                    })?,
-            );
-        } else {
-            drop(video_tx);
-        }
-
-        if info.audio.is_some() {
-            threads.push(
-                std::thread::Builder::new()
-                    .name("aviutl2_ffmpeg_audio_output".to_string())
-                    .spawn({
-                        let killed = Arc::clone(&killed);
-                        let info = Arc::clone(&info);
-                        move || -> anyhow::Result<()> {
-                            for (_i, samples) in
-                                info.get_stereo_audio_samples_iter((sample_rate / 10) as i32)
-                            {
-                                audio_tx.send(samples).expect("Failed to send audio sample");
-                                if killed.load(std::sync::atomic::Ordering::Relaxed) {
-                                    return Err(anyhow::anyhow!("Output was killed"));
-                                }
-                            }
-
-                            Ok(())
-                        }
-                    })?,
-            );
-        } else {
-            drop(audio_tx);
-        }
 
         assert!(
             info.video.is_some() || info.audio.is_some(),

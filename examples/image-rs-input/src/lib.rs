@@ -15,13 +15,13 @@ impl InputPlugin for ImageRsPlugin {
 
     fn plugin_info(&self) -> aviutl2::input::InputPluginTable {
         aviutl2::input::InputPluginTable {
-            name: "Rusty WebP".to_string(),
+            name: "Rusty Images Input Plugin".to_string(),
             input_type: aviutl2::input::InputType::Video,
             file_filters: vec![FileFilter {
                 name: "Image Files".to_string(),
                 extensions: vec!["webp".to_string()],
             }],
-            information: "WebP for AviUtl, powered by Rust / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/webp".to_owned(),
+            information: "image-rs for AviUtl / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/webp".to_owned(),
             can_config: false,
         }
     }
