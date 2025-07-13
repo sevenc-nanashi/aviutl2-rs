@@ -33,8 +33,8 @@ impl InputPlugin for ImageRsPlugin {
     }
 
     fn get_input_info(&self, handle: &Self::InputHandle) -> AnyResult<aviutl2::input::InputInfo> {
-        let width = handle.width() as u32;
-        let height = handle.height() as u32;
+        let width = handle.width();
+        let height = handle.height();
         let format = aviutl2::input::ImageFormat { width, height };
 
         Ok(aviutl2::input::InputInfo {

@@ -1343,7 +1343,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "example-webp"
+name = "example-ffmpeg-output"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "aviutl2",
+ "dedent",
+ "eframe",
+ "egui_commonmark",
+ "process_path",
+ "serde",
+ "serde_json",
+ "ureq",
+ "zip-extract",
+]
+
+[[package]]
+name = "example-image-rs-input"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1379,22 +1395,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e6853b52649d4ac5c0bd02320cddc5ba956bdb407c4b75a2c6b75bf51500f8c"
 dependencies = [
  "simd-adler32",
-]
-
-[[package]]
-name = "ffmpeg-output"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "aviutl2",
- "dedent",
- "eframe",
- "egui_commonmark",
- "process_path",
- "serde",
- "serde_json",
- "ureq",
- "zip-extract",
 ]
 
 [[package]]

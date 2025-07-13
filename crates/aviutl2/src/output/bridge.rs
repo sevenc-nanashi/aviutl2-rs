@@ -47,11 +47,7 @@ impl OutputInfo {
     }
 
     pub fn get_video_frame(&self, frame: i32) -> Option<VideoFrame> {
-        let frame_ptr = unsafe {
-            (self.internal as *mut aviutl2_sys::output2::OUTPUT_INFO)
-                .as_mut()
-                .and_then(|oip| oip.func_get_video)
-        }?;
+        let frame_ptr = unsafe { self.internal.as_mut().and_then(|oip| oip.func_get_video) }?;
         let frame_data_ptr = frame_ptr(frame, BI_RGB) as *mut u8;
         let video = self.video.as_ref()?;
 
@@ -79,11 +75,7 @@ impl OutputInfo {
     }
 
     pub fn get_audio_samples(&self, start: i32, length: i32) -> Option<(Vec<f32>, u32)> {
-        let audio_ptr = unsafe {
-            (self.internal as *mut aviutl2_sys::output2::OUTPUT_INFO)
-                .as_mut()
-                .and_then(|oip| oip.func_get_audio)
-        }?;
+        let audio_ptr = unsafe { self.internal.as_mut().and_then(|oip| oip.func_get_audio) }?;
         let mut readed = 0;
         let audio_data_ptr = audio_ptr(start, length, &mut readed, 3) as *mut f32;
 
@@ -136,17 +128,13 @@ impl OutputInfo {
     }
 
     pub fn is_aborted(&self) -> bool {
-        let is_abort_func = unsafe {
-            (self.internal as *mut aviutl2_sys::output2::OUTPUT_INFO)
-                .as_mut()
-                .and_then(|oip| oip.func_is_abort)
-        };
-        is_abort_func.map_or(true, |f| f())
+        let is_abort_func = unsafe { self.internal.as_mut().and_then(|oip| oip.func_is_abort) };
+        is_abort_func.is_none_or(|f| f())
     }
 
     pub fn update_display(&self, current_frame: i32, total_frames: i32) {
         if let Some(func) = unsafe {
-            (self.internal as *mut aviutl2_sys::output2::OUTPUT_INFO)
+            self.internal
                 .as_mut()
                 .and_then(|oip| oip.func_rest_time_disp)
         } {
@@ -156,7 +144,7 @@ impl OutputInfo {
 
     pub fn set_buffer_size(&self, video_size: i32, audio_size: i32) {
         if let Some(func) = unsafe {
-            (self.internal as *mut aviutl2_sys::output2::OUTPUT_INFO)
+            self.internal
                 .as_mut()
                 .and_then(|oip| oip.func_set_buffer_size)
         } {
@@ -264,7 +252,7 @@ duplicate::duplicate! {
     }
 }
 
-pub fn create_table<T: OutputPlugin>(
+pub unsafe fn create_table<T: OutputPlugin>(
     plugin: &T,
     func_output: extern "C" fn(*mut aviutl2_sys::output2::OUTPUT_INFO) -> bool,
     func_config: extern "C" fn(aviutl2_sys::output2::HWND, aviutl2_sys::output2::HINSTANCE) -> bool,
@@ -297,7 +285,7 @@ pub fn create_table<T: OutputPlugin>(
     }
 }
 
-pub fn func_output<T: OutputPlugin>(
+pub unsafe fn func_output<T: OutputPlugin>(
     plugin: &T,
     oip: *mut aviutl2_sys::output2::OUTPUT_INFO,
 ) -> bool {
@@ -306,7 +294,7 @@ pub fn func_output<T: OutputPlugin>(
     result_to_bool_with_dialog(plugin.output(output_info))
 }
 
-pub fn func_config<T: OutputPlugin>(
+pub unsafe fn func_config<T: OutputPlugin>(
     plugin: &T,
     hwnd: aviutl2_sys::output2::HWND,
     dll_hinst: aviutl2_sys::output2::HINSTANCE,
@@ -317,7 +305,7 @@ pub fn func_config<T: OutputPlugin>(
     result_to_bool_with_dialog(plugin.config(handle))
 }
 
-pub fn func_get_config_text<T: OutputPlugin>(plugin: &T) -> *mut u16 {
+pub unsafe fn func_get_config_text<T: OutputPlugin>(plugin: &T) -> *mut u16 {
     let text = plugin.config_text();
     match text {
         Ok(text) => leak_large_string(&text),
@@ -338,8 +326,8 @@ macro_rules! register_output_plugin {
             static PLUGIN: std::sync::LazyLock<$struct> = std::sync::LazyLock::new($struct::new);
 
             #[unsafe(no_mangle)]
-            extern "C" fn GetOutputPluginTable() -> *mut aviutl2::sys::output2::OUTPUT_PLUGIN_TABLE
-            {
+            unsafe extern "C" fn GetOutputPluginTable()
+            -> *mut aviutl2::sys::output2::OUTPUT_PLUGIN_TABLE {
                 let table = $crate::output::__bridge::create_table::<$struct>(
                     &*PLUGIN,
                     func_output,

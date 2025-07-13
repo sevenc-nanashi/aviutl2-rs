@@ -17,14 +17,14 @@ pub(crate) fn format_file_filters(file_filters: &[FileFilter]) -> String {
             &filter
                 .extensions
                 .iter()
-                .map(|ext| format!("*.{}", ext))
+                .map(|ext| format!("*.{ext}"))
                 .collect::<Vec<_>>()
                 .join(";"),
         );
         file_filter.push('\x00');
     }
 
-    return file_filter;
+    file_filter
 }
 
 pub(crate) fn load_large_string(ptr: *const u16) -> String {
@@ -78,7 +78,7 @@ pub(crate) fn alert_error(error: &anyhow::Error) {
     let _ = native_dialog::DialogBuilder::message()
         .set_title("エラー")
         .set_level(native_dialog::MessageLevel::Error)
-        .set_text(&format!("エラーが発生しました: {}", error))
+        .set_text(format!("エラーが発生しました: {error}"))
         .alert()
         .show();
 }

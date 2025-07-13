@@ -3,7 +3,7 @@
 AviUtl2 SDKのRust版です。
 
 > [!NOTE]
-> これは自分の好奇心で作成したものであり、パフォーマンスなどの問題から、使用することは推奨されていません。
+> これは自分の好奇心で作成したものであり、パフォーマンスやユーザー数などの問題から、使用することは推奨されていません。
 > 基本的には枯れているAviUtl1のプラグインを使用することをお勧めします。
 
 ## 構成
@@ -22,6 +22,7 @@ MIT Licenseで公開されています。
 
 <details>
 <summary>AviUtl2 SDK License</summary>
+
 ```
 ---------------------------------
 AviUtl ExEdit2 Plugin SDK License
@@ -48,7 +49,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+```
 
-```
 </details>
-```

@@ -1,0 +1,27 @@
+name: Check
+
+on: [push, pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        run: |
+          rustup toolchain install --profile minimal
+          rustup component add clippy
+          rustup component add rustfmt
+
+      - name: Cache rust
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run clippy
+        run: |
+          cargo clippy
+
+      - name: Run fmt
+        run: |
+          cargo fmt --check

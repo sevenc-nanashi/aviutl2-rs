@@ -48,7 +48,7 @@ impl InputType {
             2 => InputType::Audio,
             3 => InputType::Both,
             16 => InputType::BothConcurrent,
-            _ => panic!("Unknown InputInfoFlag bits: {}", bits),
+            _ => panic!("Unknown InputInfoFlag bits: {bits}"),
         }
     }
 

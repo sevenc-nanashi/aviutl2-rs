@@ -141,7 +141,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
         let config = match load_config() {
             Ok(config) => config,
             Err(e) => {
-                eprintln!("Failed to load FFmpeg output plugin config: {}", e);
+                eprintln!("Failed to load FFmpeg output plugin config: {e}");
                 FfmpegOutputConfig {
                     args: DEFAULT_ARGS.iter().map(|s| s.to_string()).collect(),
                 }
@@ -180,7 +180,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                         buf[0] = pixel.0;
                         buf[1] = pixel.1;
                         buf[2] = pixel.2;
-                        writer.write(&buf)?;
+                        writer.write_all(&buf)?;
                     }
                     writer.flush()?;
                 }
@@ -201,7 +201,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                     for sample in &samples {
                         buf[0..4].copy_from_slice(&sample.0.to_le_bytes());
                         buf[4..8].copy_from_slice(&sample.1.to_le_bytes());
-                        writer.write(&buf)?;
+                        writer.write_all(&buf)?;
                     }
                     writer.flush()?;
                 }
@@ -234,7 +234,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
             .clone();
         for arg in config_args {
             args.push(
-                arg.replace("{video_source}", &format!("tcp://{}", video_local_addr))
+                arg.replace("{video_source}", &format!("tcp://{video_local_addr}"))
                     .replace(
                         "{video_size}",
                         &format!(
@@ -250,7 +250,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                             .as_ref()
                             .map_or("30".to_string(), |v| v.fps.to_string()),
                     )
-                    .replace("{audio_source}", &format!("tcp://{}", audio_local_addr))
+                    .replace("{audio_source}", &format!("tcp://{audio_local_addr}"))
                     .replace(
                         "{audio_sample_rate}",
                         &info
@@ -258,7 +258,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                             .as_ref()
                             .map_or("44100".to_string(), |a| a.sample_rate.to_string()),
                     )
-                    .replace("{output_path}", &info.path.to_string_lossy().to_string()),
+                    .replace("{output_path}", info.path.to_string_lossy().as_ref()),
             );
         }
 
@@ -295,8 +295,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 })?,
         );
 
-        while !threads.is_empty() {
-            let thread = threads.pop().expect("Thread list should not be empty");
+        while let Some(thread) = threads.pop() {
             if thread.is_finished() {
                 match thread.join() {
                     Ok(Ok(())) => continue, // Thread completed successfully
@@ -382,7 +381,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 .map_err(|e| anyhow::anyhow!("Failed to lock FFmpeg Output Plugin config: {}", e))?
                 .args = new_config.args;
         }
-        return Ok(());
+        Ok(())
     }
 
     fn config_text(&self) -> anyhow::Result<String> {

@@ -10,7 +10,7 @@ use super::{alert_error, result_to_bool_with_dialog};
 pub use raw_window_handle::RawWindowHandle;
 
 impl ImageFormat {
-    fn into_raw(&self) -> aviutl2_sys::input2::BITMAPINFOHEADER {
+    fn into_raw(self) -> aviutl2_sys::input2::BITMAPINFOHEADER {
         aviutl2_sys::input2::BITMAPINFOHEADER {
             biSize: std::mem::size_of::<aviutl2_sys::input2::BITMAPINFOHEADER>() as u32,
             biWidth: self.width as i32,
@@ -18,24 +18,24 @@ impl ImageFormat {
             biPlanes: 1,
             biBitCount: 32, // Assuming RGBA format
             biCompression: aviutl2_sys::input2::BI_RGB,
-            biSizeImage: (self.width * self.height * 4) as u32, // 4 bytes per pixel for RGBA
-            biXPelsPerMeter: 0,                                 // Not used
-            biYPelsPerMeter: 0,                                 // Not used
-            biClrUsed: 0,                                       // Not used
-            biClrImportant: 0,                                  // Not used
+            biSizeImage: (self.width * self.height * 4), // 4 bytes per pixel for RGBA
+            biXPelsPerMeter: 0,                          // Not used
+            biYPelsPerMeter: 0,                          // Not used
+            biClrUsed: 0,                                // Not used
+            biClrImportant: 0,                           // Not used
         }
     }
 }
 impl AudioFormat {
-    fn into_raw(&self) -> aviutl2_sys::input2::WAVEFORMATEX {
+    fn into_raw(self) -> aviutl2_sys::input2::WAVEFORMATEX {
         aviutl2_sys::input2::WAVEFORMATEX {
             wFormatTag: aviutl2_sys::input2::WAVE_FORMAT_PCM as u16,
-            nChannels: self.channels as u16,
-            nSamplesPerSec: self.sample_rate as u32,
+            nChannels: self.channels,
+            nSamplesPerSec: self.sample_rate,
             nAvgBytesPerSec: (self.sample_rate * (self.channels as u32) * 4),
-            nBlockAlign: (self.channels * 4) as u16, // 4 bytes per sample for float
-            wBitsPerSample: 32,                      // Assuming float samples
-            cbSize: 0,                               // No extra data
+            nBlockAlign: (self.channels * 4), // 4 bytes per sample for float
+            wBitsPerSample: 32,               // Assuming float samples
+            cbSize: 0,                        // No extra data
         }
     }
 }
@@ -58,7 +58,7 @@ struct InternalInputHandle<T: Send + Sync> {
     handle: T,
 }
 
-pub fn create_table<T: InputPlugin>(
+pub unsafe fn create_table<T: InputPlugin>(
     plugin: &T,
     func_open: extern "C" fn(aviutl2_sys::input2::LPCWSTR) -> aviutl2_sys::input2::INPUT_HANDLE,
     func_close: extern "C" fn(aviutl2_sys::input2::INPUT_HANDLE) -> bool,
@@ -93,7 +93,7 @@ pub fn create_table<T: InputPlugin>(
         plugin_info.information.clone()
     };
 
-    return aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
+    aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
         flag: plugin_info.input_type.to_bits(),
         name: leak_large_string(&name),
         filefilter: leak_large_string(&file_filter),
@@ -104,9 +104,9 @@ pub fn create_table<T: InputPlugin>(
         func_read_video: Some(func_read_video),
         func_read_audio: Some(func_read_audio),
         func_config: plugin_info.can_config.then_some(func_config),
-    };
+    }
 }
-pub fn func_open<T: InputPlugin>(
+pub unsafe fn func_open<T: InputPlugin>(
     plugin: &T,
     file: aviutl2_sys::input2::LPCWSTR,
 ) -> aviutl2_sys::input2::INPUT_HANDLE {
@@ -128,12 +128,15 @@ pub fn func_open<T: InputPlugin>(
         }
     }
 }
-pub fn func_close<T: InputPlugin>(plugin: &T, ih: aviutl2_sys::input2::INPUT_HANDLE) -> bool {
+pub unsafe fn func_close<T: InputPlugin>(
+    plugin: &T,
+    ih: aviutl2_sys::input2::INPUT_HANDLE,
+) -> bool {
     free_leaked_memory();
     let handle = *unsafe { Box::from_raw(ih as *mut InternalInputHandle<T::InputHandle>) };
     result_to_bool_with_dialog(T::close(plugin, handle.handle))
 }
-pub fn func_info_get<T: InputPlugin>(
+pub unsafe fn func_info_get<T: InputPlugin>(
     plugin: &T,
     ih: aviutl2_sys::input2::INPUT_HANDLE,
     iip: *mut aviutl2_sys::input2::INPUT_INFO,
@@ -159,8 +162,7 @@ pub fn func_info_get<T: InputPlugin>(
                     (*iip).scale = video_info.scale;
                     (*iip).n = video_info.num_frames;
                     (*iip).format = image_format_ptr;
-                    (*iip).format_size =
-                        (4 * video_info.image_format.width * video_info.image_format.height) as i32;
+                    (*iip).format_size = (4 * handle.width * handle.height) as i32; // Assuming RGBA format
                     (*iip).audio_n = 0;
                     (*iip).audio_format = std::ptr::null_mut();
                     (*iip).audio_format_size = 0;
@@ -169,6 +171,7 @@ pub fn func_info_get<T: InputPlugin>(
 
             if let Some(audio_info) = info.audio {
                 let audio_format = audio_info.audio_format.into_raw();
+                let audio_format_size = std::mem::size_of_val(&audio_format) as i32;
                 let audio_format = Box::new(audio_format);
                 let audio_format_ptr = Box::into_raw(audio_format);
                 WILL_FREE_ON_NEXT_CALL
@@ -179,8 +182,7 @@ pub fn func_info_get<T: InputPlugin>(
                     (*iip).flag |= aviutl2_sys::input2::INPUT_INFO::FLAG_AUDIO;
                     (*iip).audio_n = audio_info.num_samples;
                     (*iip).audio_format = audio_format_ptr;
-                    (*iip).audio_format_size =
-                        std::mem::size_of_val(&audio_info.audio_format) as i32;
+                    (*iip).audio_format_size = audio_format_size;
                 }
             }
 
@@ -198,7 +200,7 @@ pub fn func_info_get<T: InputPlugin>(
         }
     }
 }
-pub fn func_read_video<T: InputPlugin>(
+pub unsafe fn func_read_video<T: InputPlugin>(
     plugin: &T,
     ih: aviutl2_sys::input2::INPUT_HANDLE,
     frame: i32,
@@ -214,7 +216,7 @@ pub fn func_read_video<T: InputPlugin>(
             if !image_data.is_empty() {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
-                        image_data.as_ptr() as *const u8,
+                        image_data.as_ptr(),
                         buf as *mut u8,
                         image_data.len(),
                     );
@@ -229,7 +231,7 @@ pub fn func_read_video<T: InputPlugin>(
     }
 }
 
-pub fn func_read_audio<T: InputPlugin>(
+pub unsafe fn func_read_audio<T: InputPlugin>(
     plugin: &T,
     ih: aviutl2_sys::input2::INPUT_HANDLE,
     start: i32,
@@ -244,11 +246,7 @@ pub fn func_read_audio<T: InputPlugin>(
             let len = audio_data.len();
             if len > 0 {
                 unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        audio_data.as_ptr() as *const f32,
-                        buf as *mut f32,
-                        len,
-                    );
+                    std::ptr::copy_nonoverlapping(audio_data.as_ptr(), buf as *mut f32, len);
                 }
             }
             len as i32
@@ -260,7 +258,7 @@ pub fn func_read_audio<T: InputPlugin>(
     }
 }
 
-pub fn func_config<T: InputPlugin>(
+pub unsafe fn func_config<T: InputPlugin>(
     plugin: &T,
     hwnd: aviutl2_sys::input2::HWND,
     dll_hinst: aviutl2_sys::input2::HINSTANCE,
@@ -282,7 +280,8 @@ macro_rules! register_input_plugin {
             static PLUGIN: std::sync::LazyLock<$struct> = std::sync::LazyLock::new($struct::new);
 
             #[unsafe(no_mangle)]
-            extern "C" fn GetInputPluginTable() -> *mut aviutl2::sys::input2::INPUT_PLUGIN_TABLE {
+            unsafe extern "C" fn GetInputPluginTable()
+            -> *mut aviutl2::sys::input2::INPUT_PLUGIN_TABLE {
                 let table = $crate::input::__bridge::create_table::<$struct>(
                     &PLUGIN,
                     func_open,
