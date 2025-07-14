@@ -52,19 +52,20 @@ impl OutputInfo {
         let video = self.video.as_ref()?;
 
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
-        for i in 0..(video.width * video.height) as usize {
-            let pixel_r = unsafe { *frame_data_ptr.add(i * 3 + 2) };
-            let pixel_g = unsafe { *frame_data_ptr.add(i * 3 + 1) };
-            let pixel_b = unsafe { *frame_data_ptr.add(i * 3) };
-            frame_buffer.push((pixel_r, pixel_g, pixel_b));
-        }
-        for y in 0..(video.height as usize / 2) {
+        let frame_data_writer = frame_buffer.spare_capacity_mut();
+        for y in 0..video.height as usize {
             for x in 0..video.width as usize {
-                frame_buffer.swap(
-                    y * video.width as usize + x,
-                    (video.height as usize - 1 - y) * video.width as usize + x,
-                );
+                let i = y * video.width as usize + x;
+                // Each pixel is represented by 3 bytes (BGR)
+                let pixel_r = unsafe { *frame_data_ptr.add(i * 3 + 2) };
+                let pixel_g = unsafe { *frame_data_ptr.add(i * 3 + 1) };
+                let pixel_b = unsafe { *frame_data_ptr.add(i * 3) };
+                frame_data_writer[(video.height as usize - 1 - y) * video.width as usize + x]
+                    .write((pixel_r, pixel_g, pixel_b));
             }
+        }
+        unsafe {
+            frame_buffer.set_len((video.width * video.height) as usize);
         }
 
         Some(frame_buffer)
@@ -328,12 +329,14 @@ macro_rules! register_output_plugin {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetOutputPluginTable()
             -> *mut aviutl2::sys::output2::OUTPUT_PLUGIN_TABLE {
-                let table = $crate::output::__bridge::create_table::<$struct>(
-                    &*PLUGIN,
-                    func_output,
-                    func_config,
-                    func_get_config_text,
-                );
+                let table = unsafe {
+                    $crate::output::__bridge::create_table::<$struct>(
+                        &*PLUGIN,
+                        func_output,
+                        func_config,
+                        func_get_config_text,
+                    )
+                };
                 Box::into_raw(Box::new(table))
             }
 

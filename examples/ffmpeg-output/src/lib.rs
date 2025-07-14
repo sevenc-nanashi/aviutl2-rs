@@ -8,9 +8,64 @@ use anyhow::Context;
 use aviutl2::{output::OutputPlugin, register_output_plugin};
 use eframe::egui;
 use std::{
-    io::Write,
+    io::{Read, Write},
+    os::windows::{io::FromRawHandle, process::CommandExt},
     sync::{Arc, Mutex},
 };
+
+struct NamedPipe {
+    handle: windows::Win32::Foundation::HANDLE,
+}
+unsafe impl Send for NamedPipe {}
+unsafe impl Sync for NamedPipe {}
+
+impl NamedPipe {
+    fn new(name: &str) -> anyhow::Result<Self> {
+        let handle = unsafe {
+            windows::Win32::System::Pipes::CreateNamedPipeW(
+                &windows::core::HSTRING::from(name),
+                windows::Win32::Storage::FileSystem::PIPE_ACCESS_OUTBOUND,
+                windows::Win32::System::Pipes::PIPE_TYPE_BYTE,
+                1,
+                0,
+                0,
+                0,
+                None,
+            )
+        };
+        if handle.is_invalid() {
+            return Err(anyhow::anyhow!("Failed to create named pipe: {}", unsafe {
+                windows::Win32::Foundation::GetLastError()
+                    .to_hresult()
+                    .message()
+            }));
+        }
+        Ok(NamedPipe { handle })
+    }
+
+    fn connect(&self) -> anyhow::Result<std::io::PipeWriter> {
+        unsafe {
+            if windows::Win32::System::Pipes::ConnectNamedPipe(self.handle, None).is_err() {
+                return Err(anyhow::anyhow!(
+                    "Failed to connect named pipe: {}",
+                    windows::Win32::Foundation::GetLastError()
+                        .to_hresult()
+                        .message()
+                ));
+            }
+        }
+        let pipe_writer = unsafe { std::io::PipeWriter::from_raw_handle(self.handle.0 as _) };
+        Ok(pipe_writer)
+    }
+}
+
+fn create_send_only_named_pipe(name: &str) -> anyhow::Result<(String, NamedPipe)> {
+    let nonce = uuid::Uuid::new_v4().simple().to_string();
+    let pipe_name = format!(r"\\.\pipe\{name}-{nonce}");
+    let pipe =
+        NamedPipe::new(&pipe_name).context("Failed to create named pipe for FFmpeg output")?;
+    Ok((pipe_name, pipe))
+}
 
 struct FfmpegOutputPlugin {
     config: Mutex<FfmpegOutputConfig>,
@@ -51,31 +106,21 @@ pub static REQUIRED_ARGS: &[&str] = &[
     "{output_path}",
 ];
 
-fn tcp_server_for_callback<T: Fn(std::net::TcpStream) -> anyhow::Result<()> + Send + 'static>(
+fn pipe_for_callback<T: Fn(std::io::PipeWriter) -> anyhow::Result<()> + Send + 'static>(
+    name: &str,
     callback: T,
-) -> anyhow::Result<(
-    std::net::SocketAddr,
-    std::thread::JoinHandle<anyhow::Result<()>>,
-)> {
-    let server = std::net::TcpListener::bind("127.0.0.1:0").expect("Failed to bind server");
-    let local_addr = server.local_addr().expect("Failed to get local address");
+) -> anyhow::Result<(String, std::thread::JoinHandle<anyhow::Result<()>>)> {
+    let (pipe_name, pipe) = create_send_only_named_pipe(name)
+        .context("Failed to create named pipe for FFmpeg output")?;
     let server_thread = std::thread::Builder::new()
-        .name("aviutl2_ffmpeg_output_tcp_server".to_string())
+        .name(format!("aviutl2_ffmpeg_pipe_server_{name}"))
         .spawn(move || {
-            let stream = server.incoming().next();
-            match stream {
-                Some(Ok(stream)) => {
-                    let ret = callback(stream.try_clone()?);
-                    stream
-                        .shutdown(std::net::Shutdown::Both)
-                        .expect("Failed to close stream");
-                    ret
-                }
-                Some(Err(e)) => Err(anyhow::anyhow!("Failed to accept connection: {}", e)),
-                None => Ok(()), // No incoming connections
-            }
+            callback(
+                pipe.connect()
+                    .context("Failed to connect named pipe for FFmpeg output")?,
+            )
         })?;
-    Ok((local_addr, server_thread))
+    Ok((pipe_name, server_thread))
 }
 
 fn get_data_dir() -> anyhow::Result<std::path::PathBuf> {
@@ -87,6 +132,24 @@ fn get_data_dir() -> anyhow::Result<std::path::PathBuf> {
         .join("rusty_ffmpeg");
     std::fs::create_dir_all(&path).context("Failed to create data directory")?;
     Ok(path)
+}
+
+fn get_log_dir() -> anyhow::Result<std::path::PathBuf> {
+    let data_dir = get_data_dir()?;
+    let log_dir = data_dir.join("logs");
+    std::fs::create_dir_all(&log_dir).context("Failed to create log directory")?;
+    Ok(log_dir)
+}
+
+fn get_log_writer() -> anyhow::Result<std::io::BufWriter<std::fs::File>> {
+    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
+    let log_file_path = get_log_dir()?.join(format!("ffmpeg_output_{timestamp}.log"));
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_file_path)
+        .context("Failed to open FFmpeg output log file")?;
+    Ok(std::io::BufWriter::new(file))
 }
 
 fn get_ffmpeg_dir() -> anyhow::Result<std::path::PathBuf> {
@@ -170,9 +233,9 @@ impl OutputPlugin for FfmpegOutputPlugin {
         let mut threads: Vec<std::thread::JoinHandle<anyhow::Result<()>>> = Vec::new();
         let info = Arc::new(info);
 
-        let (video_local_addr, video_server_thread) = tcp_server_for_callback({
+        let (video_path, video_server_thread) = pipe_for_callback("aviutl2_ffmpeg_video_pipe", {
             let info = Arc::clone(&info);
-            move |stream: std::net::TcpStream| -> anyhow::Result<()> {
+            move |stream: std::io::PipeWriter| -> anyhow::Result<()> {
                 let mut writer = std::io::BufWriter::new(stream);
                 let mut buf = [0u8; 3];
                 for (_, frame) in info.get_video_frames_iter() {
@@ -190,9 +253,9 @@ impl OutputPlugin for FfmpegOutputPlugin {
         })?;
         threads.push(video_server_thread);
 
-        let (audio_local_addr, audio_server_thread) = tcp_server_for_callback({
+        let (audio_path, audio_server_thread) = pipe_for_callback("aviutl2_ffmpeg_audio_pipe", {
             let info = Arc::clone(&info);
-            move |stream: std::net::TcpStream| -> anyhow::Result<()> {
+            move |stream: std::io::PipeWriter| -> anyhow::Result<()> {
                 let mut buf = [0u8; 8]; // 2 f32 values, each 4 bytes
                 let mut writer = std::io::BufWriter::new(stream);
                 for (_, samples) in info.get_stereo_audio_samples_iter(
@@ -234,7 +297,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
             .clone();
         for arg in config_args {
             args.push(
-                arg.replace("{video_source}", &format!("tcp://{video_local_addr}"))
+                arg.replace("{video_source}", &video_path)
                     .replace(
                         "{video_size}",
                         &format!(
@@ -250,7 +313,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                             .as_ref()
                             .map_or("30".to_string(), |v| v.fps.to_string()),
                     )
-                    .replace("{audio_source}", &format!("tcp://{audio_local_addr}"))
+                    .replace("{audio_source}", &audio_path)
                     .replace(
                         "{audio_sample_rate}",
                         &info
@@ -268,22 +331,67 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 .spawn({
                     let killed = Arc::clone(&killed);
                     move || -> anyhow::Result<()> {
+                        let mut writer = get_log_writer()?;
+                        writeln!(writer, "FFmpeg path: {ffmpeg_path:?}",)?;
+                        writeln!(writer, "Starting FFmpeg with args: {args:?}",)?;
                         let mut child = std::process::Command::new(ffmpeg_path)
                             .args(&args)
+                            .stdin(std::process::Stdio::null())
+                            .stdout(std::process::Stdio::piped())
+                            .stderr(std::process::Stdio::piped())
+                            .creation_flags(0x08000000) // CREATE_NO_WINDOW
                             .spawn()
                             .map_err(|e| {
                                 anyhow::anyhow!("Failed to start FFmpeg process: {}", e)
                             })?;
 
+                        let mut stdout = child
+                            .stdout
+                            .take()
+                            .ok_or_else(|| anyhow::anyhow!("Failed to get FFmpeg stdout"))?;
+                        let mut stderr = child
+                            .stderr
+                            .take()
+                            .ok_or_else(|| anyhow::anyhow!("Failed to get FFmpeg stderr"))?;
                         while !killed.load(std::sync::atomic::Ordering::Relaxed) {
                             std::thread::yield_now();
-                            if child.try_wait().is_ok() {
+                            let mut stdout_buf = [0u8; 1024];
+                            let mut stderr_buf = [0u8; 1024];
+                            let is_stdout_eof = match stdout.read(&mut stdout_buf) {
+                                Ok(0) => true, // EOF
+                                Ok(n) => {
+                                    if let Err(e) = writer.write_all(&stdout_buf[..n]) {
+                                        eprintln!("Failed to write FFmpeg stdout: {e}");
+                                    }
+                                    false
+                                }
+                                Err(e) => {
+                                    eprintln!("Failed to read FFmpeg stdout: {e}");
+                                    false
+                                }
+                            };
+                            let is_stderr_eof = match stderr.read(&mut stderr_buf) {
+                                Ok(0) => true, // EOF
+                                Ok(n) => {
+                                    if let Err(e) = writer.write_all(&stderr_buf[..n]) {
+                                        eprintln!("Failed to write FFmpeg stderr: {e}");
+                                    }
+                                    false
+                                }
+                                Err(e) => {
+                                    eprintln!("Failed to read FFmpeg stderr: {e}");
+                                    false
+                                }
+                            };
+                            if child.try_wait().is_ok() && is_stdout_eof && is_stderr_eof {
                                 break; // FFmpeg process has exited
                             }
                         }
+                        let _ = writer.flush(); // Ensure all logs are written
                         let status = child.wait().map_err(|e| {
                             anyhow::anyhow!("Failed to wait for FFmpeg process: {}", e)
                         })?;
+                        writeln!(writer, "FFmpeg process exited with status: {status}",)?;
                         if !status.success() {
                             return Err(anyhow::anyhow!(
                                 "FFmpeg process exited with non-zero status: {}",
