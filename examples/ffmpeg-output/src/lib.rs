@@ -225,7 +225,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
             input_type: aviutl2::output::OutputType::Both,
             file_filters: vec![aviutl2::output::FileFilter {
                 name: "Video Files".to_string(),
-                extensions: vec!["mp4".to_string(), "mkv".to_string(), "avi".to_string()],
+                extensions: vec!["mp4".to_string(), "mkv".to_string(), "avi".to_string(), "webm".to_string()],
             }],
             information: "FFmpeg for AviUtl, written in Rust / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/ffmpeg-output".to_string(),
             can_config: true,
