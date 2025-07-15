@@ -77,6 +77,7 @@ pub trait FromRawVideoFrame {
     unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self;
 }
 
+#[derive(Debug, Clone)]
 pub struct RgbVideoFrame {
     pub data: Vec<(u8, u8, u8)>, // RGB format
 }
@@ -88,6 +89,7 @@ impl Deref for RgbVideoFrame {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Yuy2VideoFrame {
     pub data: Vec<(u8, u8)>, // YUY2 format
 }
@@ -100,6 +102,7 @@ impl Deref for Yuy2VideoFrame {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct RawBgrVideoFrame {
     pub data: Vec<u8>, // Raw RGB format
 }
@@ -111,6 +114,7 @@ impl Deref for RawBgrVideoFrame {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct RawYuy2VideoFrame {
     pub data: Vec<u8>, // Raw YUY2 format
 }

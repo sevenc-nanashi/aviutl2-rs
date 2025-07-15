@@ -5,6 +5,7 @@ use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 
 pub struct FfmpegOutputConfigDialog {
     pub args_buffer: String,
+    pub pixel_format: crate::config::PixelFormat,
     pub result_sender: std::sync::mpsc::Sender<FfmpegOutputConfig>,
 }
 
@@ -23,6 +24,7 @@ impl FfmpegOutputConfigDialog {
     ) -> Self {
         Self {
             args_buffer: config.args.join("\n"),
+            pixel_format: config.pixel_format,
             result_sender: sender,
         }
     }
@@ -54,6 +56,7 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                         引数は行区切りで入力してください。\
                                         以下の引数は実行時に置換されます：
                                         - `{video_source}`：動画の入力ソース
+                                        - `{video_pixel_format}`：動画のピクセルフォーマット
                                         - `{video_size}`：動画の解像度
                                         - `{video_fps}`：動画のフレームレート
                                         - `{audio_source}`：音声の入力ソース
@@ -66,7 +69,25 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                     ),
                                 );
 
-                                let button_width = ui.available_width() / 3.0;
+                                ui.horizontal(|ui| {
+                                    ui.label("ピクセルフォーマット:");
+                                    egui::ComboBox::from_id_salt("pixel_format")
+                                        .selected_text(self.pixel_format.to_str())
+                                        .show_ui(ui, |ui| {
+                                            for format in [
+                                                crate::config::PixelFormat::Rgb24,
+                                                crate::config::PixelFormat::Yuy2,
+                                                crate::config::PixelFormat::Bgr24,
+                                            ] {
+                                                ui.selectable_value(
+                                                    &mut self.pixel_format,
+                                                    format,
+                                                    format.to_str(),
+                                                );
+                                            }
+                                        });
+                                });
+
                                 ui.horizontal(|ui| {
                                     let args = buffer_to_args(&self.args_buffer);
                                     let can_save = REQUIRED_ARGS
@@ -77,35 +98,24 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                             can_save,
                                             egui::Button::new("保存")
                                         )
-                                        .with_new_rect(egui::Rect::from_min_size(
-                                            ui.min_rect().min,
-                                            egui::vec2(button_width, ui.available_height()),
-                                        ))
                                         .clicked()
                                     {
                                         self.result_sender
                                             .send(FfmpegOutputConfig {
-                                                args
+                                                args,
+                                                    pixel_format: self.pixel_format,
                                             })
                                             .expect("Failed to send args");
                                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                                     }
                                     if ui
                                         .button("リセット")
-                                        .with_new_rect(egui::Rect::from_min_size(
-                                            ui.min_rect().min,
-                                            egui::vec2(button_width, ui.available_height()),
-                                        ))
                                         .clicked()
                                     {
                                         self.args_buffer = DEFAULT_ARGS.join("\n");
                                     }
                                     if ui
                                         .button("キャンセル")
-                                        .with_new_rect(egui::Rect::from_min_size(
-                                            ui.min_rect().min,
-                                            egui::vec2(button_width, ui.available_height()),
-                                        ))
                                         .clicked()
                                     {
                                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);

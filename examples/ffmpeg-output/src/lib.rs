@@ -6,7 +6,7 @@ use crate::{
 };
 use anyhow::Context;
 use aviutl2::{
-    output::{OutputPlugin, RgbVideoFrame},
+    output::{OutputPlugin, RawBgrVideoFrame, RawYuy2VideoFrame, RgbVideoFrame},
     register_output_plugin,
 };
 use eframe::egui;
@@ -79,7 +79,7 @@ pub static DEFAULT_ARGS: &[&str] = &[
     "-f",
     "rawvideo",
     "-pix_fmt",
-    "rgb24",
+    "{video_pixel_format}",
     "-video_size",
     "{video_size}",
     "-framerate",
@@ -102,6 +102,7 @@ pub static DEFAULT_ARGS: &[&str] = &[
 ];
 pub static REQUIRED_ARGS: &[&str] = &[
     "{video_source}",
+    "{video_pixel_format}",
     "{video_size}",
     "{video_fps}",
     "{audio_source}",
@@ -208,9 +209,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
             Ok(config) => config,
             Err(e) => {
                 eprintln!("Failed to load FFmpeg output plugin config: {e}");
-                FfmpegOutputConfig {
-                    args: DEFAULT_ARGS.iter().map(|s| s.to_string()).collect(),
-                }
+                FfmpegOutputConfig::default()
             }
         };
         FfmpegOutputPlugin {
@@ -235,20 +234,39 @@ impl OutputPlugin for FfmpegOutputPlugin {
         let killed = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let mut threads: Vec<std::thread::JoinHandle<anyhow::Result<()>>> = Vec::new();
         let info = Arc::new(info);
+        let config = self
+            .config
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock FFmpeg Output Plugin config: {}", e))?
+            .clone();
 
         let (video_path, video_server_thread) = pipe_for_callback("aviutl2_ffmpeg_video_pipe", {
             let info = Arc::clone(&info);
             move |stream: std::io::PipeWriter| -> anyhow::Result<()> {
                 let mut writer = std::io::BufWriter::new(stream);
-                let mut buf = [0u8; 3];
-                for (_, frame) in info.get_video_frames_iter::<RgbVideoFrame>() {
-                    for pixel in frame.iter() {
-                        buf[0] = pixel.0;
-                        buf[1] = pixel.1;
-                        buf[2] = pixel.2;
-                        writer.write_all(&buf)?;
+                match config.pixel_format {
+                    config::PixelFormat::Rgb24 => {
+                        let mut buf = [0u8; 3];
+                        for (_, frame) in info.get_video_frames_iter::<RgbVideoFrame>() {
+                            for pixel in frame.iter() {
+                                buf[0] = pixel.0;
+                                buf[1] = pixel.1;
+                                buf[2] = pixel.2;
+                                writer.write_all(&buf)?;
+                            }
+                            writer.flush()?;
+                        }
                     }
-                    writer.flush()?;
+                    config::PixelFormat::Yuy2 => {
+                        for (_, frame) in info.get_video_frames_iter::<RawYuy2VideoFrame>() {
+                            writer.write_all(&frame.data)?;
+                        }
+                    }
+                    config::PixelFormat::Bgr24 => {
+                        for (_, frame) in info.get_video_frames_iter::<RawBgrVideoFrame>() {
+                            writer.write_all(&frame.data)?;
+                        }
+                    }
                 }
                 writer.flush()?;
                 Ok(())
@@ -301,6 +319,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
         for arg in config_args {
             args.push(
                 arg.replace("{video_source}", &video_path)
+                    .replace("{video_pixel_format}", &config.pixel_format.to_ffmpeg_str())
                     .replace(
                         "{video_size}",
                         &format!(
