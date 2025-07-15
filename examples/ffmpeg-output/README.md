@@ -7,6 +7,11 @@
 
 推奨される代替：[rigaya/ffmpegOut](https://github.com/rigaya/ffmpegOut)
 
+## インストール
+
+`C:\ProgramData\aviutl2\Plugin` に `rusty_ffmpeg_output.auo2` を配置してください。
+初回書き出し時にFFmpegのダウンロード処理が行われます。
+
 ## 比較
 
 - プロジェクト：[dvd_for_5_minutes.aup2](../../projects/dvd_for_5_minutes.aup2)
