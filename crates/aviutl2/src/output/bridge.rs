@@ -5,7 +5,10 @@ use crate::{
         alert_error, free_leaked_memory, leak_large_string, load_large_string,
         result_to_bool_with_dialog,
     },
-    output::{AudioOutputInfo, OutputInfo, OutputPlugin, VideoOutputInfo},
+    output::{
+        AudioOutputInfo, FromRawVideoFrame, OutputInfo, OutputPlugin, RgbVideoFrame,
+        VideoOutputInfo,
+    },
 };
 
 use aviutl2_sys::output2::{BI_RGB, LPCWSTR};
@@ -13,7 +16,79 @@ use num_rational::Rational32;
 
 use crate::common::format_file_filters;
 
-pub type VideoFrame = Vec<(u8, u8, u8)>; // RGB format
+use super::{RawBgrVideoFrame, RawYuy2VideoFrame, Yuy2VideoFrame};
+
+impl FromRawVideoFrame for RgbVideoFrame {
+    const FORMAT: u32 = BI_RGB;
+
+    unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self {
+        let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
+        let frame_data_writer = frame_buffer.spare_capacity_mut();
+        for y in 0..video.height as usize {
+            for x in 0..video.width as usize {
+                let i = y * video.width as usize + x;
+                // Each pixel is represented by 3 bytes (BGR)
+                let pixel_r = unsafe { *frame_data_ptr.add(i * 3 + 2) };
+                let pixel_g = unsafe { *frame_data_ptr.add(i * 3 + 1) };
+                let pixel_b = unsafe { *frame_data_ptr.add(i * 3) };
+                frame_data_writer[(video.height as usize - 1 - y) * video.width as usize + x]
+                    .write((pixel_r, pixel_g, pixel_b));
+            }
+        }
+        unsafe {
+            frame_buffer.set_len((video.width * video.height) as usize);
+        }
+
+        Self { data: frame_buffer }
+    }
+}
+impl FromRawVideoFrame for Yuy2VideoFrame {
+    const FORMAT: u32 = aviutl2_sys::output2::BI_YUY2;
+
+    unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self {
+        let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
+        let frame_data_writer = frame_buffer.spare_capacity_mut();
+        for y in 0..video.height as usize {
+            for x in 0..video.width as usize {
+                let i = y * video.width as usize + x;
+                // Each pixel is represented by 16 bits (YUV422 format)
+                let d_y = unsafe { *frame_data_ptr.add(i * 2) };
+                let d_uv = unsafe { *frame_data_ptr.add(i * 2 + 1) };
+
+                frame_data_writer[(video.height as usize - 1 - y) * video.width as usize + x]
+                    .write((d_y, d_uv));
+            }
+        }
+        unsafe {
+            frame_buffer.set_len((video.width * video.height * 2) as usize);
+        }
+
+        Self { data: frame_buffer }
+    }
+}
+impl FromRawVideoFrame for RawBgrVideoFrame {
+    const FORMAT: u32 = aviutl2_sys::output2::BI_RGB;
+
+    unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self {
+        let frame_buffer = unsafe {
+            std::slice::from_raw_parts(frame_data_ptr, (video.width * video.height * 3) as usize)
+                .to_owned()
+        };
+
+        Self { data: frame_buffer }
+    }
+}
+impl FromRawVideoFrame for RawYuy2VideoFrame {
+    const FORMAT: u32 = aviutl2_sys::output2::BI_YUY2;
+    unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self {
+        let frame_buffer = unsafe {
+            std::slice::from_raw_parts(frame_data_ptr, (video.width * video.height * 2) as usize)
+                .to_owned()
+        };
+
+        Self { data: frame_buffer }
+    }
+}
 
 impl OutputInfo {
     pub(crate) fn from_raw(oip: *mut aviutl2_sys::output2::OUTPUT_INFO) -> Self {
@@ -46,32 +121,15 @@ impl OutputInfo {
         }
     }
 
-    pub fn get_video_frame(&self, frame: i32) -> Option<VideoFrame> {
+    pub fn get_video_frame<F: FromRawVideoFrame>(&self, frame: i32) -> Option<F> {
         let frame_ptr = unsafe { self.internal.as_mut().and_then(|oip| oip.func_get_video) }?;
-        let frame_data_ptr = frame_ptr(frame, BI_RGB) as *mut u8;
+        let frame_data_ptr = frame_ptr(frame, F::FORMAT) as *mut u8;
         let video = self.video.as_ref()?;
-
-        let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
-        let frame_data_writer = frame_buffer.spare_capacity_mut();
-        for y in 0..video.height as usize {
-            for x in 0..video.width as usize {
-                let i = y * video.width as usize + x;
-                // Each pixel is represented by 3 bytes (BGR)
-                let pixel_r = unsafe { *frame_data_ptr.add(i * 3 + 2) };
-                let pixel_g = unsafe { *frame_data_ptr.add(i * 3 + 1) };
-                let pixel_b = unsafe { *frame_data_ptr.add(i * 3) };
-                frame_data_writer[(video.height as usize - 1 - y) * video.width as usize + x]
-                    .write((pixel_r, pixel_g, pixel_b));
-            }
-        }
-        unsafe {
-            frame_buffer.set_len((video.width * video.height) as usize);
-        }
-
-        Some(frame_buffer)
+        let frame = unsafe { F::from_raw(video, frame_data_ptr) };
+        Some(frame)
     }
 
-    pub fn get_video_frames_iter(&self) -> VideoFramesIterator {
+    pub fn get_video_frames_iter<F: FromRawVideoFrame>(&self) -> VideoFramesIterator<'_, F> {
         VideoFramesIterator::new(self)
     }
 
@@ -154,14 +212,15 @@ impl OutputInfo {
     }
 }
 
-pub struct VideoFramesIterator<'a> {
+pub struct VideoFramesIterator<'a, F: FromRawVideoFrame> {
     output_info: &'a OutputInfo,
     current_frame: i32,
     total_frames: i32,
     last_updated_time: std::time::Instant,
+    _marker: std::marker::PhantomData<F>,
 }
 
-impl<'a> VideoFramesIterator<'a> {
+impl<'a, F: FromRawVideoFrame> VideoFramesIterator<'a, F> {
     pub fn new(output_info: &'a OutputInfo) -> Self {
         let total_frames = output_info
             .video
@@ -172,12 +231,13 @@ impl<'a> VideoFramesIterator<'a> {
             current_frame: 0,
             total_frames,
             last_updated_time: std::time::Instant::now(),
+            _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl<'a> Iterator for VideoFramesIterator<'a> {
-    type Item = (i32, VideoFrame);
+impl<'a, F: FromRawVideoFrame> Iterator for VideoFramesIterator<'a, F> {
+    type Item = (i32, F);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current_frame >= self.total_frames {

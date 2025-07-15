@@ -5,7 +5,10 @@ use crate::{
     dialog::FfmpegOutputConfigDialog,
 };
 use anyhow::Context;
-use aviutl2::{output::OutputPlugin, register_output_plugin};
+use aviutl2::{
+    output::{OutputPlugin, RgbVideoFrame},
+    register_output_plugin,
+};
 use eframe::egui;
 use std::{
     io::{Read, Write},
@@ -238,8 +241,8 @@ impl OutputPlugin for FfmpegOutputPlugin {
             move |stream: std::io::PipeWriter| -> anyhow::Result<()> {
                 let mut writer = std::io::BufWriter::new(stream);
                 let mut buf = [0u8; 3];
-                for (_, frame) in info.get_video_frames_iter() {
-                    for pixel in frame {
+                for (_, frame) in info.get_video_frames_iter::<RgbVideoFrame>() {
+                    for pixel in frame.iter() {
                         buf[0] = pixel.0;
                         buf[1] = pixel.1;
                         buf[2] = pixel.2;

@@ -1,5 +1,6 @@
 use crate::common::{AnyResult, FileFilter};
 use aviutl2_sys::output2::OUTPUT_INFO;
+use std::ops::Deref;
 
 pub use num_rational::Rational32;
 pub use raw_window_handle::Win32WindowHandle;
@@ -66,5 +67,57 @@ pub trait OutputPlugin: Send + Sync {
 
     fn config_text(&self) -> AnyResult<String> {
         Ok(String::new())
+    }
+}
+
+pub trait FromRawVideoFrame {
+    const FORMAT: u32;
+    /// # Safety
+    /// func_get_videoの戻り値のポインタのみが許容される。
+    unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self;
+}
+
+pub struct RgbVideoFrame {
+    pub data: Vec<(u8, u8, u8)>, // RGB format
+}
+impl Deref for RgbVideoFrame {
+    type Target = [(u8, u8, u8)];
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+pub struct Yuy2VideoFrame {
+    pub data: Vec<(u8, u8)>, // YUY2 format
+}
+
+impl Deref for Yuy2VideoFrame {
+    type Target = [(u8, u8)];
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+pub struct RawBgrVideoFrame {
+    pub data: Vec<u8>, // Raw RGB format
+}
+impl Deref for RawBgrVideoFrame {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+pub struct RawYuy2VideoFrame {
+    pub data: Vec<u8>, // Raw YUY2 format
+}
+impl Deref for RawYuy2VideoFrame {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
     }
 }

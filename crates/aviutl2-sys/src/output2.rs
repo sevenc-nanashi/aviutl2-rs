@@ -12,6 +12,8 @@ pub use windows_sys::Win32::{
     Graphics::Gdi::{BI_RGB, BITMAPINFOHEADER},
 };
 
+pub const BI_YUY2: u32 = ('Y' as u32) << 24 | ('U' as u32) << 16 | ('Y' as u32) << 8 | '2' as u32;
+
 pub type LPCWSTR = *const u16;
 
 #[repr(C)]
