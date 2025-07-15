@@ -17,7 +17,8 @@
     - ffmpegOut：デフォルト、出力拡張子：`.mp4`
     - Rusty FFmpeg Output：デフォルト
 
-### 
+### 結果
+
 - CPU：i7-1360P、RAM：16GB、OS：Windows 11 Pro、書き出し先：SoftPerfect RAM Disk（1GB）
     - ffmpegOut：6m14s、48.1fps
     - Rusty FFmpeg Output：4m07s、72.9fps
