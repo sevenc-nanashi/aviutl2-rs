@@ -17,9 +17,14 @@ pub struct FfmpegOutputConfigV2 {
     pub args: Vec<String>,
     pub pixel_format: PixelFormat,
 }
-impl Default for FfmpegOutputConfigV2 {
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct FfmpegOutputConfigV3 {
+    pub args: Vec<String>,
+    pub pixel_format: PixelFormat,
+}
+impl Default for FfmpegOutputConfigV3 {
     fn default() -> Self {
-        FfmpegOutputConfigV2 {
+        Self {
             args: DEFAULT_ARGS.iter().map(|s| s.to_string()).collect(),
             pixel_format: PixelFormat::Bgr24,
         }
@@ -28,14 +33,12 @@ impl Default for FfmpegOutputConfigV2 {
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, Eq, PartialEq)]
 pub enum PixelFormat {
-    Rgb24,
     Yuy2,
     Bgr24,
 }
 impl PixelFormat {
     pub fn to_str(&self) -> &str {
         match self {
-            PixelFormat::Rgb24 => "RGB24",
             PixelFormat::Yuy2 => "YUY2",
             PixelFormat::Bgr24 => "BGR24",
         }
@@ -43,14 +46,14 @@ impl PixelFormat {
 
     pub fn to_ffmpeg_str(&self) -> &str {
         match self {
-            PixelFormat::Rgb24 => "rgb24",
             PixelFormat::Yuy2 => "yuyv422",
             PixelFormat::Bgr24 => "bgr24",
         }
     }
 }
 
-pub type FfmpegOutputConfig = FfmpegOutputConfigV2;
+pub type FfmpegOutputConfig = FfmpegOutputConfigV3;
+const CONFIG_VERSION: u64 = 3;
 
 pub fn config_path() -> anyhow::Result<std::path::PathBuf> {
     let data_dir = get_data_dir()?;
@@ -67,23 +70,9 @@ pub fn load_config() -> anyhow::Result<FfmpegOutputConfig> {
         std::fs::File::open(&path).context("Failed to open FFmpeg output plugin config file")?;
     let mut config: FfmpegOutputConfigContainer = serde_json::from_reader(file)
         .context("Failed to parse FFmpeg output plugin config file")?;
-    if config.version == 1 {
-        let v1: FfmpegOutputConfigV1 = serde_json::from_value(config.value)
-            .context("Failed to parse FFmpeg output plugin config version 1")?;
-        config.value = serde_json::to_value(FfmpegOutputConfigV2 {
-            args: v1
-                .args
-                .iter()
-                .map(|s| {
-                    if s == "rgb24" {
-                        "{video_pixel_format}".to_string()
-                    } else {
-                        s.to_string()
-                    }
-                })
-                .collect(),
-            pixel_format: PixelFormat::Rgb24,
-        })?;
+    if config.version <= 2 {
+        config.version = 3;
+        config.value = serde_json::to_value(FfmpegOutputConfigV3::default())?;
     }
 
     Ok(serde_json::from_value(config.value)
@@ -93,7 +82,7 @@ pub fn load_config() -> anyhow::Result<FfmpegOutputConfig> {
 pub fn save_config(config: &FfmpegOutputConfig) -> anyhow::Result<()> {
     let path = config_path()?;
     let container = FfmpegOutputConfigContainer {
-        version: 2,
+        version: CONFIG_VERSION,
         value: serde_json::to_value(config)
             .context("Failed to serialize FFmpeg output plugin config")?,
     };

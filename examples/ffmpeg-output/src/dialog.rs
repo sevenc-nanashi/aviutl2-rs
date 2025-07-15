@@ -75,7 +75,6 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                         .selected_text(self.pixel_format.to_str())
                                         .show_ui(ui, |ui| {
                                             for format in [
-                                                crate::config::PixelFormat::Rgb24,
                                                 crate::config::PixelFormat::Yuy2,
                                                 crate::config::PixelFormat::Bgr24,
                                             ] {

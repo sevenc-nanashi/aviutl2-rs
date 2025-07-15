@@ -6,7 +6,7 @@ use crate::{
 };
 use anyhow::Context;
 use aviutl2::{
-    output::{OutputPlugin, RawBgrVideoFrame, RawYuy2VideoFrame, RgbVideoFrame},
+    output::{OutputPlugin, RawBgrVideoFrame, RawYuy2VideoFrame},
     register_output_plugin,
 };
 use eframe::egui;
@@ -98,6 +98,8 @@ pub static DEFAULT_ARGS: &[&str] = &[
     "0:v:0",
     "-map",
     "1:a:0",
+    "-vf",
+    "vflip",
     "{output_path}",
 ];
 pub static REQUIRED_ARGS: &[&str] = &[
@@ -245,18 +247,6 @@ impl OutputPlugin for FfmpegOutputPlugin {
             move |stream: std::io::PipeWriter| -> anyhow::Result<()> {
                 let mut writer = std::io::BufWriter::new(stream);
                 match config.pixel_format {
-                    config::PixelFormat::Rgb24 => {
-                        let mut buf = [0u8; 3];
-                        for (_, frame) in info.get_video_frames_iter::<RgbVideoFrame>() {
-                            for pixel in frame.iter() {
-                                buf[0] = pixel.0;
-                                buf[1] = pixel.1;
-                                buf[2] = pixel.2;
-                                writer.write_all(&buf)?;
-                            }
-                            writer.flush()?;
-                        }
-                    }
                     config::PixelFormat::Yuy2 => {
                         for (_, frame) in info.get_video_frames_iter::<RawYuy2VideoFrame>() {
                             writer.write_all(&frame.data)?;
