@@ -112,6 +112,7 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                         .button("リセット")
                                         .clicked()
                                     {
+                                        self.pixel_format = FfmpegOutputConfig::default().pixel_format;
                                         self.args_buffer = DEFAULT_ARGS.join("\n");
                                     }
                                     if ui
