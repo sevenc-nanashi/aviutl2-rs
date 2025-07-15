@@ -21,6 +21,9 @@ use super::{RawBgrVideoFrame, RawYuy2VideoFrame, Yuy2VideoFrame};
 impl FromRawVideoFrame for RgbVideoFrame {
     const FORMAT: u32 = BI_RGB;
 
+    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+        Ok(())
+    }
     unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self {
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
@@ -45,18 +48,26 @@ impl FromRawVideoFrame for RgbVideoFrame {
 impl FromRawVideoFrame for Yuy2VideoFrame {
     const FORMAT: u32 = aviutl2_sys::output2::BI_YUY2;
 
+    fn check(video: &VideoOutputInfo) -> Result<(), String> {
+        if video.width % 2 != 0 || video.height % 2 != 0 {
+            return Err("YUY2 format requires even width and height".to_string());
+        }
+        Ok(())
+    }
     unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self {
-        let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
+        let mut frame_buffer = Vec::with_capacity((video.width * video.height / 2) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
         for y in 0..video.height as usize {
-            for x in 0..video.width as usize {
+            for x in 0..(video.width / 2) as usize {
                 let i = y * video.width as usize + x;
-                // Each pixel is represented by 16 bits (YUV422 format)
-                let d_y = unsafe { *frame_data_ptr.add(i * 2) };
-                let d_uv = unsafe { *frame_data_ptr.add(i * 2 + 1) };
+                // Each pixel is represented by 4 bytes (YUY2)
+                let d_y1 = unsafe { *frame_data_ptr.add(i * 4) };
+                let d_u = unsafe { *frame_data_ptr.add(i * 4 + 1) };
+                let d_y2 = unsafe { *frame_data_ptr.add(i * 4 + 2) };
+                let d_v = unsafe { *frame_data_ptr.add(i * 4 + 3) };
 
                 frame_data_writer[(video.height as usize - 1 - y) * video.width as usize + x]
-                    .write((d_y, d_uv));
+                    .write((d_y1, d_u, d_y2, d_v));
             }
         }
         unsafe {
@@ -69,6 +80,9 @@ impl FromRawVideoFrame for Yuy2VideoFrame {
 impl FromRawVideoFrame for RawBgrVideoFrame {
     const FORMAT: u32 = aviutl2_sys::output2::BI_RGB;
 
+    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+        Ok(())
+    }
     unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self {
         let frame_buffer = unsafe {
             std::slice::from_raw_parts(frame_data_ptr, (video.width * video.height * 3) as usize)
@@ -80,6 +94,13 @@ impl FromRawVideoFrame for RawBgrVideoFrame {
 }
 impl FromRawVideoFrame for RawYuy2VideoFrame {
     const FORMAT: u32 = aviutl2_sys::output2::BI_YUY2;
+
+    fn check(video: &VideoOutputInfo) -> Result<(), String> {
+        if video.width % 2 != 0 || video.height % 2 != 0 {
+            return Err("YUY2 format requires even width and height".to_string());
+        }
+        Ok(())
+    }
     unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self {
         let frame_buffer = unsafe {
             std::slice::from_raw_parts(frame_data_ptr, (video.width * video.height * 2) as usize)
@@ -122,6 +143,17 @@ impl OutputInfo {
     }
 
     pub fn get_video_frame<F: FromRawVideoFrame>(&self, frame: i32) -> Option<F> {
+        if let Some(video) = &self.video {
+            if F::check(video).is_err() {
+                return None;
+            }
+            unsafe { self.get_video_frame_unchecked::<F>(frame) }
+        } else {
+            None
+        }
+    }
+
+    pub unsafe fn get_video_frame_unchecked<F: FromRawVideoFrame>(&self, frame: i32) -> Option<F> {
         let frame_ptr = unsafe { self.internal.as_mut().and_then(|oip| oip.func_get_video) }?;
         let frame_data_ptr = frame_ptr(frame, F::FORMAT) as *mut u8;
         let video = self.video.as_ref()?;
@@ -217,6 +249,7 @@ pub struct VideoFramesIterator<'a, F: FromRawVideoFrame> {
     current_frame: i32,
     total_frames: i32,
     last_updated_time: std::time::Instant,
+    check_result: bool,
     _marker: std::marker::PhantomData<F>,
 }
 
@@ -231,6 +264,10 @@ impl<'a, F: FromRawVideoFrame> VideoFramesIterator<'a, F> {
             current_frame: 0,
             total_frames,
             last_updated_time: std::time::Instant::now(),
+            check_result: output_info
+                .video
+                .as_ref()
+                .is_some_and(|v| F::check(v).is_ok()),
             _marker: std::marker::PhantomData,
         }
     }
@@ -240,6 +277,9 @@ impl<'a, F: FromRawVideoFrame> Iterator for VideoFramesIterator<'a, F> {
     type Item = (i32, F);
 
     fn next(&mut self) -> Option<Self::Item> {
+        if !self.check_result {
+            return None;
+        }
         if self.current_frame >= self.total_frames {
             return None;
         }
@@ -248,7 +288,10 @@ impl<'a, F: FromRawVideoFrame> Iterator for VideoFramesIterator<'a, F> {
             return None;
         }
 
-        let frame = self.output_info.get_video_frame(self.current_frame);
+        let frame = unsafe {
+            self.output_info
+                .get_video_frame_unchecked(self.current_frame)
+        };
         if let Some(frame_data) = frame {
             let current_frame = self.current_frame;
             self.current_frame += 1;

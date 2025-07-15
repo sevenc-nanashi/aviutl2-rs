@@ -242,9 +242,23 @@ impl OutputPlugin for FfmpegOutputPlugin {
             .map_err(|e| anyhow::anyhow!("Failed to lock FFmpeg Output Plugin config: {}", e))?
             .clone();
 
+        if info.video.as_ref().is_some_and(|v| {
+            (v.width % 2 != 0 || v.height % 2 != 0)
+                && config.pixel_format == config::PixelFormat::Yuy2
+        }) {
+            return Err(anyhow::anyhow!(
+                "YUY2モードでは偶数以外の解像度はサポートされていません。現在の解像度は {}x{} です。",
+                info.video.as_ref().map_or(0, |v| v.width),
+                info.video.as_ref().map_or(0, |v| v.height)
+            ));
+        }
+
         let (video_path, video_server_thread) = pipe_for_callback("aviutl2_ffmpeg_video_pipe", {
             let info = Arc::clone(&info);
             move |stream: std::io::PipeWriter| -> anyhow::Result<()> {
+                if info.video.is_none() {
+                    return Ok(());
+                }
                 let mut writer = std::io::BufWriter::new(stream);
                 match config.pixel_format {
                     config::PixelFormat::Yuy2 => {
@@ -267,6 +281,9 @@ impl OutputPlugin for FfmpegOutputPlugin {
         let (audio_path, audio_server_thread) = pipe_for_callback("aviutl2_ffmpeg_audio_pipe", {
             let info = Arc::clone(&info);
             move |stream: std::io::PipeWriter| -> anyhow::Result<()> {
+                if info.audio.is_none() {
+                    return Ok(());
+                }
                 let mut buf = [0u8; 8]; // 2 f32 values, each 4 bytes
                 let mut writer = std::io::BufWriter::new(stream);
                 for (_, samples) in info.get_stereo_audio_samples_iter(
@@ -309,7 +326,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
         for arg in config_args {
             args.push(
                 arg.replace("{video_source}", &video_path)
-                    .replace("{video_pixel_format}", &config.pixel_format.to_ffmpeg_str())
+                    .replace("{video_pixel_format}", config.pixel_format.to_ffmpeg_str())
                     .replace(
                         "{video_size}",
                         &format!(

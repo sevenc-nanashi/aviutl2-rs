@@ -72,6 +72,8 @@ pub trait OutputPlugin: Send + Sync {
 
 pub trait FromRawVideoFrame {
     const FORMAT: u32;
+
+    fn check(video: &VideoOutputInfo) -> Result<(), String>;
     /// # Safety
     /// func_get_videoの戻り値のポインタのみが許容される。
     unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self;
@@ -91,11 +93,11 @@ impl Deref for RgbVideoFrame {
 
 #[derive(Debug, Clone)]
 pub struct Yuy2VideoFrame {
-    pub data: Vec<(u8, u8)>, // YUY2 format
+    pub data: Vec<(u8, u8, u8, u8)>, // YUY2 format (Y0, U, Y1, V)
 }
 
 impl Deref for Yuy2VideoFrame {
-    type Target = [(u8, u8)];
+    type Target = [(u8, u8, u8, u8)];
 
     fn deref(&self) -> &Self::Target {
         &self.data
