@@ -16,6 +16,7 @@
 - 設定：
     - ffmpegOut：デフォルト、出力拡張子：`.mp4`
     - Rusty FFmpeg Output：デフォルト
+- フォーマット：mp4（コーデックなどに関してはffmpegのデフォルトに従う）
 
 ### 結果
 
