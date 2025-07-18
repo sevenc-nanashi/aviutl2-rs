@@ -152,6 +152,12 @@ AAAAAAAAAAA=
 
 ### 結果
 
-- CPU：i7-1360P、RAM：16GB、OS：Windows 11 Pro、書き出し先：SoftPerfect RAM Disk（1GB）
+- CPU：i7-1360P、RAM：16GB、OS：Windows 11 Pro、書き出し先：SoftPerfect RAM Disk（1GB）、プロジェクト：[dvd_for_5_minutes.aup2](../../projects/dvd_for_5_minutes.aup2)
     - ffmpegOut：2m02s、73.8fps
     - Rusty FFmpeg Output：2m05s、72.0fps
+
+- CPU：i5-14400F、RAM：32GB、OS：Windows 11 Home、書き出し先：SoftPerfect RAM Disk（1GB）、プロジェクト：[hyper_heavy.aup2](../../projects/hyper_heavy.aup2)
+    - ffmpegOut：2m03s、2.45fps
+    - Rusty FFmpeg Output：1m57s、2.56fps
+
+
