@@ -29,7 +29,7 @@ impl ImageFormat {
 impl AudioFormat {
     fn into_raw(self) -> aviutl2_sys::input2::WAVEFORMATEX {
         aviutl2_sys::input2::WAVEFORMATEX {
-            wFormatTag: aviutl2_sys::input2::WAVE_FORMAT_PCM as u16,
+            wFormatTag: aviutl2_sys::input2::WAVE_FORMAT_IEEE_FLOAT as u16,
             nChannels: self.channels,
             nSamplesPerSec: self.sample_rate,
             nAvgBytesPerSec: (self.sample_rate * (self.channels as u32) * 4),

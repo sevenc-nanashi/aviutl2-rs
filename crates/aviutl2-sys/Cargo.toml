@@ -4,4 +4,4 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-windows-sys = { version = "0.60.2", features = ["Win32", "Win32_Graphics_Gdi", "Win32_Media_Audio"] }
+windows-sys = { version = "0.60.2", features = ["Win32", "Win32_Graphics_Gdi", "Win32_Media_Audio", "Win32_Media_Multimedia"] }
