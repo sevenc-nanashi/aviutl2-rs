@@ -153,5 +153,5 @@ AAAAAAAAAAA=
 ### 結果
 
 - CPU：i7-1360P、RAM：16GB、OS：Windows 11 Pro、書き出し先：SoftPerfect RAM Disk（1GB）
-    - ffmpegOut：2m02ws、73.8fps
+    - ffmpegOut：2m02s、73.8fps
     - Rusty FFmpeg Output：2m05s、72.0fps

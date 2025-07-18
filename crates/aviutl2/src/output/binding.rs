@@ -127,3 +127,11 @@ impl Deref for RawYuy2VideoFrame {
         &self.data
     }
 }
+
+pub trait FromRawAudioSamples: Sized + Send + Sync + Copy {
+    const FORMAT: u32;
+
+    /// # Safety
+    /// func_get_audioの戻り値のポインタのみが許容される。
+    unsafe fn from_raw(length: i32, num_channels: u32, audio_data_ptr: *const u8) -> Vec<Self>;
+}

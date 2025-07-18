@@ -10,6 +10,7 @@ use std::ffi::c_void;
 pub use windows_sys::Win32::{
     Foundation::{HINSTANCE, HWND},
     Graphics::Gdi::{BI_RGB, BITMAPINFOHEADER},
+    Media::{Audio::WAVE_FORMAT_PCM, Multimedia::WAVE_FORMAT_IEEE_FLOAT},
 };
 
 pub const BI_YUY2: u32 = ('Y' as u32) << 24 | ('U' as u32) << 16 | ('Y' as u32) << 8 | '2' as u32;

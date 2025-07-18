@@ -10,8 +10,10 @@ use std::ffi::c_void;
 pub use windows_sys::Win32::{
     Foundation::{HINSTANCE, HWND},
     Graphics::Gdi::{BI_BITFIELDS, BI_RGB, BITMAPINFOHEADER},
-    Media::Audio::WAVEFORMATEX,
-    Media::Multimedia::WAVE_FORMAT_IEEE_FLOAT,
+    Media::{
+        Audio::{WAVE_FORMAT_PCM, WAVEFORMATEX},
+        Multimedia::WAVE_FORMAT_IEEE_FLOAT,
+    },
 };
 
 pub type LPCWSTR = *const u16;

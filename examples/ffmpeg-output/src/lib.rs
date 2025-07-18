@@ -286,7 +286,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 }
                 let mut buf = [0u8; 8]; // 2 f32 values, each 4 bytes
                 let mut writer = std::io::BufWriter::new(stream);
-                for (_, samples) in info.get_stereo_audio_samples_iter(
+                for (_, samples) in info.get_stereo_audio_samples_iter::<f32>(
                     (info.audio.as_ref().map_or(44100, |a| a.sample_rate) / 10) as i32,
                 ) {
                     for sample in &samples {

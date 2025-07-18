@@ -6,12 +6,15 @@ use crate::{
         result_to_bool_with_dialog,
     },
     output::{
-        AudioOutputInfo, FromRawVideoFrame, OutputInfo, OutputPlugin, RgbVideoFrame,
-        VideoOutputInfo,
+        AudioOutputInfo, FromRawAudioSamples, FromRawVideoFrame, OutputInfo, OutputPlugin,
+        RgbVideoFrame, VideoOutputInfo,
     },
 };
 
-use aviutl2_sys::output2::{BI_RGB, LPCWSTR};
+use aviutl2_sys::{
+    input2::WAVE_FORMAT_PCM,
+    output2::{BI_RGB, LPCWSTR, WAVE_FORMAT_IEEE_FLOAT},
+};
 use num_rational::Rational32;
 
 use crate::common::format_file_filters;
@@ -111,6 +114,33 @@ impl FromRawVideoFrame for RawYuy2VideoFrame {
     }
 }
 
+impl FromRawAudioSamples for f32 {
+    const FORMAT: u32 = WAVE_FORMAT_IEEE_FLOAT;
+
+    unsafe fn from_raw(length: i32, num_channels: u32, frame_data_ptr: *const u8) -> Vec<Self> {
+        let frame_data_slice = unsafe {
+            std::slice::from_raw_parts(
+                frame_data_ptr as *const f32,
+                length as usize * num_channels as usize,
+            )
+        };
+        frame_data_slice.to_vec()
+    }
+}
+impl FromRawAudioSamples for i16 {
+    const FORMAT: u32 = WAVE_FORMAT_PCM;
+
+    unsafe fn from_raw(length: i32, num_channels: u32, frame_data_ptr: *const u8) -> Vec<Self> {
+        let frame_data_slice = unsafe {
+            std::slice::from_raw_parts(
+                frame_data_ptr as *const i16,
+                length as usize * num_channels as usize,
+            )
+        };
+        frame_data_slice.to_vec()
+    }
+}
+
 impl OutputInfo {
     pub(crate) fn from_raw(oip: *mut aviutl2_sys::output2::OUTPUT_INFO) -> Self {
         let raw = unsafe { &*oip };
@@ -165,24 +195,20 @@ impl OutputInfo {
         VideoFramesIterator::new(self)
     }
 
-    pub fn get_audio_samples(&self, start: i32, length: i32) -> Option<(Vec<f32>, u32)> {
+    pub fn get_audio_samples<F: FromRawAudioSamples>(&self, start: i32, length: i32) -> Option<(Vec<F>, u32)> {
         let audio_ptr = unsafe { self.internal.as_mut().and_then(|oip| oip.func_get_audio) }?;
         let mut readed = 0;
-        let audio_data_ptr = audio_ptr(start, length, &mut readed, 3) as *mut f32;
+        let audio_data_ptr = audio_ptr(start, length, &mut readed, F::FORMAT) as *mut u8;
 
         let audio = self.audio.as_ref()?;
         let samples = unsafe {
-            std::slice::from_raw_parts(
-                audio_data_ptr,
-                ((readed as u32) * audio.num_channels) as usize,
-            )
-            .to_vec()
+            F::from_raw(length, audio.num_channels, audio_data_ptr)
         };
 
         Some((samples, audio.num_channels))
     }
 
-    pub fn get_mono_audio_samples(&self, start: i32, length: i32) -> Option<Vec<f32>> {
+    pub fn get_mono_audio_samples<F: FromRawAudioSamples>(&self, start: i32, length: i32) -> Option<Vec<F>> {
         let (samples, num_channels) = self.get_audio_samples(start, length)?;
         if num_channels == 1 {
             Some(samples)
@@ -196,11 +222,11 @@ impl OutputInfo {
         }
     }
 
-    pub fn get_mono_audio_samples_iter(&self, length: i32) -> MonoAudioSamplesIterator {
+    pub fn get_mono_audio_samples_iter<F: FromRawAudioSamples>(&self, length: i32) -> MonoAudioSamplesIterator<F> {
         MonoAudioSamplesIterator::new(self, length)
     }
 
-    pub fn get_stereo_audio_samples(&self, start: i32, length: i32) -> Option<Vec<(f32, f32)>> {
+    pub fn get_stereo_audio_samples<F: FromRawAudioSamples>(&self, start: i32, length: i32) -> Option<Vec<(F, F)>> {
         let (samples, num_channels) = self.get_audio_samples(start, length)?;
         if num_channels == 2 {
             Some(
@@ -214,7 +240,7 @@ impl OutputInfo {
         }
     }
 
-    pub fn get_stereo_audio_samples_iter(&self, length: i32) -> StereoAudioSamplesIterator {
+    pub fn get_stereo_audio_samples_iter<F: FromRawAudioSamples>(&self, length: i32) -> StereoAudioSamplesIterator<F> {
         StereoAudioSamplesIterator::new(self, length)
     }
 
@@ -310,29 +336,31 @@ impl<'a, F: FromRawVideoFrame> Iterator for VideoFramesIterator<'a, F> {
 duplicate::duplicate! {
     [
         Name method IterType;
-        [MonoAudioSamplesIterator] [get_mono_audio_samples] [f32];
-        [StereoAudioSamplesIterator] [get_stereo_audio_samples] [(f32, f32)];
+        [MonoAudioSamplesIterator] [get_mono_audio_samples] [F];
+        [StereoAudioSamplesIterator] [get_stereo_audio_samples] [(F, F)];
     ]
 
-    pub struct Name<'a> {
+    pub struct Name<'a, F: FromRawAudioSamples> {
         output_info: &'a OutputInfo,
         length: i32,
         total_length: i32,
         readed: i32,
+        _marker: std::marker::PhantomData<F>,
     }
 
-    impl<'a> Name<'a> {
+    impl<'a, F: FromRawAudioSamples> Name<'a, F> {
         pub fn new(output_info: &'a OutputInfo, length: i32) -> Self {
             Self {
                 output_info,
                 length,
                 total_length: output_info.audio.as_ref().map_or(0, |a| a.num_samples as i32),
                 readed: 0,
+                _marker: std::marker::PhantomData,
             }
         }
     }
 
-    impl<'a> Iterator for Name<'a> {
+    impl<'a, F: FromRawAudioSamples> Iterator for Name<'a, F> {
         type Item = (usize, Vec<IterType>);
 
         fn next(&mut self) -> Option<Self::Item> {
