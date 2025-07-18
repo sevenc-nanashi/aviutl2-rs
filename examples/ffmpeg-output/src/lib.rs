@@ -103,7 +103,7 @@ fn get_log_dir() -> anyhow::Result<std::path::PathBuf> {
     Ok(log_dir)
 }
 
-fn get_log_writer() -> anyhow::Result<std::io::BufWriter<std::fs::File>> {
+fn get_log_writer() -> anyhow::Result<std::fs::File> {
     let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
     let log_file_path = get_log_dir()?.join(format!("ffmpeg_output_{timestamp}.log"));
     let file = std::fs::OpenOptions::new()
@@ -111,7 +111,7 @@ fn get_log_writer() -> anyhow::Result<std::io::BufWriter<std::fs::File>> {
         .append(true)
         .open(log_file_path)
         .context("Failed to open FFmpeg output log file")?;
-    Ok(std::io::BufWriter::new(file))
+    Ok(file)
 }
 
 fn get_ffmpeg_dir() -> anyhow::Result<std::path::PathBuf> {
@@ -315,76 +315,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 .name("aviutl2_ffmpeg_process".to_string())
                 .spawn({
                     let killed = Arc::clone(&killed);
-                    move || -> anyhow::Result<()> {
-                        let mut writer = get_log_writer()?;
-                        writeln!(writer, "FFmpeg path: {ffmpeg_path:?}",)?;
-                        writeln!(writer, "Starting FFmpeg with args: {args:?}",)?;
-                        let mut child = std::process::Command::new(ffmpeg_path)
-                            .args(&args)
-                            .stdin(std::process::Stdio::null())
-                            .stdout(std::process::Stdio::piped())
-                            .stderr(std::process::Stdio::piped())
-                            .creation_flags(0x08000000) // CREATE_NO_WINDOW
-                            .spawn()
-                            .map_err(|e| {
-                                anyhow::anyhow!("Failed to start FFmpeg process: {}", e)
-                            })?;
-
-                        let mut stdout = child
-                            .stdout
-                            .take()
-                            .ok_or_else(|| anyhow::anyhow!("Failed to get FFmpeg stdout"))?;
-                        let mut stderr = child
-                            .stderr
-                            .take()
-                            .ok_or_else(|| anyhow::anyhow!("Failed to get FFmpeg stderr"))?;
-                        while !killed.load(std::sync::atomic::Ordering::Relaxed) {
-                            std::thread::yield_now();
-                            let mut stdout_buf = [0u8; 1024];
-                            let mut stderr_buf = [0u8; 1024];
-                            let is_stdout_eof = match stdout.read(&mut stdout_buf) {
-                                Ok(0) => true, // EOF
-                                Ok(n) => {
-                                    if let Err(e) = writer.write_all(&stdout_buf[..n]) {
-                                        eprintln!("Failed to write FFmpeg stdout: {e}");
-                                    }
-                                    false
-                                }
-                                Err(e) => {
-                                    eprintln!("Failed to read FFmpeg stdout: {e}");
-                                    false
-                                }
-                            };
-                            let is_stderr_eof = match stderr.read(&mut stderr_buf) {
-                                Ok(0) => true, // EOF
-                                Ok(n) => {
-                                    if let Err(e) = writer.write_all(&stderr_buf[..n]) {
-                                        eprintln!("Failed to write FFmpeg stderr: {e}");
-                                    }
-                                    false
-                                }
-                                Err(e) => {
-                                    eprintln!("Failed to read FFmpeg stderr: {e}");
-                                    false
-                                }
-                            };
-                            if child.try_wait().is_ok() && is_stdout_eof && is_stderr_eof {
-                                break; // FFmpeg process has exited
-                            }
-                        }
-                        let _ = writer.flush(); // Ensure all logs are written
-                        let status = child.wait().map_err(|e| {
-                            anyhow::anyhow!("Failed to wait for FFmpeg process: {}", e)
-                        })?;
-                        writeln!(writer, "FFmpeg process exited with status: {status}",)?;
-                        if !status.success() {
-                            return Err(anyhow::anyhow!(
-                                "FFmpeg process exited with non-zero status: {}",
-                                status
-                            ));
-                        }
-                        Ok(())
-                    }
+                    move || ffmpeg_thread(ffmpeg_path, args, killed)
                 })?,
         );
 
@@ -489,6 +420,97 @@ impl OutputPlugin for FfmpegOutputPlugin {
         };
         Ok(format!("引数：{args}"))
     }
+}
+
+fn ffmpeg_thread(
+    ffmpeg_path: std::path::PathBuf,
+    args: Vec<String>,
+    killed: Arc<std::sync::atomic::AtomicBool>,
+) -> anyhow::Result<()> {
+    let mut writer = get_log_writer()?;
+    writeln!(writer, "FFmpeg path: {ffmpeg_path:?}",)?;
+    writeln!(writer, "Starting FFmpeg with args: {args:?}",)?;
+    let mut child = std::process::Command::new(ffmpeg_path)
+        .args(&args)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .creation_flags(0x08000000) // CREATE_NO_WINDOW
+        .spawn()
+        .map_err(|e| anyhow::anyhow!("Failed to start FFmpeg process: {}", e))?;
+
+    let mut stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| anyhow::anyhow!("Failed to get FFmpeg stdout"))?;
+    let mut stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| anyhow::anyhow!("Failed to get FFmpeg stderr"))?;
+    let writer = Arc::new(std::sync::Mutex::new(writer));
+    let stdout_pipe_thread = std::thread::Builder::new()
+        .name("aviutl2_ffmpeg_stdout_pipe".to_string())
+        .spawn({
+            let writer = Arc::clone(&writer);
+            let killed = Arc::clone(&killed);
+            move || -> anyhow::Result<()> { pipe_thread(&killed, &mut stdout, writer) }
+        })?;
+    let stderr_pipe_thread = std::thread::Builder::new()
+        .name("aviutl2_ffmpeg_stderr_pipe".to_string())
+        .spawn({
+            let writer = Arc::clone(&writer);
+            let killed = Arc::clone(&killed);
+            move || -> anyhow::Result<()> { pipe_thread(&killed, &mut stderr, writer) }
+        })?;
+    while !killed.load(std::sync::atomic::Ordering::Relaxed) && child.try_wait().is_err() {
+        std::thread::yield_now();
+    }
+    let status = child
+        .wait()
+        .map_err(|e| anyhow::anyhow!("Failed to wait for FFmpeg process: {}", e))?;
+    stdout_pipe_thread
+        .join()
+        .map_err(|e| anyhow::anyhow!("FFmpeg stdout pipe thread panicked: {:?}", e))??;
+    stderr_pipe_thread
+        .join()
+        .map_err(|e| anyhow::anyhow!("FFmpeg stderr pipe thread panicked: {:?}", e))??;
+    writeln!(
+        writer.lock().unwrap(),
+        "FFmpeg process exited with status: {status}",
+    )?;
+    if !status.success() {
+        return Err(anyhow::anyhow!(
+            "FFmpeg process exited with non-zero status: {}",
+            status
+        ));
+    }
+    drop(writer);
+
+    Ok(())
+}
+
+fn pipe_thread<F: Read + Send + 'static>(
+    killed: &Arc<std::sync::atomic::AtomicBool>,
+    stdout: &mut F,
+    writer: Arc<Mutex<std::fs::File>>,
+) -> Result<(), anyhow::Error> {
+    let mut buf = [0u8; 1024];
+    while !killed.load(std::sync::atomic::Ordering::Relaxed) {
+        std::thread::yield_now();
+        match stdout.read(&mut buf) {
+            Ok(0) => break, // EOF
+            Ok(n) => {
+                if let Err(e) = writer.lock().unwrap().write_all(&buf[..n]) {
+                    eprintln!("Failed to write FFmpeg stdout: {e}");
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to read FFmpeg stdout: {e}");
+                break;
+            }
+        }
+    }
+    Ok(())
 }
 
 register_output_plugin!(FfmpegOutputPlugin);
