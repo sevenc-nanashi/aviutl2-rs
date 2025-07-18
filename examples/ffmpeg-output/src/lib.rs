@@ -1,8 +1,10 @@
 mod config;
 mod dialog;
+mod named_pipe;
 use crate::{
     config::{FfmpegOutputConfig, load_config, save_config},
     dialog::FfmpegOutputConfigDialog,
+    named_pipe::{NamedPipe, PipeWriter},
 };
 use anyhow::Context;
 use aviutl2::{
@@ -12,55 +14,9 @@ use aviutl2::{
 use eframe::egui;
 use std::{
     io::{Read, Write},
-    os::windows::{io::FromRawHandle, process::CommandExt},
+    os::windows::process::CommandExt,
     sync::{Arc, Mutex},
 };
-
-struct NamedPipe {
-    handle: windows::Win32::Foundation::HANDLE,
-}
-unsafe impl Send for NamedPipe {}
-unsafe impl Sync for NamedPipe {}
-
-impl NamedPipe {
-    fn new(name: &str) -> anyhow::Result<Self> {
-        let handle = unsafe {
-            windows::Win32::System::Pipes::CreateNamedPipeW(
-                &windows::core::HSTRING::from(name),
-                windows::Win32::Storage::FileSystem::PIPE_ACCESS_OUTBOUND,
-                windows::Win32::System::Pipes::PIPE_TYPE_BYTE,
-                1,
-                0,
-                0,
-                0,
-                None,
-            )
-        };
-        if handle.is_invalid() {
-            return Err(anyhow::anyhow!("Failed to create named pipe: {}", unsafe {
-                windows::Win32::Foundation::GetLastError()
-                    .to_hresult()
-                    .message()
-            }));
-        }
-        Ok(NamedPipe { handle })
-    }
-
-    fn connect(&self) -> anyhow::Result<std::io::PipeWriter> {
-        unsafe {
-            if windows::Win32::System::Pipes::ConnectNamedPipe(self.handle, None).is_err() {
-                return Err(anyhow::anyhow!(
-                    "Failed to connect named pipe: {}",
-                    windows::Win32::Foundation::GetLastError()
-                        .to_hresult()
-                        .message()
-                ));
-            }
-        }
-        let pipe_writer = unsafe { std::io::PipeWriter::from_raw_handle(self.handle.0 as _) };
-        Ok(pipe_writer)
-    }
-}
 
 fn create_send_only_named_pipe(name: &str) -> anyhow::Result<(String, NamedPipe)> {
     let nonce = uuid::Uuid::new_v4().simple().to_string();
@@ -112,7 +68,7 @@ pub static REQUIRED_ARGS: &[&str] = &[
     "{output_path}",
 ];
 
-fn pipe_for_callback<T: Fn(std::io::PipeWriter) -> anyhow::Result<()> + Send + 'static>(
+fn pipe_for_callback<T: Fn(PipeWriter) -> anyhow::Result<()> + Send + 'static>(
     name: &str,
     callback: T,
 ) -> anyhow::Result<(String, std::thread::JoinHandle<anyhow::Result<()>>)> {
@@ -255,7 +211,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
 
         let (video_path, video_server_thread) = pipe_for_callback("aviutl2_ffmpeg_video_pipe", {
             let info = Arc::clone(&info);
-            move |stream: std::io::PipeWriter| -> anyhow::Result<()> {
+            move |stream: PipeWriter| -> anyhow::Result<()> {
                 if info.video.is_none() {
                     return Ok(());
                 }
@@ -280,7 +236,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
 
         let (audio_path, audio_server_thread) = pipe_for_callback("aviutl2_ffmpeg_audio_pipe", {
             let info = Arc::clone(&info);
-            move |stream: std::io::PipeWriter| -> anyhow::Result<()> {
+            move |stream: PipeWriter| -> anyhow::Result<()> {
                 if info.audio.is_none() {
                     return Ok(());
                 }
