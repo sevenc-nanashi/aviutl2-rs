@@ -195,20 +195,26 @@ impl OutputInfo {
         VideoFramesIterator::new(self)
     }
 
-    pub fn get_audio_samples<F: FromRawAudioSamples>(&self, start: i32, length: i32) -> Option<(Vec<F>, u32)> {
+    pub fn get_audio_samples<F: FromRawAudioSamples>(
+        &self,
+        start: i32,
+        length: i32,
+    ) -> Option<(Vec<F>, u32)> {
         let audio_ptr = unsafe { self.internal.as_mut().and_then(|oip| oip.func_get_audio) }?;
         let mut readed = 0;
         let audio_data_ptr = audio_ptr(start, length, &mut readed, F::FORMAT) as *mut u8;
 
         let audio = self.audio.as_ref()?;
-        let samples = unsafe {
-            F::from_raw(length, audio.num_channels, audio_data_ptr)
-        };
+        let samples = unsafe { F::from_raw(length, audio.num_channels, audio_data_ptr) };
 
         Some((samples, audio.num_channels))
     }
 
-    pub fn get_mono_audio_samples<F: FromRawAudioSamples>(&self, start: i32, length: i32) -> Option<Vec<F>> {
+    pub fn get_mono_audio_samples<F: FromRawAudioSamples>(
+        &self,
+        start: i32,
+        length: i32,
+    ) -> Option<Vec<F>> {
         let (samples, num_channels) = self.get_audio_samples(start, length)?;
         if num_channels == 1 {
             Some(samples)
@@ -222,11 +228,18 @@ impl OutputInfo {
         }
     }
 
-    pub fn get_mono_audio_samples_iter<F: FromRawAudioSamples>(&self, length: i32) -> MonoAudioSamplesIterator<F> {
+    pub fn get_mono_audio_samples_iter<F: FromRawAudioSamples>(
+        &self,
+        length: i32,
+    ) -> MonoAudioSamplesIterator<F> {
         MonoAudioSamplesIterator::new(self, length)
     }
 
-    pub fn get_stereo_audio_samples<F: FromRawAudioSamples>(&self, start: i32, length: i32) -> Option<Vec<(F, F)>> {
+    pub fn get_stereo_audio_samples<F: FromRawAudioSamples>(
+        &self,
+        start: i32,
+        length: i32,
+    ) -> Option<Vec<(F, F)>> {
         let (samples, num_channels) = self.get_audio_samples(start, length)?;
         if num_channels == 2 {
             Some(
@@ -240,7 +253,10 @@ impl OutputInfo {
         }
     }
 
-    pub fn get_stereo_audio_samples_iter<F: FromRawAudioSamples>(&self, length: i32) -> StereoAudioSamplesIterator<F> {
+    pub fn get_stereo_audio_samples_iter<F: FromRawAudioSamples>(
+        &self,
+        length: i32,
+    ) -> StereoAudioSamplesIterator<F> {
         StereoAudioSamplesIterator::new(self, length)
     }
 
