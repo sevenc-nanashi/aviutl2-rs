@@ -8,7 +8,9 @@ use crate::{
 };
 use anyhow::Context;
 use aviutl2::{
-    output::{OutputPlugin, RawBgrVideoFrame, RawYuy2VideoFrame},
+    output::{
+        OutputPlugin, RawBgrVideoFrame, RawHf64VideoFrame, RawPa64VideoFrame, RawYuy2VideoFrame,
+    },
     register_output_plugin,
 };
 use eframe::egui;
@@ -55,7 +57,7 @@ pub static DEFAULT_ARGS: &[&str] = &[
     "-map",
     "1:a:0",
     "-vf",
-    "vflip",
+    "{maybe_vflip}",
     "{output_path}",
 ];
 pub static REQUIRED_ARGS: &[&str] = &[
@@ -66,6 +68,7 @@ pub static REQUIRED_ARGS: &[&str] = &[
     "{audio_source}",
     "{audio_sample_rate}",
     "{output_path}",
+    "{maybe_vflip}",
 ];
 
 fn pipe_for_callback<T: Fn(PipeWriter) -> anyhow::Result<()> + Send + 'static>(
@@ -181,7 +184,10 @@ impl OutputPlugin for FfmpegOutputPlugin {
             input_type: aviutl2::output::OutputType::Both,
             file_filters: vec![aviutl2::output::FileFilter {
                 name: "Video Files".to_string(),
-                extensions: vec!["mp4".to_string(), "mkv".to_string(), "avi".to_string(), "webm".to_string()],
+                extensions: vec![
+                    "mp4".to_string(), "mkv".to_string(), "avi".to_string(), "webm".to_string(),
+                    "mov".to_string(), "flv".to_string(), "ts".to_string(), "m4v".to_string()
+                ],
             }],
             information: "FFmpeg for AviUtl, written in Rust / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/ffmpeg-output".to_string(),
             can_config: true,
@@ -225,6 +231,26 @@ impl OutputPlugin for FfmpegOutputPlugin {
                     config::PixelFormat::Bgr24 => {
                         for (_, frame) in info.get_video_frames_iter::<RawBgrVideoFrame>() {
                             writer.write_all(&frame.data)?;
+                        }
+                    }
+                    config::PixelFormat::Pa64 => {
+                        for (_, frame) in info.get_video_frames_iter::<RawPa64VideoFrame>() {
+                            writer.write_all(unsafe {
+                                std::slice::from_raw_parts(
+                                    frame.data.as_ptr() as *const u8,
+                                    frame.data.len() * std::mem::size_of::<u16>(),
+                                )
+                            })?;
+                        }
+                    }
+                    config::PixelFormat::Hf64 => {
+                        for (_, frame) in info.get_video_frames_iter::<RawHf64VideoFrame>() {
+                            writer.write_all(unsafe {
+                                std::slice::from_raw_parts(
+                                    frame.data.as_ptr() as *const u8,
+                                    frame.data.len() * std::mem::size_of::<u16>(),
+                                )
+                            })?;
                         }
                     }
                 }
@@ -282,7 +308,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
         for arg in config_args {
             args.push(
                 arg.replace("{video_source}", &video_path)
-                    .replace("{video_pixel_format}", config.pixel_format.to_ffmpeg_str())
+                    .replace("{video_pixel_format}", config.pixel_format.as_ffmpeg_str())
                     .replace(
                         "{video_size}",
                         &format!(
@@ -305,6 +331,14 @@ impl OutputPlugin for FfmpegOutputPlugin {
                             .audio
                             .as_ref()
                             .map_or("44100".to_string(), |a| a.sample_rate.to_string()),
+                    )
+                    .replace(
+                        "{maybe_vflip}",
+                        if config.pixel_format == config::PixelFormat::Bgr24 {
+                            "vflip"
+                        } else {
+                            "null"
+                        },
                     )
                     .replace("{output_path}", info.path.to_string_lossy().as_ref()),
             );
@@ -400,10 +434,11 @@ impl OutputPlugin for FfmpegOutputPlugin {
             save_config(&new_config).map_err(|e| {
                 anyhow::anyhow!("Failed to save FFmpeg Output Plugin config: {}", e)
             })?;
-            self.config
-                .lock()
-                .map_err(|e| anyhow::anyhow!("Failed to lock FFmpeg Output Plugin config: {}", e))?
-                .args = new_config.args;
+            let mut config = self.config.lock().map_err(|e| {
+                anyhow::anyhow!("Failed to lock FFmpeg Output Plugin config: {}", e)
+            })?;
+            config.pixel_format = new_config.pixel_format;
+            config.args = new_config.args;
         }
         Ok(())
     }
@@ -418,7 +453,10 @@ impl OutputPlugin for FfmpegOutputPlugin {
         } else {
             "カスタム"
         };
-        Ok(format!("引数：{args}"))
+        let pixel_format = config.pixel_format.as_str();
+        Ok(format!(
+            "引数：{args} | ピクセルフォーマット：{pixel_format}"
+        ))
     }
 }
 

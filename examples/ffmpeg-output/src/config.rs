@@ -35,19 +35,25 @@ impl Default for FfmpegOutputConfigV3 {
 pub enum PixelFormat {
     Yuy2,
     Bgr24,
+    Pa64,
+    Hf64,
 }
 impl PixelFormat {
-    pub fn to_str(&self) -> &str {
+    pub fn as_str(&self) -> &str {
         match self {
             PixelFormat::Yuy2 => "YUY2",
             PixelFormat::Bgr24 => "BGR24",
+            PixelFormat::Pa64 => "PA64（透過対応）",
+            PixelFormat::Hf64 => "HF64（透過対応）",
         }
     }
 
-    pub fn to_ffmpeg_str(&self) -> &str {
+    pub fn as_ffmpeg_str(&self) -> &str {
         match self {
             PixelFormat::Yuy2 => "yuyv422",
             PixelFormat::Bgr24 => "bgr24",
+            PixelFormat::Pa64 => "rgba64le",
+            PixelFormat::Hf64 => "rgbaf16le",
         }
     }
 }
@@ -75,8 +81,7 @@ pub fn load_config() -> anyhow::Result<FfmpegOutputConfig> {
         config.value = serde_json::to_value(FfmpegOutputConfigV3::default())?;
     }
 
-    Ok(serde_json::from_value(config.value)
-        .context("Failed to parse FFmpeg output plugin config")?)
+    serde_json::from_value(config.value).context("Failed to parse FFmpeg output plugin config")
 }
 
 pub fn save_config(config: &FfmpegOutputConfig) -> anyhow::Result<()> {

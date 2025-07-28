@@ -61,6 +61,7 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                         - `{video_fps}`：動画のフレームレート
                                         - `{audio_source}`：音声の入力ソース
                                         - `{audio_sample_rate}`：音声のサンプルレート
+                                        - `{maybe_vflip}`：Bgr24でのみ`vflip`、それ以外では`null`
                                         - `{output_path}`：出力ファイルのパス
 
                                         上の引数はすべて含まれている必要があります。
@@ -72,16 +73,18 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                 ui.horizontal(|ui| {
                                     ui.label("ピクセルフォーマット:");
                                     egui::ComboBox::from_id_salt("pixel_format")
-                                        .selected_text(self.pixel_format.to_str())
+                                        .selected_text(self.pixel_format.as_str())
                                         .show_ui(ui, |ui| {
                                             for format in [
                                                 crate::config::PixelFormat::Yuy2,
                                                 crate::config::PixelFormat::Bgr24,
+                                                crate::config::PixelFormat::Pa64,
+                                                crate::config::PixelFormat::Hf64,
                                             ] {
                                                 ui.selectable_value(
                                                     &mut self.pixel_format,
                                                     format,
-                                                    format.to_str(),
+                                                    format.as_str(),
                                                 );
                                             }
                                         });
@@ -102,7 +105,7 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                         self.result_sender
                                             .send(FfmpegOutputConfig {
                                                 args,
-                                                    pixel_format: self.pixel_format,
+                                                pixel_format: self.pixel_format,
                                             })
                                             .expect("Failed to send args");
                                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);

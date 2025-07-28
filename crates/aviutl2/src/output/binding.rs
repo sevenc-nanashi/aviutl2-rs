@@ -2,9 +2,9 @@ use crate::common::{AnyResult, FileFilter};
 use aviutl2_sys::output2::OUTPUT_INFO;
 use std::ops::Deref;
 
+pub use half::f16;
 pub use num_rational::Rational32;
 pub use raw_window_handle::Win32WindowHandle;
-pub use half::f16;
 
 pub struct OutputPluginTable {
     pub name: String,

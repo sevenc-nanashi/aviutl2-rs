@@ -13,10 +13,16 @@ pub use windows_sys::Win32::{
     Media::{Audio::WAVE_FORMAT_PCM, Multimedia::WAVE_FORMAT_IEEE_FLOAT},
 };
 
-pub const BI_YUY2: u32 = ('Y' as u32) << 24 | ('U' as u32) << 16 | ('Y' as u32) << 8 | '2' as u32;
-pub const BI_PA64: u32 = ('P' as u32) << 24 | ('A' as u32) << 16 | ('6' as u32) << 8 | '4' as u32;
-pub const BI_YC48: u32 = ('Y' as u32) << 24 | ('C' as u32) << 16 | ('4' as u32) << 8 | '8' as u32;
-pub const BI_HF64: u32 = ('H' as u32) << 24 | ('F' as u32) << 16 | ('6' as u32) << 8 | '4' as u32;
+macro_rules! fourcc {
+    ($a:expr, $b:expr, $c:expr, $d:expr) => {
+        (($a as u32) | (($b as u32) << 8) | (($c as u32) << 16) | (($d as u32) << 24))
+    };
+}
+
+pub const BI_YUY2: u32 = fourcc!('Y', 'U', 'Y', '2');
+pub const BI_PA64: u32 = fourcc!('P', 'A', '6', '4');
+pub const BI_YC48: u32 = fourcc!('Y', 'C', '4', '8');
+pub const BI_HF64: u32 = fourcc!('H', 'F', '6', '4');
 
 pub type LPCWSTR = *const u16;
 
