@@ -16,6 +16,11 @@ pub use windows_sys::Win32::{
     },
 };
 
+pub const BI_YUY2: u32 = ('Y' as u32) << 24 | ('U' as u32) << 16 | ('Y' as u32) << 8 | '2' as u32;
+pub const BI_PA64: u32 = ('P' as u32) << 24 | ('A' as u32) << 16 | ('6' as u32) << 8 | '4' as u32;
+pub const BI_YC48: u32 = ('Y' as u32) << 24 | ('C' as u32) << 16 | ('4' as u32) << 8 | '8' as u32;
+pub const BI_HF64: u32 = ('H' as u32) << 24 | ('F' as u32) << 16 | ('6' as u32) << 8 | '4' as u32;
+
 pub type LPCWSTR = *const u16;
 
 #[repr(C)]

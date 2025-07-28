@@ -484,6 +484,7 @@ dependencies = [
  "anyhow",
  "aviutl2-sys",
  "duplicate",
+ "half",
  "native-dialog",
  "num-rational",
  "raw-window-handle",

@@ -2,12 +2,14 @@ use std::num::NonZeroIsize;
 
 use crate::{
     common::{
-        alert_error, free_leaked_memory, leak_large_string, load_large_string,
+        alert_error, format_file_filters, free_leaked_memory, leak_large_string, load_large_string,
         result_to_bool_with_dialog,
     },
     output::{
-        AudioOutputInfo, FromRawAudioSamples, FromRawVideoFrame, OutputInfo, OutputPlugin,
-        RgbVideoFrame, VideoOutputInfo,
+        AudioOutputInfo, FromRawAudioSamples, FromRawVideoFrame, Hf64VideoFrame, OutputInfo,
+        OutputPlugin, Pa64VideoFrame, RawBgrVideoFrame, RawHf64VideoFrame, RawPa64VideoFrame,
+        RawYc48VideoFrame, RawYuy2VideoFrame, RgbVideoFrame, VideoOutputInfo, Yc48VideoFrame,
+        Yuy2VideoFrame,
     },
 };
 
@@ -15,11 +17,8 @@ use aviutl2_sys::{
     input2::WAVE_FORMAT_PCM,
     output2::{BI_RGB, LPCWSTR, WAVE_FORMAT_IEEE_FLOAT},
 };
+use half::f16;
 use num_rational::Rational32;
-
-use crate::common::format_file_filters;
-
-use super::{RawBgrVideoFrame, RawYuy2VideoFrame, Yuy2VideoFrame};
 
 impl FromRawVideoFrame for RgbVideoFrame {
     const FORMAT: u32 = BI_RGB;
@@ -108,6 +107,123 @@ impl FromRawVideoFrame for RawYuy2VideoFrame {
         let frame_buffer = unsafe {
             std::slice::from_raw_parts(frame_data_ptr, (video.width * video.height * 2) as usize)
                 .to_owned()
+        };
+
+        Self { data: frame_buffer }
+    }
+}
+
+impl FromRawVideoFrame for Hf64VideoFrame {
+    const FORMAT: u32 = aviutl2_sys::output2::BI_HF64;
+
+    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+        Ok(())
+    }
+    unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self {
+        let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
+        let frame_data_writer = frame_buffer.spare_capacity_mut();
+        let frame_data_ptr = frame_data_ptr as *const u16;
+        for y in 0..video.height as usize {
+            for x in 0..video.width as usize {
+                let i = y * video.width as usize + x;
+                // Each pixel is represented by 8 bytes (RGBA)
+                let pixel_r = unsafe { *frame_data_ptr.add(i * 4) };
+                let pixel_g = unsafe { *frame_data_ptr.add(i * 4 + 1) };
+                let pixel_b = unsafe { *frame_data_ptr.add(i * 4 + 2) };
+                let pixel_a = unsafe { *frame_data_ptr.add(i * 4 + 3) };
+                frame_data_writer[(video.height as usize - 1 - y) * video.width as usize + x]
+                    .write((
+                        f16::from_bits(pixel_r),
+                        f16::from_bits(pixel_g),
+                        f16::from_bits(pixel_b),
+                        f16::from_bits(pixel_a),
+                    ));
+            }
+        }
+        unsafe {
+            frame_buffer.set_len((video.width * video.height) as usize);
+        }
+
+        Self { data: frame_buffer }
+    }
+}
+impl FromRawVideoFrame for Yc48VideoFrame {
+    const FORMAT: u32 = aviutl2_sys::output2::BI_YC48;
+
+    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+        Ok(())
+    }
+    unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self {
+        let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
+        let frame_data_writer = frame_buffer.spare_capacity_mut();
+        let frame_data_ptr = frame_data_ptr as *const u16;
+        for y in 0..video.height as usize {
+            for x in 0..video.width as usize {
+                let i = y * video.width as usize + x;
+                // Each pixel is represented by 6 bytes (YCbCr)
+                let pixel_y = unsafe { *frame_data_ptr.add(i * 3) };
+                let pixel_c1 = unsafe { *frame_data_ptr.add(i * 3 + 1) };
+                let pixel_c2 = unsafe { *frame_data_ptr.add(i * 3 + 2) };
+                frame_data_writer[(video.height as usize - 1 - y) * video.width as usize + x]
+                    .write((pixel_y, pixel_c1, pixel_c2));
+            }
+        }
+        unsafe {
+            frame_buffer.set_len((video.width * video.height) as usize);
+        }
+
+        Self { data: frame_buffer }
+    }
+}
+impl FromRawVideoFrame for Pa64VideoFrame {
+    const FORMAT: u32 = aviutl2_sys::output2::BI_PA64;
+
+    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+        Ok(())
+    }
+    unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self {
+        let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
+        let frame_data_writer = frame_buffer.spare_capacity_mut();
+        let frame_data_ptr = frame_data_ptr as *const u16;
+        for y in 0..video.height as usize {
+            for x in 0..video.width as usize {
+                let i = y * video.width as usize + x;
+                // Each pixel is represented by 8 bytes (RGBA)
+                let pixel_r = unsafe { *frame_data_ptr.add(i * 4) };
+                let pixel_g = unsafe { *frame_data_ptr.add(i * 4 + 1) };
+                let pixel_b = unsafe { *frame_data_ptr.add(i * 4 + 2) };
+                let pixel_a = unsafe { *frame_data_ptr.add(i * 4 + 3) };
+                frame_data_writer[(video.height as usize - 1 - y) * video.width as usize + x]
+                    .write((pixel_r, pixel_g, pixel_b, pixel_a));
+            }
+        }
+        unsafe {
+            frame_buffer.set_len((video.width * video.height) as usize);
+        }
+
+        Self { data: frame_buffer }
+    }
+}
+
+#[duplicate::duplicate_item(
+    Name                Type  elms FMT;
+    [RawHf64VideoFrame] [u16] [4]  [aviutl2_sys::output2::BI_HF64];
+    [RawYc48VideoFrame] [u16] [3]  [aviutl2_sys::output2::BI_YC48];
+    [RawPa64VideoFrame] [u16] [4]  [aviutl2_sys::output2::BI_PA64];
+)]
+impl FromRawVideoFrame for Name {
+    const FORMAT: u32 = FMT;
+
+    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+        Ok(())
+    }
+    unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self {
+        let frame_buffer = unsafe {
+            std::slice::from_raw_parts(
+                frame_data_ptr as *const Type,
+                (video.width * video.height * elms) as usize,
+            )
+            .to_owned()
         };
 
         Self { data: frame_buffer }

@@ -4,6 +4,7 @@ use std::ops::Deref;
 
 pub use num_rational::Rational32;
 pub use raw_window_handle::Win32WindowHandle;
+pub use half::f16;
 
 pub struct OutputPluginTable {
     pub name: String,
@@ -79,52 +80,31 @@ pub trait FromRawVideoFrame {
     unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self;
 }
 
-#[derive(Debug, Clone)]
-pub struct RgbVideoFrame {
-    pub data: Vec<(u8, u8, u8)>, // RGB format
-}
-impl Deref for RgbVideoFrame {
-    type Target = [(u8, u8, u8)];
+duplicate::duplicate! {
+    [
+        Name                Type;
+        [RgbVideoFrame]     [(u8, u8, u8)];
+        [Yuy2VideoFrame]    [(u8, u8, u8, u8)];
+        [Hf64VideoFrame]    [(f16, f16, f16, f16)];
+        [Yc48VideoFrame]    [(u16, u16, u16)];
+        [Pa64VideoFrame]    [(u16, u16, u16, u16)];
 
-    fn deref(&self) -> &Self::Target {
-        &self.data
+        [RawBgrVideoFrame]  [u8];
+        [RawYuy2VideoFrame] [u8];
+        [RawHf64VideoFrame] [u16];
+        [RawYc48VideoFrame] [u16];
+        [RawPa64VideoFrame] [u16];
+    ]
+    #[derive(Debug, Clone)]
+    pub struct Name {
+        pub data: Vec<Type>, // Raw RGB format
     }
-}
+    impl Deref for Name {
+        type Target = [Type];
 
-#[derive(Debug, Clone)]
-pub struct Yuy2VideoFrame {
-    pub data: Vec<(u8, u8, u8, u8)>, // YUY2 format (Y0, U, Y1, V)
-}
-
-impl Deref for Yuy2VideoFrame {
-    type Target = [(u8, u8, u8, u8)];
-
-    fn deref(&self) -> &Self::Target {
-        &self.data
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RawBgrVideoFrame {
-    pub data: Vec<u8>, // Raw RGB format
-}
-impl Deref for RawBgrVideoFrame {
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target {
-        &self.data
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RawYuy2VideoFrame {
-    pub data: Vec<u8>, // Raw YUY2 format
-}
-impl Deref for RawYuy2VideoFrame {
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target {
-        &self.data
+        fn deref(&self) -> &Self::Target {
+            &self.data
+        }
     }
 }
 
