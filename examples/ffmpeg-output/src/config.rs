@@ -41,7 +41,7 @@ pub enum PixelFormat {
 impl PixelFormat {
     pub fn as_str(&self) -> &str {
         match self {
-            PixelFormat::Yuy2 => "YUY2（YUV422、透過なし）",
+            PixelFormat::Yuy2 => "YUV422（YUY2、透過なし）",
             PixelFormat::Bgr24 => "BGR u8x3（BGR24、透過なし）",
             PixelFormat::Pa64 => "RGBA u16x4（PA64、透過対応）",
             PixelFormat::Hf64 => "RGBA f16x4（HF64、透過対応）",

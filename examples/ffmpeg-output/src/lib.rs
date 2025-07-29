@@ -1,6 +1,7 @@
 mod config;
 mod dialog;
 mod named_pipe;
+mod presets;
 use crate::{
     config::{FfmpegOutputConfig, load_config, save_config},
     dialog::FfmpegOutputConfigDialog,

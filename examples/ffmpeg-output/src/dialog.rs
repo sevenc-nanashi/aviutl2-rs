@@ -65,51 +65,18 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                         - `{output_path}`：出力ファイルのパス
 
                                         上の引数はすべて含まれている必要があります。
-                                        FFmpegについて詳しくない場合は、この設定を変更しないことを推奨します。
+                                        FFmpegについて詳しくない場合は、この設定を手動で変更しないことを推奨します。
                                         "#
                                     ),
                                 );
 
                                 ui.collapsing("プリセット", |ui| {
                                     ui.horizontal(|ui| {
-                                        if ui.button("デフォルト").clicked() {
-                                            self.args_buffer = DEFAULT_ARGS.join("\n");
-                                        }
-                                        if ui.button("透過MOV").clicked() {
-                                            self.pixel_format = crate::config::PixelFormat::Pa64;
-                                            self.args_buffer = dedent!(
-                                                r#"
-                                                -y
-                                                -f
-                                                rawvideo
-                                                -pix_fmt
-                                                {video_pixel_format}
-                                                -video_size
-                                                {video_size}
-                                                -framerate
-                                                {video_fps}
-                                                -i
-                                                {video_source}
-                                                -f
-                                                f32le
-                                                -ar
-                                                {audio_sample_rate}
-                                                -ac
-                                                2
-                                                -i
-                                                {audio_source}
-                                                -map
-                                                0:v:0
-                                                -map
-                                                1:a:0
-                                                -vf
-                                                {maybe_vflip}
-                                                -vcodec
-                                                qtrle
-                                                {output_path}
-                                                "#
-                                            )
-                                            .to_string();
+                                        for preset in crate::presets::PRESETS {
+                                            if ui.button(preset.name).on_hover_text(preset.description).clicked() {
+                                                self.args_buffer = preset.args.join("\n");
+                                                self.pixel_format = preset.pixel_format;
+                                            }
                                         }
                                     });
                                 });
