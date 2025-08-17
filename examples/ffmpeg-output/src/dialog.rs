@@ -74,7 +74,11 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                 ui.collapsing("プリセット", |ui| {
                                     ui.horizontal(|ui| {
                                         for preset in crate::presets::PRESETS {
-                                            if ui.button(preset.name).on_hover_text(preset.description).clicked() {
+                                            if ui
+                                                .button(preset.name)
+                                                .on_hover_text(preset.description)
+                                                .clicked()
+                                            {
                                                 self.args_buffer = preset.args.join("\n");
                                                 self.pixel_format = preset.pixel_format;
                                             }
@@ -108,10 +112,7 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                         .iter()
                                         .all(|arg| args.iter().any(|a| a.contains(arg)));
                                     if ui
-                                        .add_enabled(
-                                            can_save,
-                                            egui::Button::new("保存")
-                                        )
+                                        .add_enabled(can_save, egui::Button::new("保存"))
                                         .clicked()
                                     {
                                         self.result_sender
@@ -122,17 +123,12 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                             .expect("Failed to send args");
                                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                                     }
-                                    if ui
-                                        .button("リセット")
-                                        .clicked()
-                                    {
-                                        self.pixel_format = FfmpegOutputConfig::default().pixel_format;
+                                    if ui.button("リセット").clicked() {
+                                        self.pixel_format =
+                                            FfmpegOutputConfig::default().pixel_format;
                                         self.args_buffer = DEFAULT_ARGS.join("\n");
                                     }
-                                    if ui
-                                        .button("キャンセル")
-                                        .clicked()
-                                    {
+                                    if ui.button("キャンセル").clicked() {
                                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                                     }
                                 });
