@@ -48,31 +48,34 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                 CommonMarkViewer::new().show(
                                     ui,
                                     &mut cache,
-                                    dedent!(
-                                        r#"
-                                        # Rusty FFmpeg Output Plugin
-                                        FFmpegを使用して動画と音声を出力するプラグインです。\
-                                        FFmpegに渡す引数を設定できます。\
-                                        引数は行区切りで入力してください。\
-                                        以下の引数は実行時に置換されます：
-                                        - `{video_source}`：動画の入力ソース
-                                        - `{video_pixel_format}`：動画のピクセルフォーマット
-                                        - `{video_size}`：動画の解像度
-                                        - `{video_fps}`：動画のフレームレート
-                                        - `{audio_source}`：音声の入力ソース
-                                        - `{audio_sample_rate}`：音声のサンプルレート
-                                        - `{maybe_vflip}`：Bgr24でのみ`vflip`、それ以外では`null`
-                                        - `{output_path}`：出力ファイルのパス
+                                    &format!(
+                                        dedent!(
+                                            r#"
+                                            # Rusty FFmpeg Output Plugin v{}
+                                            FFmpegを使用して動画と音声を出力するプラグインです。\
+                                            FFmpegに渡す引数を設定できます。\
+                                            引数は行区切りで入力してください。\
+                                            以下の引数は実行時に置換されます：
+                                            - `{{video_source}}`：動画の入力ソース
+                                            - `{{video_pixel_format}}`：動画のピクセルフォーマット
+                                            - `{{video_size}}`：動画の解像度
+                                            - `{{video_fps}}`：動画のフレームレート
+                                            - `{{audio_source}}`：音声の入力ソース
+                                            - `{{audio_sample_rate}}`：音声のサンプルレート
+                                            - `{{maybe_vflip}}`：Bgr24でのみ`vflip`、それ以外では`null`
+                                            - `{{output_path}}`：出力ファイルのパス
 
-                                        上の引数はすべて含まれている必要があります。
-                                        FFmpegについて詳しくない場合は、この設定を手動で変更せず、\
-                                        プリセットを使用することをお勧めします。
-                                        "#
-                                    ),
+                                            上の引数はすべて含まれている必要があります。
+                                            FFmpegについて詳しくない場合は、この設定を手動で変更せず、\
+                                            プリセットを使用することをお勧めします。
+                                            "#
+                                        ),
+                                        env!("CARGO_PKG_VERSION")
+                                    )
                                 );
 
                                 ui.collapsing("プリセット", |ui| {
-                                    ui.horizontal(|ui| {
+                                    ui.horizontal_wrapped(|ui| {
                                         for preset in crate::presets::PRESETS {
                                             if ui
                                                 .button(preset.name)

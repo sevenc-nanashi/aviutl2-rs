@@ -6,6 +6,7 @@ use crate::{
     config::{FfmpegOutputConfig, load_config, save_config},
     dialog::FfmpegOutputConfigDialog,
     named_pipe::{NamedPipe, PipeWriter},
+    presets::PRESETS,
 };
 use anyhow::Context;
 use aviutl2::{
@@ -449,11 +450,10 @@ impl OutputPlugin for FfmpegOutputPlugin {
             .config
             .lock()
             .map_err(|e| anyhow::anyhow!("Failed to lock FFmpeg Output Plugin config: {}", e))?;
-        let args = if config.args == DEFAULT_ARGS {
-            "デフォルト"
-        } else {
-            "カスタム"
-        };
+        let args = PRESETS
+            .iter()
+            .find(|p| config.args == p.args)
+            .map_or("カスタム", |preset| preset.name);
         let pixel_format = config.pixel_format.as_str();
         Ok(format!(
             "引数：{args} | ピクセルフォーマット：{pixel_format}"
