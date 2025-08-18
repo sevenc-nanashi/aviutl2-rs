@@ -93,8 +93,13 @@ pub unsafe fn create_table<T: InputPlugin>(
         plugin_info.information.clone()
     };
 
+    let mut flag = plugin_info.input_type.to_bits();
+    if plugin_info.concurrent {
+        flag |= aviutl2_sys::input2::INPUT_PLUGIN_TABLE::FLAG_CONCURRENT;
+    }
+
     aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
-        flag: plugin_info.input_type.to_bits(),
+        flag,
         name: leak_large_string(&name),
         filefilter: leak_large_string(&file_filter),
         information: leak_large_string(&information),
@@ -104,6 +109,8 @@ pub unsafe fn create_table<T: InputPlugin>(
         func_read_video: Some(func_read_video),
         func_read_audio: Some(func_read_audio),
         func_config: plugin_info.can_config.then_some(func_config),
+        func_set_track: None,     // TODO
+        func_time_to_frame: None, // TODO
     }
 }
 pub unsafe fn func_open<T: InputPlugin>(
@@ -183,12 +190,6 @@ pub unsafe fn func_info_get<T: InputPlugin>(
                     (*iip).audio_n = audio_info.num_samples;
                     (*iip).audio_format = audio_format_ptr;
                     (*iip).audio_format_size = audio_format_size;
-                }
-            }
-
-            if info.concurrent {
-                unsafe {
-                    (*iip).flag |= aviutl2_sys::input2::INPUT_INFO::FLAG_CONCURRENT;
                 }
             }
 
@@ -282,15 +283,17 @@ macro_rules! register_input_plugin {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetInputPluginTable()
             -> *mut aviutl2::sys::input2::INPUT_PLUGIN_TABLE {
-                let table = $crate::input::__bridge::create_table::<$struct>(
-                    &PLUGIN,
-                    func_open,
-                    func_close,
-                    func_info_get,
-                    func_read_video,
-                    func_read_audio,
-                    func_config,
-                );
+                let table = unsafe {
+                    $crate::input::__bridge::create_table::<$struct>(
+                        &PLUGIN,
+                        func_open,
+                        func_close,
+                        func_info_get,
+                        func_read_video,
+                        func_read_audio,
+                        func_config,
+                    )
+                };
                 Box::into_raw(Box::new(table))
             }
 

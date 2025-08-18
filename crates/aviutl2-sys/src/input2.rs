@@ -45,7 +45,7 @@ pub struct INPUT_INFO {
 impl INPUT_INFO {
     pub const FLAG_VIDEO: i32 = 1;
     pub const FLAG_AUDIO: i32 = 2;
-    pub const FLAG_CONCURRENT: i32 = 16;
+    pub const FLAG_TIME_TO_FRAME: i32 = 16;
 }
 
 pub type INPUT_HANDLE = *mut c_void;
@@ -64,9 +64,17 @@ pub struct INPUT_PLUGIN_TABLE {
     pub func_read_audio:
         Option<extern "C" fn(ih: INPUT_HANDLE, start: i32, length: i32, buf: *mut c_void) -> i32>,
     pub func_config: Option<extern "C" fn(hwnd: HWND, dll_hinst: HINSTANCE) -> bool>,
+    pub func_set_track:
+        Option<extern "C" fn(ih: INPUT_HANDLE, track_type: i32, track_index: i32) -> i32>,
+    pub func_time_to_frame: Option<extern "C" fn(ih: INPUT_HANDLE, time: f64) -> i32>,
 }
 
 impl INPUT_PLUGIN_TABLE {
     pub const FLAG_VIDEO: i32 = 1;
     pub const FLAG_AUDIO: i32 = 2;
+    pub const FLAG_CONCURRENT: i32 = 16;
+    pub const FLAG_MULTI_TRACK: i32 = 32;
+
+    pub const TRACK_TYPE_VIDEO: i32 = 0;
+    pub const TRACK_TYPE_AUDIO: i32 = 1;
 }

@@ -4,6 +4,7 @@ pub use raw_window_handle::Win32WindowHandle;
 pub struct InputPluginTable {
     pub name: String,
     pub input_type: InputType,
+    pub concurrent: bool,
     pub file_filters: Vec<FileFilter>,
     pub information: String,
 
@@ -30,8 +31,8 @@ pub struct AudioFormat {
 pub struct InputInfo {
     pub video: Option<VideoInputInfo>,
     pub audio: Option<AudioInputInfo>,
-
-    pub concurrent: bool,
+    // TODO:
+    // pub dynamic_time: bool,
 }
 
 pub enum InputType {

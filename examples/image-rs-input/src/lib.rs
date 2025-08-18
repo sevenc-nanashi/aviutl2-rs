@@ -23,6 +23,7 @@ impl InputPlugin for ImageRsPlugin {
             }],
             information: "image-rs for AviUtl / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-input".to_owned(),
             can_config: false,
+            concurrent: false,
         }
     }
 
@@ -45,7 +46,6 @@ impl InputPlugin for ImageRsPlugin {
                 image_format: format,
             }),
             audio: None, // No audio for image files
-            concurrent: false,
         })
     }
 
