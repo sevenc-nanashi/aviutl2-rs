@@ -55,6 +55,7 @@ pub struct INPUT_INFO {
     /// [`BI_YUY2`]
     /// [`BI_PA64`]
     /// [`BI_YC48`]
+    /// [`BI_HF64`]
     pub format: *mut BITMAPINFOHEADER,
     /// 画像フォーマットのサイズ
     pub format_size: i32,

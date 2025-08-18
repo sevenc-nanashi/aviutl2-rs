@@ -63,6 +63,7 @@ pub struct OUTPUT_INFO {
     /// [`BI_YUY2`]
     /// [`BI_PA64`]
     /// [`BI_YC48`]
+    /// [`BI_HF64`]
     pub func_get_video: Option<extern "C" fn(frame: i32, format: u32) -> *mut c_void>,
     /// PCM形式の音声データへのポインタを取得します
     ///
