@@ -1,3 +1,6 @@
 [submodule "mplus"]
 	path = examples/ffmpeg-output/fonts
 	url = https://github.com/coz-m/MPLUS_FONTS.git
+[submodule "sdk"]
+	path = sdk
+	url = https://github.com/sevenc-nanashi/aviutl2_sdk_mirror
