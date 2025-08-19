@@ -87,7 +87,7 @@ impl AudioInputInfo {
 
 pub struct InternalInputPluginState<T: Send + Sync + InputPlugin> {
     plugin_info: InputPluginTable,
-    will_free_on_next_call: std::sync::Mutex<Vec<usize>>,
+    will_free_on_next_call: std::sync::Mutex<Vec<LeakedPtr>>,
 
     instance: T,
 }
@@ -104,8 +104,13 @@ impl<T: Send + Sync + InputPlugin> InternalInputPluginState<T> {
     }
 }
 
+enum LeakedPtr {
+    BitmapInfoHeader(usize),
+    WaveFormatEx(usize),
+}
+
 impl<T: Send + Sync + InputPlugin> InternalInputPluginState<T> {
-    fn defer_leak(&self, ptr: usize) {
+    fn defer_leak(&self, ptr: LeakedPtr) {
         let mut will_free = self.will_free_on_next_call.lock().unwrap();
         will_free.push(ptr);
     }
@@ -113,7 +118,14 @@ impl<T: Send + Sync + InputPlugin> InternalInputPluginState<T> {
         let mut will_free = self.will_free_on_next_call.lock().unwrap();
         for ptr in will_free.drain(..) {
             unsafe {
-                let _ = Box::from_raw(ptr as *mut u8);
+                match ptr {
+                    LeakedPtr::BitmapInfoHeader(addr) => {
+                        let _ = Box::from_raw(addr as *mut aviutl2_sys::input2::BITMAPINFOHEADER);
+                    }
+                    LeakedPtr::WaveFormatEx(addr) => {
+                        let _ = Box::from_raw(addr as *mut aviutl2_sys::input2::WAVEFORMATEX);
+                    }
+                }
             }
         }
     }
@@ -254,7 +266,9 @@ pub unsafe fn func_info_get<T: InputPlugin>(
                 let image_format = video_info.into_raw();
                 let image_format = Box::new(image_format);
                 let image_format_ptr = Box::into_raw(image_format);
-                plugin_state.defer_leak(image_format_ptr as usize);
+                plugin_state.defer_leak(
+                    LeakedPtr::BitmapInfoHeader(image_format_ptr as usize),
+                );
                 unsafe {
                     (*iip).flag |= aviutl2_sys::input2::INPUT_INFO::FLAG_VIDEO;
                     if manual_frame_index {
@@ -277,7 +291,9 @@ pub unsafe fn func_info_get<T: InputPlugin>(
                 let audio_format_size = std::mem::size_of_val(&audio_format) as i32;
                 let audio_format = Box::new(audio_format);
                 let audio_format_ptr = Box::into_raw(audio_format);
-                plugin_state.defer_leak(audio_format_ptr as usize);
+                plugin_state.defer_leak(
+                    LeakedPtr::WaveFormatEx(audio_format_ptr as usize),
+                );
                 unsafe {
                     (*iip).flag |= aviutl2_sys::input2::INPUT_INFO::FLAG_AUDIO;
                     (*iip).audio_n = num_samples as _;
