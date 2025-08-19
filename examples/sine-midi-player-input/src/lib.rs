@@ -6,15 +6,18 @@ use ordered_float::OrderedFloat;
 
 const SAMPLE_RATE: u32 = 44100;
 const TAIL_LENGTH: f64 = 1.0; // 1 second tail length
+const MASTER_VOLUME: f32 = 0.05; // Volume level of master track (0.0 to 1.0)
+const VOLUME: f32 = 0.25; // Volume level (0.0 to 1.0)
+const CLIP: f32 = 1.0; // Clip value for audio samples (0.0 to 1.0)
 
 const PI_2: f32 = 2.0 * std::f32::consts::PI;
-const VOLUME: f32 = 0.5; // Default volume for sine wave
 
 struct SinMidPlayerPlugin {}
 
 #[derive(Debug)]
 struct SinMidPlayerHandle {
     smf: midi::OwnedSmf,
+    track_number: u32,
     ticks_per_beat: u64,
     tempo_index: std::collections::BTreeMap<OrderedFloat<f64>, TempoIndexCacheEntry>,
     expected_next_sample: u64,
@@ -48,6 +51,7 @@ impl SinMidPlayerHandle {
 
         return Ok(SinMidPlayerHandle {
             smf,
+            track_number: 0, // Default to the first track
             ticks_per_beat,
             tempo_index,
             expected_next_sample: 0,
@@ -197,6 +201,7 @@ impl InputPlugin for SinMidPlayerPlugin {
             .max()
             .unwrap_or(0);
 
+        handle.track_number = audio_track;
         initialize_cache(handle, audio_track)?;
 
         return Ok(aviutl2::input::InputInfo {
@@ -288,6 +293,7 @@ impl InputPlugin for SinMidPlayerPlugin {
         }
         let mut samples = vec![0.0f32; length as usize];
         for current_sample in start_sample..end_sample {
+            let sample_index = (current_sample - start_sample) as usize;
             let current_time = current_sample as f64 / SAMPLE_RATE as f64;
             while handle.current_track_event_index < handle.current_track_events.len() {
                 let (event_tick, event) =
@@ -316,9 +322,17 @@ impl InputPlugin for SinMidPlayerPlugin {
                 let elapsed_seconds = current_time - start_time;
                 let phase = (elapsed_seconds * frequency) as f32 * PI_2;
                 let amplitude = note.velocity as f32 / 127.0; // Normalize velocity
-                let sample_value = ((phase.sin() * amplitude * VOLUME) as f32).clamp(-1.0, 1.0); // Clamp to [-1.0, 1.0]
-                samples[(current_sample - start_sample) as usize] += sample_value;
+                let sample_value = ((phase.sin()
+                    * amplitude
+                    * if handle.track_number == 0 {
+                        MASTER_VOLUME
+                    } else {
+                        VOLUME
+                    }) as f32)
+                    .clamp(-CLIP, CLIP);
+                samples[sample_index] += sample_value;
             }
+            samples[sample_index] = samples[sample_index].clamp(-CLIP, CLIP);
         }
         handle.expected_next_sample = end_sample;
 
