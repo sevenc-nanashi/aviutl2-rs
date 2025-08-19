@@ -36,14 +36,15 @@ impl InputPlugin for ImageRsPlugin {
     fn get_input_info(&self, handle: &Self::InputHandle) -> AnyResult<aviutl2::input::InputInfo> {
         let width = handle.width();
         let height = handle.height();
-        let format = aviutl2::input::ImageFormat { width, height };
 
         Ok(aviutl2::input::InputInfo {
             video: Some(aviutl2::input::VideoInputInfo {
-                fps: 30,
-                scale: 1,
+                fps: aviutl2::input::Rational32::new(30, 1),
                 num_frames: 1,
-                image_format: format,
+                width,
+                height,
+                format: aviutl2::input::VideoFormat::Rgba,
+                num_tracks: 1,
             }),
             audio: None, // No audio for image files
         })

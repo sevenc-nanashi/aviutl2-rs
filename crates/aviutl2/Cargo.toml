@@ -12,8 +12,9 @@ output = []
 anyhow = "1.0.98"
 aviutl2-sys.workspace = true
 duplicate = "2.0.0"
-half = "2.6.0"
+half = { version = "2.6.0", features = ["zerocopy"] }
 native-dialog = "0.9.0"
 num-rational = "0.4.2"
 raw-window-handle = "0.6.2"
 thiserror = "2.0.12"
+zerocopy = { version = "0.8.26", features = ["std"] }

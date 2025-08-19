@@ -1,5 +1,6 @@
 pub use anyhow::Result as AnyResult;
 
+#[derive(Debug, Clone)]
 pub struct FileFilter {
     pub name: String,
     pub extensions: Vec<String>,

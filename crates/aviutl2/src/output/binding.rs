@@ -7,6 +7,7 @@ pub use num_rational::Rational32;
 pub use raw_window_handle::Win32WindowHandle;
 
 /// 出力プラグインの情報を表す構造体。
+#[derive(Debug, Clone)]
 pub struct OutputPluginTable {
     /// プラグインの名前。
     pub name: String,
@@ -24,6 +25,7 @@ pub struct OutputPluginTable {
 }
 
 /// 出力の種類を表す列挙型。
+#[derive(Debug, Clone)]
 pub enum OutputType {
     /// 動画のみの出力。
     Video,
@@ -44,6 +46,7 @@ impl OutputType {
 }
 
 /// 出力情報を表す構造体。
+#[derive(Debug, Clone)]
 pub struct OutputInfo {
     /// 動画出力情報。動画出力がない場合は`None`。
     pub video: Option<VideoOutputInfo>,
@@ -59,6 +62,7 @@ unsafe impl Send for OutputInfo {}
 unsafe impl Sync for OutputInfo {}
 
 /// 動画の出力情報を表す構造体。
+#[derive(Debug, Clone)]
 pub struct VideoOutputInfo {
     /// 動画の幅（ピクセル単位）。
     pub width: u32,
@@ -71,6 +75,7 @@ pub struct VideoOutputInfo {
 }
 
 /// 音声の出力情報を表す構造体。
+#[derive(Debug, Clone)]
 pub struct AudioOutputInfo {
     /// 音声のサンプルレート（Hz単位）。
     pub sample_rate: u32,
@@ -340,6 +345,7 @@ impl OutputInfo {
 ///
 /// # See Also
 /// [`OutputInfo::get_video_frames_iter`]
+#[derive(Debug, Clone)]
 pub struct VideoFramesIterator<'a, F: FromRawVideoFrame> {
     output_info: &'a OutputInfo,
     current_frame: i32,
@@ -414,6 +420,7 @@ duplicate::duplicate! {
     ///
     /// # See Also
     #[doc = Also]
+    #[derive(Debug, Clone)]
     pub struct Name<'a, F: FromRawAudioSamples> {
         output_info: &'a OutputInfo,
         length: i32,
