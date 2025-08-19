@@ -5,7 +5,7 @@ use crate::{
     input::{AudioFormat, ImageFormat, InputPlugin, IntoAudio, IntoImage},
 };
 
-use super::{alert_error, result_to_bool_with_dialog};
+use super::result_to_bool_with_dialog;
 
 pub use raw_window_handle::RawWindowHandle;
 
@@ -129,10 +129,7 @@ pub unsafe fn func_open<T: InputPlugin>(
                 });
             Box::into_raw(boxed_handle) as aviutl2_sys::input2::INPUT_HANDLE
         }
-        Err(e) => {
-            alert_error(&e);
-            std::ptr::null_mut()
-        }
+        Err(_) => std::ptr::null_mut(),
     }
 }
 pub unsafe fn func_close<T: InputPlugin>(
@@ -141,7 +138,7 @@ pub unsafe fn func_close<T: InputPlugin>(
 ) -> bool {
     free_leaked_memory();
     let handle = *unsafe { Box::from_raw(ih as *mut InternalInputHandle<T::InputHandle>) };
-    result_to_bool_with_dialog(T::close(plugin, handle.handle))
+    (T::close(plugin, handle.handle)).is_ok()
 }
 pub unsafe fn func_info_get<T: InputPlugin>(
     plugin: &T,
@@ -195,10 +192,7 @@ pub unsafe fn func_info_get<T: InputPlugin>(
 
             true
         }
-        Err(e) => {
-            alert_error(&e);
-            false
-        }
+        Err(_) => false,
     }
 }
 pub unsafe fn func_read_video<T: InputPlugin>(
@@ -225,10 +219,7 @@ pub unsafe fn func_read_video<T: InputPlugin>(
             }
             image_data.len() as i32
         }
-        Err(e) => {
-            alert_error(&e);
-            0
-        }
+        Err(_) => 0,
     }
 }
 
@@ -252,10 +243,7 @@ pub unsafe fn func_read_audio<T: InputPlugin>(
             }
             len as i32
         }
-        Err(e) => {
-            alert_error(&e);
-            0
-        }
+        Err(_) => 0,
     }
 }
 
