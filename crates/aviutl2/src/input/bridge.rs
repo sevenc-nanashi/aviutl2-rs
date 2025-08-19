@@ -1,11 +1,13 @@
 use std::num::NonZeroIsize;
 
 use crate::{
-    common::{format_file_filters, leak_large_string, load_large_string},
-    input::{AudioFormat, ImageFormat, InputPlugin, IntoAudio, IntoImage},
+    common::{
+        format_file_filters, leak_large_string, load_large_string, result_to_bool_with_dialog,
+    },
+    input::{
+        AudioFormat, AudioInputInfo, ImageFormat, InputPlugin, IntoAudio, IntoImage, VideoInputInfo,
+    },
 };
-
-use super::{AudioInputInfo, VideoInputInfo, alert_error, result_to_bool_with_dialog};
 
 pub use raw_window_handle::RawWindowHandle;
 
@@ -48,10 +50,10 @@ impl VideoInputInfo {
             biBitCount: (self.format.bytes_count() * 8) as u16, // Bits per pixel
             biCompression: bi_compression,
             biSizeImage: (self.width * self.height * self.format.bytes_count() as u32),
-            biXPelsPerMeter: 0,                          // Not used
-            biYPelsPerMeter: 0,                          // Not used
-            biClrUsed: 0,                                // Not used
-            biClrImportant: 0,                           // Not used
+            biXPelsPerMeter: 0, // Not used
+            biYPelsPerMeter: 0, // Not used
+            biClrUsed: 0,       // Not used
+            biClrImportant: 0,  // Not used
         }
     }
 }
@@ -67,10 +69,13 @@ impl AudioInputInfo {
             wFormatTag: format as u16,
             nChannels: self.channels,
             nSamplesPerSec: self.sample_rate,
-            nAvgBytesPerSec: (self.sample_rate * (self.channels as u32) * (bytes_per_sample as u32)),
-            nBlockAlign: (self.channels * bytes_per_sample as u16), // 4 bytes per sample for float
-            wBitsPerSample: (bytes_per_sample * 8) as _,            // Assuming float samples
-            cbSize: 0,                                              // No extra data
+            nAvgBytesPerSec: (self.sample_rate
+                * (self.channels as u32)
+                * (bytes_per_sample as u32)),
+            nBlockAlign: (self.channels * bytes_per_sample as u16),
+            wBitsPerSample: u16::try_from(bytes_per_sample * 8usize)
+                .expect("Invalid bits per sample"),
+            cbSize: 0, // No extra data
         }
     }
 }
@@ -166,10 +171,7 @@ pub unsafe fn func_open<T: InputPlugin>(
                 });
             Box::into_raw(boxed_handle) as aviutl2_sys::input2::INPUT_HANDLE
         }
-        Err(e) => {
-            alert_error(&e);
-            std::ptr::null_mut()
-        }
+        Err(_) => std::ptr::null_mut(),
     }
 }
 pub unsafe fn func_close<T: InputPlugin>(
@@ -178,7 +180,7 @@ pub unsafe fn func_close<T: InputPlugin>(
 ) -> bool {
     free_leaked_memory();
     let handle = *unsafe { Box::from_raw(ih as *mut InternalInputHandle<T::InputHandle>) };
-    result_to_bool_with_dialog(T::close(plugin, handle.handle))
+    (T::close(plugin, handle.handle)).is_ok()
 }
 pub unsafe fn func_info_get<T: InputPlugin>(
     plugin: &T,
@@ -236,10 +238,7 @@ pub unsafe fn func_info_get<T: InputPlugin>(
 
             true
         }
-        Err(e) => {
-            alert_error(&e);
-            false
-        }
+        Err(_) => false,
     }
 }
 pub unsafe fn func_read_video<T: InputPlugin>(
@@ -277,10 +276,7 @@ pub unsafe fn func_read_video<T: InputPlugin>(
             }
             image_data.len() as i32
         }
-        Err(e) => {
-            alert_error(&e);
-            0
-        }
+        Err(_) => 0,
     }
 }
 
@@ -306,7 +302,9 @@ pub unsafe fn func_read_audio<T: InputPlugin>(
                         .expect("Unreachable: Audio format not set");
                     assert_eq!(
                         len,
-                        (audio_format.channels as usize * length as usize * audio_format.format.bytes_per_sample()),
+                        (audio_format.channels as usize
+                            * length as usize
+                            * audio_format.format.bytes_per_sample()),
                         "Audio data size does not match expected size"
                     );
                 }
@@ -316,10 +314,7 @@ pub unsafe fn func_read_audio<T: InputPlugin>(
             }
             len as i32
         }
-        Err(e) => {
-            alert_error(&e);
-            0
-        }
+        Err(_) => 0,
     }
 }
 

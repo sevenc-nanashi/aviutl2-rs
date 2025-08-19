@@ -26,6 +26,10 @@ jobs:
       - name: Cache rust
         uses: Swatinem/rust-cache@v2
 
+      - name: Update Cargo.toml
+        run: |
+          sed -i 's/^version = .*/version = "${{ github.event.inputs.name }}"/' Cargo.toml
+
       - name: Build project
         run: |
           cargo build --release
@@ -35,6 +39,14 @@ jobs:
         run: |
           mv ./target/release/rusty_images.{dll,aui2}
           mv ./target/release/rusty_ffmpeg_output.{dll,auo2}
+
+      - name: Commit version change
+        run: |
+          git config --local user.name "GitHub Actions"
+          git config --local user.email "actions@github.com"
+          git add Cargo.toml
+          git commit -m "release: v${{ github.event.inputs.name }}"
+          git push
 
       - name: Release
         uses: softprops/action-gh-release@v2

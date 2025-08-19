@@ -479,7 +479,7 @@ dependencies = [
 
 [[package]]
 name = "aviutl2"
-version = "0.1.0"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "aviutl2-sys",
@@ -494,7 +494,7 @@ dependencies = [
 
 [[package]]
 name = "aviutl2-sys"
-version = "0.1.0"
+version = "0.1.7"
 dependencies = [
  "windows-sys 0.60.2",
 ]
@@ -1376,7 +1376,7 @@ dependencies = [
 
 [[package]]
 name = "example-ffmpeg-output"
-version = "0.1.0"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1395,7 +1395,7 @@ dependencies = [
 
 [[package]]
 name = "example-image-rs-input"
-version = "0.1.0"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "aviutl2",
