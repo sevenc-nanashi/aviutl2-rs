@@ -22,7 +22,7 @@ pub(crate) fn format_file_filters(file_filters: &[FileFilter]) -> String {
                 .extensions
                 .iter()
                 .map(|ext| {
-                    if ext == "" {
+                    if ext.is_empty() {
                         "*".to_string()
                     } else {
                         format!("*.{ext}")
