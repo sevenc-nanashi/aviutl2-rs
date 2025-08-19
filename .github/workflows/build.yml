@@ -62,5 +62,5 @@ jobs:
 
 
           files: |
-            ./target/release/rusty_images.aui2
-            ./target/release/rusty_ffmpeg_output.auo2
+            ./target/release/*.aui2
+            ./target/release/*.auo2
