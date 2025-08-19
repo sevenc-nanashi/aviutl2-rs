@@ -38,6 +38,7 @@ jobs:
         shell: bash
         run: |
           mv ./target/release/rusty_images.{dll,aui2}
+          mv ./target/release/rusty_sine_midi_player.{dll,aui2}
           mv ./target/release/rusty_ffmpeg_output.{dll,auo2}
 
       - name: Commit version change
@@ -54,6 +55,11 @@ jobs:
           tag_name: ${{ github.event.inputs.name }}
           body: |
             `C:/ProgramData/aviutl2/Plugin/`下に入れてください。
+
+            - `rusty_images.aui2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/image-rs-input>
+            - `rusty_ffmpeg_output.auo2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/ffmpeg-output>
+            - `rusty_sine_midi_player.aui2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/sine-midi-player-input>
+
 
           files: |
             ./target/release/rusty_images.aui2

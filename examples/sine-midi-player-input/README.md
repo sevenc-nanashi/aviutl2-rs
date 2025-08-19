@@ -1,4 +1,4 @@
-# Rusty Sin Midi Input
+# Rusty Sine Midi Player Input
 
 入力プラグインのサンプルです。
 [midly](https://docs.rs/midly/latest/midly/)を使用してMIDIを読み込み、sin波で再生します。
@@ -10,4 +10,4 @@
 
 ## インストール
 
-`C:\ProgramData\aviutl2\Plugin` に `rusty_sin_midi.aui2` を配置してください。
+`C:\ProgramData\aviutl2\Plugin` に `rusty_sine_midi_player.aui2` を配置してください。
