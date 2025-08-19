@@ -266,9 +266,7 @@ pub unsafe fn func_info_get<T: InputPlugin>(
                 let image_format = video_info.into_raw();
                 let image_format = Box::new(image_format);
                 let image_format_ptr = Box::into_raw(image_format);
-                plugin_state.defer_leak(
-                    LeakedPtr::BitmapInfoHeader(image_format_ptr as usize),
-                );
+                plugin_state.defer_leak(LeakedPtr::BitmapInfoHeader(image_format_ptr as usize));
                 unsafe {
                     (*iip).flag |= aviutl2_sys::input2::INPUT_INFO::FLAG_VIDEO;
                     if manual_frame_index {
@@ -291,9 +289,7 @@ pub unsafe fn func_info_get<T: InputPlugin>(
                 let audio_format_size = std::mem::size_of_val(&audio_format) as i32;
                 let audio_format = Box::new(audio_format);
                 let audio_format_ptr = Box::into_raw(audio_format);
-                plugin_state.defer_leak(
-                    LeakedPtr::WaveFormatEx(audio_format_ptr as usize),
-                );
+                plugin_state.defer_leak(LeakedPtr::WaveFormatEx(audio_format_ptr as usize));
                 unsafe {
                     (*iip).flag |= aviutl2_sys::input2::INPUT_INFO::FLAG_AUDIO;
                     (*iip).audio_n = num_samples as _;
