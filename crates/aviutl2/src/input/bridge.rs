@@ -307,8 +307,7 @@ pub unsafe fn func_read_video<T: InputPlugin>(
     let read_result = if plugin_state.plugin_info.concurrent {
         T::read_video(plugin, &handle.handle, frame).map(|img| img.into_image())
     } else {
-        T::read_video_mut(plugin, &mut handle.handle, frame)
-            .map(|img| img.into_image())
+        T::read_video_mut(plugin, &mut handle.handle, frame).map(|img| img.into_image())
     };
     match read_result {
         Ok(ImageBuffer(image_data)) => {
@@ -359,8 +358,7 @@ pub unsafe fn func_read_audio<T: InputPlugin>(
     let read_result = if plugin_state.plugin_info.concurrent {
         T::read_audio(plugin, &handle.handle, start, length).map(|audio| audio.into_audio())
     } else {
-        T::read_audio_mut(plugin, &mut handle.handle, start, length)
-            .map(|audio| audio.into_audio())
+        T::read_audio_mut(plugin, &mut handle.handle, start, length).map(|audio| audio.into_audio())
     };
     match read_result {
         Ok(AudioBuffer(audio_data)) => {
