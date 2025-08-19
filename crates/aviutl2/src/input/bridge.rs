@@ -1,65 +1,148 @@
 use std::num::NonZeroIsize;
 
 use crate::{
-    common::{format_file_filters, leak_large_string, load_large_string},
-    input::{AudioFormat, ImageFormat, InputPlugin, IntoAudio, IntoImage},
+    common::{
+        AnyResult, format_file_filters, leak_large_string, load_large_string,
+        result_to_bool_with_dialog,
+    },
+    debug_print,
+    input::{
+        AudioBuffer, AudioFormat, AudioInputInfo, ImageBuffer, ImageFormat, InputInfo, InputPlugin,
+        IntoAudio, IntoImage, VideoInputInfo,
+    },
 };
-
-use super::result_to_bool_with_dialog;
 
 pub use raw_window_handle::RawWindowHandle;
 
+use super::InputPluginTable;
+
 impl ImageFormat {
+    fn bytes_count(&self) -> usize {
+        match self {
+            ImageFormat::Rgb => 3,  // RGB format
+            ImageFormat::Rgba => 4, // RGBA format
+            ImageFormat::Yuy2 => 4, // YUY2 format (packed YUV 4:2:2)
+            ImageFormat::Pa64 => 8, // DXGI_FORMAT_R16G16B16A16_UNORM (packed 16-bit per channel)
+            ImageFormat::Hf64 => 8, // DXGI_FORMAT_R16G16B16A16_FLOAT (half-float)
+            ImageFormat::Yc48 => 6, // YC48 (AviUtl1)
+        }
+    }
+}
+
+impl AudioFormat {
+    fn bytes_per_sample(&self) -> usize {
+        match self {
+            AudioFormat::IeeeFloat32 => 4, // 32-bit float
+            AudioFormat::Pcm16 => 2,       // 16-bit PCM
+        }
+    }
+}
+
+impl VideoInputInfo {
     fn into_raw(self) -> aviutl2_sys::input2::BITMAPINFOHEADER {
+        let bi_compression = match self.format {
+            ImageFormat::Rgb | ImageFormat::Rgba => aviutl2_sys::input2::BI_RGB,
+            ImageFormat::Yuy2 => aviutl2_sys::input2::BI_YUY2,
+            ImageFormat::Pa64 => aviutl2_sys::input2::BI_PA64,
+            ImageFormat::Hf64 => aviutl2_sys::input2::BI_HF64,
+            ImageFormat::Yc48 => aviutl2_sys::input2::BI_YC48, // Custom format for AviUtl1
+        };
         aviutl2_sys::input2::BITMAPINFOHEADER {
             biSize: std::mem::size_of::<aviutl2_sys::input2::BITMAPINFOHEADER>() as u32,
             biWidth: self.width as i32,
             biHeight: self.height as i32,
             biPlanes: 1,
-            biBitCount: 32, // Assuming RGBA format
-            biCompression: aviutl2_sys::input2::BI_RGB,
-            biSizeImage: (self.width * self.height * 4), // 4 bytes per pixel for RGBA
-            biXPelsPerMeter: 0,                          // Not used
-            biYPelsPerMeter: 0,                          // Not used
-            biClrUsed: 0,                                // Not used
-            biClrImportant: 0,                           // Not used
+            biBitCount: (self.format.bytes_count() * 8) as u16, // Bits per pixel
+            biCompression: bi_compression,
+            biSizeImage: (self.width * self.height * self.format.bytes_count() as u32),
+            biXPelsPerMeter: 0, // Not used
+            biYPelsPerMeter: 0, // Not used
+            biClrUsed: 0,       // Not used
+            biClrImportant: 0,  // Not used
         }
     }
 }
-impl AudioFormat {
+
+impl AudioInputInfo {
     fn into_raw(self) -> aviutl2_sys::input2::WAVEFORMATEX {
+        let format = match self.format {
+            AudioFormat::IeeeFloat32 => aviutl2_sys::input2::WAVE_FORMAT_IEEE_FLOAT,
+            AudioFormat::Pcm16 => aviutl2_sys::input2::WAVE_FORMAT_PCM,
+        };
+        let bytes_per_sample = self.format.bytes_per_sample();
         aviutl2_sys::input2::WAVEFORMATEX {
-            wFormatTag: aviutl2_sys::input2::WAVE_FORMAT_IEEE_FLOAT as u16,
+            wFormatTag: format as u16,
             nChannels: self.channels,
             nSamplesPerSec: self.sample_rate,
-            nAvgBytesPerSec: (self.sample_rate * (self.channels as u32) * 4),
-            nBlockAlign: (self.channels * 4), // 4 bytes per sample for float
-            wBitsPerSample: 32,               // Assuming float samples
-            cbSize: 0,                        // No extra data
+            nAvgBytesPerSec: (self.sample_rate
+                * (self.channels as u32)
+                * (bytes_per_sample as u32)),
+            nBlockAlign: (self.channels * bytes_per_sample as u16),
+            wBitsPerSample: u16::try_from(bytes_per_sample * 8usize)
+                .expect("Invalid bits per sample"),
+            cbSize: 0, // No extra data
         }
     }
 }
 
-static WILL_FREE_ON_NEXT_CALL: std::sync::LazyLock<std::sync::Mutex<Vec<usize>>> =
-    std::sync::LazyLock::new(|| std::sync::Mutex::new(Vec::new()));
+pub struct InternalInputPluginState<T: Send + Sync + InputPlugin> {
+    plugin_info: InputPluginTable,
+    will_free_on_next_call: std::sync::Mutex<Vec<LeakedPtr>>,
 
-fn free_leaked_memory() {
-    let mut will_free = WILL_FREE_ON_NEXT_CALL.lock().unwrap();
-    for ptr in will_free.drain(..) {
-        unsafe {
-            let _ = Box::from_raw(ptr as *mut u8);
+    instance: T,
+}
+
+impl<T: Send + Sync + InputPlugin> InternalInputPluginState<T> {
+    pub fn new(instance: T) -> Self {
+        let plugin_info = instance.plugin_info();
+        let will_free_on_next_call = std::sync::Mutex::new(Vec::new());
+        Self {
+            plugin_info,
+            will_free_on_next_call,
+            instance,
+        }
+    }
+}
+
+enum LeakedPtr {
+    BitmapInfoHeader(usize),
+    WaveFormatEx(usize),
+}
+
+impl<T: Send + Sync + InputPlugin> InternalInputPluginState<T> {
+    fn defer_leak(&self, ptr: LeakedPtr) {
+        let mut will_free = self.will_free_on_next_call.lock().unwrap();
+        will_free.push(ptr);
+    }
+    fn free_leaked_memory(&self) {
+        let mut will_free = self.will_free_on_next_call.lock().unwrap();
+        for ptr in will_free.drain(..) {
+            unsafe {
+                match ptr {
+                    LeakedPtr::BitmapInfoHeader(addr) => {
+                        let _ = Box::from_raw(addr as *mut aviutl2_sys::input2::BITMAPINFOHEADER);
+                    }
+                    LeakedPtr::WaveFormatEx(addr) => {
+                        let _ = Box::from_raw(addr as *mut aviutl2_sys::input2::WAVEFORMATEX);
+                    }
+                }
+            }
         }
     }
 }
 
 struct InternalInputHandle<T: Send + Sync> {
-    width: u32,
-    height: u32,
+    input_info: Option<InputInfo>,
+    num_tracks: std::sync::Mutex<Option<AnyResult<(u32, u32)>>>,
+    current_video_track: std::sync::OnceLock<u32>,
+    current_audio_track: std::sync::OnceLock<u32>,
+
     handle: T,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub unsafe fn create_table<T: InputPlugin>(
-    plugin: &T,
+    plugin_state: &InternalInputPluginState<T>,
     func_open: extern "C" fn(aviutl2_sys::input2::LPCWSTR) -> aviutl2_sys::input2::INPUT_HANDLE,
     func_close: extern "C" fn(aviutl2_sys::input2::INPUT_HANDLE) -> bool,
     func_info_get: extern "C" fn(
@@ -78,8 +161,10 @@ pub unsafe fn create_table<T: InputPlugin>(
         *mut std::ffi::c_void,
     ) -> i32,
     func_config: extern "C" fn(aviutl2_sys::input2::HWND, aviutl2_sys::input2::HINSTANCE) -> bool,
+    func_set_track: extern "C" fn(aviutl2_sys::input2::INPUT_HANDLE, i32, i32) -> i32,
+    func_time_to_frame: extern "C" fn(aviutl2_sys::input2::INPUT_HANDLE, f64) -> i32,
 ) -> aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
-    let plugin_info = plugin.plugin_info();
+    let plugin_info = &plugin_state.plugin_info;
     let file_filter = format_file_filters(&plugin_info.file_filters);
 
     let name = if cfg!(debug_assertions) {
@@ -97,6 +182,7 @@ pub unsafe fn create_table<T: InputPlugin>(
     if plugin_info.concurrent {
         flag |= aviutl2_sys::input2::INPUT_PLUGIN_TABLE::FLAG_CONCURRENT;
     }
+    flag |= aviutl2_sys::input2::INPUT_PLUGIN_TABLE::FLAG_MULTI_TRACK;
 
     aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
         flag,
@@ -109,64 +195,88 @@ pub unsafe fn create_table<T: InputPlugin>(
         func_read_video: Some(func_read_video),
         func_read_audio: Some(func_read_audio),
         func_config: plugin_info.can_config.then_some(func_config),
-        func_set_track: None,     // TODO
-        func_time_to_frame: None, // TODO
+        func_set_track: Some(func_set_track),
+        func_time_to_frame: Some(func_time_to_frame),
     }
 }
 pub unsafe fn func_open<T: InputPlugin>(
-    plugin: &T,
+    plugin_state: &InternalInputPluginState<T>,
     file: aviutl2_sys::input2::LPCWSTR,
 ) -> aviutl2_sys::input2::INPUT_HANDLE {
-    free_leaked_memory();
+    plugin_state.free_leaked_memory();
     let path = load_large_string(file);
+    let plugin = &plugin_state.instance;
     match plugin.open(std::path::PathBuf::from(path)) {
         Ok(handle) => {
             let boxed_handle: Box<InternalInputHandle<T::InputHandle>> =
                 Box::new(InternalInputHandle {
-                    width: 0,
-                    height: 0,
+                    input_info: None,
+                    num_tracks: std::sync::Mutex::new(None),
+                    current_video_track: std::sync::OnceLock::new(),
+                    current_audio_track: std::sync::OnceLock::new(),
                     handle,
                 });
             Box::into_raw(boxed_handle) as aviutl2_sys::input2::INPUT_HANDLE
         }
-        Err(_) => std::ptr::null_mut(),
+        Err(e) => {
+            debug_print!("Failed to open input plugin: {}", e);
+            std::ptr::null_mut()
+        }
     }
 }
 pub unsafe fn func_close<T: InputPlugin>(
-    plugin: &T,
+    plugin_state: &InternalInputPluginState<T>,
     ih: aviutl2_sys::input2::INPUT_HANDLE,
 ) -> bool {
-    free_leaked_memory();
+    plugin_state.free_leaked_memory();
     let handle = *unsafe { Box::from_raw(ih as *mut InternalInputHandle<T::InputHandle>) };
+    let plugin = &plugin_state.instance;
     (T::close(plugin, handle.handle)).is_ok()
 }
 pub unsafe fn func_info_get<T: InputPlugin>(
-    plugin: &T,
+    plugin_state: &InternalInputPluginState<T>,
     ih: aviutl2_sys::input2::INPUT_HANDLE,
     iip: *mut aviutl2_sys::input2::INPUT_INFO,
 ) -> bool {
-    free_leaked_memory();
+    plugin_state.free_leaked_memory();
     let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
+    let video_track = {
+        *handle
+            .current_video_track
+            .get()
+            .expect("unreachable: func_set_track should have been called before func_info_get")
+    };
+    let audio_track = {
+        *handle
+            .current_audio_track
+            .get()
+            .expect("unreachable: func_set_track should have been called before func_info_get")
+    };
+    let plugin = &plugin_state.instance;
 
-    match T::get_input_info(plugin, &handle.handle) {
+    match T::get_input_info(plugin, &mut handle.handle, video_track, audio_track) {
         Ok(info) => {
+            handle.input_info = Some(info.clone());
             if let Some(video_info) = info.video {
-                handle.width = video_info.image_format.width;
-                handle.height = video_info.image_format.height;
-                let image_format = video_info.image_format.into_raw();
+                let fps = video_info.fps;
+                let num_frames = video_info.num_frames;
+                let manual_frame_index = video_info.manual_frame_index;
+                let width = video_info.width;
+                let height = video_info.height;
+                let image_format = video_info.into_raw();
                 let image_format = Box::new(image_format);
                 let image_format_ptr = Box::into_raw(image_format);
-                WILL_FREE_ON_NEXT_CALL
-                    .lock()
-                    .unwrap()
-                    .push(image_format_ptr as usize);
+                plugin_state.defer_leak(LeakedPtr::BitmapInfoHeader(image_format_ptr as usize));
                 unsafe {
                     (*iip).flag |= aviutl2_sys::input2::INPUT_INFO::FLAG_VIDEO;
-                    (*iip).rate = video_info.fps;
-                    (*iip).scale = video_info.scale;
-                    (*iip).n = video_info.num_frames;
+                    if manual_frame_index {
+                        (*iip).flag |= aviutl2_sys::input2::INPUT_INFO::FLAG_TIME_TO_FRAME;
+                    }
+                    (*iip).rate = *fps.numer();
+                    (*iip).scale = *fps.denom();
+                    (*iip).n = num_frames as _;
                     (*iip).format = image_format_ptr;
-                    (*iip).format_size = (4 * handle.width * handle.height) as i32; // Assuming RGBA format
+                    (*iip).format_size = (4 * width * height) as i32; // 4 bytes per pixel for RGBA
                     (*iip).audio_n = 0;
                     (*iip).audio_format = std::ptr::null_mut();
                     (*iip).audio_format_size = 0;
@@ -174,17 +284,15 @@ pub unsafe fn func_info_get<T: InputPlugin>(
             }
 
             if let Some(audio_info) = info.audio {
-                let audio_format = audio_info.audio_format.into_raw();
+                let num_samples = audio_info.num_samples;
+                let audio_format = audio_info.into_raw();
                 let audio_format_size = std::mem::size_of_val(&audio_format) as i32;
                 let audio_format = Box::new(audio_format);
                 let audio_format_ptr = Box::into_raw(audio_format);
-                WILL_FREE_ON_NEXT_CALL
-                    .lock()
-                    .unwrap()
-                    .push(audio_format_ptr as usize);
+                plugin_state.defer_leak(LeakedPtr::WaveFormatEx(audio_format_ptr as usize));
                 unsafe {
                     (*iip).flag |= aviutl2_sys::input2::INPUT_INFO::FLAG_AUDIO;
-                    (*iip).audio_n = audio_info.num_samples;
+                    (*iip).audio_n = num_samples as _;
                     (*iip).audio_format = audio_format_ptr;
                     (*iip).audio_format_size = audio_format_size;
                 }
@@ -192,23 +300,46 @@ pub unsafe fn func_info_get<T: InputPlugin>(
 
             true
         }
-        Err(_) => false,
+        Err(e) => {
+            debug_print!("Failed to get input info: {}", e);
+            false
+        }
     }
 }
 pub unsafe fn func_read_video<T: InputPlugin>(
-    plugin: &T,
+    plugin_state: &InternalInputPluginState<T>,
     ih: aviutl2_sys::input2::INPUT_HANDLE,
     frame: i32,
     buf: *mut std::ffi::c_void,
 ) -> i32 {
-    free_leaked_memory();
-    let handle = unsafe { &*(ih as *mut InternalInputHandle<T::InputHandle>) };
-    match T::read_video(plugin, &handle.handle, frame) {
-        Ok(image_buffer) => {
-            let width = handle.width;
-            let height = handle.height;
-            let image_data = image_buffer.into_image(width, height).0;
+    plugin_state.free_leaked_memory();
+    let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
+    let plugin = &plugin_state.instance;
+    let frame = frame as u32;
+    let read_result = if plugin_state.plugin_info.concurrent {
+        T::read_video(plugin, &handle.handle, frame).map(|img| img.into_image())
+    } else {
+        T::read_video_mut(plugin, &mut handle.handle, frame).map(|img| img.into_image())
+    };
+    match read_result {
+        Ok(ImageBuffer(image_data)) => {
             if !image_data.is_empty() {
+                #[cfg(debug_assertions)]
+                {
+                    let video_format = handle
+                        .input_info
+                        .as_ref()
+                        .expect("Unreachable: Input info not set")
+                        .video
+                        .as_ref()
+                        .expect("Unreachable: Video format not set");
+                    assert_eq!(
+                        image_data.len(),
+                        ((video_format.width * video_format.height) as usize
+                            * video_format.format.bytes_count()),
+                        "Image data size does not match expected size"
+                    );
+                }
                 unsafe {
                     std::ptr::copy_nonoverlapping(
                         image_data.as_ptr(),
@@ -219,44 +350,184 @@ pub unsafe fn func_read_video<T: InputPlugin>(
             }
             image_data.len() as i32
         }
-        Err(_) => 0,
+        Err(e) => {
+            debug_print!("Failed to read video frame: {}", e);
+            0
+        }
     }
 }
 
 pub unsafe fn func_read_audio<T: InputPlugin>(
-    plugin: &T,
+    plugin_state: &InternalInputPluginState<T>,
     ih: aviutl2_sys::input2::INPUT_HANDLE,
     start: i32,
     length: i32,
     buf: *mut std::ffi::c_void,
 ) -> i32 {
-    free_leaked_memory();
-    let handle = unsafe { &*(ih as *mut T::InputHandle) };
-    match T::read_audio(plugin, handle, start, length) {
-        Ok(audio_buffer) => {
-            let audio_data = audio_buffer.into_audio().0;
+    plugin_state.free_leaked_memory();
+    let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
+    let plugin = &plugin_state.instance;
+    let read_result = if plugin_state.plugin_info.concurrent {
+        T::read_audio(plugin, &handle.handle, start, length).map(|audio| audio.into_audio())
+    } else {
+        T::read_audio_mut(plugin, &mut handle.handle, start, length).map(|audio| audio.into_audio())
+    };
+    match read_result {
+        Ok(AudioBuffer(audio_data)) => {
             let len = audio_data.len();
             if len > 0 {
+                #[cfg(debug_assertions)]
+                {
+                    let audio_format = handle
+                        .input_info
+                        .as_ref()
+                        .expect("Unreachable: Input info not set")
+                        .audio
+                        .as_ref()
+                        .expect("Unreachable: Audio format not set");
+                    assert_eq!(
+                        len,
+                        (audio_format.channels as usize
+                            * length as usize
+                            * audio_format.format.bytes_per_sample()),
+                        "Audio data size does not match expected size"
+                    );
+                }
                 unsafe {
-                    std::ptr::copy_nonoverlapping(audio_data.as_ptr(), buf as *mut f32, len);
+                    std::ptr::copy_nonoverlapping(audio_data.as_ptr(), buf as *mut u8, len);
                 }
             }
             len as i32
         }
-        Err(_) => 0,
+        Err(e) => {
+            debug_print!("Failed to read audio data: {}", e);
+            0
+        }
     }
 }
 
 pub unsafe fn func_config<T: InputPlugin>(
-    plugin: &T,
+    plugin_state: &InternalInputPluginState<T>,
     hwnd: aviutl2_sys::input2::HWND,
     dll_hinst: aviutl2_sys::input2::HINSTANCE,
 ) -> bool {
-    free_leaked_memory();
+    plugin_state.free_leaked_memory();
     let mut handle =
         raw_window_handle::Win32WindowHandle::new(NonZeroIsize::new(hwnd as isize).unwrap());
     handle.hinstance = Some(NonZeroIsize::new(dll_hinst as isize).unwrap());
+    let plugin = &plugin_state.instance;
     result_to_bool_with_dialog(plugin.config(handle))
+}
+pub unsafe fn func_set_track<T: InputPlugin>(
+    plugin_state: &InternalInputPluginState<T>,
+    ih: aviutl2_sys::input2::INPUT_HANDLE,
+    track_type: i32,
+    track: i32,
+) -> i32 {
+    plugin_state.free_leaked_memory();
+    let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
+    let plugin = &plugin_state.instance;
+    if track == -1 {
+        // track == -1：トラック数取得
+        if handle.num_tracks.lock().unwrap().is_none() {
+            let num_tracks = plugin.get_track_count(&mut handle.handle).map_err(|e| {
+                debug_print!("Failed to get track count: {}", e);
+                e
+            });
+
+            if matches!(num_tracks, Ok((0, _))) {
+                handle
+                    .current_video_track
+                    .set(0)
+                    .expect("unreachable: func_set_track should only be called once per handle");
+            }
+            if matches!(num_tracks, Ok((_, 0))) {
+                handle
+                    .current_audio_track
+                    .set(0)
+                    .expect("unreachable: func_set_track should only be called once per handle");
+            }
+            *handle.num_tracks.lock().unwrap() = Some(num_tracks);
+        }
+        match &*handle.num_tracks.lock().unwrap() {
+            Some(Ok((video_tracks, audio_tracks))) => {
+                if track_type == aviutl2_sys::input2::INPUT_PLUGIN_TABLE::TRACK_TYPE_VIDEO {
+                    *video_tracks as i32
+                } else if track_type == aviutl2_sys::input2::INPUT_PLUGIN_TABLE::TRACK_TYPE_AUDIO {
+                    *audio_tracks as i32
+                } else {
+                    debug_print!("Invalid track type: {}", track_type);
+                    return -1; // Invalid track type
+                }
+            }
+            Some(Err(e)) => {
+                debug_print!("Failed to get track count: {}", e);
+                -1 // Error occurred
+            }
+            None => {
+                unreachable!("Track count should have been initialized before this point");
+            }
+        }
+    } else {
+        // track != -1：トラック設定
+        match track_type {
+            aviutl2_sys::input2::INPUT_PLUGIN_TABLE::TRACK_TYPE_VIDEO => {
+                let new_track = plugin
+                    .can_set_video_track(&mut handle.handle, track as u32)
+                    .map_or_else(
+                        |e| {
+                            debug_print!("Failed to set video track: {}", e);
+                            -1
+                        },
+                        |t| t as i32,
+                    );
+                handle
+                    .current_video_track
+                    .set(new_track as u32)
+                    .expect("unreachable: func_set_track should only be called once per handle");
+                new_track
+            }
+            aviutl2_sys::input2::INPUT_PLUGIN_TABLE::TRACK_TYPE_AUDIO => {
+                let new_track = plugin
+                    .can_set_audio_track(&mut handle.handle, track as u32)
+                    .map_or_else(
+                        |e| {
+                            debug_print!("Failed to set audio track: {}", e);
+                            -1
+                        },
+                        |t| t as i32,
+                    );
+                handle
+                    .current_audio_track
+                    .set(new_track as u32)
+                    .expect("unreachable: func_set_track should only be called once per handle");
+                new_track
+            }
+            _ => -1, // Invalid track type
+        }
+    }
+}
+pub unsafe fn func_time_to_frame<T: InputPlugin>(
+    plugin_state: &InternalInputPluginState<T>,
+    ih: aviutl2_sys::input2::INPUT_HANDLE,
+    time: f64,
+) -> i32 {
+    plugin_state.free_leaked_memory();
+    let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
+    let video_track = {
+        *handle
+            .current_video_track
+            .get()
+            .expect("unreachable: func_set_track should have been called before func_time_to_frame")
+    };
+    let plugin = &plugin_state.instance;
+    match T::time_to_frame(plugin, &mut handle.handle, video_track, time) {
+        Ok(frame) => frame as i32,
+        Err(e) => {
+            debug_print!("Failed to convert time to frame: {}", e);
+            0
+        }
+    }
 }
 
 #[macro_export]
@@ -266,7 +537,11 @@ macro_rules! register_input_plugin {
         mod __au2_register_input_plugin {
             use super::*;
 
-            static PLUGIN: std::sync::LazyLock<$struct> = std::sync::LazyLock::new($struct::new);
+            static PLUGIN: std::sync::LazyLock<
+                aviutl2::input::__bridge::InternalInputPluginState<$struct>,
+            > = std::sync::LazyLock::new(|| {
+                aviutl2::input::__bridge::InternalInputPluginState::new($struct::new())
+            });
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetInputPluginTable()
@@ -280,6 +555,8 @@ macro_rules! register_input_plugin {
                         func_read_video,
                         func_read_audio,
                         func_config,
+                        func_set_track,
+                        func_time_to_frame,
                     )
                 };
                 Box::into_raw(Box::new(table))
@@ -326,6 +603,21 @@ macro_rules! register_input_plugin {
                 dll_hinst: aviutl2::sys::input2::HINSTANCE,
             ) -> bool {
                 unsafe { $crate::input::__bridge::func_config(&*PLUGIN, hwnd, dll_hinst) }
+            }
+
+            extern "C" fn func_set_track(
+                ih: aviutl2::sys::input2::INPUT_HANDLE,
+                track_type: i32,
+                track: i32,
+            ) -> i32 {
+                unsafe { $crate::input::__bridge::func_set_track(&*PLUGIN, ih, track_type, track) }
+            }
+
+            extern "C" fn func_time_to_frame(
+                ih: aviutl2::sys::input2::INPUT_HANDLE,
+                time: f64,
+            ) -> i32 {
+                unsafe { $crate::input::__bridge::func_time_to_frame(&*PLUGIN, ih, time) }
             }
         }
     };

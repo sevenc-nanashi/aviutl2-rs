@@ -1,143 +1,194 @@
 use crate::common::{AnyResult, FileFilter};
+pub use half::f16;
+pub use num_rational::Rational32;
 pub use raw_window_handle::Win32WindowHandle;
+use zerocopy::IntoBytes;
 
+/// 入力プラグインの情報を表す構造体。
+#[derive(Debug, Clone)]
 pub struct InputPluginTable {
+    /// プラグインの名前。
     pub name: String,
-    pub input_type: InputType,
-    pub concurrent: bool,
-    pub file_filters: Vec<FileFilter>,
+    /// プラグインの情報。
+    /// 「プラグイン情報」ダイアログで表示されます。
     pub information: String,
 
+    /// 入力の種類。
+    pub input_type: InputType,
+    /// 音声・動画の同時取得が可能かどうか。
+    ///
+    /// > [!IMPORTANT]
+    /// > このフラグによって、呼ばれるトレイトのメソッドが変わります。
+    /// > `true` の場合は [`read_video`] と [`read_audio`] が呼ばれ、
+    /// > `false` の場合は [`read_video_mut`] と [`read_audio_mut`] が呼ばれます。
+    pub concurrent: bool,
+    /// プラグインがサポートするファイルフィルタのリスト。
+    pub file_filters: Vec<FileFilter>,
+
+    /// プラグインが設定可能かどうか。
     pub can_config: bool,
 }
 
+/// 動画・画像の入力情報を表す構造体。
+#[derive(Debug, Clone)]
 pub struct VideoInputInfo {
-    pub fps: i32,
-    pub scale: i32,
-    pub num_frames: i32,
-    pub image_format: ImageFormat,
+    /// 動画のフレームレート。
+    pub fps: Rational32,
+
+    /// 動画のフレーム数。
+    /// 画像の場合は1フレームとしてください。
+    ///
+    /// # Safety
+    /// 内部ではi32に変換されます。
+    pub num_frames: u32,
+
+    /// 動画のフレームを手動で算出するかどうか。
+    ///
+    /// # See Also
+    /// [`InputPlugin::time_to_frame`]
+    pub manual_frame_index: bool,
+
+    /// 画像の幅。
+    pub width: u32,
+    /// 画像の高さ。
+    pub height: u32,
+
+    /// 画像のフォーマット。
+    pub format: ImageFormat,
 }
 
+/// 画像のフォーマット。
+#[derive(Debug, Clone)]
+pub enum ImageFormat {
+    /// RGB形式。
+    /// `(u8, u8, u8)`相当。
+    Rgb,
+    /// RGBA形式。
+    /// `(u8, u8, u8, u8)`相当。
+    Rgba,
+    /// YUV 4:2:2形式。
+    /// `(u8, u8, u8, u8)`相当。
+    Yuy2,
+    /// DXGI_FORMAT_R16G16B16A16_UNORM（乗算済みα）形式。
+    /// `(u16, u16, u16, u16)`相当。
+    Pa64,
+    /// YC48（互換対応の旧内部フォーマット）形式。
+    /// `(u16, i16, i16)`相当。
+    Yc48,
+    /// DXGI_FORMAT_R16G16B16A16_FLOAT（乗算済みα）形式。
+    /// `(f16, f16, f16, f16)`相当。
+    Hf64,
+}
+
+/// 音声の入力情報を表す構造体。
+#[derive(Debug, Clone)]
 pub struct AudioInputInfo {
-    pub num_samples: i32,
-    pub audio_format: AudioFormat,
-}
-
-pub struct AudioFormat {
-    pub channels: u16,
+    /// 音声のサンプルレート。
     pub sample_rate: u32,
+    /// 音声のサンプル数。
+    pub num_samples: u32,
+    /// 音声のチャンネル数。
+    pub channels: u16,
+
+    /// 音声のフォーマット。
+    pub format: AudioFormat,
 }
 
+/// 音声のフォーマットを表す列挙型。
+#[derive(Debug, Clone)]
+pub enum AudioFormat {
+    /// PCM 16bit形式。
+    Pcm16,
+    /// IEEE Float 32bit形式。
+    IeeeFloat32,
+}
+
+/// 動画・画像と音声の入力情報をまとめた構造体。
+#[derive(Debug, Clone)]
 pub struct InputInfo {
+    /// 動画・画像のフォーマット。
     pub video: Option<VideoInputInfo>,
+    /// 音声のフォーマット。
     pub audio: Option<AudioInputInfo>,
-    // TODO:
-    // pub dynamic_time: bool,
 }
 
+/// 入力の種類を表す列挙型。
+#[derive(Debug, Clone)]
 pub enum InputType {
+    /// 動画のみ。
     Video,
+    /// 音声のみ。
     Audio,
+    /// 動画と音声の両方。
     Both,
-    BothConcurrent,
 }
 
 impl InputType {
-    pub fn from_bits(bits: i32) -> Self {
-        match bits {
-            1 => InputType::Video,
-            2 => InputType::Audio,
-            3 => InputType::Both,
-            16 => InputType::BothConcurrent,
-            _ => panic!("Unknown InputInfoFlag bits: {bits}"),
-        }
-    }
-
-    pub fn to_bits(&self) -> i32 {
+    pub(crate) fn to_bits(&self) -> i32 {
         match self {
             InputType::Video => 1,
             InputType::Audio => 2,
             InputType::Both => 3,
-            InputType::BothConcurrent => 16,
         }
     }
 }
 
-pub struct ImageFormat {
-    pub width: u32,
-    pub height: u32,
-}
-
+/// 画像のバッファを表す構造体。
+#[derive(Debug, Clone)]
 pub struct ImageBuffer(pub Vec<u8>);
 
+/// 画像データを [`ImageBuffer`] に変換するトレイト。
 pub trait IntoImage {
-    fn into_image(self, width: u32, height: u32) -> ImageBuffer;
+    fn into_image(self) -> ImageBuffer;
 }
 
 impl IntoImage for ImageBuffer {
-    fn into_image(self, _width: u32, _height: u32) -> ImageBuffer {
+    fn into_image(self) -> ImageBuffer {
         self
     }
 }
 
 impl IntoImage for Vec<u8> {
-    /// `Vec<u8>`から [`ImageBuffer`] へ変換します。
-    /// > [!NOTE]
-    /// > BGRA、下から上に並んだピクセルデータを想定しています。
-    fn into_image(self, width: u32, height: u32) -> ImageBuffer {
-        debug_assert!(
-            self.len() == (width * height * 4) as usize,
-            "Image data length does not match the specified width and height."
-        );
+    fn into_image(self) -> ImageBuffer {
         ImageBuffer(self)
     }
 }
 
-impl IntoImage for Vec<(u8, u8, u8)> {
-    /// `Vec<(u8, u8, u8)>`から [`ImageBuffer`] へ変換します。
-    /// > [!NOTE]
-    /// > RGB、上から下に並んだピクセルデータを想定しています。
-    fn into_image(self, width: u32, height: u32) -> ImageBuffer {
-        let mut new_image_data = Vec::with_capacity(self.len() * 4);
-        let new_image_data_writer = new_image_data.spare_capacity_mut();
-        for x in 0..width {
-            for y in 0..height {
-                let (r, g, b) = self[(y * width + x) as usize];
-                let dest_idx = (((height - 1 - y) * width + x) as usize) * 4;
-                new_image_data_writer[dest_idx].write(b);
-                new_image_data_writer[dest_idx + 1].write(g);
-                new_image_data_writer[dest_idx + 2].write(r);
-                new_image_data_writer[dest_idx + 3].write(255);
-            }
-        }
-        unsafe { new_image_data.set_len(width as usize * height as usize * 4) };
-        ImageBuffer(new_image_data)
+#[duplicate::duplicate_item(
+    T;
+    [Vec<u16>];
+    [Vec<i16>];
+    [Vec<f16>];
+)]
+impl IntoImage for T {
+    fn into_image(self) -> ImageBuffer {
+        let image_data = self.as_bytes().to_vec();
+        ImageBuffer(image_data)
     }
 }
 
-impl IntoImage for Vec<(u8, u8, u8, u8)> {
-    /// `Vec<(u8, u8, u8, u8)>`から [`ImageBuffer`] へ変換します。
-    /// > [!NOTE]
-    /// > RGBA、上から下に並んだピクセルデータを想定しています。
-    fn into_image(self, width: u32, height: u32) -> ImageBuffer {
-        let mut new_image_data = Vec::with_capacity(self.len() * 4);
-        let new_image_data_writer = new_image_data.spare_capacity_mut();
-        for x in 0..width {
-            for y in 0..height {
-                let (r, g, b, a) = self[(y * width + x) as usize];
-                let dest_idx = (((height - 1 - y) * width + x) as usize) * 4;
-                new_image_data_writer[dest_idx].write(b);
-                new_image_data_writer[dest_idx + 1].write(g);
-                new_image_data_writer[dest_idx + 2].write(r);
-                new_image_data_writer[dest_idx + 3].write(a);
+macro_rules! into_image_impl_for_tuple {
+    ($type:ty, $($name:ident),+) => {
+        impl IntoImage for Vec<$type> {
+            fn into_image(self) -> ImageBuffer {
+                let mut image_data = Vec::with_capacity(self.len() * std::mem::size_of::<$type>());
+                for ($($name,)+) in self {
+                    $(image_data.extend_from_slice(&$name.to_le_bytes());)+
+                }
+                ImageBuffer(image_data)
             }
         }
-        unsafe { new_image_data.set_len(width as usize * height as usize * 4) };
-        ImageBuffer(new_image_data)
-    }
+    };
 }
 
-pub struct AudioBuffer(pub Vec<f32>);
+into_image_impl_for_tuple!((u8, u8, u8), r, g, b);
+into_image_impl_for_tuple!((u8, u8, u8, u8), r, g, b, a);
+into_image_impl_for_tuple!((u16, u16, u16, u16), r, g, b, a);
+into_image_impl_for_tuple!((f16, f16, f16, f16), r, g, b, a);
+into_image_impl_for_tuple!((u16, i16, i16), y, u, v);
+
+#[derive(Debug, Clone)]
+pub struct AudioBuffer(pub Vec<u8>);
 
 pub trait IntoAudio {
     fn into_audio(self) -> AudioBuffer;
@@ -147,63 +198,169 @@ impl IntoAudio for AudioBuffer {
         self
     }
 }
-
-impl IntoAudio for Vec<f32> {
+impl IntoAudio for Vec<u8> {
     fn into_audio(self) -> AudioBuffer {
-        // Assuming the Vec<f32> is already in a suitable format
         AudioBuffer(self)
     }
 }
-impl IntoAudio for Vec<i16> {
+#[duplicate::duplicate_item(
+    T;
+    [Vec<u16>];
+    [Vec<f32>];
+)]
+impl IntoAudio for T {
     fn into_audio(self) -> AudioBuffer {
-        let audio_data = self
-            .into_iter()
-            .map(|s| s as f32 / i16::MAX as f32)
-            .collect();
+        let audio_data = self.as_bytes().to_vec();
         AudioBuffer(audio_data)
     }
 }
 
-impl IntoAudio for Vec<(f32, f32)> {
-    fn into_audio(self) -> AudioBuffer {
-        let audio_data = self.into_iter().flat_map(|(l, r)| [l, r]).collect();
-        AudioBuffer(audio_data)
-    }
+macro_rules! into_audio_impl_for_tuple {
+    ($type:ty, $($name:ident),+) => {
+        impl IntoAudio for Vec<$type> {
+            fn into_audio(self) -> AudioBuffer {
+                let mut audio_data = Vec::with_capacity(self.len() * std::mem::size_of::<$type>());
+                for ($($name,)+) in self {
+                    $(audio_data.extend_from_slice(&$name.to_le_bytes());)+
+                }
+                AudioBuffer(audio_data)
+            }
+        }
+    };
 }
+into_audio_impl_for_tuple!((u16, u16), l, r);
+into_audio_impl_for_tuple!((f32, f32), l, r);
 
-impl IntoAudio for Vec<(i16, i16)> {
-    fn into_audio(self) -> AudioBuffer {
-        let audio_data = self
-            .into_iter()
-            .flat_map(|(l, r)| [l as f32 / i16::MAX as f32, r as f32 / i16::MAX as f32])
-            .collect();
-        AudioBuffer(audio_data)
-    }
-}
-
+/// 入力プラグインのトレイト。
+/// このトレイトを実装し、[`register_input_plugin!`] マクロを使用してプラグインを登録します。
 pub trait InputPlugin: Send + Sync {
+    /// 入力ハンドルの型。
+    ///
+    /// > [!NOTE]
+    /// > aviutl2-rs内部では、InputHandleがそのままAviUtl2に渡されず、コンテナで包まれます。
     type InputHandle: std::any::Any + Send + Sync;
 
+    /// プラグインを初期化する。
     fn new() -> Self;
 
+    /// プラグインの情報を返す。
     fn plugin_info(&self) -> InputPluginTable;
 
+    /// 入力を開く。
     fn open(&self, file: std::path::PathBuf) -> AnyResult<Self::InputHandle>;
+    /// 入力を閉じる。
     fn close(&self, handle: Self::InputHandle) -> AnyResult<()>;
 
-    fn get_input_info(&self, handle: &Self::InputHandle) -> AnyResult<InputInfo>;
-    fn read_video(&self, _handle: &Self::InputHandle, _frame: i32) -> AnyResult<impl IntoImage> {
-        Ok(ImageBuffer(vec![])) // Default implementation, can be overridden
+    /// 動画・音声のトラック数を取得する。
+    fn get_track_count(&self, handle: &mut Self::InputHandle) -> AnyResult<(u32, u32)> {
+        let info = self.get_input_info(handle, 0, 0)?;
+        let video_tracks = info.video.as_ref().map_or(0, |_| 1);
+        let audio_tracks = info.audio.as_ref().map_or(0, |_| 1);
+        Ok((video_tracks, audio_tracks))
     }
+
+    /// 入力の情報を取得する。
+    fn get_input_info(
+        &self,
+        handle: &mut Self::InputHandle,
+        video_track: u32,
+        audio_track: u32,
+    ) -> AnyResult<InputInfo>;
+
+    /// 動画・画像を読み込む。
+    ///
+    /// > [!IMPORTANT]
+    /// > [`InputPluginTable::concurrent`] が `true` の場合に呼ばれます。
+    /// > `false` の場合は [`read_video_mut`] が呼ばれます。
+    fn read_video(&self, _handle: &Self::InputHandle, _frame: u32) -> AnyResult<impl IntoImage> {
+        Result::<ImageBuffer, anyhow::Error>::Err(anyhow::anyhow!(
+            "read_video is not implemented for this plugin"
+        ))
+    }
+
+    /// 動画・画像を読み込む。
+    ///
+    /// > [!IMPORTANT]
+    /// > [`InputPluginTable::concurrent`] が `false` の場合に呼ばれます。
+    /// > `true` の場合は [`read_video`] が呼ばれます。
+    fn read_video_mut(
+        &self,
+        handle: &mut Self::InputHandle,
+        frame: u32,
+    ) -> AnyResult<impl IntoImage> {
+        self.read_video(handle, frame)
+    }
+
+    /// 動画のトラックが利用可能かどうかを確認する。
+    ///
+    /// # Returns
+    /// トラック番号を返します。基本的には `track` をそのまま返します。
+    /// これがErrを返した場合、トラックの変更が失敗したものとして扱われます。
+    fn can_set_video_track(&self, _handle: &mut Self::InputHandle, track: u32) -> AnyResult<u32> {
+        Ok(track)
+    }
+
+    // TODO: これが他の関数と同時に呼ばれるかどうかは未検証なので、検証する（handleが `&mut` でいいかどうかに影響するため）
+    /// 現在の時刻からフレーム数を取得する。
+    /// [`VideoInputInfo::manual_frame_index`] が `true` の場合に使用されます。
+    fn time_to_frame(
+        &self,
+        handle: &mut Self::InputHandle,
+        track: u32,
+        time: f64,
+    ) -> AnyResult<u32> {
+        const RESOLUTION: i32 = 1000; // ミリ秒単位での解像度
+        let info = self.get_input_info(handle, track, 0)?;
+        if let Some(video_info) = &info.video {
+            Ok(
+                (video_info.fps * Rational32::new((time * RESOLUTION as f64) as i32, RESOLUTION))
+                    .to_integer() as u32,
+            )
+        } else {
+            Err(anyhow::anyhow!("No video information available"))
+        }
+    }
+
+    /// 音声を読み込む。
+    ///
+    /// > [!IMPORTANT]
+    /// > [`InputPluginTable::concurrent`] が `true` の場合に呼ばれます。
+    /// > `false` の場合は [`read_audio_mut`] が呼ばれます。
     fn read_audio(
         &self,
         _handle: &Self::InputHandle,
         _start: i32,
         _length: i32,
     ) -> AnyResult<impl IntoAudio> {
-        Ok(AudioBuffer(vec![])) // Default implementation, can be overridden
+        Result::<AudioBuffer, anyhow::Error>::Err(anyhow::anyhow!(
+            "read_audio is not implemented for this plugin"
+        ))
     }
 
+    /// 音声を読み込む。
+    ///
+    /// > [!IMPORTANT]
+    /// > [`InputPluginTable::concurrent`] が `false` の場合に呼ばれます。
+    /// > `true` の場合は [`read_audio`] が呼ばれます。
+    fn read_audio_mut(
+        &self,
+        handle: &mut Self::InputHandle,
+        start: i32,
+        length: i32,
+    ) -> AnyResult<impl IntoAudio> {
+        self.read_audio(handle, start, length)
+    }
+
+    /// 音声のトラックが利用可能かどうかを確認する。
+    ///
+    /// # Returns
+    /// トラック番号を返します。基本的には `track` をそのまま返します。
+    /// これがErrを返した場合、トラックの変更が失敗したものとして扱われます。
+    fn can_set_audio_track(&self, _handle: &mut Self::InputHandle, track: u32) -> AnyResult<u32> {
+        Ok(track)
+    }
+
+    /// 設定ダイアログを表示する。
     fn config(&self, _hwnd: Win32WindowHandle) -> AnyResult<()> {
         Ok(())
     }
