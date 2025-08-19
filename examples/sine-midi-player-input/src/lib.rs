@@ -7,7 +7,7 @@ use ordered_float::OrderedFloat;
 const SAMPLE_RATE: u32 = 44100;
 const TAIL_LENGTH: f64 = 1.0; // 1 second tail length
 const MASTER_VOLUME: f32 = 0.05; // Volume level of master track (0.0 to 1.0)
-const VOLUME: f32 = 0.25; // Volume level (0.0 to 1.0)
+const VOLUME: f32 = 0.1; // Volume level (0.0 to 1.0)
 const CLIP: f32 = 1.0; // Clip value for audio samples (0.0 to 1.0)
 
 const PI_2: f32 = 2.0 * std::f32::consts::PI;
