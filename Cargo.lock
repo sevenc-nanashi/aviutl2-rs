@@ -1410,6 +1410,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "example-sine-midi-player"
+version = "0.1.7"
+dependencies = [
+ "anyhow",
+ "aviutl2",
+ "itertools 0.14.0",
+ "midly",
+ "ordered-float",
+ "ouroboros",
+]
+
+[[package]]
 name = "exr"
 version = "1.73.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3593,18 +3605,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95890f873bec569a0362c235787f3aca6e1e887302ba4840839bcc6459c42da6"
 dependencies = [
  "quote",
-]
-
-[[package]]
-name = "sin-mid-input"
-version = "0.1.7"
-dependencies = [
- "anyhow",
- "aviutl2",
- "itertools 0.14.0",
- "midly",
- "ordered-float",
- "ouroboros",
 ]
 
 [[package]]

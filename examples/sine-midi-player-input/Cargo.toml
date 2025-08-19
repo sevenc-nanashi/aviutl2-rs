@@ -1,5 +1,5 @@
 [package]
-name = "sin-mid-input"
+name = "example-sine-midi-player"
 version.workspace = true
 edition.workspace = true
 
