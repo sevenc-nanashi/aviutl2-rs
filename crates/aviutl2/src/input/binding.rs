@@ -55,9 +55,6 @@ pub struct VideoInputInfo {
 
     /// 画像のフォーマット。
     pub format: ImageFormat,
-
-    /// トラック数。
-    pub num_tracks: u32,
 }
 
 /// 画像のフォーマット。
@@ -92,9 +89,6 @@ pub struct AudioInputInfo {
     pub num_samples: u32,
     /// 音声のチャンネル数。
     pub channels: u16,
-
-    /// トラック数。
-    pub num_tracks: u32,
 
     /// 音声のフォーマット。
     pub format: AudioFormat,
@@ -257,20 +251,28 @@ pub trait InputPlugin: Send + Sync {
     /// 入力を閉じる。
     fn close(&self, handle: Self::InputHandle) -> AnyResult<()>;
 
+    /// 動画・音声のトラック数を取得する。
+    fn get_track_count(&self, handle: &mut Self::InputHandle) -> AnyResult<(u32, u32)> {
+        let info = self.get_input_info(handle, 0, 0)?;
+        let video_tracks = info.video.as_ref().map_or(0, |_| 1);
+        let audio_tracks = info.audio.as_ref().map_or(0, |_| 1);
+        Ok((video_tracks, audio_tracks))
+    }
+
     /// 入力の情報を取得する。
-    fn get_input_info(&self, handle: &Self::InputHandle) -> AnyResult<InputInfo>;
+    fn get_input_info(
+        &self,
+        handle: &mut Self::InputHandle,
+        video_track: u32,
+        audio_track: u32,
+    ) -> AnyResult<InputInfo>;
 
     /// 動画・画像を読み込む。
     ///
     /// > [!IMPORTANT]
     /// > [`InputPluginTable::concurrent`] が `true` の場合に呼ばれます。
     /// > `false` の場合は [`read_video_mut`] が呼ばれます。
-    fn read_video(
-        &self,
-        _handle: &Self::InputHandle,
-        _frame: i32,
-        _track: u32,
-    ) -> AnyResult<impl IntoImage> {
+    fn read_video(&self, _handle: &Self::InputHandle, _frame: u32) -> AnyResult<impl IntoImage> {
         Result::<ImageBuffer, anyhow::Error>::Err(anyhow::anyhow!(
             "read_video is not implemented for this plugin"
         ))
@@ -284,26 +286,31 @@ pub trait InputPlugin: Send + Sync {
     fn read_video_mut(
         &self,
         handle: &mut Self::InputHandle,
-        frame: i32,
-        track: u32,
+        frame: u32,
     ) -> AnyResult<impl IntoImage> {
-        self.read_video(handle, frame, track)
+        self.read_video(handle, frame)
     }
 
-    /// 映像のトラックが変更された時に呼ばれる。
+    /// 動画のトラックが利用可能かどうかを確認する。
     ///
     /// # Returns
-    /// 新しいトラック番号を返します。
+    /// トラック番号を返します。基本的には `track` をそのまま返します。
     /// これがErrを返した場合、トラックの変更が失敗したものとして扱われます。
-    fn set_video_track(&self, _handle: &mut Self::InputHandle, track: u32) -> AnyResult<u32> {
+    fn can_set_video_track(&self, _handle: &mut Self::InputHandle, track: u32) -> AnyResult<u32> {
         Ok(track)
     }
 
+    // TODO: これが他の関数と同時に呼ばれるかどうかは未検証なので、検証する（handleが `&mut` でいいかどうかに影響するため）
     /// 現在の時刻からフレーム数を取得する。
     /// [`VideoInputInfo::manual_frame_index`] が `true` の場合に使用されます。
-    fn time_to_frame(&self, handle: &Self::InputHandle, time: f64) -> AnyResult<u32> {
+    fn time_to_frame(
+        &self,
+        handle: &mut Self::InputHandle,
+        track: u32,
+        time: f64,
+    ) -> AnyResult<u32> {
         const RESOLUTION: i32 = 1000; // ミリ秒単位での解像度
-        let info = self.get_input_info(handle)?;
+        let info = self.get_input_info(handle, track, 0)?;
         if let Some(video_info) = &info.video {
             Ok(
                 (video_info.fps * Rational32::new((time * RESOLUTION as f64) as i32, RESOLUTION))
@@ -324,7 +331,6 @@ pub trait InputPlugin: Send + Sync {
         _handle: &Self::InputHandle,
         _start: i32,
         _length: i32,
-        _track: u32,
     ) -> AnyResult<impl IntoAudio> {
         Result::<AudioBuffer, anyhow::Error>::Err(anyhow::anyhow!(
             "read_audio is not implemented for this plugin"
@@ -341,17 +347,16 @@ pub trait InputPlugin: Send + Sync {
         handle: &mut Self::InputHandle,
         start: i32,
         length: i32,
-        track: u32,
     ) -> AnyResult<impl IntoAudio> {
-        self.read_audio(handle, start, length, track)
+        self.read_audio(handle, start, length)
     }
 
-    /// 音声のトラックが変更された時に呼ばれる。
+    /// 音声のトラックが利用可能かどうかを確認する。
     ///
     /// # Returns
-    /// 新しいトラック番号を返します。
+    /// トラック番号を返します。基本的には `track` をそのまま返します。
     /// これがErrを返した場合、トラックの変更が失敗したものとして扱われます。
-    fn set_audio_track(&self, _handle: &mut Self::InputHandle, track: u32) -> AnyResult<u32> {
+    fn can_set_audio_track(&self, _handle: &mut Self::InputHandle, track: u32) -> AnyResult<u32> {
         Ok(track)
     }
 

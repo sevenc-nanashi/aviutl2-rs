@@ -2,12 +2,13 @@ use std::num::NonZeroIsize;
 
 use crate::{
     common::{
-        format_file_filters, leak_large_string, load_large_string, result_to_bool_with_dialog,
+        AnyResult, format_file_filters, leak_large_string, load_large_string,
+        result_to_bool_with_dialog,
     },
     debug_print,
     input::{
-        AudioBuffer, AudioFormat, AudioInputInfo, ImageBuffer, ImageFormat, InputPlugin, IntoAudio,
-        IntoImage, VideoInputInfo,
+        AudioBuffer, AudioFormat, AudioInputInfo, ImageBuffer, ImageFormat, InputInfo, InputPlugin,
+        IntoAudio, IntoImage, VideoInputInfo,
     },
 };
 
@@ -119,10 +120,10 @@ impl<T: Send + Sync + InputPlugin> InternalInputPluginState<T> {
 }
 
 struct InternalInputHandle<T: Send + Sync> {
-    video_format: Option<VideoInputInfo>,
-    audio_format: Option<AudioInputInfo>,
-    current_video_track: std::sync::Mutex<u32>,
-    current_audio_track: std::sync::Mutex<u32>,
+    input_info: Option<InputInfo>,
+    num_tracks: std::sync::Mutex<Option<AnyResult<(u32, u32)>>>,
+    current_video_track: std::sync::OnceLock<u32>,
+    current_audio_track: std::sync::OnceLock<u32>,
 
     handle: T,
 }
@@ -197,10 +198,10 @@ pub unsafe fn func_open<T: InputPlugin>(
         Ok(handle) => {
             let boxed_handle: Box<InternalInputHandle<T::InputHandle>> =
                 Box::new(InternalInputHandle {
-                    video_format: None,
-                    audio_format: None,
-                    current_video_track: std::sync::Mutex::new(0),
-                    current_audio_track: std::sync::Mutex::new(0),
+                    input_info: None,
+                    num_tracks: std::sync::Mutex::new(None),
+                    current_video_track: std::sync::OnceLock::new(),
+                    current_audio_track: std::sync::OnceLock::new(),
                     handle,
                 });
             Box::into_raw(boxed_handle) as aviutl2_sys::input2::INPUT_HANDLE
@@ -227,12 +228,24 @@ pub unsafe fn func_info_get<T: InputPlugin>(
 ) -> bool {
     plugin_state.free_leaked_memory();
     let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
+    let video_track = {
+        *handle
+            .current_video_track
+            .get()
+            .expect("unreachable: func_set_track should have been called before func_info_get")
+    };
+    let audio_track = {
+        *handle
+            .current_audio_track
+            .get()
+            .expect("unreachable: func_set_track should have been called before func_info_get")
+    };
     let plugin = &plugin_state.instance;
 
-    match T::get_input_info(plugin, &handle.handle) {
+    match T::get_input_info(plugin, &mut handle.handle, video_track, audio_track) {
         Ok(info) => {
+            handle.input_info = Some(info.clone());
             if let Some(video_info) = info.video {
-                handle.video_format = Some(video_info.clone());
                 let fps = video_info.fps;
                 let num_frames = video_info.num_frames;
                 let manual_frame_index = video_info.manual_frame_index;
@@ -289,12 +302,12 @@ pub unsafe fn func_read_video<T: InputPlugin>(
 ) -> i32 {
     plugin_state.free_leaked_memory();
     let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
-    let current_track = { *handle.current_video_track.lock().unwrap() };
     let plugin = &plugin_state.instance;
+    let frame = frame as u32;
     let read_result = if plugin_state.plugin_info.concurrent {
-        T::read_video(plugin, &handle.handle, frame, current_track).map(|img| img.into_image())
+        T::read_video(plugin, &handle.handle, frame).map(|img| img.into_image())
     } else {
-        T::read_video_mut(plugin, &mut handle.handle, frame, current_track)
+        T::read_video_mut(plugin, &mut handle.handle, frame)
             .map(|img| img.into_image())
     };
     match read_result {
@@ -303,7 +316,10 @@ pub unsafe fn func_read_video<T: InputPlugin>(
                 #[cfg(debug_assertions)]
                 {
                     let video_format = handle
-                        .video_format
+                        .input_info
+                        .as_ref()
+                        .expect("Unreachable: Input info not set")
+                        .video
                         .as_ref()
                         .expect("Unreachable: Video format not set");
                     assert_eq!(
@@ -339,12 +355,11 @@ pub unsafe fn func_read_audio<T: InputPlugin>(
 ) -> i32 {
     plugin_state.free_leaked_memory();
     let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
-    let track = { *handle.current_audio_track.lock().unwrap() };
     let plugin = &plugin_state.instance;
     let read_result = if plugin_state.plugin_info.concurrent {
-        T::read_audio(plugin, &handle.handle, start, length, track).map(|audio| audio.into_audio())
+        T::read_audio(plugin, &handle.handle, start, length).map(|audio| audio.into_audio())
     } else {
-        T::read_audio_mut(plugin, &mut handle.handle, start, length, track)
+        T::read_audio_mut(plugin, &mut handle.handle, start, length)
             .map(|audio| audio.into_audio())
     };
     match read_result {
@@ -354,7 +369,10 @@ pub unsafe fn func_read_audio<T: InputPlugin>(
                 #[cfg(debug_assertions)]
                 {
                     let audio_format = handle
-                        .audio_format
+                        .input_info
+                        .as_ref()
+                        .expect("Unreachable: Input info not set")
+                        .audio
                         .as_ref()
                         .expect("Unreachable: Audio format not set");
                     assert_eq!(
@@ -401,24 +419,43 @@ pub unsafe fn func_set_track<T: InputPlugin>(
     let plugin = &plugin_state.instance;
     if track == -1 {
         // track == -1：トラック数取得
-        match track_type {
-            aviutl2_sys::input2::INPUT_PLUGIN_TABLE::TRACK_TYPE_VIDEO => {
-                if let Some(video_format) = &handle.video_format {
-                    video_format.num_tracks as i32
+        if handle.num_tracks.lock().unwrap().is_none() {
+            let num_tracks = plugin.get_track_count(&mut handle.handle).map_err(|e| {
+                debug_print!("Failed to get track count: {}", e);
+                e
+            });
+
+            if matches!(num_tracks, Ok((0, _))) {
+                handle
+                    .current_video_track
+                    .set(0)
+                    .expect("unreachable: func_set_track should only be called once per handle");
+            }
+            if matches!(num_tracks, Ok((_, 0))) {
+                handle
+                    .current_audio_track
+                    .set(0)
+                    .expect("unreachable: func_set_track should only be called once per handle");
+            }
+            *handle.num_tracks.lock().unwrap() = Some(num_tracks);
+        }
+        match &*handle.num_tracks.lock().unwrap() {
+            Some(Ok((video_tracks, audio_tracks))) => {
+                if track_type == aviutl2_sys::input2::INPUT_PLUGIN_TABLE::TRACK_TYPE_VIDEO {
+                    *video_tracks as i32
+                } else if track_type == aviutl2_sys::input2::INPUT_PLUGIN_TABLE::TRACK_TYPE_AUDIO {
+                    *audio_tracks as i32
                 } else {
-                    0
+                    debug_print!("Invalid track type: {}", track_type);
+                    return -1; // Invalid track type
                 }
             }
-            aviutl2_sys::input2::INPUT_PLUGIN_TABLE::TRACK_TYPE_AUDIO => {
-                if let Some(audio_format) = &handle.audio_format {
-                    audio_format.num_tracks as i32
-                } else {
-                    0
-                }
+            Some(Err(e)) => {
+                debug_print!("Failed to get track count: {}", e);
+                -1 // Error occurred
             }
-            _ => {
-                debug_print!("Invalid track type: {}", track_type);
-                -1 // Invalid track type
+            None => {
+                unreachable!("Track count should have been initialized before this point");
             }
         }
     } else {
@@ -426,7 +463,7 @@ pub unsafe fn func_set_track<T: InputPlugin>(
         match track_type {
             aviutl2_sys::input2::INPUT_PLUGIN_TABLE::TRACK_TYPE_VIDEO => {
                 let new_track = plugin
-                    .set_video_track(&mut handle.handle, track as u32)
+                    .can_set_video_track(&mut handle.handle, track as u32)
                     .map_or_else(
                         |e| {
                             debug_print!("Failed to set video track: {}", e);
@@ -434,12 +471,15 @@ pub unsafe fn func_set_track<T: InputPlugin>(
                         },
                         |t| t as i32,
                     );
-                *handle.current_video_track.lock().unwrap() = new_track as u32;
+                handle
+                    .current_video_track
+                    .set(new_track as u32)
+                    .expect("unreachable: func_set_track should only be called once per handle");
                 new_track
             }
             aviutl2_sys::input2::INPUT_PLUGIN_TABLE::TRACK_TYPE_AUDIO => {
                 let new_track = plugin
-                    .set_audio_track(&mut handle.handle, track as u32)
+                    .can_set_audio_track(&mut handle.handle, track as u32)
                     .map_or_else(
                         |e| {
                             debug_print!("Failed to set audio track: {}", e);
@@ -447,7 +487,10 @@ pub unsafe fn func_set_track<T: InputPlugin>(
                         },
                         |t| t as i32,
                     );
-                *handle.current_audio_track.lock().unwrap() = new_track as u32;
+                handle
+                    .current_audio_track
+                    .set(new_track as u32)
+                    .expect("unreachable: func_set_track should only be called once per handle");
                 new_track
             }
             _ => -1, // Invalid track type
@@ -460,9 +503,15 @@ pub unsafe fn func_time_to_frame<T: InputPlugin>(
     time: f64,
 ) -> i32 {
     plugin_state.free_leaked_memory();
-    let handle = unsafe { &*(ih as *mut InternalInputHandle<T::InputHandle>) };
+    let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
+    let video_track = {
+        *handle
+            .current_video_track
+            .get()
+            .expect("unreachable: func_set_track should have been called before func_time_to_frame")
+    };
     let plugin = &plugin_state.instance;
-    match T::time_to_frame(plugin, &handle.handle, time) {
+    match T::time_to_frame(plugin, &mut handle.handle, video_track, time) {
         Ok(frame) => frame as i32,
         Err(e) => {
             debug_print!("Failed to convert time to frame: {}", e);

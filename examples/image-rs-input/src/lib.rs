@@ -36,7 +36,12 @@ impl InputPlugin for ImageRsPlugin {
             .map_err(|e| anyhow::anyhow!("Failed to open image file: {}", e))
     }
 
-    fn get_input_info(&self, handle: &Self::InputHandle) -> AnyResult<aviutl2::input::InputInfo> {
+    fn get_input_info(
+        &self,
+        handle: &mut Self::InputHandle,
+        _video_track: u32,
+        _audio_track: u32,
+    ) -> AnyResult<aviutl2::input::InputInfo> {
         let width = handle.width();
         let height = handle.height();
 
@@ -47,14 +52,13 @@ impl InputPlugin for ImageRsPlugin {
                 width,
                 height,
                 format: aviutl2::input::ImageFormat::Rgba,
-                num_tracks: 1,
                 manual_frame_index: false,
             }),
             audio: None, // No audio for image files
         })
     }
 
-    fn read_video(&self, handle: &Self::InputHandle, frame: i32, _track: u32) -> AnyResult<impl IntoImage> {
+    fn read_video(&self, handle: &Self::InputHandle, frame: u32) -> AnyResult<impl IntoImage> {
         anyhow::ensure!(frame == 0, "Only frame 0 is valid for image input");
         let mut final_buffer =
             Vec::with_capacity(handle.width() as usize * handle.height() as usize * 4);
