@@ -21,7 +21,10 @@ impl InputPlugin for ImageRsPlugin {
                 name: "Image Files".to_string(),
                 extensions: vec!["webp".to_string()],
             }],
-            information: "image-rs for AviUtl / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-input".to_owned(),
+            information: format!(
+                "image-rs for AviUtl / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-input",
+                version = env!("CARGO_PKG_VERSION")
+            ),
             can_config: false,
             concurrent: false,
         }
