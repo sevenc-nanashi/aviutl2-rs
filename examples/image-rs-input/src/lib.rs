@@ -46,14 +46,15 @@ impl InputPlugin for ImageRsPlugin {
                 num_frames: 1,
                 width,
                 height,
-                format: aviutl2::input::VideoFormat::Rgba,
+                format: aviutl2::input::ImageFormat::Rgba,
                 num_tracks: 1,
+                manual_frame_index: false,
             }),
             audio: None, // No audio for image files
         })
     }
 
-    fn read_video(&self, handle: &Self::InputHandle, frame: i32) -> AnyResult<impl IntoImage> {
+    fn read_video(&self, handle: &Self::InputHandle, frame: i32, _track: u32) -> AnyResult<impl IntoImage> {
         anyhow::ensure!(frame == 0, "Only frame 0 is valid for image input");
         let mut final_buffer =
             Vec::with_capacity(handle.width() as usize * handle.height() as usize * 4);

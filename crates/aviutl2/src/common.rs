@@ -1,8 +1,11 @@
 pub use anyhow::Result as AnyResult;
 
+/// ファイル選択ダイアログのフィルタを表す構造体。
 #[derive(Debug, Clone)]
 pub struct FileFilter {
+    /// フィルタの名前。
     pub name: String,
+    /// フィルタが適用される拡張子のリスト。
     pub extensions: Vec<String>,
 }
 
@@ -18,7 +21,13 @@ pub(crate) fn format_file_filters(file_filters: &[FileFilter]) -> String {
             &filter
                 .extensions
                 .iter()
-                .map(|ext| format!("*.{ext}"))
+                .map(|ext| {
+                    if ext == "" {
+                        "*".to_string()
+                    } else {
+                        format!("*.{ext}")
+                    }
+                })
                 .collect::<Vec<_>>()
                 .join(";"),
         );
@@ -82,4 +91,63 @@ pub(crate) fn alert_error(error: &anyhow::Error) {
         .set_text(format!("エラーが発生しました: {error}"))
         .alert()
         .show();
+}
+
+/// OutputDebugStringのラッパー関数。
+#[macro_export]
+macro_rules! debug_print {
+    ($($arg:tt)*) => {
+        let message = format!($($arg)*);
+        $crate::debug_print_impl(&message);
+    };
+}
+
+/// OutputDebugStringに出力する[`dbg!`]マクロ。
+///
+/// # See Also
+/// <https://github.com/rust-lang/rust/blob/29483883eed69d5fb4db01964cdf2af4d86e9cb2/library/std/src/macros.rs#L352>
+#[macro_export]
+macro_rules! odbg {
+    () => {
+        $crate::debug_print!("[{}:{}:{}]", ::std::file!(), ::std::line!(), ::std::column!());
+    };
+    ($val:expr $(,)?) => {
+        match $val {
+            tmp => {
+                $crate::debug_print!("[{}:{}:{}] {} = {:#?}",
+                    ::std::file!(),
+                    ::std::line!(),
+                    ::std::column!(),
+                    ::std::stringify!($val),
+                    &&tmp as &dyn ::std::fmt::Debug,
+                );
+                tmp
+            }
+        }
+    };
+    ($($val:expr),+ $(,)?) => {
+        ($($crate::odbg!($val)),+,)
+    };
+}
+
+// pub(crate) fn result_to_bool_with_debug_print<T>(result: AnyResult<T>) -> bool {
+//     match result {
+//         Ok(_) => true,
+//         Err(e) => {
+//             debug_print!("Error: {e}");
+//             false
+//         }
+//     }
+// }
+
+#[doc(hidden)]
+pub fn debug_print_impl(message: &str) {
+    let mut cstr = message.encode_utf16().collect::<Vec<u16>>();
+    cstr.push(0); // Null-terminate the string
+    unsafe {
+        let ptr = cstr.as_ptr();
+        windows::Win32::System::Diagnostics::Debug::OutputDebugStringW(
+            windows::core::PCWSTR::from_raw(ptr),
+        );
+    }
 }

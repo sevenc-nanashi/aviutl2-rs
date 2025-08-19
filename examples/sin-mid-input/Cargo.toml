@@ -1,0 +1,16 @@
+[package]
+name = "sin-mid-input"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "rusty_sin_midi"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.99"
+aviutl2.workspace = true
+itertools = "0.14.0"
+midly = "0.5.3"
+ordered-float = "5.0.0"
+ouroboros = "0.18.5"

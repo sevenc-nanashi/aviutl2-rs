@@ -16,6 +16,11 @@ pub struct InputPluginTable {
     /// 入力の種類。
     pub input_type: InputType,
     /// 音声・動画の同時取得が可能かどうか。
+    ///
+    /// > [!IMPORTANT]
+    /// > このフラグによって、呼ばれるトレイトのメソッドが変わります。
+    /// > `true` の場合は [`read_video`] と [`read_audio`] が呼ばれ、
+    /// > `false` の場合は [`read_video_mut`] と [`read_audio_mut`] が呼ばれます。
     pub concurrent: bool,
     /// プラグインがサポートするファイルフィルタのリスト。
     pub file_filters: Vec<FileFilter>,
@@ -29,12 +34,19 @@ pub struct InputPluginTable {
 pub struct VideoInputInfo {
     /// 動画のフレームレート。
     pub fps: Rational32,
+
     /// 動画のフレーム数。
     /// 画像の場合は1フレームとしてください。
     ///
     /// # Safety
     /// 内部ではi32に変換されます。
     pub num_frames: u32,
+
+    /// 動画のフレームを手動で算出するかどうか。
+    ///
+    /// # See Also
+    /// [`InputPlugin::time_to_frame`]
+    pub manual_frame_index: bool,
 
     /// 画像の幅。
     pub width: u32,
@@ -209,31 +221,141 @@ impl IntoAudio for T {
     }
 }
 
+macro_rules! into_audio_impl_for_tuple {
+    ($type:ty, $($name:ident),+) => {
+        impl IntoAudio for Vec<$type> {
+            fn into_audio(self) -> AudioBuffer {
+                let mut audio_data = Vec::with_capacity(self.len() * std::mem::size_of::<$type>());
+                for ($($name,)+) in self {
+                    $(audio_data.extend_from_slice(&$name.to_le_bytes());)+
+                }
+                AudioBuffer(audio_data)
+            }
+        }
+    };
+}
+into_audio_impl_for_tuple!((u16, u16), l, r);
+into_audio_impl_for_tuple!((f32, f32), l, r);
+
 /// 入力プラグインのトレイト。
 /// このトレイトを実装し、[`register_input_plugin!`] マクロを使用してプラグインを登録します。
 pub trait InputPlugin: Send + Sync {
+    /// 入力ハンドルの型。
+    ///
+    /// > [!NOTE]
+    /// > aviutl2-rs内部では、InputHandleがそのままAviUtl2に渡されず、コンテナで包まれます。
     type InputHandle: std::any::Any + Send + Sync;
 
+    /// プラグインを初期化する。
     fn new() -> Self;
 
+    /// プラグインの情報を返す。
     fn plugin_info(&self) -> InputPluginTable;
 
+    /// 入力を開く。
     fn open(&self, file: std::path::PathBuf) -> AnyResult<Self::InputHandle>;
+    /// 入力を閉じる。
     fn close(&self, handle: Self::InputHandle) -> AnyResult<()>;
 
+    /// 入力の情報を取得する。
     fn get_input_info(&self, handle: &Self::InputHandle) -> AnyResult<InputInfo>;
-    fn read_video(&self, _handle: &Self::InputHandle, _frame: i32) -> AnyResult<impl IntoImage> {
-        Ok(ImageBuffer(vec![])) // Default implementation, can be overridden
+
+    /// 動画・画像を読み込む。
+    ///
+    /// > [!IMPORTANT]
+    /// > [`InputPluginTable::concurrent`] が `true` の場合に呼ばれます。
+    /// > `false` の場合は [`read_video_mut`] が呼ばれます。
+    fn read_video(
+        &self,
+        _handle: &Self::InputHandle,
+        _frame: i32,
+        _track: u32,
+    ) -> AnyResult<impl IntoImage> {
+        Result::<ImageBuffer, anyhow::Error>::Err(anyhow::anyhow!(
+            "read_video is not implemented for this plugin"
+        ))
     }
+
+    /// 動画・画像を読み込む。
+    ///
+    /// > [!IMPORTANT]
+    /// > [`InputPluginTable::concurrent`] が `false` の場合に呼ばれます。
+    /// > `true` の場合は [`read_video`] が呼ばれます。
+    fn read_video_mut(
+        &self,
+        handle: &mut Self::InputHandle,
+        frame: i32,
+        track: u32,
+    ) -> AnyResult<impl IntoImage> {
+        self.read_video(handle, frame, track)
+    }
+
+    /// 映像のトラックが変更された時に呼ばれる。
+    ///
+    /// # Returns
+    /// 新しいトラック番号を返します。
+    /// これがErrを返した場合、トラックの変更が失敗したものとして扱われます。
+    fn set_video_track(&self, _handle: &mut Self::InputHandle, track: u32) -> AnyResult<u32> {
+        Ok(track)
+    }
+
+    /// 現在の時刻からフレーム数を取得する。
+    /// [`VideoInputInfo::manual_frame_index`] が `true` の場合に使用されます。
+    fn time_to_frame(&self, handle: &Self::InputHandle, time: f64) -> AnyResult<u32> {
+        const RESOLUTION: i32 = 1000; // ミリ秒単位での解像度
+        let info = self.get_input_info(handle)?;
+        if let Some(video_info) = &info.video {
+            Ok(
+                (video_info.fps * Rational32::new((time * RESOLUTION as f64) as i32, RESOLUTION))
+                    .to_integer() as u32,
+            )
+        } else {
+            Err(anyhow::anyhow!("No video information available"))
+        }
+    }
+
+    /// 音声を読み込む。
+    ///
+    /// > [!IMPORTANT]
+    /// > [`InputPluginTable::concurrent`] が `true` の場合に呼ばれます。
+    /// > `false` の場合は [`read_audio_mut`] が呼ばれます。
     fn read_audio(
         &self,
         _handle: &Self::InputHandle,
         _start: i32,
         _length: i32,
+        _track: u32,
     ) -> AnyResult<impl IntoAudio> {
-        Ok(AudioBuffer(vec![])) // Default implementation, can be overridden
+        Result::<AudioBuffer, anyhow::Error>::Err(anyhow::anyhow!(
+            "read_audio is not implemented for this plugin"
+        ))
     }
 
+    /// 音声を読み込む。
+    ///
+    /// > [!IMPORTANT]
+    /// > [`InputPluginTable::concurrent`] が `false` の場合に呼ばれます。
+    /// > `true` の場合は [`read_audio`] が呼ばれます。
+    fn read_audio_mut(
+        &self,
+        handle: &mut Self::InputHandle,
+        start: i32,
+        length: i32,
+        track: u32,
+    ) -> AnyResult<impl IntoAudio> {
+        self.read_audio(handle, start, length, track)
+    }
+
+    /// 音声のトラックが変更された時に呼ばれる。
+    ///
+    /// # Returns
+    /// 新しいトラック番号を返します。
+    /// これがErrを返した場合、トラックの変更が失敗したものとして扱われます。
+    fn set_audio_track(&self, _handle: &mut Self::InputHandle, track: u32) -> AnyResult<u32> {
+        Ok(track)
+    }
+
+    /// 設定ダイアログを表示する。
     fn config(&self, _hwnd: Win32WindowHandle) -> AnyResult<()> {
         Ok(())
     }
