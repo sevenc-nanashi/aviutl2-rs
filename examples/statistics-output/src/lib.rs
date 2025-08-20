@@ -63,7 +63,7 @@ impl OutputPlugin for StatisticsPlugin {
         }
         let end_time = chrono::Local::now();
 
-        let total_ms = elapsed.iter().sum::<f64>() * 1000.0;
+        let total_ms = elapsed.iter().sum::<f64>();
         let fps = (*video_info.fps.denom() as f64) / (*video_info.fps.numer() as f64);
         let render_data = RenderData {
             version: env!("CARGO_PKG_VERSION").to_string(),
