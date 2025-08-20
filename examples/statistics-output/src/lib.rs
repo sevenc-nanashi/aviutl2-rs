@@ -97,8 +97,11 @@ impl OutputPlugin for StatisticsPlugin {
                         )?)
                     ),
                 );
-            std::fs::write(info.path, page)
+            std::fs::write(&info.path, page)
                 .map_err(|e| anyhow::anyhow!("Failed to write output file: {}", e))?;
+
+            open::that(&info.path)
+                .map_err(|e| anyhow::anyhow!("Failed to open output file: {}", e))?;
         }
 
         Ok(())
