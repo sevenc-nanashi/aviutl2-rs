@@ -3,6 +3,8 @@ import * as base64 from "base64-js";
 
 export type RenderData = {
   version: string;
+  width: number;
+  height: number;
   msPerFrame: number[];
   numFrames: number;
   totalMs: number;
@@ -24,6 +26,8 @@ function generateDummyData(): RenderData {
   const totalMs = msPerFrame.reduce((a, b) => a + b, 0);
   return {
     version: "0.0.0-dummy",
+    width: 1920,
+    height: 1080,
     msPerFrame,
     numFrames,
     totalMs,
@@ -48,7 +52,7 @@ export const renderDataPlugin: Plugin = {
     }
     if (encodedData === "!PLACEHOLDER!") {
       const dummyData = generateDummyData();
-      app.provide("renderData", dummyData as RenderData);
+      app.provide("renderData", dummyData);
       return;
     }
     const parsedData = JSON.parse(

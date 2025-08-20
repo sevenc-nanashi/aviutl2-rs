@@ -50,7 +50,7 @@ impl OutputPlugin for StatisticsPlugin {
 
         for (_i, _frame) in info.get_video_frames_iter::<aviutl2::output::RawBgrVideoFrame>() {
             let time_after = std::time::Instant::now();
-            elapsed.push(time_after.duration_since(time_before).as_secs_f64());
+            elapsed.push(time_after.duration_since(time_before).as_secs_f64() * 1000.0);
             time_before = time_after;
         }
         let end_time = chrono::Local::now();
@@ -69,8 +69,11 @@ impl OutputPlugin for StatisticsPlugin {
         static TEMPLATE: &str = include_str!("../page/dist/index.html");
         let mut page = TEMPLATE.to_string();
         page = page.replace(
-            "!PLACEHOLDER!",
-            &base64.encode(serde_json::to_string(&render_data).unwrap()),
+            "data-render-data=\"!PLACEHOLDER!\"",
+            &format!(
+                "data-render-data=\"{}\"",
+                base64.encode(serde_json::to_string(&render_data).unwrap())
+            ),
         );
         std::fs::write(info.path, page)
             .map_err(|e| anyhow::anyhow!("Failed to write output file: {}", e))?;
