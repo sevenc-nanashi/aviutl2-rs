@@ -183,7 +183,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
     fn plugin_info(&self) -> aviutl2::output::OutputPluginTable {
         aviutl2::output::OutputPluginTable {
             name: "Rusty FFmpeg Output Plugin".to_string(),
-            input_type: aviutl2::output::OutputType::Both,
+            output_type: aviutl2::output::OutputType::Both,
             file_filters: vec![aviutl2::output::FileFilter {
                 name: "Video Files".to_string(),
                 extensions: vec![

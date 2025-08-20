@@ -15,7 +15,7 @@ pub struct OutputPluginTable {
     /// 「プラグイン情報」ダイアログで表示されます。
     pub information: String,
     /// 出力の種類（動画、音声、両方）。
-    pub input_type: OutputType,
+    pub output_type: OutputType,
 
     /// 出力ダイアログで使われるファイルフィルタ。
     pub file_filters: Vec<FileFilter>,

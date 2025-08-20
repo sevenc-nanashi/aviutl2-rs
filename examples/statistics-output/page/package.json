@@ -1,0 +1,28 @@
+{
+  "name": "page",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "prettier --check .",
+    "lint:fix": "prettier --write ."
+  },
+  "dependencies": {
+    "base64-js": "^1.5.1",
+    "chart.js": "^4.5.0",
+    "vue": "^3.5.18",
+    "vue-chartjs": "^5.3.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/tsconfig": "^0.7.0",
+    "prettier": "^3.6.2",
+    "typescript": "~5.8.3",
+    "vite": "^7.1.2",
+    "vite-plugin-singlefile": "^2.3.0",
+    "vue-tsc": "^3.0.5"
+  }
+}

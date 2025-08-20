@@ -1,0 +1,16 @@
+[package]
+name = "example-statistics-output"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "rusty_statistics_output"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.99"
+aviutl2.workspace = true
+base64 = "0.22.1"
+chrono = "0.4.41"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"

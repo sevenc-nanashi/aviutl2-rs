@@ -30,6 +30,9 @@ jobs:
         run: |
           sed -i 's/^version = .*/version = "${{ github.event.inputs.name }}"/' Cargo.toml
 
+      - name: Build Page
+        uses: ./.github/actions/render-statistics-page
+
       - name: Build project
         run: |
           cargo build --release
@@ -59,7 +62,6 @@ jobs:
             - `rusty_images.aui2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/image-rs-input>
             - `rusty_ffmpeg_output.auo2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/ffmpeg-output>
             - `rusty_sine_midi_player.aui2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/sine-midi-player-input>
-
 
           files: |
             ./target/release/*.aui2

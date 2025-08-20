@@ -278,7 +278,7 @@ pub unsafe fn create_table<T: OutputPlugin>(
     };
 
     aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
-        flag: plugin_info.input_type.to_bits(),
+        flag: plugin_info.output_type.to_bits(),
         name: leak_large_string(&name),
         filefilter,
         information: leak_large_string(&information),
