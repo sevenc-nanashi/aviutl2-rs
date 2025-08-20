@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 struct RenderData {
     version: String,
+    width: u32,
+    height: u32,
     ms_per_frame: Vec<f64>,
     num_frames: u32,
     total_ms: f64,
@@ -65,6 +67,8 @@ impl OutputPlugin for StatisticsPlugin {
             fps,
             start_time: start_time.to_rfc3339(),
             end_time: end_time.to_rfc3339(),
+            width: video_info.width,
+            height: video_info.height,
         };
         static TEMPLATE: &str = include_str!("../page/dist/index.html");
         let mut page = TEMPLATE.to_string();
