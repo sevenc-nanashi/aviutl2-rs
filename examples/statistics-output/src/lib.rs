@@ -31,10 +31,16 @@ impl OutputPlugin for StatisticsPlugin {
                 version = env!("CARGO_PKG_VERSION")
             ),
             output_type: aviutl2::output::OutputType::Video,
-            file_filters: vec![aviutl2::FileFilter {
-                name: "Statistics Page".to_string(),
-                extensions: vec!["html".to_string()],
-            }],
+            file_filters: vec![
+                aviutl2::FileFilter {
+                    name: "Statistics Page".to_string(),
+                    extensions: vec!["html".to_string()],
+                },
+                aviutl2::FileFilter {
+                    name: "Raw Statistics Data".to_string(),
+                    extensions: vec!["json".to_string()],
+                },
+            ],
             can_config: false,
         }
     }
@@ -70,17 +76,27 @@ impl OutputPlugin for StatisticsPlugin {
             width: video_info.width,
             height: video_info.height,
         };
-        static TEMPLATE: &str = include_str!("../page/dist/index.html");
-        let mut page = TEMPLATE.to_string();
-        page = page.replace(
-            "data-render-data=\"!PLACEHOLDER!\"",
-            &format!(
-                "data-render-data=\"{}\"",
-                base64.encode(serde_json::to_string(&render_data).unwrap())
-            ),
-        );
-        std::fs::write(info.path, page)
+        if info.path.extension().is_some_and(|ext| ext == "json") {
+            // JSONファイルとして出力
+            std::fs::write(
+                info.path,
+                serde_json::to_string_pretty(&render_data)
+                    .map_err(|e| anyhow::anyhow!("Failed to serialize render data: {}", e))?,
+            )
             .map_err(|e| anyhow::anyhow!("Failed to write output file: {}", e))?;
+        } else {
+            static TEMPLATE: &str = include_str!("../page/dist/index.html");
+            let mut page = TEMPLATE.to_string();
+            page = page.replace(
+                "data-render-data=\"!PLACEHOLDER!\"",
+                &format!(
+                    "data-render-data=\"{}\"",
+                    base64.encode(serde_json::to_string(&render_data).unwrap())
+                ),
+            );
+            std::fs::write(info.path, page)
+                .map_err(|e| anyhow::anyhow!("Failed to write output file: {}", e))?;
+        }
 
         Ok(())
     }
