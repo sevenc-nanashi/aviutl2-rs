@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RenderData {
+    version: String,
     ms_per_frame: Vec<f64>,
     num_frames: u32,
     total_ms: f64,
@@ -55,6 +56,7 @@ impl OutputPlugin for StatisticsPlugin {
         let total_ms = elapsed.iter().sum::<f64>() * 1000.0;
         let fps = (*video_info.fps.denom() as f64) / (*video_info.fps.numer() as f64);
         let render_data = RenderData {
+            version: env!("CARGO_PKG_VERSION").to_string(),
             ms_per_frame: elapsed,
             num_frames: video_info.num_frames,
             total_ms,
