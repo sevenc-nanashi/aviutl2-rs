@@ -9,7 +9,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
 
       - name: Set up Rust
         run: |
@@ -19,6 +19,9 @@ jobs:
 
       - name: Cache rust
         uses: Swatinem/rust-cache@v2
+
+      - name: Build Page
+        uses: ./.github/actions/render-statistics-page
 
       - name: Run clippy
         run: |

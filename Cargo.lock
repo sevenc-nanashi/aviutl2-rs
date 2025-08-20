@@ -485,7 +485,7 @@ dependencies = [
 
 [[package]]
 name = "aviutl2"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "aviutl2-sys",
@@ -501,7 +501,7 @@ dependencies = [
 
 [[package]]
 name = "aviutl2-sys"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "windows-sys 0.60.2",
 ]
@@ -1383,7 +1383,7 @@ dependencies = [
 
 [[package]]
 name = "example-ffmpeg-output"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1402,7 +1402,7 @@ dependencies = [
 
 [[package]]
 name = "example-image-rs-input"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1410,8 +1410,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "example-sine-midi-player"
-version = "0.2.0"
+name = "example-sine-midi-player-input"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1419,6 +1419,19 @@ dependencies = [
  "midly",
  "ordered-float",
  "ouroboros",
+]
+
+[[package]]
+name = "example-statistics-output"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "aviutl2",
+ "base64",
+ "chrono",
+ "open",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1989,6 +2002,25 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "is-docker"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "928bae27f42bc99b60d9ac7334e3a21d10ad8f1835a4e12ec3ec0464765ed1b3"
+dependencies = [
+ "once_cell",
+]
+
+[[package]]
+name = "is-wsl"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "173609498df190136aa7dea1a91db051746d339e18476eed5ca40521f02d7aa5"
+dependencies = [
+ "is-docker",
+ "once_cell",
 ]
 
 [[package]]
@@ -2831,6 +2863,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
+name = "open"
+version = "5.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2483562e62ea94312f3576a7aca397306df7990b8d89033e18766744377ef95"
+dependencies = [
+ "is-wsl",
+ "libc",
+ "pathdiff",
+]
+
+[[package]]
 name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2931,6 +2974,12 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+
+[[package]]
+name = "pathdiff"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
 
 [[package]]
 name = "pbkdf2"
@@ -3536,9 +3585,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.140"
+version = "1.0.143"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20068b6e96dc6c9bd23e01df8827e6c7e1f2fddd43c21810382803c136b99373"
+checksum = "d401abef1d108fbd9cbaebc3e46611f4b1021f714a0597a71f41ee463f5f4a5a"
 dependencies = [
  "itoa",
  "memchr",

@@ -15,7 +15,23 @@ pub(crate) fn format_file_filters(file_filters: &[FileFilter]) -> String {
         if !file_filter.is_empty() {
             file_filter.push('\x00');
         }
-        file_filter.push_str(&filter.name);
+        let display = format!(
+            "{} ({})",
+            filter.name,
+            filter
+                .extensions
+                .iter()
+                .map(|ext| {
+                    if ext.is_empty() {
+                        "*".to_string()
+                    } else {
+                        ext.to_string()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+        file_filter.push_str(&display);
         file_filter.push('\x00');
         file_filter.push_str(
             &filter

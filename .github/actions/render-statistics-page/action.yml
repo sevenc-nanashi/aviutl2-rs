@@ -1,0 +1,32 @@
+name: Render Statistics Plugin's page
+description: statistics-outputのページをレンダリングする
+
+runs:
+  using: "composite"
+  steps:
+    - name: Restore cache
+      uses: actions/cache@v4
+      id: cache
+      with:
+        path: examples/statistics-output/page/dist
+        key: statistics-${{ hashFiles('examples/statistics-output/src/**/*', 'examples/statistics-output/page/.bun-version', 'examples/statistics-output/page/bun.lock') }}
+
+    - name: Setup Bun
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version-file: "examples/statistics-output/page/.bun-version"
+
+    - name: Install dependencies
+      shell: bash
+      if: steps.cache.outputs.cache-hit != 'true'
+      working-directory: examples/statistics-output/page
+      run: |
+        bun install --frozen-lockfile
+
+    - name: Build
+      shell: bash
+      if: steps.cache.outputs.cache-hit != 'true'
+      working-directory: examples/statistics-output/page
+      run: |
+        bun run build
