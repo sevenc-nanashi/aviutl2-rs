@@ -41,6 +41,8 @@ impl OutputPlugin for StatisticsPlugin {
         let Some(video_info) = &info.video else {
             return Err(anyhow::anyhow!("No video information available"));
         };
+        // バッファを0に設定
+        info.set_buffer_size(0, 0);
         let start_time = chrono::Local::now();
 
         let mut elapsed = Vec::with_capacity(video_info.num_frames as usize);
