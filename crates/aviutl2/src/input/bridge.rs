@@ -173,7 +173,7 @@ pub unsafe fn create_table<T: InputPlugin>(
         plugin_info.name.clone()
     };
     let information = if cfg!(debug_assertions) {
-        format!("{} (Debug Build)", plugin_info.information)
+        format!("(Debug Build) {}", plugin_info.information)
     } else {
         plugin_info.information.clone()
     };

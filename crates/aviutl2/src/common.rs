@@ -167,3 +167,53 @@ pub fn debug_print_impl(message: &str) {
         );
     }
 }
+
+#[cfg(feature = "env_logger")]
+mod ods_logger {
+    /// [`env_logger::fmt::Target`]の実装。
+    /// OutputDebugStringを使用してログを出力します。
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use aviutl2_rs::common::debug_logger_target;
+    ///
+    /// env_logger::Builder::new()
+    ///     .parse_filters("info")
+    ///     .target(debug_logger_target())
+    ///     .init();
+    /// ```
+    pub fn debug_logger_target() -> env_logger::fmt::Target {
+        let write_target = OdsWriter::new();
+        env_logger::fmt::Target::Pipe(Box::new(write_target))
+    }
+
+    struct OdsWriter {
+        buffer: Vec<u8>,
+    }
+
+    impl OdsWriter {
+        pub fn new() -> Self {
+            Self { buffer: Vec::new() }
+        }
+    }
+
+    impl std::io::Write for OdsWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.buffer.extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            while let Some(pos) = self.buffer.iter().position(|&b| b == b'\n') {
+                let line = &self.buffer[..=pos];
+                if let Ok(line_str) = std::str::from_utf8(line) {
+                    super::debug_print_impl(line_str);
+                }
+                self.buffer.drain(..=pos);
+            }
+            Ok(())
+        }
+    }
+}
+pub use ods_logger::debug_logger_target;

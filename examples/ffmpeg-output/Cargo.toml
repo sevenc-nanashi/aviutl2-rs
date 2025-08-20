@@ -2,6 +2,7 @@
 name = "example-ffmpeg-output"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 
 [lib]
 name = "rusty_ffmpeg_output"
