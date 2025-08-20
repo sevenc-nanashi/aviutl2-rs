@@ -10,6 +10,8 @@ const MASTER_VOLUME: f32 = 0.05; // Volume level of master track (0.0 to 1.0)
 const VOLUME: f32 = 0.1; // Volume level (0.0 to 1.0)
 const CLIP: f32 = 1.0; // Clip value for audio samples (0.0 to 1.0)
 
+const US_PER_SECOND: u64 = 1_000_000;
+
 const PI_2: f32 = 2.0 * std::f32::consts::PI;
 
 struct SinMidPlayerPlugin {}
@@ -66,7 +68,6 @@ impl SinMidPlayerHandle {
         ) -> std::collections::BTreeMap<OrderedFloat<f64>, TempoIndexCacheEntry> {
             let mid = mid.borrow_mid();
             let tempo_changes = {
-                let current_uspb = 60000000u64 / 120; // Default to 120 BPM
                 let mut current_tick = 0u64;
                 let mut tempo_changes = vec![];
                 for track in &mid.tracks {
@@ -82,7 +83,7 @@ impl SinMidPlayerHandle {
                 tempo_changes.sort_by_key(|(tick, _)| *tick);
                 if tempo_changes.first().is_none_or(|(tick, _)| *tick != 0) {
                     // 0tick目にテンポ変更がない場合、デフォルトのテンポを追加
-                    tempo_changes.push((0, current_uspb));
+                    tempo_changes.push((0, US_PER_SECOND * 60 / 120));
                 }
 
                 tempo_changes
@@ -102,8 +103,8 @@ impl SinMidPlayerHandle {
             let mut current_time = 0f64;
             for ((p_ticks, p_uspb), (ticks, uspb)) in tempo_changes.iter().tuple_windows() {
                 let delta_ticks = ticks - p_ticks;
-                let delta_time =
-                    ((*p_uspb as f64) / 1_000_000.0) * (delta_ticks / ticks_per_beat) as f64;
+                let delta_time = ((*p_uspb as f64) / (US_PER_SECOND as f64))
+                    * (delta_ticks / ticks_per_beat) as f64;
                 current_time += delta_time;
                 tempo_index.insert(
                     OrderedFloat(current_time),
@@ -138,7 +139,7 @@ impl SinMidPlayerHandle {
         });
 
         let delta_ticks = ticks - prev_entry.ticks;
-        let delta_time = (next_entry.uspb as f64 / 1_000_000.0)
+        let delta_time = (next_entry.uspb as f64 / US_PER_SECOND as f64)
             * (delta_ticks as f64 / self.ticks_per_beat as f64);
         **prev_time + delta_time
     }
