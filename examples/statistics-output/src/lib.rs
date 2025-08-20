@@ -87,13 +87,16 @@ impl OutputPlugin for StatisticsPlugin {
         } else {
             static TEMPLATE: &str = include_str!("../page/dist/index.html");
             let mut page = TEMPLATE.to_string();
-            page = page.replace(
-                "data-render-data=\"!PLACEHOLDER!\"",
-                &format!(
-                    "data-render-data=\"{}\"",
-                    base64.encode(serde_json::to_string(&render_data).unwrap())
-                ),
-            );
+            page =
+                page.replace(
+                    "data-render-data=\"!PLACEHOLDER!\"",
+                    &format!(
+                        "data-render-data=\"{}\"",
+                        base64.encode(serde_json::to_string(&render_data).map_err(
+                            |e| anyhow::anyhow!("Failed to serialize render data: {}", e)
+                        )?)
+                    ),
+                );
             std::fs::write(info.path, page)
                 .map_err(|e| anyhow::anyhow!("Failed to write output file: {}", e))?;
         }

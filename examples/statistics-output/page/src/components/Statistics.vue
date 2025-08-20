@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { useRenderData } from "../useRenderData";
 
-const { numFrames, totalMs, fps, startTime, endTime, width, height } =
-  useRenderData();
+const renderData = useRenderData();
 
 const formatMs = (ms: number) => `${ms.toFixed(2)} ms`;
 const formatDateTime = (date: string) => new Date(date).toLocaleString();
@@ -16,24 +15,28 @@ const stdDev = (arr: number[]) => {
 
 const contents = [
   {
-    フレーム数: numFrames,
-    動画時間: formatMs((numFrames / fps) * 1000),
-    動画のFPS: fps.toFixed(2),
-    幅: width,
-    高さ: height,
+    フレーム数: renderData.numFrames,
+    動画時間: formatMs((renderData.numFrames / renderData.fps) * 1000),
+    動画のFPS: renderData.fps.toFixed(2),
+    幅: renderData.width,
+    高さ: renderData.height,
   },
   {
-    描画時間: formatMs(totalMs),
-    開始時間: formatDateTime(startTime),
-    終了時間: formatDateTime(endTime),
-    描画のFPS: (numFrames / (totalMs / 1000)).toFixed(2),
+    描画時間: formatMs(renderData.totalMs),
+    開始時間: formatDateTime(renderData.startTime),
+    終了時間: formatDateTime(renderData.endTime),
+    描画のFPS: (renderData.numFrames / (renderData.totalMs / 1000)).toFixed(2),
   },
   {
-    最小時間: formatMs(Math.min(...useRenderData().msPerFrame)),
-    平均時間: formatMs(totalMs / numFrames),
-    最大時間: formatMs(Math.max(...useRenderData().msPerFrame)),
-    標準偏差: formatMs(stdDev(useRenderData().msPerFrame)),
-    "動画時間/描画時間比": (numFrames / fps / (totalMs / 1000)).toFixed(2),
+    最小時間: formatMs(Math.min(...renderData.msPerFrame)),
+    平均時間: formatMs(renderData.totalMs / renderData.numFrames),
+    最大時間: formatMs(Math.max(...renderData.msPerFrame)),
+    標準偏差: formatMs(stdDev(renderData.msPerFrame)),
+    "動画時間/描画時間比": (
+      renderData.numFrames /
+      renderData.fps /
+      (renderData.totalMs / 1000)
+    ).toFixed(2),
   },
 ];
 </script>
