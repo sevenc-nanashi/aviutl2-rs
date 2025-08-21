@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: |
           mv ./target/release/rusty_images.{dll,aui2}
-          mv ./target/release/rusty_sine_midi_player.{dll,aui2}
+          mv ./target/release/rusty_midi_player.{dll,aui2}
           mv ./target/release/rusty_ffmpeg_output.{dll,auo2}
           mv ./target/release/rusty_statistics.{dll,auo2}
           mv ./target/release/rusty_pixel_format_test.{dll,aui2}
@@ -63,7 +63,7 @@ jobs:
 
             - `rusty_images.aui2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/image-rs-input>
             - `rusty_pixel_format_test.aui2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/pixel-format-test-input>
-            - `rusty_sine_midi_player.aui2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/sine-midi-player-input>
+            - `rusty_midi_player.aui2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/midi-player-input>
             - `rusty_ffmpeg_output.auo2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/ffmpeg-output>
             - `rusty_statistics.auo2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/statistics-output>
 
