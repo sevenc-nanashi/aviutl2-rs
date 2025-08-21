@@ -8,6 +8,7 @@
 //! ## サンプル
 //!
 //! TODO
+
 mod binding;
 
 pub use super::common::*;

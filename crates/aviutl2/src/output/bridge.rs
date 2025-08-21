@@ -2,7 +2,7 @@ use std::num::NonZeroIsize;
 
 use crate::{
     common::{
-        alert_error, format_file_filters, free_leaked_memory, leak_large_string,
+        Yc48, alert_error, format_file_filters, free_leaked_memory, leak_large_string,
         result_to_bool_with_dialog,
     },
     output::{
@@ -17,8 +17,6 @@ use aviutl2_sys::{
     output2::{BI_RGB, LPCWSTR, WAVE_FORMAT_IEEE_FLOAT},
 };
 use half::f16;
-
-use super::Yc48;
 
 impl FromRawVideoFrame for RgbVideoFrame {
     const FORMAT: u32 = BI_RGB;
