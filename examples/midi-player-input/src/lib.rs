@@ -165,7 +165,7 @@ impl InputPlugin for SinMidPlayerPlugin {
                 version = env!("CARGO_PKG_VERSION")
             ),
             concurrent: false,
-            can_config: false,
+            can_config: true,
         }
     }
 
@@ -342,6 +342,10 @@ impl InputPlugin for SinMidPlayerPlugin {
 
     fn close(&self, _handle: Self::InputHandle) -> anyhow::Result<()> {
         Ok(())
+    }
+
+    fn config(&self, _hwnd: aviutl2::input::Win32WindowHandle) -> anyhow::Result<()> {
+        
     }
 }
 
