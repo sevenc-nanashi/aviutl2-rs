@@ -1,7 +1,7 @@
-# Rusty Sine Midi Player Input
+# Rusty Piano Midi Player Input
 
 入力プラグインのサンプルです。
-[midly](https://docs.rs/midly/latest/midly/)を使用してMIDIを読み込み、sin波で再生します。
+[midly](https://docs.rs/midly/latest/midly/)を使用してMIDIを読み込み、ピアノ音源で再生します。
 
 ## 使い方
 
