@@ -176,7 +176,8 @@ impl InputPlugin for SinMidPlayerPlugin {
                 version = env!("CARGO_PKG_VERSION")
             ),
             concurrent: false,
-            can_config: true,
+            // TODO: sf2の設定を可能にする
+            can_config: false,
         }
     }
 
