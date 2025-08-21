@@ -22,3 +22,7 @@ ureq = "3.0.12"
 uuid = { version = "1.17.0", features = ["v4"] }
 windows = { version = "0.61.3", features = ["Win32_Security", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Pipes"] }
 zip-extract = "0.4.0"
+
+[build-dependencies]
+anyhow = "1.0.98"
+ureq = "3.0.12"

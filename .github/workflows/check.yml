@@ -29,6 +29,7 @@ jobs:
 
       - name: Run test
         run: |
+          sudo choco install ffmpeg
           cargo test --all-features
 
       - name: Run fmt

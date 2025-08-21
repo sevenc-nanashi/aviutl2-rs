@@ -405,7 +405,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                     fonts.font_data.insert(
                         "M+ 1".to_owned(),
                         std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
-                            "../fonts/fonts/otf/Mplus1-Regular.otf"
+                            "../fonts/Mplus1-Regular.otf"
                         ))),
                     );
                     fonts
@@ -417,7 +417,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                     fonts.font_data.insert(
                         "M+ 1 Code".to_owned(),
                         std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
-                            "../fonts/fonts/otf/Mplus1Code-Medium.otf"
+                            "../fonts/Mplus1Code-Medium.otf"
                         ))),
                     );
                     fonts
