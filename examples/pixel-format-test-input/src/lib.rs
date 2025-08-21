@@ -88,8 +88,8 @@ impl InputPlugin for PixelFormatTestPlugin {
                 for y in 0..height {
                     for x in 0..width {
                         buffer.push((
-                            x as u8, // B
-                            y as u8, // G
+                            x as u8,                                                  // B
+                            y as u8,                                                  // G
                             ((x + y) as f64 / (width + height) as f64 * 255.0) as u8, // R
                             255, // A (fully opaque)
                         ));
@@ -102,8 +102,8 @@ impl InputPlugin for PixelFormatTestPlugin {
                 for y in 0..height {
                     for x in 0..width {
                         buffer.push((
-                            x as u8, // B
-                            y as u8, // G
+                            x as u8,                                                  // B
+                            y as u8,                                                  // G
                             ((x + y) as f64 / (width + height) as f64 * 255.0) as u8, // R
                         ));
                     }
@@ -169,11 +169,9 @@ impl InputPlugin for PixelFormatTestPlugin {
         }
     }
 
-    fn close(&self, handle: Self::InputHandle) -> AnyResult<()> {
-        drop(handle);
+    fn close(&self, _handle: Self::InputHandle) -> AnyResult<()> {
         Ok(())
     }
 }
 
 register_input_plugin!(PixelFormatTestPlugin);
-
