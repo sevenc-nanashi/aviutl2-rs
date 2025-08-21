@@ -17,11 +17,11 @@ pub use raw_window_handle::RawWindowHandle;
 use super::InputPluginTable;
 
 impl ImageFormat {
-    fn bytes_count(&self) -> usize {
+    fn bytes_count_per_pixel(&self) -> usize {
         match self {
-            ImageFormat::Rgb => 3,  // RGB format
-            ImageFormat::Rgba => 4, // RGBA format
-            ImageFormat::Yuy2 => 4, // YUY2 format (packed YUV 4:2:2)
+            ImageFormat::Bgr => 3,  // RGB format
+            ImageFormat::Bgra => 4, // RGBA format
+            ImageFormat::Yuy2 => 2, // YUY2 format (packed YUV 4:2:2, 4 bytes per 2 pixels)
             ImageFormat::Pa64 => 8, // DXGI_FORMAT_R16G16B16A16_UNORM (packed 16-bit per channel)
             ImageFormat::Hf64 => 8, // DXGI_FORMAT_R16G16B16A16_FLOAT (half-float)
             ImageFormat::Yc48 => 6, // YC48 (AviUtl1)
@@ -41,20 +41,23 @@ impl AudioFormat {
 impl VideoInputInfo {
     fn into_raw(self) -> aviutl2_sys::input2::BITMAPINFOHEADER {
         let bi_compression = match self.format {
-            ImageFormat::Rgb | ImageFormat::Rgba => aviutl2_sys::input2::BI_RGB,
+            ImageFormat::Bgr | ImageFormat::Bgra => aviutl2_sys::input2::BI_RGB,
             ImageFormat::Yuy2 => aviutl2_sys::input2::BI_YUY2,
             ImageFormat::Pa64 => aviutl2_sys::input2::BI_PA64,
             ImageFormat::Hf64 => aviutl2_sys::input2::BI_HF64,
-            ImageFormat::Yc48 => aviutl2_sys::input2::BI_YC48, // Custom format for AviUtl1
+            ImageFormat::Yc48 => aviutl2_sys::input2::BI_YC48,
         };
+
+        // NOTE:
+        // biHeightをマイナスにしてBI_RGBでも上からにするやつは使えない（AviUtが落ちる）
         aviutl2_sys::input2::BITMAPINFOHEADER {
             biSize: std::mem::size_of::<aviutl2_sys::input2::BITMAPINFOHEADER>() as u32,
             biWidth: self.width as i32,
             biHeight: self.height as i32,
             biPlanes: 1,
-            biBitCount: (self.format.bytes_count() * 8) as u16, // Bits per pixel
+            biBitCount: (self.format.bytes_count_per_pixel() * 8) as u16, // Bits per pixel
             biCompression: bi_compression,
-            biSizeImage: (self.width * self.height * self.format.bytes_count() as u32),
+            biSizeImage: (self.width * self.height * self.format.bytes_count_per_pixel() as u32),
             biXPelsPerMeter: 0, // Not used
             biYPelsPerMeter: 0, // Not used
             biClrUsed: 0,       // Not used
@@ -336,7 +339,7 @@ pub unsafe fn func_read_video<T: InputPlugin>(
                     assert_eq!(
                         image_data.len(),
                         ((video_format.width * video_format.height) as usize
-                            * video_format.format.bytes_count()),
+                            * video_format.format.bytes_count_per_pixel()),
                         "Image data size does not match expected size"
                     );
                 }

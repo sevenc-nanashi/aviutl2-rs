@@ -51,7 +51,7 @@ impl InputPlugin for ImageRsPlugin {
                 num_frames: 1,
                 width,
                 height,
-                format: aviutl2::input::ImageFormat::Rgba,
+                format: aviutl2::input::ImageFormat::Bgra,
                 manual_frame_index: false,
             }),
             audio: None, // No audio for image files

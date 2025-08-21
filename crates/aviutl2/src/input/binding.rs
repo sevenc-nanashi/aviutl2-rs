@@ -1,4 +1,4 @@
-use crate::common::{AnyResult, FileFilter};
+use crate::common::{AnyResult, FileFilter, Yc48};
 pub use half::f16;
 pub use num_rational::Rational32;
 pub use raw_window_handle::Win32WindowHandle;
@@ -58,14 +58,20 @@ pub struct VideoInputInfo {
 }
 
 /// 画像のフォーマット。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ImageFormat {
     /// RGB形式。
     /// `(u8, u8, u8)`相当。
-    Rgb,
-    /// RGBA形式。
+    ///
+    /// > [!WARNING]
+    /// > この形式では、左下から右上に向かって色が並びます。
+    Bgr,
+    /// BGRA形式。
     /// `(u8, u8, u8, u8)`相当。
-    Rgba,
+    ///
+    /// > [!WARNING]
+    /// > この形式では、左下から右上に向かって色が並びます。
+    Bgra,
     /// YUV 4:2:2形式。
     /// `(u8, u8, u8, u8)`相当。
     Yuy2,
@@ -159,6 +165,7 @@ impl IntoImage for Vec<u8> {
     [Vec<u16>];
     [Vec<i16>];
     [Vec<f16>];
+    [Vec<Yc48>];
 )]
 impl IntoImage for T {
     fn into_image(self) -> ImageBuffer {
@@ -185,7 +192,7 @@ into_image_impl_for_tuple!((u8, u8, u8), r, g, b);
 into_image_impl_for_tuple!((u8, u8, u8, u8), r, g, b, a);
 into_image_impl_for_tuple!((u16, u16, u16, u16), r, g, b, a);
 into_image_impl_for_tuple!((f16, f16, f16, f16), r, g, b, a);
-into_image_impl_for_tuple!((u16, i16, i16), y, u, v);
+into_image_impl_for_tuple!((i16, i16, i16), y, cb, cr);
 
 #[derive(Debug, Clone)]
 pub struct AudioBuffer(pub Vec<u8>);

@@ -1,0 +1,13 @@
+[package]
+name = "example-pixel-format-test-input"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "rusty_pixel_format_test"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.98"
+aviutl2.workspace = true

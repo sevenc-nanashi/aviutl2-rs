@@ -18,6 +18,8 @@ use aviutl2_sys::{
 };
 use half::f16;
 
+use super::Yc48;
+
 impl FromRawVideoFrame for RgbVideoFrame {
     const FORMAT: u32 = BI_RGB;
 
@@ -154,16 +156,20 @@ impl FromRawVideoFrame for Yc48VideoFrame {
     unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self {
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
-        let frame_data_ptr = frame_data_ptr as *const u16;
+        let frame_data_ptr = frame_data_ptr as *const i16;
         for y in 0..video.height as usize {
             for x in 0..video.width as usize {
                 let i = y * video.width as usize + x;
                 // Each pixel is represented by 6 bytes (YCbCr)
                 let pixel_y = unsafe { *frame_data_ptr.add(i * 3) };
-                let pixel_c1 = unsafe { *frame_data_ptr.add(i * 3 + 1) };
-                let pixel_c2 = unsafe { *frame_data_ptr.add(i * 3 + 2) };
+                let pixel_cr = unsafe { *frame_data_ptr.add(i * 3 + 1) };
+                let pixel_cb = unsafe { *frame_data_ptr.add(i * 3 + 2) };
                 frame_data_writer[(video.height as usize - 1 - y) * video.width as usize + x]
-                    .write((pixel_y, pixel_c1, pixel_c2));
+                    .write(Yc48 {
+                        y: pixel_y,
+                        cr: pixel_cr,
+                        cb: pixel_cb,
+                    });
             }
         }
         unsafe {
@@ -206,7 +212,7 @@ impl FromRawVideoFrame for Pa64VideoFrame {
 #[duplicate::duplicate_item(
     Name                Type  elms FMT;
     [RawHf64VideoFrame] [u16] [4]  [aviutl2_sys::output2::BI_HF64];
-    [RawYc48VideoFrame] [u16] [3]  [aviutl2_sys::output2::BI_YC48];
+    [RawYc48VideoFrame] [i16] [3]  [aviutl2_sys::output2::BI_YC48];
     [RawPa64VideoFrame] [u16] [4]  [aviutl2_sys::output2::BI_PA64];
 )]
 impl FromRawVideoFrame for Name {

@@ -1500,6 +1500,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "example-pixel-format-test-input"
+version = "0.3.1"
+dependencies = [
+ "anyhow",
+ "aviutl2",
+]
+
+[[package]]
 name = "example-sine-midi-player-input"
 version = "0.3.1"
 dependencies = [
