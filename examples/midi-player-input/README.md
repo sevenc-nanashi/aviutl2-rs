@@ -10,6 +10,6 @@
 
 ## インストール
 
-`C:\ProgramData\aviutl2\Plugin` に `rusty_sine_midi_player.aui2` を配置してください。
+`C:\ProgramData\aviutl2\Plugin` に `rusty_midi_player.aui2` を配置してください。
 
 `./piano.sf2` は CC-BY 3.0 でリリースされている [Yamaha YPT 220 soundfont studio version by TheSoundfontMaker](https://musical-artifacts.com/artifacts/2573) を使用しています。
