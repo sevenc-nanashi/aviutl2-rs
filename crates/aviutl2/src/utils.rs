@@ -75,6 +75,7 @@ pub fn flip_vertical<T>(data: &mut [T], width: usize, height: usize) {
 }
 
 /// Vec<(u8, u8, u8)>をBGRの配列として捉え、RGBの配列に変換する関数。
+/// エイリアスとして [`rgb_to_bgr`] も提供されます。
 pub fn bgr_to_rgb(data: &mut [(u8, u8, u8)]) {
     for pixel in data.iter_mut() {
         let (b, g, r) = *pixel;
@@ -82,12 +83,25 @@ pub fn bgr_to_rgb(data: &mut [(u8, u8, u8)]) {
     }
 }
 
-/// Vec<(u8, u8, u8, u8)>をBGRAの配列として捉え、RGBAの配列に変換する関数。
-pub fn bgra_to_rgba(data: &mut [(u8, u8, u8, u8)]) {
+/// [`bgr_to_rgb`]のエイリアス。
+#[inline]
+pub fn rgb_to_bgr(data: &mut [(u8, u8, u8)]) {
+    bgr_to_rgb(data);
+}
+
+/// Vec<(u8, u8, u8, u8)>をRGBAの配列として捉え、BGRAの配列に変換する関数。
+/// エイリアスとして [`bgra_to_rgba`] も提供されます。
+pub fn rgba_to_bgra(data: &mut [(u8, u8, u8, u8)]) {
     for pixel in data.iter_mut() {
         let (b, g, r, a) = *pixel;
         *pixel = (r, g, b, a);
     }
+}
+
+/// [`rgba_to_bgra`]のエイリアス。
+#[inline]
+pub fn bgra_to_rgba(data: &mut [(u8, u8, u8, u8)]) {
+    rgba_to_bgra(data);
 }
 
 #[cfg(feature = "env_logger")]

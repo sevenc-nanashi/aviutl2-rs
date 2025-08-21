@@ -65,12 +65,18 @@ pub enum ImageFormat {
     ///
     /// > [!WARNING]
     /// > この形式では、左下から右上に向かって色が並びます。
+    ///
+    /// # See Also
+    /// [`crate::utils::rgb_to_bgr`]
     Bgr,
     /// BGRA形式。
     /// `(u8, u8, u8, u8)`相当。
     ///
     /// > [!WARNING]
     /// > この形式では、左下から右上に向かって色が並びます。
+    ///
+    /// # See Also
+    /// [`crate::utils::rgba_to_bgra`]
     Bgra,
     /// YUV 4:2:2形式。
     /// `(u8, u8, u8, u8)`相当。
@@ -79,7 +85,10 @@ pub enum ImageFormat {
     /// `(u16, u16, u16, u16)`相当。
     Pa64,
     /// YC48（互換対応の旧内部フォーマット）形式。
-    /// `(u16, i16, i16)`相当。
+    /// `(i16, i16, i16)`相当。
+    ///
+    /// # See Also
+    /// [`Yc48`]
     Yc48,
     /// DXGI_FORMAT_R16G16B16A16_FLOAT（乗算済みα）形式。
     /// `(f16, f16, f16, f16)`相当。

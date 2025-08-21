@@ -131,7 +131,7 @@ duplicate::duplicate! {
         [RgbVideoFrame]     [(u8, u8, u8)]         ["(u8, u8, u8) で表されるRGBの動画フレーム。"];
         [Yuy2VideoFrame]    [(u8, u8, u8, u8)]     ["(u8, u8, u8, u8) で表されるYUV 4:2:2の動画フレーム。"];
         [Hf64VideoFrame]    [(f16, f16, f16, f16)] ["(f16, f16, f16, f16) で表されるRGBAの動画フレーム。"];
-        [Yc48VideoFrame]    [Yc48]                 ["(u16, i16, i16) で表されるYC48形式の動画フレーム"];
+        [Yc48VideoFrame]    [Yc48]                 ["YC48形式の動画フレーム。"];
         [Pa64VideoFrame]    [(u16, u16, u16, u16)] ["(u16, u16, u16, u16) で表されるRGBAの動画フレーム。"];
 
         [RawBgrVideoFrame]  [u8]                   ["生のBGR24形式の動画フレームデータ。"];
