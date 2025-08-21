@@ -1,29 +1,28 @@
 mod midi;
-use aviutl2::input::InputPlugin;
-use aviutl2::input::IntoAudio;
+use std::sync::Arc;
+
+use aviutl2::input::{InputPlugin, IntoAudio};
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 
 const SAMPLE_RATE: u32 = 44100;
 const TAIL_LENGTH: f64 = 1.0; // 1 second tail length
-const MASTER_VOLUME: f32 = 0.05; // Volume level of master track (0.0 to 1.0)
-const VOLUME: f32 = 0.1; // Volume level (0.0 to 1.0)
+const MASTER_VOLUME: f32 = 0.2; // Volume level of master track (0.0 to 1.0)
+const VOLUME: f32 = 1.0; // Volume level (0.0 to 1.0)
 const CLIP: f32 = 1.0; // Clip value for audio samples (0.0 to 1.0)
 
 const US_PER_SECOND: u64 = 1_000_000;
-
-const PI_2: f32 = 2.0 * std::f32::consts::PI;
 
 struct SinMidPlayerPlugin {}
 
 #[derive(Debug)]
 struct SinMidPlayerHandle {
     smf: midi::OwnedSmf,
+    synthesizer: rustysynth::Synthesizer,
     track_number: u32,
     ticks_per_beat: u64,
     tempo_index: std::collections::BTreeMap<OrderedFloat<f64>, TempoIndexCacheEntry>,
     expected_next_sample: u64,
-    active_notes: std::collections::HashMap<u8, midi::Note>,
     current_track_events: Vec<(u64, midi::NoteEvent)>,
     current_track_event_index: usize,
 }
@@ -32,6 +31,12 @@ struct TempoIndexCacheEntry {
     ticks: u64,
     uspb: u64,
 }
+
+static PIANO: std::sync::LazyLock<Arc<rustysynth::SoundFont>> = std::sync::LazyLock::new(|| {
+    let piano_sf2 = include_bytes!("../piano.sf2").to_vec();
+    let mut piano_sf2 = std::io::Cursor::new(piano_sf2);
+    Arc::new(rustysynth::SoundFont::new(&mut piano_sf2).expect("Failed to load piano soundfont"))
+});
 
 impl SinMidPlayerHandle {
     fn open(content: Vec<u8>) -> anyhow::Result<Self> {
@@ -51,13 +56,19 @@ impl SinMidPlayerHandle {
 
         let tempo_index = get_tempo_index(&smf, ticks_per_beat);
 
+        let synthesizer = rustysynth::Synthesizer::new(
+            &PIANO,
+            &rustysynth::SynthesizerSettings::new(SAMPLE_RATE as i32),
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to create synthesizer: {}", e))?;
+
         return Ok(SinMidPlayerHandle {
             smf,
+            synthesizer,
             track_number: 0, // Default to the first track
             ticks_per_beat,
             tempo_index,
             expected_next_sample: 0,
-            active_notes: std::collections::HashMap::new(),
             current_track_events: vec![],
             current_track_event_index: 0,
         });
@@ -154,14 +165,14 @@ impl InputPlugin for SinMidPlayerPlugin {
 
     fn plugin_info(&self) -> aviutl2::input::InputPluginTable {
         aviutl2::input::InputPluginTable {
-            name: "SinMid Player Plugin".to_string(),
+            name: "Midi Piano Player Plugin".to_string(),
             input_type: aviutl2::input::InputType::Audio,
             file_filters: vec![aviutl2::FileFilter {
                 name: "MIDI Files".to_string(),
                 extensions: vec!["mid".to_string()],
             }],
             information: format!(
-                "Sine Wave Mid Player for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/sin-mid-input",
+                "Midi Piano Player for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/midi-player-input",
                 version = env!("CARGO_PKG_VERSION")
             ),
             concurrent: false,
@@ -209,7 +220,7 @@ impl InputPlugin for SinMidPlayerPlugin {
             video: None,
             audio: Some(aviutl2::input::AudioInputInfo {
                 sample_rate: SAMPLE_RATE,
-                channels: 1, // Mono output
+                channels: 2, // Mono output
                 num_samples: ((handle.ticks_to_time(last_ticks) + TAIL_LENGTH).max(0.0)
                     * SAMPLE_RATE as f64) as u32,
                 format: aviutl2::input::AudioFormat::IeeeFloat32,
@@ -224,7 +235,6 @@ impl InputPlugin for SinMidPlayerPlugin {
 
             handle.current_track_events.clear();
             handle.current_track_event_index = 0;
-            handle.active_notes.clear();
             let mut key_state = std::collections::HashMap::new();
 
             let mut events = vec![];
@@ -288,14 +298,18 @@ impl InputPlugin for SinMidPlayerPlugin {
     ) -> anyhow::Result<impl aviutl2::input::IntoAudio> {
         let start_sample = start as u64;
         let end_sample = start_sample + length as u64;
-        if start_sample != handle.expected_next_sample {
-            // 再生位置が変更されたので、再構築
+        let samples_between = start_sample as i64 - handle.expected_next_sample as i64;
+        if samples_between < -(SAMPLE_RATE as f64 * 0.01) as i64
+            || samples_between > (SAMPLE_RATE as f64 * 0.01) as i64
+        {
+            // 再生位置が飛んだのでリセット
             handle.current_track_event_index = 0;
+            handle.synthesizer.reset();
         }
-        let mut samples = vec![0.0f32; length as usize];
+        let mut samples = Vec::with_capacity(length as usize);
         for current_sample in start_sample..end_sample {
-            let sample_index = (current_sample - start_sample) as usize;
             let current_time = current_sample as f64 / SAMPLE_RATE as f64;
+            let mut note_activate_buffer = std::collections::HashMap::new();
             while handle.current_track_event_index < handle.current_track_events.len() {
                 let (event_tick, event) =
                     &handle.current_track_events[handle.current_track_event_index];
@@ -307,33 +321,53 @@ impl InputPlugin for SinMidPlayerPlugin {
                 // Process the event
                 match event {
                     midi::NoteEvent::NoteOn(note) => {
-                        handle.active_notes.insert(note.midi_note, note.clone());
+                        match note_activate_buffer.get(&note.midi_note) {
+                            Some(Some(_)) => {
+                                note_activate_buffer.insert(note.midi_note, None);
+                            }
+                            Some(None) | None => {
+                                note_activate_buffer.insert(note.midi_note, Some(note));
+                            }
+                        }
                     }
                     midi::NoteEvent::NoteOff(midi_note) => {
-                        handle.active_notes.remove(midi_note);
+                        match note_activate_buffer.get(midi_note) {
+                            Some(Some(_note)) => {
+                                note_activate_buffer.remove(midi_note);
+                            }
+                            None | Some(None) => {
+                                note_activate_buffer.insert(*midi_note, None);
+                            }
+                        }
                     }
                 }
 
                 handle.current_track_event_index += 1;
             }
-            // Generate audio for the active notes
-            for (&midi_note, note) in &handle.active_notes {
-                let frequency = midi::midi_note_to_freq(midi_note);
-                let start_time = handle.ticks_to_time(note.start_tick);
-                let elapsed_seconds = current_time - start_time;
-                let phase = (elapsed_seconds * frequency) as f32 * PI_2;
-                let amplitude = note.velocity as f32 / 127.0; // Normalize velocity
-                let sample_value = ((phase.sin()
-                    * amplitude
-                    * if handle.track_number == 0 {
-                        MASTER_VOLUME
-                    } else {
-                        VOLUME
-                    }) as f32)
-                    .clamp(-CLIP, CLIP);
-                samples[sample_index] += sample_value;
+            for (&midi, note) in &note_activate_buffer {
+                match note {
+                    Some(note) => {
+                        handle.synthesizer.note_on(
+                            0,
+                            note.midi_note as i32,
+                            note.velocity as i32, // Normalize velocity
+                        );
+                    }
+                    None => {
+                        handle.synthesizer.note_off(0, midi as i32);
+                    }
+                }
             }
-            samples[sample_index] = samples[sample_index].clamp(-CLIP, CLIP);
+            let mut sample_buf_l = vec![0.0f32; 1];
+            let mut sample_buf_r = vec![0.0f32; 1];
+            handle
+                .synthesizer
+                .render(&mut sample_buf_l, &mut sample_buf_r);
+
+            samples.push((
+                (sample_buf_l[0] * VOLUME * MASTER_VOLUME).clamp(-CLIP, CLIP),
+                (sample_buf_r[0] * VOLUME * MASTER_VOLUME).clamp(-CLIP, CLIP),
+            ));
         }
         handle.expected_next_sample = end_sample;
 
@@ -342,10 +376,6 @@ impl InputPlugin for SinMidPlayerPlugin {
 
     fn close(&self, _handle: Self::InputHandle) -> anyhow::Result<()> {
         Ok(())
-    }
-
-    fn config(&self, _hwnd: aviutl2::input::Win32WindowHandle) -> anyhow::Result<()> {
-        
     }
 }
 
