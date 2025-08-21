@@ -25,7 +25,11 @@ jobs:
 
       - name: Run clippy
         run: |
-          cargo clippy
+          cargo clippy --all-features
+
+      - name: Run test
+        run: |
+          cargo test --all-features
 
       - name: Run fmt
         run: |

@@ -112,7 +112,7 @@ mod ods_logger {
     /// # Example
     ///
     /// ```rust
-    /// use aviutl2_rs::common::debug_logger_target;
+    /// use aviutl2::utils::debug_logger_target;
     ///
     /// env_logger::Builder::new()
     ///     .parse_filters("info")
