@@ -14,6 +14,7 @@ AviUtl2 SDKのRust版です。
 - `./examples/`：AviUtl2 SDKを使用したサンプルコード。
     - `./examples/image-rs-input`：image-rsを使用して画像を読み込むサンプル。
     - `./examples/sine-midi-player-input`：midlyを使用してMIDIを読み込み、sin波で再生するサンプル。
+    - `./examples/pixel-format-test-input`：それぞれのピクセルフォーマットをテストするサンプル。
     - `./examples/ffmpeg-output`：FFmpegを使用して動画を出力するサンプル。
     - `./examples/statistics-output`：フレームごとの描画時間を計測し、統計情報を出力するサンプル。
 
