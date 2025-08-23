@@ -239,11 +239,11 @@ impl OutputInfo {
         start: i32,
         length: i32,
     ) -> Option<(Vec<F>, u32)> {
+        let audio = self.audio.as_ref()?;
         let audio_ptr = unsafe { self.internal.as_mut().and_then(|oip| oip.func_get_audio) }?;
         let mut readed = 0;
         let audio_data_ptr = audio_ptr(start, length, &mut readed, F::FORMAT) as *mut u8;
 
-        let audio = self.audio.as_ref()?;
         let samples = unsafe { F::from_raw(length, audio.num_channels, audio_data_ptr) };
 
         Some((samples, audio.num_channels))
