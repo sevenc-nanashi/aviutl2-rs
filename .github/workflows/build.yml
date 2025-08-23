@@ -19,6 +19,9 @@ jobs:
         with:
           submodules: "recursive"
 
+      - name: Cache rust
+        uses: Swatinem/rust-cache@v2
+
       - name: Set up Rust
         run: |
           rustup toolchain install --profile minimal
@@ -26,12 +29,14 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
 
-      - name: Cache rust
-        uses: Swatinem/rust-cache@v2
+      - name: Set up cargo-set-version
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-edit
 
       - name: Update Cargo.toml
         run: |
-          sed -i 's/^version = .*/version = "${{ github.event.inputs.name }}"/' Cargo.toml
+          cargo set-version ${{ github.event.inputs.name }}
 
       - name: Build Page
         uses: ./.github/actions/render-statistics-page
