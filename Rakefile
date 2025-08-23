@@ -94,7 +94,7 @@ task :release, ["tag"] do |task, args|
     ## 説明書
   MARKDOWN
   plugins.each do |lib_name, dir|
-    description << "- `#{lib_name}`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/#{tag}/examples/#{File.basename(dir)}>\n"
+    description << "- `#{lib_name}`：<https://github.com/sevenc-nanashi/aviutl2-rs/blob/#{tag}/examples/#{File.basename(dir)}/README.md>\n"
   end
 
   File.write(File.join(dest_dir, "README.md"), description)

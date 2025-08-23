@@ -137,7 +137,7 @@ duplicate::duplicate! {
         [RawBgrVideoFrame]  [u8]                   ["生のBGR24形式の動画フレームデータ。"];
         [RawYuy2VideoFrame] [u8]                   ["生のYUV 4:2:2形式の動画フレームデータ。"];
         [RawHf64VideoFrame] [u16]                  ["生のDXGI_FORMAT_R16G16B16A16_FLOAT（乗算済みα）形式の動画フレームデータ。"];
-        [RawYc48VideoFrame] [i16]                  ["生のYC48（互換対応の旧内部フォーマット）形式の動画フレームデータ。"];
+        [RawYc48VideoFrame] [i16]                  ["生のYC48形式の動画フレームデータ。"];
         [RawPa64VideoFrame] [u16]                  ["生のDXGI_FORMAT_R16G16B16A16_UNORM（乗算済みα）形式の動画フレームデータ。"];
     ]
     #[doc = Doc]

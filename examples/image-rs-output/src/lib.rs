@@ -4,9 +4,9 @@ use aviutl2::{
     register_output_plugin,
 };
 
-struct ImageOutputPlugin;
+struct ImageRsOutputPlugin;
 
-impl ImageOutputPlugin {
+impl ImageRsOutputPlugin {
     fn write(
         &self,
         info: &aviutl2::output::OutputInfo,
@@ -32,9 +32,9 @@ impl ImageOutputPlugin {
     }
 }
 
-impl OutputPlugin for ImageOutputPlugin {
+impl OutputPlugin for ImageRsOutputPlugin {
     fn new() -> Self {
-        ImageOutputPlugin
+        ImageRsOutputPlugin
     }
 
     fn plugin_info(&self) -> aviutl2::output::OutputPluginTable {
@@ -114,4 +114,4 @@ impl OutputPlugin for ImageOutputPlugin {
     }
 }
 
-register_output_plugin!(ImageOutputPlugin);
+register_output_plugin!(ImageRsOutputPlugin);
