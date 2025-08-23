@@ -61,25 +61,23 @@ impl TempoIndex {
     pub fn new(mid: &OwnedSmf, ticks_per_beat: u64) -> Self {
         let mid = mid.borrow_mid();
         let tempo_changes = {
-            let mut current_tick = 0u64;
-            let mut tempo_changes = vec![];
+            let mut tempo_changes = std::collections::BTreeMap::new();
             for track in &mid.tracks {
+                let mut current_tick = 0u64;
                 for event in track.iter() {
                     current_tick += event.delta.as_int() as u64;
                     if let midly::TrackEventKind::Meta(midly::MetaMessage::Tempo(uspb)) =
                         &event.kind
                     {
-                        tempo_changes.push((current_tick, uspb.as_int() as u64));
+                        tempo_changes.insert(current_tick, uspb.as_int() as u64);
                     }
                 }
             }
-            tempo_changes.sort_by_key(|(tick, _)| *tick);
-            if tempo_changes.first().is_none_or(|(tick, _)| *tick != 0) {
-                // 0tick目にテンポ変更がない場合、デフォルトのテンポを追加
-                tempo_changes.push((0, US_PER_SECOND * 60 / 120));
-            }
-
             tempo_changes
+                .entry(0)
+                .or_insert_with(|| US_PER_SECOND * 60 / 120);
+
+            tempo_changes.into_iter().collect::<Vec<_>>()
         };
         let mut tempo_index = std::collections::BTreeMap::new();
         tempo_index.insert(
@@ -118,22 +116,14 @@ impl TempoIndex {
         if ticks == 0 {
             return 0.0; // 0 ticks corresponds to 0 seconds
         }
-        let mut prev = self.index.range(..OrderedFloat(ticks as f64)).next_back();
-        if prev.is_none() {
-            prev = self.index.first_key_value();
-        }
-        let (prev_time, prev_entry) = prev.expect("unreachable: tempo_index should not be empty");
-        let next = self.index.range(OrderedFloat(ticks as f64)..).next();
-        let (_next_time, next_entry) = next.unwrap_or_else(|| {
-            self.index
-                .last_key_value()
-                .expect("unreachable: tempo_index should not be empty")
-        });
-
-        let delta_ticks = ticks - prev_entry.ticks;
-        let delta_time = (next_entry.uspb as f64 / US_PER_SECOND as f64)
+        let (last_time, last_entry) = self.index.iter().rfind(|(_, entry)| entry.ticks <= ticks).expect(
+            "unreachable: there should always be an entry with ticks <= the given ticks (at least the first entry with 0 ticks)",
+        );
+        let delta_ticks = ticks - last_entry.ticks;
+        let delta_time = (last_entry.uspb as f64 / US_PER_SECOND as f64)
             * (delta_ticks as f64 / self.ticks_per_beat as f64);
-        **prev_time + delta_time
+
+        last_time.into_inner() + delta_time
     }
 }
 

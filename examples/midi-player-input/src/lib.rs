@@ -12,6 +12,7 @@ struct MidiPlayerHandle {
     smf: track::OwnedSmf,
     track_number: u32,
     tempo_index: track::TempoIndex,
+    // プレビュー生成と波形生成のそれぞれに1つずつ使用する
     synthesizers: [synthesizer::Synthesizer; 2],
 }
 impl MidiPlayerHandle {
@@ -20,8 +21,8 @@ impl MidiPlayerHandle {
 
         let ticks_per_beat = match smf.borrow_mid().header.timing {
             midly::Timing::Metrical(tpb) => tpb.as_int() as u64,
-            _ => {
-                return Err(anyhow::anyhow!("Only Metrical timing is supported"));
+            timing => {
+                return Err(anyhow::anyhow!("Only Metrical timing is supported, got {timing:?}"));
             }
         };
 
@@ -124,7 +125,11 @@ impl InputPlugin for MidiPlayerPlugin {
         start: i32,
         length: i32,
     ) -> anyhow::Result<impl aviutl2::input::IntoAudio> {
-        let synth = &mut handle.synthesizers[0];
+        let synth = &mut handle
+            .synthesizers
+            .iter_mut()
+            .min_by_key(|s| (s.expected_next_sample as i64 - start as i64).abs())
+            .unwrap();
         let start_sample = start as u64;
         let end_sample = start_sample + length as u64;
         let samples_between = start_sample as i64 - synth.expected_next_sample as i64;

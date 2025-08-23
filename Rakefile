@@ -34,8 +34,8 @@ end
 desc "C:/ProgramData/AviUtl2/Pluginまたは指定したディレクトリにビルドしたプラグインのシンボリックリンクを作成します"
 task :link, %w[target dest] do |task, args|
   if !(target = args.target)
-    puts "Usage: rake copy[target[,dest]]"
-    puts "Example: rake copy[debug]"
+    puts "Usage: rake link[target[,dest]]"
+    puts "Example: rake link[debug]"
     exit 1
   end
 
@@ -50,8 +50,9 @@ task :link, %w[target dest] do |task, args|
           .basename(file)
           .sub(/_output\.dll$/, "#{suffix}.auo2")
           .sub(/_input\.dll$/, "#{suffix}.aui2")
+      from_path = File.absolute_path(file)
       raise "Invalid file name: #{file}" if dest_name == File.basename(file)
-      FileUtils.ln_s(file, File.join(dest_dir, dest_name), verbose: true)
+      FileUtils.ln_s(from_path, File.join(dest_dir, dest_name), verbose: true)
     end
 end
 
