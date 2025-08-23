@@ -9,6 +9,7 @@ license = "MIT"
 authors = ["Nanashi. <sevenc7c.com>"]
 description = "AviUtl2 SDK for Rust"
 repository = "https://github.com/sevenc-nanashi/aviutl2-rs"
+publish = false
 
 [workspace.dependencies]
 aviutl2-sys = { path = "./crates/aviutl2-sys" }

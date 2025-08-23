@@ -3,6 +3,9 @@ name = "aviutl2-sys"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = true
 categories = ["external-ffi-bindings"]
 
 [package.metadata.docs.rs]

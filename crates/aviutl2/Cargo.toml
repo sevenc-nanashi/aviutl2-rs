@@ -3,6 +3,9 @@ name = "aviutl2"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = true
 categories = ["api-bindings"]
 
 [package.metadata.docs.rs]
