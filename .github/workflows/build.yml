@@ -37,14 +37,10 @@ jobs:
         run: |
           cargo build --release
 
-      - name: Rename
+      - name: Prepare release
         shell: bash
         run: |
-          mv ./target/release/rusty_images.{dll,aui2}
-          mv ./target/release/rusty_midi_player.{dll,aui2}
-          mv ./target/release/rusty_ffmpeg_output.{dll,auo2}
-          mv ./target/release/rusty_statistics.{dll,auo2}
-          mv ./target/release/rusty_pixel_format_test.{dll,aui2}
+          rake release
 
       - name: Commit version change
         run: |
@@ -58,15 +54,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.name }}
-          body: |
-            `C:/ProgramData/aviutl2/Plugin/`下に入れてください。
-
-            - `rusty_images.aui2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/image-rs-input>
-            - `rusty_pixel_format_test.aui2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/pixel-format-test-input>
-            - `rusty_midi_player.aui2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/midi-player-input>
-            - `rusty_ffmpeg_output.auo2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/ffmpeg-output>
-            - `rusty_statistics.auo2`：<https://github.com/sevenc-nanashi/aviutl2-rs/tree/${{ github.event.inputs.name }}/examples/statistics-output>
-
+          body_path: "./release/README.md"
           files: |
-            ./target/release/*.aui2
-            ./target/release/*.auo2
+            ./release/*.aui2
+            ./release/*.auo2
