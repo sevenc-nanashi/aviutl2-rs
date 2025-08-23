@@ -23,6 +23,9 @@ jobs:
         run: |
           rustup toolchain install --profile minimal
 
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+
       - name: Cache rust
         uses: Swatinem/rust-cache@v2
 
