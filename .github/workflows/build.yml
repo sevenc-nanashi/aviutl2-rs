@@ -43,7 +43,7 @@ jobs:
       - name: Prepare release
         shell: bash
         run: |
-          rake release
+          rake release[${{ github.event.inputs.name }}]
 
       - name: Commit version change
         run: |
