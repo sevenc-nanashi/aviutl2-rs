@@ -5,9 +5,7 @@
 //! 1. [`OutputPlugin`]トレイトを実装した構造体を定義する
 //! 2. [`register_output_plugin!`]マクロを使用してプラグインを登録する
 //!
-//! ## サンプル
-//!
-//! TODO
+//! サンプルは<https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/ffmpeg-output>を参照してください。
 
 mod binding;
 

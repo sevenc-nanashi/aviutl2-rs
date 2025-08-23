@@ -9,7 +9,7 @@
 
 ## インストール
 
-`C:\ProgramData\aviutl2\Plugin` に `rusty_ffmpeg_output.auo2` を配置してください。
+`C:\ProgramData\aviutl2\Plugin` に `rusty_ffmpeg.auo2` を配置してください。
 初回書き出し時にFFmpegのダウンロード処理が行われます。
 
 ## 比較

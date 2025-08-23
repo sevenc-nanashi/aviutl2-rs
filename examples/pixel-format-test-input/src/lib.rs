@@ -36,7 +36,10 @@ impl InputPlugin for PixelFormatTestPlugin {
                     "yc48".to_string(),
                 ],
             }],
-            information: "Generates test patterns for various pixel formats".to_string(),
+            information: format!(
+                "Pixel Format Test Plugin / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/pixel-format-test-input",
+                version = env!("CARGO_PKG_VERSION")
+            ),
             can_config: false,
             concurrent: false,
         }

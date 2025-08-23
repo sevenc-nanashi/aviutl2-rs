@@ -27,7 +27,7 @@ impl OutputPlugin for StatisticsPlugin {
         aviutl2::output::OutputPluginTable {
             name: "Rusty Statistics Output Plugin".to_string(),
             information: format!(
-                "Statistics Output Plugin for AviUtl / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/statistics-output",
+                "Statistics Output for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/statistics-output",
                 version = env!("CARGO_PKG_VERSION")
             ),
             output_type: aviutl2::output::OutputType::Video,

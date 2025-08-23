@@ -3,6 +3,11 @@ name = "aviutl2"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+categories = ["api-bindings"]
+
+[package.metadata.docs.rs]
+default-target = "x86_64-pc-windows-msvc"
+targets = []
 
 [features]
 default = ["input", "output"]

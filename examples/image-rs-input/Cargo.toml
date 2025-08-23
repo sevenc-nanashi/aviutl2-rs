@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [lib]
-name = "rusty_images"
+name = "rusty_image_rs_input"
 crate-type = ["cdylib"]
 
 [dependencies]

@@ -4,13 +4,13 @@ use aviutl2::input::InputPlugin;
 use aviutl2::input::IntoImage;
 use aviutl2::register_input_plugin;
 
-struct ImageRsPlugin {}
+struct ImageRsInputPlugin {}
 
-impl InputPlugin for ImageRsPlugin {
+impl InputPlugin for ImageRsInputPlugin {
     type InputHandle = image::RgbaImage;
 
     fn new() -> Self {
-        ImageRsPlugin {}
+        ImageRsInputPlugin {}
     }
 
     fn plugin_info(&self) -> aviutl2::input::InputPluginTable {
@@ -22,7 +22,7 @@ impl InputPlugin for ImageRsPlugin {
                 extensions: vec!["webp".to_string()],
             }],
             information: format!(
-                "image-rs for AviUtl / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-input",
+                "image-rs Input for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-input",
                 version = env!("CARGO_PKG_VERSION")
             ),
             can_config: false,
@@ -87,4 +87,4 @@ impl InputPlugin for ImageRsPlugin {
     }
 }
 
-register_input_plugin!(ImageRsPlugin);
+register_input_plugin!(ImageRsInputPlugin);

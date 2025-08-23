@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [lib]
-name = "rusty_statistics"
+name = "rusty_statistics_output"
 crate-type = ["cdylib"]
 
 [dependencies]

@@ -3,6 +3,11 @@ name = "aviutl2-sys"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+categories = ["external-ffi-bindings"]
+
+[package.metadata.docs.rs]
+default-target = "x86_64-pc-windows-msvc"
+targets = []
 
 [dependencies]
 windows-sys = { version = "0.60.2", features = ["Win32", "Win32_Graphics_Gdi", "Win32_Media_Audio", "Win32_Media_Multimedia"] }

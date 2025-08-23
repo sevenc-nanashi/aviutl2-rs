@@ -2,7 +2,6 @@
 
 [![Crates.io](https://img.shields.io/crates/v/aviutl2-sys.svg)](https://crates.io/crates/aviutl2-sys)
 [![Documentation](https://docs.rs/aviutl2-sys/badge.svg)](https://docs.rs/aviutl2-sys)
-[![License](https://img.shields.io/crates/l/aviutl2-sys.svg)](
 
 [AviUtl2 SDK](https://github.com/sevenc-nanashi/aviutl2_sdk_mirror)のヘッダーのRust移植です。
 

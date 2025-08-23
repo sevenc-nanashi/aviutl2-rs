@@ -10,6 +10,8 @@
 //! - [`common`](common): 共通の型や関数を提供するモジュール。
 //!
 //! 詳細は各モジュールのドキュメントを参照してください。
+
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 pub use aviutl2_sys as sys;
 
 #[cfg(feature = "input")]

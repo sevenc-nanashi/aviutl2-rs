@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [lib]
-name = "rusty_pixel_format_test"
+name = "rusty_pixel_format_test_input"
 crate-type = ["cdylib"]
 
 [dependencies]

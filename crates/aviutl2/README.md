@@ -2,9 +2,12 @@
 
 [![Crates.io](https://img.shields.io/crates/v/aviutl2.svg)](https://crates.io/crates/aviutl2)
 [![Documentation](https://docs.rs/aviutl2/badge.svg)](https://docs.rs/aviutl2)
-[![License](https://img.shields.io/crates/l/aviutl2.svg)](
 
 [AviUtl2 SDK](https://github.com/sevenc-nanashi/aviutl2_sdk_mirror)のRustの高レベルなラッパーです。
+
+> [!NOTE]
+> これはAviUtl2 SDKの高レベルなAPIです。
+> 低レベルなAPIを使用する場合は、[aviutl2-sys](https://crates.io/crates/aviutl2-sys)を使用してください。
 
 ## ライセンス
 
