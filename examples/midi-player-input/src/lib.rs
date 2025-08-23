@@ -1,51 +1,22 @@
-mod midi;
-use std::sync::Arc;
+mod synthesizer;
+mod track;
 
 use aviutl2::input::{InputPlugin, IntoAudio};
-use itertools::Itertools;
-use ordered_float::OrderedFloat;
+use synthesizer::SAMPLE_RATE;
 
-const SAMPLE_RATE: u32 = 44100;
+struct MidiPlayerPlugin {}
 const TAIL_LENGTH: f64 = 1.0; // 1 second tail length
-const MASTER_VOLUME: f32 = 0.2; // Volume level of master track (0.0 to 1.0)
-const VOLUME: f32 = 1.0; // Volume level (0.0 to 1.0)
-const CLIP: f32 = 1.0; // Clip value for audio samples (0.0 to 1.0)
-
-const US_PER_SECOND: u64 = 1_000_000;
-
-struct SinMidPlayerPlugin {}
 
 #[derive(Debug)]
-struct SinMidPlayerHandle {
-    smf: midi::OwnedSmf,
-    synthesizer: rustysynth::Synthesizer,
+struct MidiPlayerHandle {
+    smf: track::OwnedSmf,
     track_number: u32,
-    ticks_per_beat: u64,
-    tempo_index: std::collections::BTreeMap<OrderedFloat<f64>, TempoIndexCacheEntry>,
-    expected_next_sample: u64,
-    current_track_events: Vec<(u64, midi::NoteEvent)>,
-    current_track_event_index: usize,
+    tempo_index: track::TempoIndex,
+    synthesizers: [synthesizer::Synthesizer; 2],
 }
-#[derive(Debug, Clone)]
-struct TempoIndexCacheEntry {
-    ticks: u64,
-    uspb: u64,
-}
-
-static PIANO: std::sync::LazyLock<Arc<rustysynth::SoundFont>> = std::sync::LazyLock::new(|| {
-    let piano_sf2 = include_bytes!("../piano.sf2").to_vec();
-    let mut piano_sf2 = std::io::Cursor::new(piano_sf2);
-    Arc::new(rustysynth::SoundFont::new(&mut piano_sf2).expect("Failed to load piano soundfont"))
-});
-
-impl SinMidPlayerHandle {
+impl MidiPlayerHandle {
     fn open(content: Vec<u8>) -> anyhow::Result<Self> {
-        let smf = midi::OwnedSmfTryBuilder {
-            content,
-            mid_builder: |content| midly::Smf::parse(content),
-        }
-        .try_build()
-        .expect("Failed to parse MIDI content");
+        let smf = track::OwnedSmf::from_content(content)?;
 
         let ticks_per_beat = match smf.borrow_mid().header.timing {
             midly::Timing::Metrical(tpb) => tpb.as_int() as u64,
@@ -54,113 +25,27 @@ impl SinMidPlayerHandle {
             }
         };
 
-        let tempo_index = get_tempo_index(&smf, ticks_per_beat);
+        let tempo_index = track::TempoIndex::new(&smf, ticks_per_beat);
+        let track = track::Track::new(&smf, 0, &tempo_index)?; // Default to the first track
+        let track = std::sync::Arc::new(track);
 
-        let synthesizer = rustysynth::Synthesizer::new(
-            &PIANO,
-            &rustysynth::SynthesizerSettings::new(SAMPLE_RATE as i32),
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to create synthesizer: {}", e))?;
-
-        return Ok(SinMidPlayerHandle {
+        Ok(MidiPlayerHandle {
             smf,
-            synthesizer,
             track_number: 0, // Default to the first track
-            ticks_per_beat,
             tempo_index,
-            expected_next_sample: 0,
-            current_track_events: vec![],
-            current_track_event_index: 0,
-        });
-
-        fn get_tempo_index(
-            mid: &midi::OwnedSmf,
-            ticks_per_beat: u64,
-        ) -> std::collections::BTreeMap<OrderedFloat<f64>, TempoIndexCacheEntry> {
-            let mid = mid.borrow_mid();
-            let tempo_changes = {
-                let mut current_tick = 0u64;
-                let mut tempo_changes = vec![];
-                for track in &mid.tracks {
-                    for event in track.iter() {
-                        current_tick += event.delta.as_int() as u64;
-                        if let midly::TrackEventKind::Meta(midly::MetaMessage::Tempo(uspb)) =
-                            &event.kind
-                        {
-                            tempo_changes.push((current_tick, uspb.as_int() as u64));
-                        }
-                    }
-                }
-                tempo_changes.sort_by_key(|(tick, _)| *tick);
-                if tempo_changes.first().is_none_or(|(tick, _)| *tick != 0) {
-                    // 0tick目にテンポ変更がない場合、デフォルトのテンポを追加
-                    tempo_changes.push((0, US_PER_SECOND * 60 / 120));
-                }
-
-                tempo_changes
-            };
-            let mut tempo_index = std::collections::BTreeMap::new();
-            tempo_index.insert(
-                OrderedFloat(0.0),
-                TempoIndexCacheEntry {
-                    ticks: 0,
-                    uspb: tempo_changes
-                        .first()
-                        .expect("unreachable: tempo_changes should not be empty")
-                        .1,
-                },
-            );
-
-            let mut current_time = 0f64;
-            for ((p_ticks, p_uspb), (ticks, uspb)) in tempo_changes.iter().tuple_windows() {
-                let delta_ticks = ticks - p_ticks;
-                let delta_time = ((*p_uspb as f64) / (US_PER_SECOND as f64))
-                    * (delta_ticks / ticks_per_beat) as f64;
-                current_time += delta_time;
-                tempo_index.insert(
-                    OrderedFloat(current_time),
-                    TempoIndexCacheEntry {
-                        ticks: *ticks,
-                        uspb: *uspb,
-                    },
-                );
-            }
-
-            tempo_index
-        }
-    }
-
-    fn ticks_to_time(&self, ticks: u64) -> f64 {
-        if ticks == 0 {
-            return 0.0; // 0 ticks corresponds to 0 seconds
-        }
-        let mut prev = self
-            .tempo_index
-            .range(..OrderedFloat(ticks as f64))
-            .next_back();
-        if prev.is_none() {
-            prev = self.tempo_index.first_key_value();
-        }
-        let (prev_time, prev_entry) = prev.expect("unreachable: tempo_index should not be empty");
-        let next = self.tempo_index.range(OrderedFloat(ticks as f64)..).next();
-        let (_next_time, next_entry) = next.unwrap_or_else(|| {
-            self.tempo_index
-                .last_key_value()
-                .expect("unreachable: tempo_index should not be empty")
-        });
-
-        let delta_ticks = ticks - prev_entry.ticks;
-        let delta_time = (next_entry.uspb as f64 / US_PER_SECOND as f64)
-            * (delta_ticks as f64 / self.ticks_per_beat as f64);
-        **prev_time + delta_time
+            synthesizers: [
+                synthesizer::Synthesizer::new(std::sync::Arc::clone(&track))?,
+                synthesizer::Synthesizer::new(std::sync::Arc::clone(&track))?,
+            ],
+        })
     }
 }
 
-impl InputPlugin for SinMidPlayerPlugin {
-    type InputHandle = SinMidPlayerHandle;
+impl InputPlugin for MidiPlayerPlugin {
+    type InputHandle = MidiPlayerHandle;
 
     fn new() -> Self {
-        SinMidPlayerPlugin {}
+        MidiPlayerPlugin {}
     }
 
     fn plugin_info(&self) -> aviutl2::input::InputPluginTable {
@@ -184,7 +69,7 @@ impl InputPlugin for SinMidPlayerPlugin {
     fn open(&self, file: std::path::PathBuf) -> aviutl2::AnyResult<Self::InputHandle> {
         let content =
             std::fs::read(file).map_err(|e| anyhow::anyhow!("Failed to read MIDI file: {}", e))?;
-        let handle = SinMidPlayerHandle::open(content)
+        let handle = MidiPlayerHandle::open(content)
             .map_err(|e| anyhow::anyhow!("Failed to open MIDI file: {}", e))?;
 
         aviutl2::odbg!(&handle.tempo_index);
@@ -215,80 +100,22 @@ impl InputPlugin for SinMidPlayerPlugin {
             .unwrap_or(0);
 
         handle.track_number = audio_track;
-        initialize_cache(handle, audio_track)?;
+        let track = track::Track::new(&handle.smf, audio_track, &handle.tempo_index)?;
+        let track = std::sync::Arc::new(track);
+        for synth in &mut handle.synthesizers {
+            synth.set_track(std::sync::Arc::clone(&track));
+        }
 
-        return Ok(aviutl2::input::InputInfo {
+        Ok(aviutl2::input::InputInfo {
             video: None,
             audio: Some(aviutl2::input::AudioInputInfo {
                 sample_rate: SAMPLE_RATE,
                 channels: 2, // Mono output
-                num_samples: ((handle.ticks_to_time(last_ticks) + TAIL_LENGTH).max(0.0)
+                num_samples: ((handle.tempo_index.ticks_to_time(last_ticks) + TAIL_LENGTH).max(0.0)
                     * SAMPLE_RATE as f64) as u32,
                 format: aviutl2::input::AudioFormat::IeeeFloat32,
             }),
-        });
-
-        fn initialize_cache(handle: &mut SinMidPlayerHandle, track: u32) -> anyhow::Result<u32> {
-            let mid = handle.smf.borrow_mid();
-            if track as usize >= mid.tracks.len() {
-                return Err(anyhow::anyhow!("Track {} does not exist", track));
-            }
-
-            handle.current_track_events.clear();
-            handle.current_track_event_index = 0;
-            let mut key_state = std::collections::HashMap::new();
-
-            let mut events = vec![];
-            if track == 0 {
-                for t in mid.tracks.iter() {
-                    let mut current_tick = 0u64;
-                    for event in t.iter() {
-                        current_tick += event.delta.as_int() as u64;
-                        events.push((current_tick, event));
-                    }
-                }
-                events.sort_by_key(|(tick, _)| *tick);
-            } else {
-                let mut current_tick = 0u64;
-                for event in mid.tracks[(track - 1) as usize].iter() {
-                    current_tick += event.delta.as_int() as u64;
-                    events.push((current_tick, event));
-                }
-            }
-            for (current_tick, event) in events {
-                if let midly::TrackEventKind::Midi { message, .. } = event.kind {
-                    if let midly::MidiMessage::NoteOn { key, vel: velocity } = message {
-                        key_state
-                            .entry(key.as_int())
-                            .and_modify(|v| *v += 1)
-                            .or_insert(1);
-                        if key_state[&key.as_int()] == 1 {
-                            handle.current_track_events.push((
-                                current_tick,
-                                midi::NoteEvent::NoteOn(midi::Note {
-                                    midi_note: key.as_int(),
-                                    start_tick: current_tick,
-                                    velocity: velocity.as_int(),
-                                }),
-                            ));
-                        }
-                    } else if let midly::MidiMessage::NoteOff { key, .. } = message {
-                        if *key_state
-                            .entry(key.as_int())
-                            .and_modify(|v| *v -= 1)
-                            .or_insert(0)
-                            == 0
-                        {
-                            handle
-                                .current_track_events
-                                .push((current_tick, midi::NoteEvent::NoteOff(key.as_int())));
-                        }
-                    }
-                }
-            }
-
-            Ok(track)
-        }
+        })
     }
 
     fn read_audio_mut(
@@ -297,80 +124,17 @@ impl InputPlugin for SinMidPlayerPlugin {
         start: i32,
         length: i32,
     ) -> anyhow::Result<impl aviutl2::input::IntoAudio> {
+        let synth = &mut handle.synthesizers[0];
         let start_sample = start as u64;
         let end_sample = start_sample + length as u64;
-        let samples_between = start_sample as i64 - handle.expected_next_sample as i64;
+        let samples_between = start_sample as i64 - synth.expected_next_sample as i64;
         if samples_between < -(SAMPLE_RATE as f64 * 0.01) as i64
             || samples_between > (SAMPLE_RATE as f64 * 0.01) as i64
         {
             // 再生位置が飛んだのでリセット
-            handle.current_track_event_index = 0;
-            handle.synthesizer.reset();
+            synth.reset();
         }
-        let mut samples = Vec::with_capacity(length as usize);
-        for current_sample in start_sample..end_sample {
-            let current_time = current_sample as f64 / SAMPLE_RATE as f64;
-            let mut note_activate_buffer = std::collections::HashMap::new();
-            while handle.current_track_event_index < handle.current_track_events.len() {
-                let (event_tick, event) =
-                    &handle.current_track_events[handle.current_track_event_index];
-                let event_time = handle.ticks_to_time(*event_tick);
-                if event_time > current_time {
-                    break; // No more events for this sample
-                }
-
-                // Process the event
-                match event {
-                    midi::NoteEvent::NoteOn(note) => {
-                        match note_activate_buffer.get(&note.midi_note) {
-                            Some(Some(_)) => {
-                                note_activate_buffer.insert(note.midi_note, None);
-                            }
-                            Some(None) | None => {
-                                note_activate_buffer.insert(note.midi_note, Some(note));
-                            }
-                        }
-                    }
-                    midi::NoteEvent::NoteOff(midi_note) => {
-                        match note_activate_buffer.get(midi_note) {
-                            Some(Some(_note)) => {
-                                note_activate_buffer.remove(midi_note);
-                            }
-                            None | Some(None) => {
-                                note_activate_buffer.insert(*midi_note, None);
-                            }
-                        }
-                    }
-                }
-
-                handle.current_track_event_index += 1;
-            }
-            for (&midi, note) in &note_activate_buffer {
-                match note {
-                    Some(note) => {
-                        handle.synthesizer.note_on(
-                            0,
-                            note.midi_note as i32,
-                            note.velocity as i32, // Normalize velocity
-                        );
-                    }
-                    None => {
-                        handle.synthesizer.note_off(0, midi as i32);
-                    }
-                }
-            }
-            let mut sample_buf_l = vec![0.0f32; 1];
-            let mut sample_buf_r = vec![0.0f32; 1];
-            handle
-                .synthesizer
-                .render(&mut sample_buf_l, &mut sample_buf_r);
-
-            samples.push((
-                (sample_buf_l[0] * VOLUME * MASTER_VOLUME).clamp(-CLIP, CLIP),
-                (sample_buf_r[0] * VOLUME * MASTER_VOLUME).clamp(-CLIP, CLIP),
-            ));
-        }
-        handle.expected_next_sample = end_sample;
+        let samples = synth.render(length, start_sample, end_sample);
 
         Ok(samples.into_audio())
     }
@@ -380,21 +144,4 @@ impl InputPlugin for SinMidPlayerPlugin {
     }
 }
 
-aviutl2::register_input_plugin!(SinMidPlayerPlugin);
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_open_midi() {
-        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("test_data")
-            .join("piano.mid");
-
-        let plugin = SinMidPlayerPlugin::new();
-        let handle = plugin.open(path).expect("Failed to open MIDI file");
-
-        assert_eq!(handle.ticks_per_beat, 960);
-    }
-}
+aviutl2::register_input_plugin!(MidiPlayerPlugin);
