@@ -24,7 +24,8 @@ impl ImageOutputPlugin {
 
         let image = image::RgbaImage::from_raw(video_info.width, video_info.height, rgba_data)
             .context("Failed to create image from raw data")?;
-        image.save(path)
+        image
+            .save(path)
             .with_context(|| format!("Failed to save image to {}", path.display()))?;
 
         Ok(())
@@ -114,4 +115,3 @@ impl OutputPlugin for ImageOutputPlugin {
 }
 
 register_output_plugin!(ImageOutputPlugin);
-
