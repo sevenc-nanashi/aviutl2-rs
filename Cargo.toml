@@ -12,5 +12,5 @@ repository = "https://github.com/sevenc-nanashi/aviutl2-rs"
 publish = false
 
 [workspace.dependencies]
-aviutl2-sys = { path = "./crates/aviutl2-sys" }
-aviutl2 = { path = "./crates/aviutl2" }
+aviutl2-sys = { path = "./crates/aviutl2-sys", version = "0.5.0" }
+aviutl2 = { path = "./crates/aviutl2", version = "0.5.0" }
