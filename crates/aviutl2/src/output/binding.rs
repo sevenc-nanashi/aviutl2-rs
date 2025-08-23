@@ -85,6 +85,8 @@ pub struct AudioOutputInfo {
     pub num_channels: u32,
 }
 
+/// 出力プラグインのトレイト。
+/// このトレイトを実装し、[`crate::register_output_plugin!`] マクロを使用してプラグインを登録します。
 pub trait OutputPlugin: Send + Sync {
     /// プラグインを初期化する。
     fn new() -> Self;
@@ -214,7 +216,7 @@ impl OutputInfo {
     }
 
     /// 動画のフレームを取得する。
-    /// [`get_video_frame`]と違い、[`FromRawVideoFrame::check`]や境界のチェックを行いません。
+    /// [`Self::get_video_frame`]と違い、[`FromRawVideoFrame::check`]や境界のチェックを行いません。
     ///
     /// # Safety
     /// 以下は未定義動作です：

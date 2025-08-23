@@ -3,7 +3,7 @@
 //! AviUtl2の入力プラグインを実装するためのモジュール。
 //! 大まかな流れ：
 //! 1. [`InputPlugin`]トレイトを実装した構造体を定義する
-//! 2. [`register_input_plugin!`]マクロを使用してプラグインを登録する
+//! 2. [`crate::register_input_plugin!`]マクロを使用してプラグインを登録する
 //!
 //! サンプルは<https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-input>を参照してください。
 

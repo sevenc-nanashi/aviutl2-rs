@@ -57,7 +57,7 @@ pub fn debug_print_impl(message: &str) {
     }
 }
 
-/// Vec<T>を2次元配列として捉え、上下に反転させる関数。
+/// `Vec<T>`を2次元配列として捉え、上下に反転させる関数。
 ///
 /// # Panics
 ///

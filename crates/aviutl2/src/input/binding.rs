@@ -17,10 +17,13 @@ pub struct InputPluginTable {
     pub input_type: InputType,
     /// 音声・動画の同時取得が可能かどうか。
     ///
-    /// > [!IMPORTANT]
-    /// > このフラグによって、呼ばれるトレイトのメソッドが変わります。
-    /// > `true` の場合は [`read_video`] と [`read_audio`] が呼ばれ、
-    /// > `false` の場合は [`read_video_mut`] と [`read_audio_mut`] が呼ばれます。
+    /// <div class="warning">
+    ///
+    /// このフラグによって、呼ばれるトレイトのメソッドが変わります。
+    /// `true` の場合は [`InputPlugin::read_video`] と [`InputPlugin::read_audio`] が呼ばれ、
+    /// `false` の場合は [`InputPlugin::read_video_mut`] と [`InputPlugin::read_audio_mut`] が呼ばれます。
+    ///
+    /// </div>
     pub concurrent: bool,
     /// プラグインがサポートするファイルフィルタのリスト。
     pub file_filters: Vec<FileFilter>,
@@ -63,8 +66,11 @@ pub enum ImageFormat {
     /// RGB形式。
     /// `(u8, u8, u8)`相当。
     ///
-    /// > [!WARNING]
-    /// > この形式では、左下から右上に向かって色が並びます。
+    /// <div class="warning">
+    ///
+    /// この形式では、左下から右上に向かって色が並びます。
+    ///
+    /// </div>
     ///
     /// # See Also
     /// [`crate::utils::rgb_to_bgr`]
@@ -72,8 +78,11 @@ pub enum ImageFormat {
     /// BGRA形式。
     /// `(u8, u8, u8, u8)`相当。
     ///
-    /// > [!WARNING]
-    /// > この形式では、左下から右上に向かって色が並びます。
+    /// <div class="warning">
+    ///
+    /// この形式では、左下から右上に向かって色が並びます。
+    ///
+    /// </div>
     ///
     /// # See Also
     /// [`crate::utils::rgba_to_bgra`]
@@ -152,6 +161,13 @@ impl InputType {
 #[derive(Debug, Clone)]
 pub struct ImageBuffer(pub Vec<u8>);
 
+impl std::ops::Deref for ImageBuffer {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// 画像データを [`ImageBuffer`] に変換するトレイト。
 pub trait IntoImage {
     fn into_image(self) -> ImageBuffer;
@@ -203,8 +219,16 @@ into_image_impl_for_tuple!((u16, u16, u16, u16), r, g, b, a);
 into_image_impl_for_tuple!((f16, f16, f16, f16), r, g, b, a);
 into_image_impl_for_tuple!((i16, i16, i16), y, cb, cr);
 
+/// 音声のバッファを表す構造体。
 #[derive(Debug, Clone)]
 pub struct AudioBuffer(pub Vec<u8>);
+
+impl std::ops::Deref for AudioBuffer {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 pub trait IntoAudio {
     fn into_audio(self) -> AudioBuffer;
@@ -248,12 +272,9 @@ into_audio_impl_for_tuple!((u16, u16), l, r);
 into_audio_impl_for_tuple!((f32, f32), l, r);
 
 /// 入力プラグインのトレイト。
-/// このトレイトを実装し、[`register_input_plugin!`] マクロを使用してプラグインを登録します。
+/// このトレイトを実装し、[`crate::register_input_plugin!`] マクロを使用してプラグインを登録します。
 pub trait InputPlugin: Send + Sync {
     /// 入力ハンドルの型。
-    ///
-    /// > [!NOTE]
-    /// > aviutl2-rs内部では、InputHandleがそのままAviUtl2に渡されず、コンテナで包まれます。
     type InputHandle: std::any::Any + Send + Sync;
 
     /// プラグインを初期化する。
@@ -285,9 +306,12 @@ pub trait InputPlugin: Send + Sync {
 
     /// 動画・画像を読み込む。
     ///
-    /// > [!IMPORTANT]
-    /// > [`InputPluginTable::concurrent`] が `true` の場合に呼ばれます。
-    /// > `false` の場合は [`read_video_mut`] が呼ばれます。
+    /// <div class="warning">
+    ///
+    /// [`InputPluginTable::concurrent`] が `true` の場合に呼ばれます。
+    /// `false` の場合は [`Self::read_video_mut`] が呼ばれます。
+    ///
+    /// </div>
     fn read_video(&self, _handle: &Self::InputHandle, _frame: u32) -> AnyResult<impl IntoImage> {
         Result::<ImageBuffer, anyhow::Error>::Err(anyhow::anyhow!(
             "read_video is not implemented for this plugin"
@@ -296,9 +320,12 @@ pub trait InputPlugin: Send + Sync {
 
     /// 動画・画像を読み込む。
     ///
-    /// > [!IMPORTANT]
-    /// > [`InputPluginTable::concurrent`] が `false` の場合に呼ばれます。
-    /// > `true` の場合は [`read_video`] が呼ばれます。
+    /// <div class="warning">
+    ///
+    /// [`InputPluginTable::concurrent`] が `false` の場合に呼ばれます。
+    /// `true` の場合は [`Self::read_video`] が呼ばれます。
+    ///
+    /// </div>
     fn read_video_mut(
         &self,
         handle: &mut Self::InputHandle,
@@ -339,9 +366,12 @@ pub trait InputPlugin: Send + Sync {
 
     /// 音声を読み込む。
     ///
-    /// > [!IMPORTANT]
-    /// > [`InputPluginTable::concurrent`] が `true` の場合に呼ばれます。
-    /// > `false` の場合は [`read_audio_mut`] が呼ばれます。
+    /// <div class="warning">
+    ///
+    /// [`InputPluginTable::concurrent`] が `true` の場合に呼ばれます。
+    /// `false` の場合は [`Self::read_audio_mut`] が呼ばれます。
+    ///
+    /// </div>
     fn read_audio(
         &self,
         _handle: &Self::InputHandle,
@@ -355,9 +385,12 @@ pub trait InputPlugin: Send + Sync {
 
     /// 音声を読み込む。
     ///
-    /// > [!IMPORTANT]
-    /// > [`InputPluginTable::concurrent`] が `false` の場合に呼ばれます。
-    /// > `true` の場合は [`read_audio`] が呼ばれます。
+    /// <div class="warning">
+    ///
+    /// [`InputPluginTable::concurrent`] が `false` の場合に呼ばれます。
+    /// `true` の場合は [`Self::read_audio`] が呼ばれます。
+    ///
+    /// </div>
     fn read_audio_mut(
         &self,
         handle: &mut Self::InputHandle,
