@@ -204,7 +204,7 @@ mod tests {
     fn test_open_midi() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("test_data")
-            .join("piano.mid");
+            .join("library_w4nderers.mid");
 
         let content = std::fs::read(path).unwrap();
         let smf = OwnedSmf::from_content(content).unwrap();
