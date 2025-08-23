@@ -1,5 +1,6 @@
 [package]
 name = "aviutl2"
+description = "AviUtl2 SDKのRustラッパー"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
