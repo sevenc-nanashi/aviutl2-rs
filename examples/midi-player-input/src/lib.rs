@@ -22,7 +22,9 @@ impl MidiPlayerHandle {
         let ticks_per_beat = match smf.borrow_mid().header.timing {
             midly::Timing::Metrical(tpb) => tpb.as_int() as u64,
             timing => {
-                return Err(anyhow::anyhow!("Only Metrical timing is supported, got {timing:?}"));
+                return Err(anyhow::anyhow!(
+                    "Only Metrical timing is supported, got {timing:?}"
+                ));
             }
         };
 

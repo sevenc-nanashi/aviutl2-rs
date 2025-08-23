@@ -216,7 +216,7 @@ mod tests {
             }
         };
         let tempo_index = TempoIndex::new(&smf, ticks_per_beat);
-        let track = Track::new(&smf, 1, &tempo_index).unwrap();
+        let track = Track::new(&smf, 0, &tempo_index).unwrap();
         assert!(!track.events.is_empty());
     }
 }
