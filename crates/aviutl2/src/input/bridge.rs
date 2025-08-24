@@ -533,6 +533,7 @@ pub unsafe fn func_time_to_frame<T: InputPlugin>(
     }
 }
 
+/// 入力プラグインを登録するマクロ。
 #[macro_export]
 macro_rules! register_input_plugin {
     ($struct:ident) => {

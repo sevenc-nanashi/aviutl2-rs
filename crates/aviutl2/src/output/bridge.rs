@@ -323,6 +323,7 @@ pub unsafe fn func_get_config_text<T: OutputPlugin>(plugin: &T) -> *mut u16 {
     }
 }
 
+/// 出力プラグインを登録するマクロ。
 #[macro_export]
 macro_rules! register_output_plugin {
     ($struct:ident) => {
