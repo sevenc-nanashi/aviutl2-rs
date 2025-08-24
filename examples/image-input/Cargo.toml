@@ -8,7 +8,7 @@ repository.workspace = true
 publish = false
 
 [lib]
-name = "rusty_image_rs_input"
+name = "rusty_image_input"
 crate-type = ["cdylib"]
 
 [dependencies]

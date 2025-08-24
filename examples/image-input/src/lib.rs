@@ -19,10 +19,18 @@ impl InputPlugin for ImageRsInputPlugin {
             input_type: aviutl2::input::InputType::Video,
             file_filters: vec![FileFilter {
                 name: "Image Files".to_string(),
-                extensions: vec!["webp".to_string()],
+                extensions: vec![
+                    "webp".to_string(),
+                    "png".to_string(),
+                    "jpg".to_string(),
+                    "jpeg".to_string(),
+                    "bmp".to_string(),
+                    "tiff".to_string(),
+                    "gif".to_string(),
+                ],
             }],
             information: format!(
-                "image-rs Input for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-input",
+                "ril & image-rs Input for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-input",
                 version = env!("CARGO_PKG_VERSION")
             ),
             can_config: false,

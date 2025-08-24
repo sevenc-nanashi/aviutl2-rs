@@ -5,7 +5,7 @@
 //! 1. [`InputPlugin`]トレイトを実装した構造体を定義する
 //! 2. [`crate::register_input_plugin!`]マクロを使用してプラグインを登録する
 //!
-//! サンプルは<https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-input>を参照してください。
+//! サンプルは<https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-input>を参照してください。
 
 mod binding;
 
