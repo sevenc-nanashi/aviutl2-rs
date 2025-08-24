@@ -15,7 +15,7 @@ impl InputPlugin for ImageRsInputPlugin {
 
     fn plugin_info(&self) -> aviutl2::input::InputPluginTable {
         aviutl2::input::InputPluginTable {
-            name: "Rusty Images Input Plugin".to_string(),
+            name: "Rusty Image Input".to_string(),
             input_type: aviutl2::input::InputType::Video,
             file_filters: vec![FileFilter {
                 name: "Image Files".to_string(),
