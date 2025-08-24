@@ -135,7 +135,7 @@ pub struct Track {
 impl Track {
     pub fn new(smf: &OwnedSmf, track: u32, tempo_index: &TempoIndex) -> anyhow::Result<Self> {
         let mid = smf.borrow_mid();
-        if track > mid.tracks.len() as u32 {
+        if track >= mid.tracks.len() as u32 {
             return Err(anyhow::anyhow!("Track {} does not exist", track));
         }
 
@@ -143,22 +143,11 @@ impl Track {
         let mut current_track_events = vec![];
 
         let mut events = vec![];
-        if track == 0 {
-            for t in mid.tracks.iter() {
-                let mut current_tick = 0u64;
-                for event in t.iter() {
-                    current_tick += event.delta.as_int() as u64;
-                    events.push((current_tick, event));
-                }
-            }
-            events.sort_by_key(|(tick, _)| *tick);
-        } else {
             let mut current_tick = 0u64;
-            for event in mid.tracks[(track - 1) as usize].iter() {
+            for event in mid.tracks[track as usize].iter() {
                 current_tick += event.delta.as_int() as u64;
                 events.push((current_tick, event));
             }
-        }
         for (current_tick, event) in events {
             if let midly::TrackEventKind::Midi { message, .. } = event.kind {
                 if let midly::MidiMessage::NoteOn { key, vel: velocity } = message {

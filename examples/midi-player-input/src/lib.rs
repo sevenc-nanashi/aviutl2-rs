@@ -12,8 +12,7 @@ struct MidiPlayerHandle {
     smf: track::OwnedSmf,
     track_number: u32,
     tempo_index: track::TempoIndex,
-    // プレビュー生成と波形生成のそれぞれに1つずつ使用する
-    synthesizers: [synthesizer::Synthesizer; 2],
+    synthesizers: Vec<synthesizer::Synthesizer>,
 }
 impl MidiPlayerHandle {
     fn open(content: Vec<u8>) -> anyhow::Result<Self> {
@@ -29,17 +28,12 @@ impl MidiPlayerHandle {
         };
 
         let tempo_index = track::TempoIndex::new(&smf, ticks_per_beat);
-        let track = track::Track::new(&smf, 0, &tempo_index)?; // Default to the first track
-        let track = std::sync::Arc::new(track);
 
         Ok(MidiPlayerHandle {
             smf,
             track_number: 0, // Default to the first track
             tempo_index,
-            synthesizers: [
-                synthesizer::Synthesizer::new(std::sync::Arc::clone(&track))?,
-                synthesizer::Synthesizer::new(std::sync::Arc::clone(&track))?,
-            ],
+            synthesizers: vec![],
         })
     }
 }
@@ -103,11 +97,21 @@ impl InputPlugin for MidiPlayerPlugin {
             .unwrap_or(0);
 
         handle.track_number = audio_track;
-        let track = track::Track::new(&handle.smf, audio_track, &handle.tempo_index)?;
-        let track = std::sync::Arc::new(track);
-        for synth in &mut handle.synthesizers {
-            synth.set_track(std::sync::Arc::clone(&track));
-        }
+        let range = if audio_track == 0 {
+            0..(mid.tracks.len() as u32) // All tracks
+        } else {
+            (audio_track - 1)..audio_track // Specific track
+        };
+        let synthesizers = range
+            .map(|i| {
+                let track = track::Track::new(&handle.smf, i, &handle.tempo_index)?;
+                let track = std::sync::Arc::new(track);
+                let synth = synthesizer::Synthesizer::new(std::sync::Arc::clone(&track))?;
+
+                Ok(synth)
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        handle.synthesizers = synthesizers;
 
         Ok(aviutl2::input::InputInfo {
             video: None,
@@ -127,23 +131,26 @@ impl InputPlugin for MidiPlayerPlugin {
         start: i32,
         length: i32,
     ) -> anyhow::Result<impl aviutl2::input::IntoAudio> {
-        let synth = &mut handle
-            .synthesizers
-            .iter_mut()
-            .min_by_key(|s| (s.expected_next_sample as i64 - start as i64).abs())
-            .unwrap();
-        let start_sample = start as u64;
-        let end_sample = start_sample + length as u64;
-        let samples_between = start_sample as i64 - synth.expected_next_sample as i64;
-        if samples_between < -(SAMPLE_RATE as f64 * 0.01) as i64
-            || samples_between > (SAMPLE_RATE as f64 * 0.01) as i64
-        {
-            // 再生位置が飛んだのでリセット
-            synth.reset();
+        let mut all_samples = vec![(0.0f32, 0.0f32); length as usize];
+        let num_synths = handle.synthesizers.len();
+        for synth in &mut handle.synthesizers {
+            let start_sample = start as u64;
+            let end_sample = start_sample + length as u64;
+            let samples_between = start_sample as i64 - synth.expected_next_sample as i64;
+            if samples_between < -(SAMPLE_RATE as f64 * 0.01) as i64
+                || samples_between > (SAMPLE_RATE as f64 * 0.01) as i64
+            {
+                // 再生位置が飛んだのでリセット
+                synth.reset();
+            }
+            let samples = synth.render(length, start_sample, end_sample);
+            for (i, sample) in samples.into_iter().enumerate() {
+                all_samples[i].0 += sample.0 / (num_synths as f32);
+                all_samples[i].1 += sample.1 / (num_synths as f32);
+            }
         }
-        let samples = synth.render(length, start_sample, end_sample);
 
-        Ok(samples.into_audio())
+        Ok(all_samples.into_audio())
     }
 
     fn close(&self, _handle: Self::InputHandle) -> anyhow::Result<()> {

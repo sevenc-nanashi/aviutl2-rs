@@ -35,11 +35,6 @@ impl Synthesizer {
         })
     }
 
-    pub fn set_track(&mut self, track: Arc<crate::track::Track>) {
-        self.track = track;
-        self.reset();
-    }
-
     pub fn reset(&mut self) {
         self.event_index = 0;
         self.synthesizer.reset();
