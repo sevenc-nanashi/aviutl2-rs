@@ -19,14 +19,14 @@ task :install, %w[target dest] do |task, args|
   suffix = target == "release" ? "" : "_#{target}"
   Dir.mkdir(dest_dir) unless Dir.exist?(dest_dir)
   Dir
-    .glob("./target/#{target}/*.dll")
-    .each do |file|
+    .glob("./examples/*/Cargo.toml")
+    .each do |manifest|
+      cargo_toml = Tomlrb.load_file(manifest)
+      name = cargo_toml["lib"]["name"]
+      file = "./target/#{target}/#{name}.dll"
       dest_name =
-        File
-          .basename(file)
-          .sub(/_output\.dll$/, "#{suffix}.auo2")
-          .sub(/_input\.dll$/, "#{suffix}.aui2")
-      raise "Invalid file name: #{file}" if dest_name == File.basename(file)
+        name.sub(/_output$/, "#{suffix}.auo2").sub(/_input$/, "#{suffix}.aui2")
+      raise "Invalid file name: #{file}" if dest_name == name
       FileUtils.cp(file, File.join(dest_dir, dest_name), verbose: true)
     end
 end
