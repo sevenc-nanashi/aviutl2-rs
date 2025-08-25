@@ -43,15 +43,18 @@ task :link, %w[target dest] do |task, args|
   suffix = target == "release" ? "" : "_#{target}"
   Dir.mkdir(dest_dir) unless Dir.exist?(dest_dir)
   Dir
-    .glob("./target/#{target}/*.dll")
-    .each do |file|
+    .glob("./examples/*/Cargo.toml")
+    .each do |manifest|
+      cargo_toml = Tomlrb.load_file(manifest)
+
+      source = "./target/#{target}/#{cargo_toml["lib"]["name"]}.dll"
       dest_name =
-        File
-          .basename(file)
-          .sub(/_output\.dll$/, "#{suffix}.auo2")
-          .sub(/_input\.dll$/, "#{suffix}.aui2")
-      from_path = File.absolute_path(file)
-      raise "Invalid file name: #{file}" if dest_name == File.basename(file)
+        cargo_toml["lib"]["name"].sub(/_output$/, "#{suffix}.auo2").sub(
+          /_input$/,
+          "#{suffix}.aui2"
+        )
+      raise "Invalid file name: #{source}" if dest_name == File.basename(source)
+      from_path = File.absolute_path(source)
       FileUtils.ln_s(from_path, File.join(dest_dir, dest_name), verbose: true)
     end
 end

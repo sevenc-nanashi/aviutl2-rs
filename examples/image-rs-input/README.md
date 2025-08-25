@@ -5,4 +5,4 @@
 
 ## インストール
 
-`C:\ProgramData\aviutl2\Plugin` に `rusty_image_rs.aui2` を配置してください。
+`C:\ProgramData\aviutl2\Plugin` に `rusty_image.aui2` を配置してください。
