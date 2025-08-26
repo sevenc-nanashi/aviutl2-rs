@@ -1,6 +1,6 @@
 use aviutl2::{
     FileFilter,
-    input::{AnyResult, InputPlugin, IntoImage, Rational32},
+    input::{AnyResult, ImageBuffer, InputPlugin, IntoImage, Rational32},
     register_input_plugin,
 };
 use image::AnimationDecoder;
@@ -9,7 +9,10 @@ use ordered_float::OrderedFloat;
 struct ImageInputPlugin {}
 
 struct ImageHandle {
-    inner: Vec<image::ImageBuffer<image::Rgba<u16>, Vec<u16>>>,
+    inner: Vec<ImageBuffer>,
+    format: aviutl2::input::ImageFormat,
+    width: u32,
+    height: u32,
     frame_timings: std::collections::BTreeMap<OrderedFloat<f32>, usize>,
     length_in_seconds: f32,
 }
@@ -30,6 +33,7 @@ impl InputPlugin for ImageInputPlugin {
                 extensions: vec![
                     "webp".to_string(),
                     "png".to_string(),
+                    "apng".to_string(),
                     "jpg".to_string(),
                     "jpeg".to_string(),
                     "bmp".to_string(),
@@ -84,11 +88,32 @@ impl InputPlugin for ImageInputPlugin {
                 let mut inner = Vec::with_capacity(frames.len());
                 let mut frame_timings = std::collections::BTreeMap::new();
                 let mut total_duration = 0.0;
+                let mut width = 0;
+                let mut height = 0;
                 for frame in frames {
                     let delay = frame.delay().numer_denom_ms();
                     let duration = delay.0 as f32 / delay.1 as f32 / 1000.0;
-                    let img = image::DynamicImage::ImageRgba8(frame.into_buffer()).into_rgba16();
-                    inner.push(img);
+                    let img = frame.into_buffer();
+                    let mut img_pixels = img
+                        .pixels()
+                        .map(|p| (p.0[2], p.0[1], p.0[0], p.0[3]))
+                        .collect::<Vec<_>>();
+                    if width == 0 && height == 0 {
+                        width = img.width();
+                        height = img.height();
+                    } else {
+                        anyhow::ensure!(
+                            width == img.width() && height == img.height(),
+                            "All frames must have the same dimensions"
+                        );
+                    }
+                    aviutl2::utils::flip_vertical(
+                        &mut img_pixels,
+                        img.width() as usize,
+                        img.height() as usize,
+                    );
+                    inner.push(img_pixels.into_image());
+
                     frame_timings.insert(OrderedFloat(total_duration), inner.len() - 1);
                     total_duration += duration;
                 }
@@ -96,20 +121,51 @@ impl InputPlugin for ImageInputPlugin {
 
                 Ok(ImageHandle {
                     inner,
+                    format: aviutl2::input::ImageFormat::Bgra,
                     frame_timings,
                     length_in_seconds: total_duration,
+                    width,
+                    height,
                 })
             }
             None => {
-                let img = decoder.decode()?.to_rgba16();
+                let decoded = decoder.decode()?;
+                let (width, height) = (decoded.width(), decoded.height());
+                let (format, img) = match decoded {
+                    img @ (image::DynamicImage::ImageRgb8(_)
+                    | image::DynamicImage::ImageRgba8(_)) => {
+                        let mut img_pixels = img
+                            .to_rgba8()
+                            .pixels()
+                            .map(|p| (p.0[2], p.0[1], p.0[0], p.0.get(3).copied().unwrap_or(255)))
+                            .collect::<Vec<_>>();
+                        aviutl2::utils::flip_vertical(
+                            &mut img_pixels,
+                            img.width() as usize,
+                            img.height() as usize,
+                        );
+                        (aviutl2::input::ImageFormat::Bgra, img_pixels.into_image())
+                    }
+                    img => {
+                        let img = img.to_rgba16();
+                        let img_pixels = img
+                            .pixels()
+                            .map(|p| (p.0[0], p.0[1], p.0[2], p.0[3]))
+                            .collect::<Vec<_>>();
+                        (aviutl2::input::ImageFormat::Pa64, img_pixels.into_image())
+                    }
+                };
                 let inner = vec![img];
                 let mut frame_timings = std::collections::BTreeMap::new();
                 frame_timings.insert(OrderedFloat(0.0), 0);
 
                 Ok(ImageHandle {
                     inner,
+                    format,
                     frame_timings,
                     length_in_seconds: 0.0,
+                    width,
+                    height,
                 })
             }
         }
@@ -121,25 +177,22 @@ impl InputPlugin for ImageInputPlugin {
         _video_track: u32,
         _audio_track: u32,
     ) -> AnyResult<aviutl2::input::InputInfo> {
-        let width = handle.inner[0].width();
-        let height = handle.inner[0].height();
-
         let fps = if handle.frame_timings.len() > 1 {
             let total_duration = handle.length_in_seconds;
             let frame_count = handle.frame_timings.len() as f32;
             let fps = frame_count / total_duration;
             Rational32::new((fps * 1000.0).round() as i32, 1000)
         } else {
-            Rational32::new(30, 1)
+            Rational32::new(1, 1)
         };
 
         Ok(aviutl2::input::InputInfo {
             video: Some(aviutl2::input::VideoInputInfo {
                 fps,
                 num_frames: handle.frame_timings.len() as u32,
-                width,
-                height,
-                format: aviutl2::input::ImageFormat::Pa64,
+                width: handle.width,
+                height: handle.height,
+                format: handle.format,
                 manual_frame_index: true,
             }),
             audio: None, // No audio for image files
@@ -156,10 +209,7 @@ impl InputPlugin for ImageInputPlugin {
         );
         let img = &handle.inner[frame];
 
-        Ok(img
-            .pixels()
-            .map(|p| (p.0[0], p.0[1], p.0[2], p.0[3]))
-            .collect::<Vec<_>>())
+        Ok(img.to_owned())
     }
 
     fn time_to_frame(
@@ -169,6 +219,9 @@ impl InputPlugin for ImageInputPlugin {
         time: f64,
     ) -> AnyResult<u32> {
         if handle.frame_timings.len() == 1 {
+            return Ok(0);
+        }
+        if handle.length_in_seconds == 0.0 {
             return Ok(0);
         }
 

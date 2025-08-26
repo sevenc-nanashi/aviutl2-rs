@@ -1,0 +1,8 @@
+desc "`many_pngs.aup2`で使う画像を用意します"
+task :prepare_many_pngs do
+  require "fileutils"
+
+  (1..50).each do |i|
+    FileUtils.cp("./dummy_images/000.apng", "./dummy_images/#{i.to_s.rjust(3, "0")}.apng", verbose: true)
+  end
+end
