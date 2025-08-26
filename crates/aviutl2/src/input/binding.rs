@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::common::{AnyResult, FileFilter, Yc48};
 pub use half::{self, f16};
 pub use num_rational::{self, Rational32};
@@ -168,20 +170,51 @@ impl std::ops::Deref for ImageBuffer {
     }
 }
 
-/// 画像データを [`ImageBuffer`] に変換するトレイト。
+/// 画像データを `ImageBuffer` に変換するトレイト。
 pub trait IntoImage {
     fn into_image(self) -> ImageBuffer;
 }
 
-impl IntoImage for ImageBuffer {
+impl<T: AsImage> IntoImage for T {
     fn into_image(self) -> ImageBuffer {
-        self
+        ImageBuffer(self.as_image().into_owned())
     }
 }
 
-impl IntoImage for Vec<u8> {
-    fn into_image(self) -> ImageBuffer {
-        ImageBuffer(self)
+/// 画像データを `Cow<[u8]>` に変換するトレイト。
+pub trait AsImage {
+    fn as_image(&self) -> Cow<[u8]>;
+}
+
+impl AsImage for ImageBuffer {
+    fn as_image(&self) -> Cow<[u8]> {
+        Cow::Borrowed(&self.0)
+    }
+}
+
+impl AsImage for Vec<u8> {
+    fn as_image(&self) -> Cow<[u8]> {
+        Cow::Borrowed(self)
+    }
+}
+
+/// AviUtl2側にバイト列を返すためのstruct。
+pub struct ImageReturner {
+    ptr: *mut u8,
+    pub(crate) written: usize,
+}
+
+impl ImageReturner {
+    pub(crate) unsafe fn new(ptr: *mut u8) -> Self {
+        Self { ptr, written: 0 }
+    }
+
+    pub fn send(&mut self, data: &impl AsImage) {
+        let image = data.as_image();
+        unsafe {
+            std::ptr::copy_nonoverlapping(image.as_ptr(), self.ptr.add(self.written), image.len());
+        }
+        self.written += image.len();
     }
 }
 
@@ -192,22 +225,21 @@ impl IntoImage for Vec<u8> {
     [Vec<f16>];
     [Vec<Yc48>];
 )]
-impl IntoImage for T {
-    fn into_image(self) -> ImageBuffer {
-        let image_data = self.as_bytes().to_vec();
-        ImageBuffer(image_data)
+impl AsImage for T {
+    fn as_image(&self) -> Cow<[u8]> {
+        Cow::Borrowed(self.as_bytes())
     }
 }
 
 macro_rules! into_image_impl_for_tuple {
     ($type:ty, $($name:ident),+) => {
-        impl IntoImage for Vec<$type> {
-            fn into_image(self) -> ImageBuffer {
-                let mut image_data = Vec::with_capacity(self.len() * std::mem::size_of::<$type>());
+        impl AsImage for Vec<$type> {
+            fn as_image(&self) -> Cow<[u8]> {
+                let mut img_data = Vec::with_capacity(self.len() * std::mem::size_of::<$type>());
                 for ($($name,)+) in self {
-                    $(image_data.extend_from_slice(&$name.to_le_bytes());)+
+                    $(img_data.extend_from_slice(&$name.to_le_bytes());)+
                 }
-                ImageBuffer(image_data)
+                Cow::Owned(img_data)
             }
         }
     };
@@ -312,8 +344,13 @@ pub trait InputPlugin: Send + Sync {
     /// `false` の場合は [`Self::read_video_mut`] が呼ばれます。
     ///
     /// </div>
-    fn read_video(&self, _handle: &Self::InputHandle, _frame: u32) -> AnyResult<impl IntoImage> {
-        Result::<ImageBuffer, anyhow::Error>::Err(anyhow::anyhow!(
+    fn read_video(
+        &self,
+        _handle: &Self::InputHandle,
+        _frame: u32,
+        _read: &mut ImageReturner,
+    ) -> AnyResult<()> {
+        Result::<(), anyhow::Error>::Err(anyhow::anyhow!(
             "read_video is not implemented for this plugin"
         ))
     }
@@ -330,8 +367,9 @@ pub trait InputPlugin: Send + Sync {
         &self,
         handle: &mut Self::InputHandle,
         frame: u32,
-    ) -> AnyResult<impl IntoImage> {
-        self.read_video(handle, frame)
+        read: &mut ImageReturner,
+    ) -> AnyResult<()> {
+        self.read_video(handle, frame, read)
     }
 
     /// 動画のトラックが利用可能かどうかを確認する。

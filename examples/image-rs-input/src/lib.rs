@@ -1,6 +1,6 @@
 use aviutl2::{
     FileFilter,
-    input::{AnyResult, ImageBuffer, InputPlugin, IntoImage, Rational32},
+    input::{AnyResult, ImageBuffer, ImageReturner, InputPlugin, IntoImage as _, Rational32},
     register_input_plugin,
 };
 use image::AnimationDecoder;
@@ -199,7 +199,12 @@ impl InputPlugin for ImageInputPlugin {
         })
     }
 
-    fn read_video(&self, handle: &Self::InputHandle, frame: u32) -> AnyResult<impl IntoImage> {
+    fn read_video(
+        &self,
+        handle: &Self::InputHandle,
+        frame: u32,
+        returner: &mut ImageReturner,
+    ) -> AnyResult<()> {
         let frame = frame as usize;
         anyhow::ensure!(
             frame < handle.inner.len(),
@@ -209,7 +214,9 @@ impl InputPlugin for ImageInputPlugin {
         );
         let img = &handle.inner[frame];
 
-        Ok(img.to_owned())
+        returner.send(img);
+
+        Ok(())
     }
 
     fn time_to_frame(

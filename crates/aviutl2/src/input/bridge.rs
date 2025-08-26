@@ -7,14 +7,12 @@ use crate::{
     },
     debug_print,
     input::{
-        AudioBuffer, AudioFormat, AudioInputInfo, ImageBuffer, ImageFormat, InputInfo, InputPlugin,
-        IntoAudio, IntoImage, VideoInputInfo,
+        AudioBuffer, AudioFormat, AudioInputInfo, ImageFormat, ImageReturner, InputInfo,
+        InputPlugin, InputPluginTable, IntoAudio, VideoInputInfo,
     },
 };
 
 pub use raw_window_handle::RawWindowHandle;
-
-use super::InputPluginTable;
 
 impl ImageFormat {
     fn bytes_count_per_pixel(&self) -> usize {
@@ -319,39 +317,31 @@ pub unsafe fn func_read_video<T: InputPlugin>(
     let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
     let plugin = &plugin_state.instance;
     let frame = frame as u32;
+    let mut returner = unsafe { ImageReturner::new(buf as *mut u8) };
     let read_result = if plugin_state.plugin_info.concurrent {
-        T::read_video(plugin, &handle.handle, frame).map(|img| img.into_image())
+        T::read_video(plugin, &handle.handle, frame, &mut returner)
     } else {
-        T::read_video_mut(plugin, &mut handle.handle, frame).map(|img| img.into_image())
+        T::read_video_mut(plugin, &mut handle.handle, frame, &mut returner)
     };
     match read_result {
-        Ok(ImageBuffer(image_data)) => {
-            if !image_data.is_empty() {
-                #[cfg(debug_assertions)]
-                {
-                    let video_format = handle
-                        .input_info
-                        .as_ref()
-                        .expect("Unreachable: Input info not set")
-                        .video
-                        .as_ref()
-                        .expect("Unreachable: Video format not set");
-                    assert_eq!(
-                        image_data.len(),
-                        ((video_format.width * video_format.height) as usize
-                            * video_format.format.bytes_count_per_pixel()),
-                        "Image data size does not match expected size"
-                    );
-                }
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        image_data.as_ptr(),
-                        buf as *mut u8,
-                        image_data.len(),
-                    );
-                }
+        Ok(()) => {
+            #[cfg(debug_assertions)]
+            {
+                let video_format = handle
+                    .input_info
+                    .as_ref()
+                    .expect("Unreachable: Input info not set")
+                    .video
+                    .as_ref()
+                    .expect("Unreachable: Video format not set");
+                assert_eq!(
+                    returner.written,
+                    ((video_format.width * video_format.height) as usize
+                        * video_format.format.bytes_count_per_pixel()),
+                    "Image data size does not match expected size"
+                );
             }
-            image_data.len() as i32
+            returner.written as i32
         }
         Err(e) => {
             debug_print!("Failed to read video frame: {}", e);
