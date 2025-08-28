@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::common::{AnyResult, FileFilter, Yc48, f16, Win32WindowHandle, Rational32};
+use crate::common::{AnyResult, FileFilter, Rational32, Win32WindowHandle, Yc48, f16};
 use zerocopy::IntoBytes;
 
 /// 入力プラグインの情報を表す構造体。

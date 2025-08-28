@@ -7,7 +7,7 @@ use crate::{
     },
     debug_print,
     input::{
-        AudioFormat, AudioInputInfo, AudioReturner, InputPixelFormat, ImageReturner, InputInfo,
+        AudioFormat, AudioInputInfo, AudioReturner, ImageReturner, InputInfo, InputPixelFormat,
         InputPlugin, InputPluginTable, VideoInputInfo,
     },
 };

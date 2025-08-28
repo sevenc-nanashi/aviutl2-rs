@@ -1,7 +1,7 @@
 mod synthesizer;
 mod track;
 
-use aviutl2::input::{InputPlugin, AudioReturner};
+use aviutl2::input::{AudioReturner, InputPlugin};
 use synthesizer::SAMPLE_RATE;
 
 struct MidiPlayerPlugin {}

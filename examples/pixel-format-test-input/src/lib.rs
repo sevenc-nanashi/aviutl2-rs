@@ -1,6 +1,7 @@
 use aviutl2::FileFilter;
 use aviutl2::input::{
-    f16, AnyResult, ImageReturner, InputInfo, InputPixelFormat, InputPlugin, InputPluginTable, IntoImage, VideoInputInfo
+    AnyResult, ImageReturner, InputInfo, InputPixelFormat, InputPlugin, InputPluginTable,
+    VideoInputInfo, f16,
 };
 use aviutl2::register_input_plugin;
 
@@ -81,7 +82,12 @@ impl InputPlugin for PixelFormatTestPlugin {
         })
     }
 
-    fn read_video(&self, handle: &Self::InputHandle, frame: u32, returner: &mut ImageReturner) -> AnyResult<()> {
+    fn read_video(
+        &self,
+        handle: &Self::InputHandle,
+        frame: u32,
+        returner: &mut ImageReturner,
+    ) -> AnyResult<()> {
         anyhow::ensure!(frame == 0, "Only frame 0 is valid");
         let (width, height) = (handle.width, handle.height);
         match handle.format {

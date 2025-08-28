@@ -144,7 +144,10 @@ impl InputPlugin for ImageInputPlugin {
                             img.width() as usize,
                             img.height() as usize,
                         );
-                        (aviutl2::input::InputPixelFormat::Bgra, img_pixels.into_image())
+                        (
+                            aviutl2::input::InputPixelFormat::Bgra,
+                            img_pixels.into_image(),
+                        )
                     }
                     img => {
                         let img = img.to_rgba16();
@@ -152,7 +155,10 @@ impl InputPlugin for ImageInputPlugin {
                             .pixels()
                             .map(|p| (p.0[0], p.0[1], p.0[2], p.0[3]))
                             .collect::<Vec<_>>();
-                        (aviutl2::input::InputPixelFormat::Pa64, img_pixels.into_image())
+                        (
+                            aviutl2::input::InputPixelFormat::Pa64,
+                            img_pixels.into_image(),
+                        )
                     }
                 };
                 let inner = vec![img];
