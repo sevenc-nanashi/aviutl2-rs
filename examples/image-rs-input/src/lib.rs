@@ -1,6 +1,6 @@
 use aviutl2::{
     FileFilter,
-    input::{AnyResult, ImageBuffer, InputPlugin, IntoImage, Rational32},
+    input::{AnyResult, ImageBuffer, ImageReturner, InputPlugin, IntoImage as _, Rational32},
     register_input_plugin,
 };
 use image::AnimationDecoder;
@@ -10,7 +10,7 @@ struct ImageInputPlugin {}
 
 struct ImageHandle {
     inner: Vec<ImageBuffer>,
-    format: aviutl2::input::ImageFormat,
+    format: aviutl2::input::InputPixelFormat,
     width: u32,
     height: u32,
     frame_timings: std::collections::BTreeMap<OrderedFloat<f32>, usize>,
@@ -121,7 +121,7 @@ impl InputPlugin for ImageInputPlugin {
 
                 Ok(ImageHandle {
                     inner,
-                    format: aviutl2::input::ImageFormat::Bgra,
+                    format: aviutl2::input::InputPixelFormat::Bgra,
                     frame_timings,
                     length_in_seconds: total_duration,
                     width,
@@ -144,7 +144,10 @@ impl InputPlugin for ImageInputPlugin {
                             img.width() as usize,
                             img.height() as usize,
                         );
-                        (aviutl2::input::ImageFormat::Bgra, img_pixels.into_image())
+                        (
+                            aviutl2::input::InputPixelFormat::Bgra,
+                            img_pixels.into_image(),
+                        )
                     }
                     img => {
                         let img = img.to_rgba16();
@@ -152,7 +155,10 @@ impl InputPlugin for ImageInputPlugin {
                             .pixels()
                             .map(|p| (p.0[0], p.0[1], p.0[2], p.0[3]))
                             .collect::<Vec<_>>();
-                        (aviutl2::input::ImageFormat::Pa64, img_pixels.into_image())
+                        (
+                            aviutl2::input::InputPixelFormat::Pa64,
+                            img_pixels.into_image(),
+                        )
                     }
                 };
                 let inner = vec![img];
@@ -199,7 +205,12 @@ impl InputPlugin for ImageInputPlugin {
         })
     }
 
-    fn read_video(&self, handle: &Self::InputHandle, frame: u32) -> AnyResult<impl IntoImage> {
+    fn read_video(
+        &self,
+        handle: &Self::InputHandle,
+        frame: u32,
+        returner: &mut ImageReturner,
+    ) -> AnyResult<()> {
         let frame = frame as usize;
         anyhow::ensure!(
             frame < handle.inner.len(),
@@ -209,7 +220,9 @@ impl InputPlugin for ImageInputPlugin {
         );
         let img = &handle.inner[frame];
 
-        Ok(img.to_owned())
+        returner.write(img);
+
+        Ok(())
     }
 
     fn time_to_frame(

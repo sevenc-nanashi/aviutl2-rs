@@ -1,7 +1,7 @@
 mod synthesizer;
 mod track;
 
-use aviutl2::input::{InputPlugin, IntoAudio};
+use aviutl2::input::{AudioReturner, InputPlugin};
 use synthesizer::SAMPLE_RATE;
 
 struct MidiPlayerPlugin {}
@@ -130,7 +130,8 @@ impl InputPlugin for MidiPlayerPlugin {
         handle: &mut Self::InputHandle,
         start: i32,
         length: i32,
-    ) -> anyhow::Result<impl aviutl2::input::IntoAudio> {
+        returner: &mut AudioReturner,
+    ) -> anyhow::Result<()> {
         let mut all_samples = vec![(0.0f32, 0.0f32); length as usize];
         let num_synths = handle.synthesizers.len();
         for synth in &mut handle.synthesizers {
@@ -150,7 +151,8 @@ impl InputPlugin for MidiPlayerPlugin {
             }
         }
 
-        Ok(all_samples.into_audio())
+        returner.write(&all_samples);
+        Ok(())
     }
 
     fn close(&self, _handle: Self::InputHandle) -> anyhow::Result<()> {

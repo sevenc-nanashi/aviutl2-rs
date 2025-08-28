@@ -29,7 +29,7 @@ jobs:
 
       - name: Run clippy
         run: |
-          cargo clippy --all-features
+          cargo clippy --all-features -- -D warnings
 
       - name: Run test
         run: |

@@ -1,7 +1,7 @@
 use aviutl2::FileFilter;
 use aviutl2::input::{
-    AnyResult, ImageFormat, InputInfo, InputPlugin, InputPluginTable, IntoImage, VideoInputInfo,
-    f16,
+    AnyResult, ImageReturner, InputInfo, InputPixelFormat, InputPlugin, InputPluginTable,
+    VideoInputInfo, f16,
 };
 use aviutl2::register_input_plugin;
 
@@ -9,7 +9,7 @@ struct PixelFormatTestPlugin;
 
 #[derive(Clone)]
 struct Handle {
-    format: ImageFormat,
+    format: InputPixelFormat,
     width: u32,
     height: u32,
 }
@@ -48,12 +48,12 @@ impl InputPlugin for PixelFormatTestPlugin {
     fn open(&self, file: std::path::PathBuf) -> AnyResult<Self::InputHandle> {
         let format_str = file.extension().and_then(|s| s.to_str()).unwrap_or("bgra");
         let format = match format_str {
-            "bgr" => ImageFormat::Bgr,
-            "yuy2" => ImageFormat::Yuy2,
-            "bgra" => ImageFormat::Bgra,
-            "pa64" => ImageFormat::Pa64,
-            "hf64" => ImageFormat::Hf64,
-            "yc48" => ImageFormat::Yc48,
+            "bgr" => InputPixelFormat::Bgr,
+            "yuy2" => InputPixelFormat::Yuy2,
+            "bgra" => InputPixelFormat::Bgra,
+            "pa64" => InputPixelFormat::Pa64,
+            "hf64" => InputPixelFormat::Hf64,
+            "yc48" => InputPixelFormat::Yc48,
             _ => return Err(anyhow::anyhow!("Unsupported pixel format: {}", format_str)),
         };
         Ok(Handle {
@@ -82,11 +82,16 @@ impl InputPlugin for PixelFormatTestPlugin {
         })
     }
 
-    fn read_video(&self, handle: &Self::InputHandle, frame: u32) -> AnyResult<impl IntoImage> {
+    fn read_video(
+        &self,
+        handle: &Self::InputHandle,
+        frame: u32,
+        returner: &mut ImageReturner,
+    ) -> AnyResult<()> {
         anyhow::ensure!(frame == 0, "Only frame 0 is valid");
         let (width, height) = (handle.width, handle.height);
         match handle.format {
-            ImageFormat::Bgra => {
+            InputPixelFormat::Bgra => {
                 let mut buffer = Vec::with_capacity((width * height) as usize);
                 for y in 0..height {
                     for x in 0..width {
@@ -98,9 +103,9 @@ impl InputPlugin for PixelFormatTestPlugin {
                         ));
                     }
                 }
-                Ok(buffer.into_image())
+                returner.write(&buffer);
             }
-            ImageFormat::Bgr => {
+            InputPixelFormat::Bgr => {
                 let mut buffer = Vec::with_capacity((width * height * 3) as usize);
                 for y in 0..height {
                     for x in 0..width {
@@ -111,9 +116,9 @@ impl InputPlugin for PixelFormatTestPlugin {
                         ));
                     }
                 }
-                Ok(buffer.into_image())
+                returner.write(&buffer);
             }
-            ImageFormat::Yuy2 => {
+            InputPixelFormat::Yuy2 => {
                 let mut buffer = Vec::with_capacity((width * height / 2) as usize);
                 for y in 0..height {
                     for x in (0..width).step_by(2) {
@@ -124,9 +129,9 @@ impl InputPlugin for PixelFormatTestPlugin {
                         buffer.push((y0, u, y1, v)); // Y0, U, Y1, V
                     }
                 }
-                Ok(buffer.into_image())
+                returner.write(&buffer);
             }
-            ImageFormat::Pa64 => {
+            InputPixelFormat::Pa64 => {
                 let mut buffer = Vec::with_capacity((width * height) as usize);
                 for y in 0..height {
                     for x in 0..width {
@@ -138,9 +143,9 @@ impl InputPlugin for PixelFormatTestPlugin {
                         ));
                     }
                 }
-                Ok(buffer.into_image())
+                returner.write(&buffer);
             }
-            ImageFormat::Hf64 => {
+            InputPixelFormat::Hf64 => {
                 let mut buffer = Vec::with_capacity((width * height) as usize);
                 for y in 0..height {
                     for x in 0..width {
@@ -155,9 +160,9 @@ impl InputPlugin for PixelFormatTestPlugin {
                         ));
                     }
                 }
-                Ok(buffer.into_image())
+                returner.write(&buffer);
             }
-            ImageFormat::Yc48 => {
+            InputPixelFormat::Yc48 => {
                 let mut buffer = Vec::with_capacity((width * height) as usize);
                 for y in 0..height {
                     for x in 0..width {
@@ -167,9 +172,11 @@ impl InputPlugin for PixelFormatTestPlugin {
                         buffer.push((y_val, cb, cr)); // Y, Cb, Cr
                     }
                 }
-                Ok(buffer.into_image())
+                returner.write(&buffer);
             }
         }
+
+        Ok(())
     }
 
     fn close(&self, _handle: Self::InputHandle) -> AnyResult<()> {
