@@ -1,9 +1,6 @@
 use std::borrow::Cow;
 
-use crate::common::{AnyResult, FileFilter, Yc48};
-pub use half::{self, f16};
-pub use num_rational::{self, Rational32};
-pub use raw_window_handle::{self, Win32WindowHandle};
+use crate::common::{AnyResult, FileFilter, Yc48, f16, Win32WindowHandle, Rational32};
 use zerocopy::IntoBytes;
 
 /// 入力プラグインの情報を表す構造体。
@@ -59,12 +56,12 @@ pub struct VideoInputInfo {
     pub height: u32,
 
     /// 画像のフォーマット。
-    pub format: ImageFormat,
+    pub format: InputPixelFormat,
 }
 
 /// 画像のフォーマット。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ImageFormat {
+pub enum InputPixelFormat {
     /// RGB形式。
     /// `(u8, u8, u8)`相当。
     ///
@@ -198,23 +195,33 @@ impl AsImage for Vec<u8> {
     }
 }
 
-/// AviUtl2側にバイト列を返すためのstruct。
-pub struct ImageReturner {
-    ptr: *mut u8,
-    pub(crate) written: usize,
-}
-
-impl ImageReturner {
-    pub(crate) unsafe fn new(ptr: *mut u8) -> Self {
-        Self { ptr, written: 0 }
+duplicate::duplicate! {
+    [
+        Name            Trait     method;
+        [ImageReturner] [AsImage] [as_image];
+        [AudioReturner] [AsAudio] [as_audio];
+    ]
+    /// AviUtl2側にバイト列を返すためのstruct。
+    pub struct Name {
+        ptr: *mut u8,
+        pub(crate) written: usize,
     }
 
-    pub fn send(&mut self, data: &impl AsImage) {
-        let image = data.as_image();
-        unsafe {
-            std::ptr::copy_nonoverlapping(image.as_ptr(), self.ptr.add(self.written), image.len());
+    impl Name {
+        /// # Safety
+        ///
+        /// AviUtl2側から渡されるポインタのみが許容される。
+        pub(crate) unsafe fn new(ptr: *mut u8) -> Self {
+            Self { ptr, written: 0 }
         }
-        self.written += image.len();
+
+        pub fn write(&mut self, data: &impl Trait) {
+            let image = data.method();
+            unsafe {
+                std::ptr::copy_nonoverlapping(image.as_ptr(), self.ptr.add(self.written), image.len());
+            }
+            self.written += image.len();
+        }
     }
 }
 
@@ -262,17 +269,30 @@ impl std::ops::Deref for AudioBuffer {
     }
 }
 
+/// 音声データを `AudioBuffer` に変換するトレイト。
 pub trait IntoAudio {
     fn into_audio(self) -> AudioBuffer;
 }
-impl IntoAudio for AudioBuffer {
+
+impl<T: AsAudio> IntoAudio for T {
     fn into_audio(self) -> AudioBuffer {
-        self
+        AudioBuffer(self.as_audio().into_owned())
     }
 }
-impl IntoAudio for Vec<u8> {
-    fn into_audio(self) -> AudioBuffer {
-        AudioBuffer(self)
+
+/// 音声データを `Cow<[u8]>` に変換するトレイト。
+pub trait AsAudio {
+    fn as_audio(&self) -> Cow<[u8]>;
+}
+
+impl AsAudio for AudioBuffer {
+    fn as_audio(&self) -> Cow<[u8]> {
+        Cow::Borrowed(&self.0)
+    }
+}
+impl AsAudio for Vec<u8> {
+    fn as_audio(&self) -> Cow<[u8]> {
+        Cow::Borrowed(self)
     }
 }
 #[duplicate::duplicate_item(
@@ -280,22 +300,21 @@ impl IntoAudio for Vec<u8> {
     [Vec<u16>];
     [Vec<f32>];
 )]
-impl IntoAudio for T {
-    fn into_audio(self) -> AudioBuffer {
-        let audio_data = self.as_bytes().to_vec();
-        AudioBuffer(audio_data)
+impl AsAudio for T {
+    fn as_audio(&self) -> Cow<[u8]> {
+        Cow::Borrowed(self.as_bytes())
     }
 }
 
 macro_rules! into_audio_impl_for_tuple {
     ($type:ty, $($name:ident),+) => {
-        impl IntoAudio for Vec<$type> {
-            fn into_audio(self) -> AudioBuffer {
+        impl AsAudio for Vec<$type> {
+            fn as_audio(&self) -> Cow<[u8]> {
                 let mut audio_data = Vec::with_capacity(self.len() * std::mem::size_of::<$type>());
                 for ($($name,)+) in self {
                     $(audio_data.extend_from_slice(&$name.to_le_bytes());)+
                 }
-                AudioBuffer(audio_data)
+                Cow::Owned(audio_data)
             }
         }
     };
@@ -346,10 +365,11 @@ pub trait InputPlugin: Send + Sync {
     /// </div>
     fn read_video(
         &self,
-        _handle: &Self::InputHandle,
-        _frame: u32,
-        _read: &mut ImageReturner,
+        handle: &Self::InputHandle,
+        frame: u32,
+        returner: &mut ImageReturner,
     ) -> AnyResult<()> {
+        let _ = (handle, frame, returner);
         Result::<(), anyhow::Error>::Err(anyhow::anyhow!(
             "read_video is not implemented for this plugin"
         ))
@@ -367,9 +387,9 @@ pub trait InputPlugin: Send + Sync {
         &self,
         handle: &mut Self::InputHandle,
         frame: u32,
-        read: &mut ImageReturner,
+        returner: &mut ImageReturner,
     ) -> AnyResult<()> {
-        self.read_video(handle, frame, read)
+        self.read_video(handle, frame, returner)
     }
 
     /// 動画のトラックが利用可能かどうかを確認する。
@@ -412,11 +432,13 @@ pub trait InputPlugin: Send + Sync {
     /// </div>
     fn read_audio(
         &self,
-        _handle: &Self::InputHandle,
-        _start: i32,
-        _length: i32,
-    ) -> AnyResult<impl IntoAudio> {
-        Result::<AudioBuffer, anyhow::Error>::Err(anyhow::anyhow!(
+        handle: &Self::InputHandle,
+        start: i32,
+        length: i32,
+        returner: &mut AudioReturner,
+    ) -> AnyResult<()> {
+        let _ = (handle, start, length, returner);
+        Result::<(), anyhow::Error>::Err(anyhow::anyhow!(
             "read_audio is not implemented for this plugin"
         ))
     }
@@ -434,8 +456,9 @@ pub trait InputPlugin: Send + Sync {
         handle: &mut Self::InputHandle,
         start: i32,
         length: i32,
-    ) -> AnyResult<impl IntoAudio> {
-        self.read_audio(handle, start, length)
+        returner: &mut AudioReturner,
+    ) -> AnyResult<()> {
+        self.read_audio(handle, start, length, returner)
     }
 
     /// 音声のトラックが利用可能かどうかを確認する。

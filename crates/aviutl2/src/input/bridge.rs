@@ -7,22 +7,20 @@ use crate::{
     },
     debug_print,
     input::{
-        AudioBuffer, AudioFormat, AudioInputInfo, ImageFormat, ImageReturner, InputInfo,
-        InputPlugin, InputPluginTable, IntoAudio, VideoInputInfo,
+        AudioFormat, AudioInputInfo, AudioReturner, InputPixelFormat, ImageReturner, InputInfo,
+        InputPlugin, InputPluginTable, VideoInputInfo,
     },
 };
 
-pub use raw_window_handle::RawWindowHandle;
-
-impl ImageFormat {
+impl InputPixelFormat {
     fn bytes_count_per_pixel(&self) -> usize {
         match self {
-            ImageFormat::Bgr => 3,  // RGB format
-            ImageFormat::Bgra => 4, // RGBA format
-            ImageFormat::Yuy2 => 2, // YUY2 format (packed YUV 4:2:2, 4 bytes per 2 pixels)
-            ImageFormat::Pa64 => 8, // DXGI_FORMAT_R16G16B16A16_UNORM (packed 16-bit per channel)
-            ImageFormat::Hf64 => 8, // DXGI_FORMAT_R16G16B16A16_FLOAT (half-float)
-            ImageFormat::Yc48 => 6, // YC48 (AviUtl1)
+            InputPixelFormat::Bgr => 3,  // RGB format
+            InputPixelFormat::Bgra => 4, // RGBA format
+            InputPixelFormat::Yuy2 => 2, // YUY2 format (packed YUV 4:2:2, 4 bytes per 2 pixels)
+            InputPixelFormat::Pa64 => 8, // DXGI_FORMAT_R16G16B16A16_UNORM (packed 16-bit per channel)
+            InputPixelFormat::Hf64 => 8, // DXGI_FORMAT_R16G16B16A16_FLOAT (half-float)
+            InputPixelFormat::Yc48 => 6, // YC48 (AviUtl1)
         }
     }
 }
@@ -39,11 +37,11 @@ impl AudioFormat {
 impl VideoInputInfo {
     fn into_raw(self) -> aviutl2_sys::input2::BITMAPINFOHEADER {
         let bi_compression = match self.format {
-            ImageFormat::Bgr | ImageFormat::Bgra => aviutl2_sys::input2::BI_RGB,
-            ImageFormat::Yuy2 => aviutl2_sys::input2::BI_YUY2,
-            ImageFormat::Pa64 => aviutl2_sys::input2::BI_PA64,
-            ImageFormat::Hf64 => aviutl2_sys::input2::BI_HF64,
-            ImageFormat::Yc48 => aviutl2_sys::input2::BI_YC48,
+            InputPixelFormat::Bgr | InputPixelFormat::Bgra => aviutl2_sys::input2::BI_RGB,
+            InputPixelFormat::Yuy2 => aviutl2_sys::input2::BI_YUY2,
+            InputPixelFormat::Pa64 => aviutl2_sys::input2::BI_PA64,
+            InputPixelFormat::Hf64 => aviutl2_sys::input2::BI_HF64,
+            InputPixelFormat::Yc48 => aviutl2_sys::input2::BI_YC48,
         };
 
         // NOTE:
@@ -360,37 +358,32 @@ pub unsafe fn func_read_audio<T: InputPlugin>(
     plugin_state.free_leaked_memory();
     let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
     let plugin = &plugin_state.instance;
+    let mut returner = unsafe { AudioReturner::new(buf as *mut u8) };
     let read_result = if plugin_state.plugin_info.concurrent {
-        T::read_audio(plugin, &handle.handle, start, length).map(|audio| audio.into_audio())
+        T::read_audio(plugin, &handle.handle, start, length, &mut returner)
     } else {
-        T::read_audio_mut(plugin, &mut handle.handle, start, length).map(|audio| audio.into_audio())
+        T::read_audio_mut(plugin, &mut handle.handle, start, length, &mut returner)
     };
     match read_result {
-        Ok(AudioBuffer(audio_data)) => {
-            let len = audio_data.len();
-            if len > 0 {
-                #[cfg(debug_assertions)]
-                {
-                    let audio_format = handle
-                        .input_info
-                        .as_ref()
-                        .expect("Unreachable: Input info not set")
-                        .audio
-                        .as_ref()
-                        .expect("Unreachable: Audio format not set");
-                    assert_eq!(
-                        len,
-                        (audio_format.channels as usize
-                            * length as usize
-                            * audio_format.format.bytes_per_sample()),
-                        "Audio data size does not match expected size"
-                    );
-                }
-                unsafe {
-                    std::ptr::copy_nonoverlapping(audio_data.as_ptr(), buf as *mut u8, len);
-                }
+        Ok(()) => {
+            #[cfg(debug_assertions)]
+            {
+                let audio_format = handle
+                    .input_info
+                    .as_ref()
+                    .expect("Unreachable: Input info not set")
+                    .audio
+                    .as_ref()
+                    .expect("Unreachable: Audio format not set");
+                assert_eq!(
+                    returner.written,
+                    ((length as usize)
+                        * (audio_format.channels as usize)
+                        * audio_format.format.bytes_per_sample()),
+                    "Audio data size does not match expected size"
+                );
             }
-            len as i32
+            returner.written as i32
         }
         Err(e) => {
             debug_print!("Failed to read audio data: {}", e);
