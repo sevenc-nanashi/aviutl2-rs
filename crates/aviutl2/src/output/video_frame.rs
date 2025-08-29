@@ -52,7 +52,7 @@ duplicate::duplicate! {
 }
 duplicate::duplicate! {
     [
-        Name                   OwnedName           ParsedName           Type                   Doc;
+        Name                   OwnedName           ParsedName       Type                   Doc;
         [UnsafeBgrVideoFrame]  [RawBgrVideoFrame]  [RgbVideoFrame]  [u8]                   ["生のBGR24形式の動画フレームデータ。"];
         [UnsafeYuy2VideoFrame] [RawYuy2VideoFrame] [Yuy2VideoFrame] [u8]                   ["生のYUV 4:2:2形式の動画フレームデータ。"];
         [UnsafeHf64VideoFrame] [RawHf64VideoFrame] [Hf64VideoFrame] [u16]                  ["生のDXGI_FORMAT_R16G16B16A16_FLOAT（乗算済みα）形式の動画フレームデータ。"];
@@ -92,7 +92,7 @@ duplicate::duplicate! {
         ///
         /// # Safety
         ///
-        /// 次のフレーム取得が行われた後や、[`OutputInfo`]が破棄された後に呼び出すと未定義動作になります。
+        /// 次のフレーム取得が行われた後や、[`OutputInfo`][`super::OutputInfo`]が破棄された後に呼び出すと未定義動作になります。
         pub unsafe fn as_slice(&self) -> &[Type] {
             unsafe { std::slice::from_raw_parts(self.data, self.length) }
         }
@@ -101,7 +101,7 @@ duplicate::duplicate! {
         ///
         /// # Safety
         ///
-        /// 次のフレーム取得が行われた後や、[`OutputInfo`]が破棄された後に呼び出すと未定義動作になります。
+        /// 次のフレーム取得が行われた後や、[`OutputInfo`][`super::OutputInfo`]が破棄された後に呼び出すと未定義動作になります。
         pub unsafe fn to_owned(&self) -> OwnedName {
             OwnedName {
                 data: unsafe { std::slice::from_raw_parts(self.data, self.length).to_vec() },
@@ -112,7 +112,7 @@ duplicate::duplicate! {
         ///
         /// # Safety
         ///
-        /// 次のフレーム取得が行われた後や、[`OutputInfo`]が破棄された後に呼び出すと未定義動作になります。
+        /// 次のフレーム取得が行われた後や、[`OutputInfo`][`super::OutputInfo`]が破棄された後に呼び出すと未定義動作になります。
         pub unsafe fn to_parsed(&self) -> ParsedName {
             #[allow(clippy::unnecessary_cast)]
             unsafe { ParsedName::from_raw(&self.info, self.data as *const u8) }
