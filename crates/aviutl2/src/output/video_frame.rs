@@ -74,6 +74,15 @@ duplicate::duplicate! {
             self.length
         }
 
+        /// この型が参照するデータが空かどうかを返します。
+        ///
+        /// # Note
+        ///
+        /// 常に`false`を返します。
+        pub fn is_empty(&self) -> bool {
+            false
+        }
+
         /// この型の内部のポインタを返します。
         pub fn as_ptr(&self) -> *const Type {
             self.data
@@ -105,6 +114,7 @@ duplicate::duplicate! {
         ///
         /// 次のフレーム取得が行われた後や、[`OutputInfo`]が破棄された後に呼び出すと未定義動作になります。
         pub unsafe fn to_parsed(&self) -> ParsedName {
+            #[allow(clippy::unnecessary_cast)]
             unsafe { ParsedName::from_raw(&self.info, self.data as *const u8) }
         }
     }
