@@ -183,7 +183,14 @@ impl OutputInfo {
         let frame_data_ptr = frame_ptr(frame, F::FORMAT) as *mut u8;
         let video = self.video.as_ref()?;
         self.current_frame.store(frame as usize, Ordering::SeqCst);
-        let frame = unsafe { F::from_raw(video, frame_data_ptr, self.current_frame.clone(), frame as usize) };
+        let frame = unsafe {
+            F::from_raw(
+                video,
+                frame_data_ptr,
+                self.current_frame.clone(),
+                frame as usize,
+            )
+        };
         Some(frame)
     }
 

@@ -238,19 +238,19 @@ impl OutputPlugin for FfmpegOutputPlugin {
                     config::PixelFormat::Yuy2 => {
                         for (_, frame) in info.get_video_frames_iter::<BorrowedRawYuy2VideoFrame>()
                         {
-                            writer.write_all(&frame.as_slice())?;
+                            writer.write_all(frame.as_slice())?;
                         }
                     }
                     config::PixelFormat::Bgr24 => {
                         for (_, frame) in info.get_video_frames_iter::<BorrowedRawBgrVideoFrame>() {
-                            writer.write_all(&frame.as_slice())?;
+                            writer.write_all(frame.as_slice())?;
                         }
                     }
                     config::PixelFormat::Pa64 => {
                         for (_, frame) in info.get_video_frames_iter::<BorrowedRawPa64VideoFrame>()
                         {
                             writer.write_all(unsafe {
-                                std::mem::transmute::<&[u16], &[u8]>(&frame.as_slice())
+                                std::mem::transmute::<&[u16], &[u8]>(frame.as_slice())
                             })?;
                         }
                     }
