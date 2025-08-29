@@ -61,6 +61,8 @@ pub static DEFAULT_ARGS: &[&str] = &[
     "1:a:0",
     "-vf",
     "{maybe_vflip}",
+    "-pix_fmt",
+    "yuv420p",
     "{output_path}",
 ];
 pub static REQUIRED_ARGS: &[&str] = &[

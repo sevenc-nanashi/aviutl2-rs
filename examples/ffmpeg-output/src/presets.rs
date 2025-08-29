@@ -25,7 +25,7 @@ pub static DEFAULT_PRESET: FfmpegPreset = FfmpegPreset {
     name: "デフォルト",
     description: "デフォルトの最小限のFFmpeg設定。",
     args: DEFAULT_ARGS,
-    pixel_format: PixelFormat::Bgr24,
+    pixel_format: PixelFormat::Yuy2,
 };
 
 pub static FINAL_MP4_PRESET: FfmpegPreset = FfmpegPreset {
@@ -72,7 +72,7 @@ pub static FINAL_MP4_PRESET: FfmpegPreset = FfmpegPreset {
         "192k",
         "{output_path}",
     ],
-    pixel_format: PixelFormat::Bgr24,
+    pixel_format: PixelFormat::Yuy2,
 };
 
 pub static YOUTUBE_PRESET: FfmpegPreset = FfmpegPreset {
@@ -121,7 +121,7 @@ pub static YOUTUBE_PRESET: FfmpegPreset = FfmpegPreset {
         "192k",
         "{output_path}",
     ],
-    pixel_format: PixelFormat::Bgr24,
+    pixel_format: PixelFormat::Yuy2,
 };
 
 pub static NICONICO_STANDARD_PRESET: FfmpegPreset = FfmpegPreset {
@@ -172,7 +172,7 @@ pub static NICONICO_STANDARD_PRESET: FfmpegPreset = FfmpegPreset {
         "{audio_sample_rate}",
         "{output_path}",
     ],
-    pixel_format: PixelFormat::Bgr24,
+    pixel_format: PixelFormat::Yuy2,
 };
 
 pub static NICONICO_MAX_PRESET: FfmpegPreset = FfmpegPreset {
@@ -217,7 +217,7 @@ pub static NICONICO_MAX_PRESET: FfmpegPreset = FfmpegPreset {
         "flac",
         "{output_path}",
     ],
-    pixel_format: PixelFormat::Bgr24,
+    pixel_format: PixelFormat::Yuy2,
 };
 
 pub static PRORES_PRESET: FfmpegPreset = FfmpegPreset {
