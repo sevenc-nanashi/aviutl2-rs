@@ -1,8 +1,6 @@
-use crate::common::{
-    AnyResult, FileFilter, Rational32, Win32WindowHandle, Yc48, f16, load_large_string,
-};
+use crate::common::{AnyResult, FileFilter, Rational32, Win32WindowHandle, load_large_string};
+use crate::output::FromRawVideoFrame;
 use aviutl2_sys::output2::OUTPUT_INFO;
-use std::ops::Deref;
 
 /// 出力プラグインの情報を表す構造体。
 #[derive(Debug, Clone)]
@@ -104,53 +102,6 @@ pub trait OutputPlugin: Send + Sync {
     /// 出力ダイアログの下の設定ボタンの隣に表示されます。
     fn config_text(&self) -> AnyResult<String> {
         Ok(String::new())
-    }
-}
-
-/// 動画フレームを表すトレイト。
-/// aviutl2-rsでは、このトレイトを実装した型で動画フレームのフォーマットを指定します。
-pub trait FromRawVideoFrame {
-    /// 動画フレームのフォーマットを表す定数。
-    const FORMAT: u32;
-
-    /// 動画フレームのフォーマットが出力情報に適合するかをチェックする。
-    /// 例えば、[`Yuy2VideoFrame`]（YUV
-    /// 4:2:2）を使用する場合は、出力情報の幅と高さが偶数であることを確認します。
-    fn check(video: &VideoOutputInfo) -> Result<(), String>;
-
-    /// 動画フレームを生のポインタから取得する。
-    ///
-    /// # Safety
-    /// func_get_videoの戻り値のポインタのみが許容される。
-    unsafe fn from_raw(video: &VideoOutputInfo, frame_data_ptr: *const u8) -> Self;
-}
-
-duplicate::duplicate! {
-    [
-        Name                Type                   Doc;
-        [RgbVideoFrame]     [(u8, u8, u8)]         ["(u8, u8, u8) で表されるRGBの動画フレーム。"];
-        [Yuy2VideoFrame]    [(u8, u8, u8, u8)]     ["(u8, u8, u8, u8) で表されるYUV 4:2:2の動画フレーム。"];
-        [Hf64VideoFrame]    [(f16, f16, f16, f16)] ["(f16, f16, f16, f16) で表されるRGBAの動画フレーム。"];
-        [Yc48VideoFrame]    [Yc48]                 ["YC48形式の動画フレーム。"];
-        [Pa64VideoFrame]    [(u16, u16, u16, u16)] ["(u16, u16, u16, u16) で表されるRGBAの動画フレーム。"];
-
-        [RawBgrVideoFrame]  [u8]                   ["生のBGR24形式の動画フレームデータ。"];
-        [RawYuy2VideoFrame] [u8]                   ["生のYUV 4:2:2形式の動画フレームデータ。"];
-        [RawHf64VideoFrame] [u16]                  ["生のDXGI_FORMAT_R16G16B16A16_FLOAT（乗算済みα）形式の動画フレームデータ。"];
-        [RawYc48VideoFrame] [i16]                  ["生のYC48形式の動画フレームデータ。"];
-        [RawPa64VideoFrame] [u16]                  ["生のDXGI_FORMAT_R16G16B16A16_UNORM（乗算済みα）形式の動画フレームデータ。"];
-    ]
-    #[doc = Doc]
-    #[derive(Debug, Clone)]
-    pub struct Name {
-        pub data: Vec<Type>,
-    }
-    impl Deref for Name {
-        type Target = [Type];
-
-        fn deref(&self) -> &Self::Target {
-            &self.data
-        }
     }
 }
 
