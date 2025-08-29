@@ -4,7 +4,7 @@ use crate::{
 };
 use std::{
     ops::Deref,
-    sync::{Arc, atomic::AtomicUsize},
+    sync::{Arc, atomic::AtomicI32},
 };
 
 /// 動画フレームを表すトレイト。
@@ -25,8 +25,8 @@ pub trait FromRawVideoFrame {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        current_frame: Arc<AtomicUsize>,
-        frame_index: usize,
+        current_frame: Arc<AtomicI32>,
+        frame_index: i32,
     ) -> Self;
 }
 
@@ -75,8 +75,8 @@ duplicate::duplicate! {
         data: *const Type,
         length: usize,
 
-        current_frame: Arc<AtomicUsize>,
-        frame_index: usize,
+        current_frame: Arc<AtomicI32>,
+        frame_index: i32,
 
         info: VideoOutputInfo,
     }
@@ -183,8 +183,8 @@ impl FromRawVideoFrame for RgbVideoFrame {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _current_frame: Arc<AtomicUsize>,
-        _frame_index: usize,
+        _current_frame: Arc<AtomicI32>,
+        _frame_index: i32,
     ) -> Self {
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
@@ -218,8 +218,8 @@ impl FromRawVideoFrame for Yuy2VideoFrame {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _current_frame: Arc<AtomicUsize>,
-        _frame_index: usize,
+        _current_frame: Arc<AtomicI32>,
+        _frame_index: i32,
     ) -> Self {
         let mut frame_buffer = Vec::with_capacity((video.width * video.height / 2) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
@@ -253,8 +253,8 @@ impl FromRawVideoFrame for Hf64VideoFrame {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _current_frame: Arc<AtomicUsize>,
-        _frame_index: usize,
+        _current_frame: Arc<AtomicI32>,
+        _frame_index: i32,
     ) -> Self {
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
@@ -292,8 +292,8 @@ impl FromRawVideoFrame for Yc48VideoFrame {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _current_frame: Arc<AtomicUsize>,
-        _frame_index: usize,
+        _current_frame: Arc<AtomicI32>,
+        _frame_index: i32,
     ) -> Self {
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
@@ -329,8 +329,8 @@ impl FromRawVideoFrame for Pa64VideoFrame {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _current_frame: Arc<AtomicUsize>,
-        _frame_index: usize,
+        _current_frame: Arc<AtomicI32>,
+        _frame_index: i32,
     ) -> Self {
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
@@ -372,8 +372,8 @@ impl FromRawVideoFrame for Name {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _current_frame: Arc<AtomicUsize>,
-        _frame_index: usize,
+        _current_frame: Arc<AtomicI32>,
+        _frame_index: i32,
     ) -> Self {
         let frame_buffer = unsafe {
             #[allow(clippy::unnecessary_cast)]
@@ -405,8 +405,8 @@ impl FromRawVideoFrame for Name {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        current_frame: Arc<AtomicUsize>,
-        frame_index: usize,
+        current_frame: Arc<AtomicI32>,
+        frame_index: i32,
     ) -> Self {
         let length = (video.width * video.height * elms) as usize;
 
