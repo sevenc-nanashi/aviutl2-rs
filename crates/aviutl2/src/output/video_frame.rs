@@ -305,7 +305,7 @@ impl FromRawVideoFrame for Name {
 }
 
 #[duplicate::duplicate_item(
-    Name                Type  elms FMT;
+    Name                   Type  elms FMT;
     [UnsafeBgrVideoFrame]  [u8]  [3]  [aviutl2_sys::output2::BI_RGB];
     [UnsafeYuy2VideoFrame] [u8]  [2]  [aviutl2_sys::output2::BI_YUY2];
     [UnsafeHf64VideoFrame] [u16] [4]  [aviutl2_sys::output2::BI_HF64];
