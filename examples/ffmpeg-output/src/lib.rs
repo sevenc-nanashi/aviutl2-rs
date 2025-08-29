@@ -11,7 +11,8 @@ use crate::{
 use anyhow::Context;
 use aviutl2::{
     output::{
-        OutputPlugin, RawBgrVideoFrame, RawHf64VideoFrame, RawPa64VideoFrame, RawYuy2VideoFrame,
+        BorrowedRawBgrVideoFrame, BorrowedRawHf64VideoFrame, BorrowedRawPa64VideoFrame,
+        BorrowedRawYuy2VideoFrame, OutputPlugin, f16,
     },
     register_output_plugin,
 };
@@ -235,32 +236,29 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 let mut writer = std::io::BufWriter::new(stream);
                 match config.pixel_format {
                     config::PixelFormat::Yuy2 => {
-                        for (_, frame) in info.get_video_frames_iter::<RawYuy2VideoFrame>() {
-                            writer.write_all(&frame.data)?;
+                        for (_, frame) in info.get_video_frames_iter::<BorrowedRawYuy2VideoFrame>()
+                        {
+                            writer.write_all(&frame.as_slice())?;
                         }
                     }
                     config::PixelFormat::Bgr24 => {
-                        for (_, frame) in info.get_video_frames_iter::<RawBgrVideoFrame>() {
-                            writer.write_all(&frame.data)?;
+                        for (_, frame) in info.get_video_frames_iter::<BorrowedRawBgrVideoFrame>() {
+                            writer.write_all(&frame.as_slice())?;
                         }
                     }
                     config::PixelFormat::Pa64 => {
-                        for (_, frame) in info.get_video_frames_iter::<RawPa64VideoFrame>() {
+                        for (_, frame) in info.get_video_frames_iter::<BorrowedRawPa64VideoFrame>()
+                        {
                             writer.write_all(unsafe {
-                                std::slice::from_raw_parts(
-                                    frame.data.as_ptr() as *const u8,
-                                    frame.data.len() * std::mem::size_of::<u16>(),
-                                )
+                                std::mem::transmute::<&[u16], &[u8]>(&frame.as_slice())
                             })?;
                         }
                     }
                     config::PixelFormat::Hf64 => {
-                        for (_, frame) in info.get_video_frames_iter::<RawHf64VideoFrame>() {
+                        for (_, frame) in info.get_video_frames_iter::<BorrowedRawHf64VideoFrame>()
+                        {
                             writer.write_all(unsafe {
-                                std::slice::from_raw_parts(
-                                    frame.data.as_ptr() as *const u8,
-                                    frame.data.len() * std::mem::size_of::<u16>(),
-                                )
+                                std::mem::transmute::<&[f16], &[u8]>(frame.as_slice())
                             })?;
                         }
                     }

@@ -56,7 +56,7 @@ impl OutputPlugin for StatisticsPlugin {
         let mut elapsed = Vec::with_capacity(video_info.num_frames as usize);
         let mut time_before = std::time::Instant::now();
 
-        for (_i, _frame) in info.get_video_frames_iter::<aviutl2::output::UnsafeHf64VideoFrame>() {
+        for (_i, _frame) in info.get_video_frames_iter::<aviutl2::output::BorrowedRawHf64VideoFrame>() {
             let time_after = std::time::Instant::now();
             elapsed.push(time_after.duration_since(time_before).as_secs_f64() * 1000.0);
             time_before = time_after;
