@@ -522,7 +522,8 @@ macro_rules! register_input_plugin {
     ($struct:ident) => {
         #[doc(hidden)]
         mod __au2_register_input_plugin {
-            use super::*;
+            use super::$struct;
+            use $crate::input::InputPlugin as _;
 
             static PLUGIN: std::sync::LazyLock<
                 aviutl2::input::__bridge::InternalInputPluginState<$struct>,

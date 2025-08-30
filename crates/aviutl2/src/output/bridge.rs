@@ -110,7 +110,8 @@ macro_rules! register_output_plugin {
     ($struct:ident) => {
         #[doc(hidden)]
         mod __au2_register_output_plugin {
-            use super::*;
+            use super::$struct;
+            use $crate::output::OutputPlugin as _;
 
             static PLUGIN: std::sync::LazyLock<$struct> = std::sync::LazyLock::new($struct::new);
 
