@@ -1,6 +1,6 @@
 use std::sync::{
     Arc,
-    atomic::{AtomicI32, Ordering},
+    atomic::{AtomicUsize, Ordering},
 };
 
 use crate::common::{AnyResult, FileFilter, Rational32, Win32WindowHandle, load_large_string};
@@ -57,7 +57,7 @@ pub struct OutputInfo {
     pub path: std::path::PathBuf,
 
     pub(crate) internal: *mut OUTPUT_INFO,
-    pub(crate) current_frame: Arc<AtomicI32>,
+    pub(crate) last_frame_id: Arc<AtomicUsize>,
 }
 
 unsafe impl Send for OutputInfo {}
@@ -152,7 +152,7 @@ impl OutputInfo {
             path: std::path::PathBuf::from(load_large_string(raw.savefile)),
 
             internal: oip,
-            current_frame: Arc::new(AtomicI32::new(-1)),
+            last_frame_id: Arc::new(AtomicUsize::new(0)),
         }
     }
 
@@ -182,9 +182,15 @@ impl OutputInfo {
         let frame_ptr = unsafe { self.internal.as_mut().and_then(|oip| oip.func_get_video) }?;
         let frame_data_ptr = frame_ptr(frame, F::FORMAT) as *mut u8;
         let video = self.video.as_ref()?;
-        self.current_frame.store(frame, Ordering::SeqCst);
-        let frame =
-            unsafe { F::from_raw(video, frame_data_ptr, self.current_frame.clone(), frame) };
+        let current_frame_id = self.last_frame_id.fetch_add(1, Ordering::SeqCst) + 1;
+        let frame = unsafe {
+            F::from_raw(
+                video,
+                frame_data_ptr,
+                Arc::clone(&self.last_frame_id),
+                current_frame_id,
+            )
+        };
         Some(frame)
     }
 
@@ -303,7 +309,7 @@ impl OutputInfo {
 
 impl Drop for OutputInfo {
     fn drop(&mut self) {
-        self.current_frame.store(-1, Ordering::SeqCst);
+        self.last_frame_id.store(usize::MAX, Ordering::SeqCst);
     }
 }
 

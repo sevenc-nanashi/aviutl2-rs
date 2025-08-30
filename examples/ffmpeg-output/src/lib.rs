@@ -2,6 +2,7 @@ mod config;
 mod dialog;
 mod named_pipe;
 mod presets;
+
 use crate::{
     config::{FfmpegOutputConfig, load_config, save_config},
     dialog::FfmpegOutputConfigDialog,
@@ -12,7 +13,7 @@ use anyhow::Context;
 use aviutl2::{
     output::{
         BorrowedRawBgrVideoFrame, BorrowedRawHf64VideoFrame, BorrowedRawPa64VideoFrame,
-        BorrowedRawYuy2VideoFrame, OutputPlugin, f16,
+        BorrowedRawYuy2VideoFrame, OutputPlugin,
     },
     register_output_plugin,
 };
@@ -22,6 +23,7 @@ use std::{
     os::windows::process::CommandExt,
     sync::{Arc, Mutex},
 };
+use zerocopy::IntoBytes;
 
 fn create_send_only_named_pipe(name: &str) -> anyhow::Result<(String, NamedPipe)> {
     let nonce = uuid::Uuid::new_v4().simple().to_string();
@@ -251,17 +253,13 @@ impl OutputPlugin for FfmpegOutputPlugin {
                     config::PixelFormat::Pa64 => {
                         for (_, frame) in info.get_video_frames_iter::<BorrowedRawPa64VideoFrame>()
                         {
-                            writer.write_all(unsafe {
-                                std::mem::transmute::<&[u16], &[u8]>(frame.as_slice())
-                            })?;
+                            writer.write_all(frame.as_slice().as_bytes())?;
                         }
                     }
                     config::PixelFormat::Hf64 => {
                         for (_, frame) in info.get_video_frames_iter::<BorrowedRawHf64VideoFrame>()
                         {
-                            writer.write_all(unsafe {
-                                std::mem::transmute::<&[f16], &[u8]>(frame.as_slice())
-                            })?;
+                            writer.write_all(frame.as_slice().as_bytes())?;
                         }
                     }
                 }

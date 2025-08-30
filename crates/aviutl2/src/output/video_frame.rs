@@ -4,7 +4,7 @@ use crate::{
 };
 use std::{
     ops::Deref,
-    sync::{Arc, atomic::AtomicI32},
+    sync::{Arc, atomic::AtomicUsize},
 };
 
 /// 動画フレームを表すトレイト。
@@ -25,8 +25,8 @@ pub trait FromRawVideoFrame {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        current_frame: Arc<AtomicI32>,
-        frame_index: i32,
+        last_frame_id: Arc<AtomicUsize>,
+        frame_id: usize,
     ) -> Self;
 }
 
@@ -75,8 +75,8 @@ duplicate::duplicate! {
         data: *const Type,
         length: usize,
 
-        current_frame: Arc<AtomicI32>,
-        frame_index: i32,
+        last_frame_id: Arc<AtomicUsize>,
+        frame_id: usize,
 
         info: VideoOutputInfo,
     }
@@ -100,15 +100,19 @@ duplicate::duplicate! {
             self.data
         }
 
+        /// この型がまだ有効かどうかを返します。
+        pub fn is_valid(&self) -> bool {
+            self.last_frame_id.load(std::sync::atomic::Ordering::SeqCst) == self.frame_id
+        }
+
         /// この型の持っているデータをスライスとして返します。
         ///
         /// # Panics
         ///
         /// 次のフレーム取得が行われた後や、[`OutputInfo`][`super::OutputInfo`]が破棄された後に呼び出すとパニックになります。
         pub fn as_slice(&self) -> &[Type] {
-            assert_eq!(
-                self.current_frame.load(std::sync::atomic::Ordering::SeqCst),
-                self.frame_index,
+            assert!(
+                self.is_valid(),
                 "The frame data has been invalidated. This can happen if a new frame is fetched"
             );
             unsafe { self.as_slice_unchecked() }
@@ -129,9 +133,8 @@ duplicate::duplicate! {
         ///
         /// 次のフレーム取得が行われた後や、[`OutputInfo`][`super::OutputInfo`]が破棄された後に呼び出すとパニックになります。
         pub fn to_owned(&self) -> OwnedName {
-            assert_eq!(
-                self.current_frame.load(std::sync::atomic::Ordering::SeqCst),
-                self.frame_index,
+            assert!(
+                self.is_valid(),
                 "The frame data has been invalidated. This can happen if a new frame is fetched"
             );
             unsafe { self.to_owned_unchecked() }
@@ -154,9 +157,8 @@ duplicate::duplicate! {
         ///
         /// 次のフレーム取得が行われた後や、[`OutputInfo`][`super::OutputInfo`]が破棄された後に呼び出すとパニックになります。
         pub fn to_parsed(&self) -> ParsedName {
-            assert_eq!(
-                self.current_frame.load(std::sync::atomic::Ordering::SeqCst),
-                self.frame_index,
+            assert!(
+                self.is_valid(),
                 "The frame data has been invalidated. This can happen if a new frame is fetched"
             );
             unsafe { self.to_parsed_unchecked() }
@@ -169,7 +171,7 @@ duplicate::duplicate! {
         /// 次のフレーム取得が行われた後や、[`OutputInfo`][`super::OutputInfo`]が破棄された後に呼び出すと未定義動作になります。
         pub unsafe fn to_parsed_unchecked(&self) -> ParsedName {
             #[allow(clippy::unnecessary_cast)]
-            unsafe { ParsedName::from_raw(&self.info, self.data as *const u8, self.current_frame.clone(), self.frame_index)}
+            unsafe { ParsedName::from_raw(&self.info, self.data as *const u8, self.last_frame_id.clone(), self.frame_id)}
         }
     }
 }
@@ -183,8 +185,8 @@ impl FromRawVideoFrame for RgbVideoFrame {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _current_frame: Arc<AtomicI32>,
-        _frame_index: i32,
+        _last_frame_id: Arc<AtomicUsize>,
+        _frame_id: usize,
     ) -> Self {
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
@@ -218,8 +220,8 @@ impl FromRawVideoFrame for Yuy2VideoFrame {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _current_frame: Arc<AtomicI32>,
-        _frame_index: i32,
+        _last_frame_id: Arc<AtomicUsize>,
+        _frame_id: usize,
     ) -> Self {
         let mut frame_buffer = Vec::with_capacity((video.width * video.height / 2) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
@@ -253,8 +255,8 @@ impl FromRawVideoFrame for Hf64VideoFrame {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _current_frame: Arc<AtomicI32>,
-        _frame_index: i32,
+        _last_frame_id: Arc<AtomicUsize>,
+        _frame_id: usize,
     ) -> Self {
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
@@ -292,8 +294,8 @@ impl FromRawVideoFrame for Yc48VideoFrame {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _current_frame: Arc<AtomicI32>,
-        _frame_index: i32,
+        _last_frame_id: Arc<AtomicUsize>,
+        _frame_id: usize,
     ) -> Self {
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
@@ -329,8 +331,8 @@ impl FromRawVideoFrame for Pa64VideoFrame {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _current_frame: Arc<AtomicI32>,
-        _frame_index: i32,
+        _last_frame_id: Arc<AtomicUsize>,
+        _frame_id: usize,
     ) -> Self {
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
@@ -372,8 +374,8 @@ impl FromRawVideoFrame for Name {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _current_frame: Arc<AtomicI32>,
-        _frame_index: i32,
+        _last_frame_id: Arc<AtomicUsize>,
+        _frame_id: usize,
     ) -> Self {
         let frame_buffer = unsafe {
             #[allow(clippy::unnecessary_cast)]
@@ -405,8 +407,8 @@ impl FromRawVideoFrame for Name {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        current_frame: Arc<AtomicI32>,
-        frame_index: i32,
+        last_frame_id: Arc<AtomicUsize>,
+        frame_id: usize,
     ) -> Self {
         let length = (video.width * video.height * elms) as usize;
 
@@ -414,8 +416,8 @@ impl FromRawVideoFrame for Name {
             data: frame_data_ptr as _,
             length,
             info: video.clone(),
-            current_frame,
-            frame_index,
+            last_frame_id,
+            frame_id,
         }
     }
 }
