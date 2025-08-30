@@ -394,7 +394,7 @@ impl FromRawVideoFrame for Name {
     Name                        Type  elms FMT;
     [BorrowedRawBgrVideoFrame]  [u8]  [3]  [aviutl2_sys::output2::BI_RGB];
     [BorrowedRawYuy2VideoFrame] [u8]  [2]  [aviutl2_sys::output2::BI_YUY2];
-    [BorrowedRawHf64VideoFrame] [u16] [4]  [aviutl2_sys::output2::BI_HF64];
+    [BorrowedRawHf64VideoFrame] [f16] [4]  [aviutl2_sys::output2::BI_HF64];
     [BorrowedRawYc48VideoFrame] [i16] [3]  [aviutl2_sys::output2::BI_YC48];
     [BorrowedRawPa64VideoFrame] [u16] [4]  [aviutl2_sys::output2::BI_PA64];
 )]
