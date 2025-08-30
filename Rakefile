@@ -55,7 +55,12 @@ task :link, %w[target dest] do |task, args|
         )
       raise "Invalid file name: #{source}" if dest_name == File.basename(source)
       from_path = File.absolute_path(source)
-      FileUtils.ln_s(from_path, File.join(dest_dir, dest_name), verbose: true)
+      if File.exist?(File.join(dest_dir, dest_name))
+        puts "Skip: #{File.join(dest_dir, dest_name)} already exists"
+        next
+      else
+        FileUtils.ln_s(from_path, File.join(dest_dir, dest_name), verbose: true)
+      end
     end
 end
 
