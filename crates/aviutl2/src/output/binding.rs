@@ -1,3 +1,8 @@
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
+
 use crate::common::{AnyResult, FileFilter, Rational32, Win32WindowHandle, load_large_string};
 use crate::output::FromRawVideoFrame;
 use aviutl2_sys::output2::OUTPUT_INFO;
@@ -52,6 +57,7 @@ pub struct OutputInfo {
     pub path: std::path::PathBuf,
 
     pub(crate) internal: *mut OUTPUT_INFO,
+    pub(crate) last_frame_id: Arc<AtomicUsize>,
 }
 
 unsafe impl Send for OutputInfo {}
@@ -146,6 +152,7 @@ impl OutputInfo {
             path: std::path::PathBuf::from(load_large_string(raw.savefile)),
 
             internal: oip,
+            last_frame_id: Arc::new(AtomicUsize::new(0)),
         }
     }
 
@@ -175,7 +182,15 @@ impl OutputInfo {
         let frame_ptr = unsafe { self.internal.as_mut().and_then(|oip| oip.func_get_video) }?;
         let frame_data_ptr = frame_ptr(frame, F::FORMAT) as *mut u8;
         let video = self.video.as_ref()?;
-        let frame = unsafe { F::from_raw(video, frame_data_ptr) };
+        let current_frame_id = self.last_frame_id.fetch_add(1, Ordering::SeqCst) + 1;
+        let frame = unsafe {
+            F::from_raw(
+                video,
+                frame_data_ptr,
+                Arc::clone(&self.last_frame_id),
+                current_frame_id,
+            )
+        };
         Some(frame)
     }
 
@@ -289,6 +304,12 @@ impl OutputInfo {
         } {
             func(video_size, audio_size);
         }
+    }
+}
+
+impl Drop for OutputInfo {
+    fn drop(&mut self) {
+        self.last_frame_id.store(usize::MAX, Ordering::SeqCst);
     }
 }
 

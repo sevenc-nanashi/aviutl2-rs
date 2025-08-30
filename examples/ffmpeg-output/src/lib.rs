@@ -2,6 +2,7 @@ mod config;
 mod dialog;
 mod named_pipe;
 mod presets;
+
 use crate::{
     config::{FfmpegOutputConfig, load_config, save_config},
     dialog::FfmpegOutputConfigDialog,
@@ -11,7 +12,8 @@ use crate::{
 use anyhow::Context;
 use aviutl2::{
     output::{
-        OutputPlugin, RawBgrVideoFrame, RawHf64VideoFrame, RawPa64VideoFrame, RawYuy2VideoFrame,
+        BorrowedRawBgrVideoFrame, BorrowedRawHf64VideoFrame, BorrowedRawPa64VideoFrame,
+        BorrowedRawYuy2VideoFrame, OutputPlugin,
     },
     register_output_plugin,
 };
@@ -21,6 +23,7 @@ use std::{
     os::windows::process::CommandExt,
     sync::{Arc, Mutex},
 };
+use zerocopy::IntoBytes;
 
 fn create_send_only_named_pipe(name: &str) -> anyhow::Result<(String, NamedPipe)> {
     let nonce = uuid::Uuid::new_v4().simple().to_string();
@@ -60,6 +63,8 @@ pub static DEFAULT_ARGS: &[&str] = &[
     "1:a:0",
     "-vf",
     "{maybe_vflip}",
+    "-pix_fmt",
+    "yuv420p",
     "{output_path}",
 ];
 pub static REQUIRED_ARGS: &[&str] = &[
@@ -235,33 +240,26 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 let mut writer = std::io::BufWriter::new(stream);
                 match config.pixel_format {
                     config::PixelFormat::Yuy2 => {
-                        for (_, frame) in info.get_video_frames_iter::<RawYuy2VideoFrame>() {
-                            writer.write_all(&frame.data)?;
+                        for (_, frame) in info.get_video_frames_iter::<BorrowedRawYuy2VideoFrame>()
+                        {
+                            writer.write_all(frame.as_slice())?;
                         }
                     }
                     config::PixelFormat::Bgr24 => {
-                        for (_, frame) in info.get_video_frames_iter::<RawBgrVideoFrame>() {
-                            writer.write_all(&frame.data)?;
+                        for (_, frame) in info.get_video_frames_iter::<BorrowedRawBgrVideoFrame>() {
+                            writer.write_all(frame.as_slice())?;
                         }
                     }
                     config::PixelFormat::Pa64 => {
-                        for (_, frame) in info.get_video_frames_iter::<RawPa64VideoFrame>() {
-                            writer.write_all(unsafe {
-                                std::slice::from_raw_parts(
-                                    frame.data.as_ptr() as *const u8,
-                                    frame.data.len() * std::mem::size_of::<u16>(),
-                                )
-                            })?;
+                        for (_, frame) in info.get_video_frames_iter::<BorrowedRawPa64VideoFrame>()
+                        {
+                            writer.write_all(frame.as_slice().as_bytes())?;
                         }
                     }
                     config::PixelFormat::Hf64 => {
-                        for (_, frame) in info.get_video_frames_iter::<RawHf64VideoFrame>() {
-                            writer.write_all(unsafe {
-                                std::slice::from_raw_parts(
-                                    frame.data.as_ptr() as *const u8,
-                                    frame.data.len() * std::mem::size_of::<u16>(),
-                                )
-                            })?;
+                        for (_, frame) in info.get_video_frames_iter::<BorrowedRawHf64VideoFrame>()
+                        {
+                            writer.write_all(frame.as_slice().as_bytes())?;
                         }
                     }
                 }
