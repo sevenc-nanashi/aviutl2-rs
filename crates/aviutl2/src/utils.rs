@@ -152,11 +152,13 @@ pub fn bgra_to_rgba_bytes(data: &mut [u8]) {
     rgba_to_bgra_bytes(data);
 }
 
+#[allow(dead_code)]
 struct OdsWriter {
     buffer: Vec<u8>,
 }
 
 impl OdsWriter {
+    #[allow(dead_code)]
     fn new() -> Self {
         Self { buffer: Vec::new() }
     }
