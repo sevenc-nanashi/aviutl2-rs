@@ -4,12 +4,24 @@ use aviutl2::{
     register_input_plugin,
 };
 use image::AnimationDecoder;
+use image::GenericImageView;
 use ordered_float::OrderedFloat;
 
 struct ImageInputPlugin {}
 
+enum ImageReader {
+    Animated(image::Frames<'static>), // TODO: ライフタイム周りをどうにかする
+    Single(Box<dyn image::ImageDecoder>),
+    SingleCached(ImageBuffer),
+}
+
+unsafe impl Send for ImageReader {}
+unsafe impl Sync for ImageReader {}
+
 struct ImageHandle {
-    inner: Vec<ImageBuffer>,
+    reader: Option<ImageReader>,
+    current_frame: usize,
+    path: std::path::PathBuf,
     format: aviutl2::input::InputPixelFormat,
     width: u32,
     height: u32,
@@ -56,48 +68,18 @@ impl InputPlugin for ImageInputPlugin {
         let format = decoder
             .format()
             .ok_or_else(|| anyhow::anyhow!("Failed to guess image format"))?;
-        let frames = match format {
-            image::ImageFormat::Gif => {
-                let decoder = image::codecs::gif::GifDecoder::new(std::io::BufReader::new(
-                    std::fs::File::open(&file)?,
-                ))?;
-                Some(decoder.into_frames())
-            }
-            image::ImageFormat::WebP => {
-                let decoder = image::codecs::webp::WebPDecoder::new(std::io::BufReader::new(
-                    std::fs::File::open(&file)?,
-                ))?;
-                decoder.has_animation().then(|| decoder.into_frames())
-            }
-            image::ImageFormat::Png => {
-                let decoder = image::codecs::png::PngDecoder::new(std::io::BufReader::new(
-                    std::fs::File::open(&file)?,
-                ))?;
-                decoder
-                    .is_apng()?
-                    .then(|| decoder.apng())
-                    .transpose()?
-                    .map(|apng| apng.into_frames())
-            }
-            _ => None,
-        };
-
+        let frames = open_frames(&file, format).ok();
         match frames {
             Some(frames) => {
-                let frames = frames.collect_frames()?;
-                let mut inner = Vec::with_capacity(frames.len());
                 let mut frame_timings = std::collections::BTreeMap::new();
                 let mut total_duration = 0.0;
                 let mut width = 0;
                 let mut height = 0;
                 for frame in frames {
+                    let frame = frame?;
                     let delay = frame.delay().numer_denom_ms();
                     let duration = delay.0 as f32 / delay.1 as f32 / 1000.0;
                     let img = frame.into_buffer();
-                    let mut img_pixels = img
-                        .pixels()
-                        .map(|p| (p.0[2], p.0[1], p.0[0], p.0[3]))
-                        .collect::<Vec<_>>();
                     if width == 0 && height == 0 {
                         width = img.width();
                         height = img.height();
@@ -107,22 +89,17 @@ impl InputPlugin for ImageInputPlugin {
                             "All frames must have the same dimensions"
                         );
                     }
-                    aviutl2::utils::flip_vertical(
-                        &mut img_pixels,
-                        img.width() as usize,
-                        img.height() as usize,
-                    );
-                    inner.push(img_pixels.into_image());
-
-                    frame_timings.insert(OrderedFloat(total_duration), inner.len() - 1);
+                    frame_timings.insert(OrderedFloat(total_duration), frame_timings.len());
                     total_duration += duration;
                 }
-                anyhow::ensure!(!inner.is_empty(), "No frames found in the image");
+                anyhow::ensure!(!frame_timings.is_empty(), "No frames found");
 
                 Ok(ImageHandle {
-                    inner,
+                    current_frame: 0,
+                    reader: Some(ImageReader::Animated(open_frames(&file, format)?)),
                     format: aviutl2::input::InputPixelFormat::Bgra,
                     frame_timings,
+                    path: file,
                     length_in_seconds: total_duration,
                     width,
                     height,
@@ -130,45 +107,26 @@ impl InputPlugin for ImageInputPlugin {
             }
             None => {
                 let decoded = decoder.decode()?;
-                let (width, height) = (decoded.width(), decoded.height());
-                let (format, img) = match decoded {
-                    img @ (image::DynamicImage::ImageRgb8(_)
-                    | image::DynamicImage::ImageRgba8(_)) => {
-                        let mut img_pixels = img
-                            .to_rgba8()
-                            .pixels()
-                            .map(|p| (p.0[2], p.0[1], p.0[0], p.0.get(3).copied().unwrap_or(255)))
-                            .collect::<Vec<_>>();
-                        aviutl2::utils::flip_vertical(
-                            &mut img_pixels,
-                            img.width() as usize,
-                            img.height() as usize,
-                        );
-                        (
-                            aviutl2::input::InputPixelFormat::Bgra,
-                            img_pixels.into_image(),
-                        )
+                let (width, height) = decoded.dimensions();
+                let format = match decoded {
+                    image::DynamicImage::ImageRgb8(_) | image::DynamicImage::ImageRgba8(_) => {
+                        aviutl2::input::InputPixelFormat::Bgra
                     }
-                    img => {
-                        let img = img.to_rgba16();
-                        let img_pixels = img
-                            .pixels()
-                            .map(|p| (p.0[0], p.0[1], p.0[2], p.0[3]))
-                            .collect::<Vec<_>>();
-                        (
-                            aviutl2::input::InputPixelFormat::Pa64,
-                            img_pixels.into_image(),
-                        )
-                    }
+                    _ => aviutl2::input::InputPixelFormat::Pa64,
                 };
-                let inner = vec![img];
                 let mut frame_timings = std::collections::BTreeMap::new();
                 frame_timings.insert(OrderedFloat(0.0), 0);
 
                 Ok(ImageHandle {
-                    inner,
+                    current_frame: 0,
+                    reader: Some(ImageReader::Single(Box::new(
+                        image::ImageReader::open(&file)?
+                            .with_guessed_format()?
+                            .into_decoder()?,
+                    ))),
                     format,
                     frame_timings,
+                    path: file,
                     length_in_seconds: 0.0,
                     width,
                     height,
@@ -205,22 +163,66 @@ impl InputPlugin for ImageInputPlugin {
         })
     }
 
-    fn read_video(
+    fn read_video_mut(
         &self,
-        handle: &Self::InputHandle,
+        handle: &mut Self::InputHandle,
         frame: u32,
         returner: &mut ImageReturner,
     ) -> AnyResult<()> {
         let frame = frame as usize;
         anyhow::ensure!(
-            frame < handle.inner.len(),
+            frame < handle.frame_timings.len(),
             "Frame index out of bounds: {} >= {}",
             frame,
-            handle.inner.len()
+            handle.frame_timings.len()
         );
-        let img = &handle.inner[frame];
+        let reader = handle.reader.take();
+        match reader {
+            None => anyhow::bail!("Reader is used up"),
+            Some(ImageReader::Animated(frames)) => {
+                let mut frames = if frame < handle.current_frame {
+                    handle.current_frame = 0;
+                    open_frames(&handle.path, image::ImageFormat::from_path(&handle.path)?)?
+                } else {
+                    frames
+                };
+                while handle.current_frame < frame {
+                    frames.next().transpose()?;
+                    handle.current_frame += 1;
+                }
+                let frame = frames
+                    .next()
+                    .transpose()?
+                    .ok_or_else(|| anyhow::anyhow!("Failed to get frame {}", frame))?;
+                handle.current_frame += 1;
+                let img = frame.into_buffer();
 
-        returner.write(img);
+                returner.write(&img);
+                handle.reader = Some(ImageReader::Animated(frames));
+            }
+            Some(ImageReader::Single(decoder)) => {
+                let img = image::DynamicImage::from_decoder(decoder)?;
+                match handle.format {
+                    aviutl2::input::InputPixelFormat::Bgra => {
+                        let img = img.to_rgba8();
+                        let buffer = img.into_image();
+                        returner.write(&buffer);
+                        handle.reader = Some(ImageReader::SingleCached(buffer));
+                    }
+                    aviutl2::input::InputPixelFormat::Pa64 => {
+                        let img = img.to_rgba16();
+                        let buffer = img.into_image();
+                        returner.write(&buffer);
+                        handle.reader = Some(ImageReader::SingleCached(buffer));
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            Some(ImageReader::SingleCached(img)) => {
+                returner.write(&img);
+                handle.reader = Some(ImageReader::SingleCached(img));
+            }
+        };
 
         Ok(())
     }
@@ -252,6 +254,33 @@ impl InputPlugin for ImageInputPlugin {
         drop(handle);
         Ok(())
     }
+}
+
+fn open_frames(
+    file: &std::path::PathBuf,
+    format: image::ImageFormat,
+) -> Result<image::Frames<'static>, anyhow::Error> {
+    Ok(match format {
+        image::ImageFormat::Gif => {
+            let decoder = image::codecs::gif::GifDecoder::new(std::io::BufReader::new(
+                std::fs::File::open(file)?,
+            ))?;
+            decoder.into_frames()
+        }
+        image::ImageFormat::WebP => {
+            let decoder = image::codecs::webp::WebPDecoder::new(std::io::BufReader::new(
+                std::fs::File::open(file)?,
+            ))?;
+            decoder.into_frames()
+        }
+        image::ImageFormat::Png => {
+            let decoder = image::codecs::png::PngDecoder::new(std::io::BufReader::new(
+                std::fs::File::open(file)?,
+            ))?;
+            decoder.apng()?.into_frames()
+        }
+        _ => anyhow::bail!("Unsupported animated format: {:?}", format),
+    })
 }
 
 register_input_plugin!(ImageInputPlugin);

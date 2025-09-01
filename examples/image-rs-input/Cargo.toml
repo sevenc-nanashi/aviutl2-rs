@@ -13,6 +13,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1.0.98"
-aviutl2.workspace = true
+aviutl2 = { workspace = true, features = ["input", "image"] }
 image = "0.25.6"
 ordered-float = "5.0.0"
+ouroboros = "0.18.5"

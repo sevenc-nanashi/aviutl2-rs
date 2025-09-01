@@ -35,6 +35,15 @@ macro_rules! odbg {
     };
 }
 
+/// OutputDebugStringに出力する[`println!`]マクロ。
+#[macro_export]
+macro_rules! oprintln {
+    ($($arg:tt)*) => {
+        let message = format!($($arg)*);
+        $crate::utils::debug_print_impl(&message);
+    };
+}
+
 // pub(crate) fn result_to_bool_with_debug_print<T>(result: AnyResult<T>) -> bool {
 //     match result {
 //         Ok(_) => true,
@@ -90,6 +99,25 @@ pub fn rgb_to_bgr(data: &mut [(u8, u8, u8)]) {
     bgr_to_rgb(data);
 }
 
+/// Vec<u8>をBGRの配列として捉え、RGBの配列に変換する関数。
+/// エイリアスとして [`rgb_to_bgr_bytes`] も提供されます。
+///
+/// # Panics
+///
+/// `data.len()` が3の倍数でない場合にパニックします。
+pub fn bgr_to_rgb_bytes(data: &mut [u8]) {
+    assert!(data.len() % 3 == 0);
+    for chunk in data.chunks_exact_mut(3) {
+        chunk.swap(0, 2);
+    }
+}
+
+/// [`bgr_to_rgb_bytes`]のエイリアス。
+#[inline]
+pub fn rgb_to_bgr_bytes(data: &mut [u8]) {
+    bgr_to_rgb_bytes(data);
+}
+
 /// Vec<(u8, u8, u8, u8)>をRGBAの配列として捉え、BGRAの配列に変換する関数。
 /// エイリアスとして [`bgra_to_rgba`] も提供されます。
 pub fn rgba_to_bgra(data: &mut [(u8, u8, u8, u8)]) {
@@ -103,6 +131,53 @@ pub fn rgba_to_bgra(data: &mut [(u8, u8, u8, u8)]) {
 #[inline]
 pub fn bgra_to_rgba(data: &mut [(u8, u8, u8, u8)]) {
     rgba_to_bgra(data);
+}
+
+/// Vec<u8>をRGBAの配列として捉え、BGRAの配列に変換する関数。
+/// エイリアスとして [`bgra_to_rgba_bytes`] も提供されます。
+///
+/// # Panics
+///
+/// `data.len()` が4の倍数でない場合にパニックします。
+pub fn rgba_to_bgra_bytes(data: &mut [u8]) {
+    assert!(data.len() % 4 == 0);
+    for chunk in data.chunks_exact_mut(4) {
+        chunk.swap(0, 2);
+    }
+}
+
+/// [`rgba_to_bgra_bytes`]のエイリアス。
+#[inline]
+pub fn bgra_to_rgba_bytes(data: &mut [u8]) {
+    rgba_to_bgra_bytes(data);
+}
+
+struct OdsWriter {
+    buffer: Vec<u8>,
+}
+
+impl OdsWriter {
+    fn new() -> Self {
+        Self { buffer: Vec::new() }
+    }
+}
+
+impl std::io::Write for OdsWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.buffer.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        while let Some(pos) = self.buffer.iter().position(|&b| b == b'\n') {
+            let line = &self.buffer[..=pos];
+            if let Ok(line_str) = std::str::from_utf8(line) {
+                debug_print_impl(line_str);
+            }
+            self.buffer.drain(..=pos);
+        }
+        Ok(())
+    }
 }
 
 #[cfg(feature = "env_logger")]
@@ -121,36 +196,8 @@ mod ods_logger {
     ///     .init();
     /// ```
     pub fn debug_logger_target() -> env_logger::fmt::Target {
-        let write_target = OdsWriter::new();
+        let write_target = super::OdsWriter::new();
         env_logger::fmt::Target::Pipe(Box::new(write_target))
-    }
-
-    struct OdsWriter {
-        buffer: Vec<u8>,
-    }
-
-    impl OdsWriter {
-        pub fn new() -> Self {
-            Self { buffer: Vec::new() }
-        }
-    }
-
-    impl std::io::Write for OdsWriter {
-        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            self.buffer.extend_from_slice(buf);
-            Ok(buf.len())
-        }
-
-        fn flush(&mut self) -> std::io::Result<()> {
-            while let Some(pos) = self.buffer.iter().position(|&b| b == b'\n') {
-                let line = &self.buffer[..=pos];
-                if let Ok(line_str) = std::str::from_utf8(line) {
-                    super::debug_print_impl(line_str);
-                }
-                self.buffer.drain(..=pos);
-            }
-            Ok(())
-        }
     }
 }
 #[doc(inline)]
@@ -191,6 +238,20 @@ mod tests {
     }
 
     #[test]
+    fn test_bgr_to_rgb_bytes() {
+        let mut data = vec![0, 0, 255, 0, 255, 0, 255, 0, 0];
+        bgr_to_rgb_bytes(&mut data);
+        assert_eq!(data, vec![255, 0, 0, 0, 255, 0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn test_rgb_to_bgr_bytes() {
+        let mut data = vec![255, 0, 0, 0, 255, 0, 0, 0, 255];
+        rgb_to_bgr_bytes(&mut data);
+        assert_eq!(data, vec![0, 0, 255, 0, 255, 0, 255, 0, 0]);
+    }
+
+    #[test]
     fn test_rgba_to_bgra() {
         let mut data = vec![(255, 0, 0, 255), (0, 255, 0, 255), (0, 0, 255, 255)];
         rgba_to_bgra(&mut data);
@@ -208,5 +269,19 @@ mod tests {
             data,
             vec![(255, 0, 0, 255), (0, 255, 0, 255), (0, 0, 255, 255)]
         );
+    }
+
+    #[test]
+    fn test_rgba_to_bgra_bytes() {
+        let mut data = vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
+        rgba_to_bgra_bytes(&mut data);
+        assert_eq!(data, vec![0, 0, 255, 255, 0, 255, 0, 255, 255, 0, 0, 255]);
+    }
+
+    #[test]
+    fn test_bgra_to_rgba_bytes() {
+        let mut data = vec![0, 0, 255, 255, 0, 255, 0, 255, 255, 0, 0, 255];
+        bgra_to_rgba_bytes(&mut data);
+        assert_eq!(data, vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255]);
     }
 }

@@ -12,12 +12,14 @@ categories = ["api-bindings"]
 [package.metadata.docs.rs]
 default-target = "x86_64-pc-windows-msvc"
 targets = []
+all-features = true
 
 [features]
 default = ["input", "output"]
 input = []
 output = []
 env_logger = ["dep:env_logger"]
+image = ["dep:image"]
 
 [dependencies]
 anyhow = "1.0.98"
@@ -25,6 +27,7 @@ aviutl2-sys.workspace = true
 duplicate = "2.0.0"
 env_logger = { version = "0.11.8", optional = true }
 half = { version = "2.6.0", features = ["zerocopy"] }
+image = { version = "0.25.7", optional = true }
 log = "0.4.27"
 native-dialog = "0.9.0"
 num-rational = "0.4.2"
