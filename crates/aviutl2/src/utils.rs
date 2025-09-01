@@ -64,12 +64,13 @@ pub fn debug_print_impl(message: &str) {
 /// `data.len()` が `width * height` でない場合にパニックします。
 pub fn flip_vertical<T>(data: &mut [T], width: usize, height: usize) {
     assert!(data.len() == width * height);
+    let data_ptr = data.as_mut_ptr();
     let row_size = width;
-    for y in 0..(height / 2) {
-        let top_row_start = y * row_size;
-        let bottom_row_start = (height - 1 - y) * row_size;
-        for x in 0..width {
-            data.swap(top_row_start + x, bottom_row_start + x);
+    unsafe {
+        for y in 0..(height / 2) {
+            let top_row_start = data_ptr.add(y * row_size);
+            let bottom_row_start = data_ptr.add((height - 1 - y) * row_size);
+            std::ptr::swap_nonoverlapping(top_row_start, bottom_row_start, row_size);
         }
     }
 }
