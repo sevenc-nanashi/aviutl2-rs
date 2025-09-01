@@ -9,16 +9,16 @@ AviUtl2 SDKのRust版です。
 ## 構成
 
 - `./crates/`：AviUtl2 SDKのRustクレート。
-    - `./crates/aviutl2-sys`：AviUtl2 SDKのRustバインディング。ほぼ1:1の対応です。
-    - `./crates/aviutl2`：AviUtl2 SDKのRustラッパー。`aviutl2-sys`を使用して、よりRustらしいAPIを提供します。
+  - `./crates/aviutl2-sys`：AviUtl2 SDKのRustバインディング。ほぼ1:1の対応です。
+  - `./crates/aviutl2`：AviUtl2 SDKのRustラッパー。`aviutl2-sys`を使用して、よりRustらしいAPIを提供します。
 
 - `./examples/`：AviUtl2 SDKを使用したサンプルコード。
-    - `./examples/image-rs-input`：image-rsを使用して画像を読み込むサンプル。
-    - `./examples/image-rs-output`：image-rsを使用して画像を連番で保存するサンプル。
-    - `./examples/midi-player-input`：midlyを使用してMIDIを読み込み、ピアノで再生するサンプル。
-    - `./examples/pixel-format-test-input`：それぞれのピクセルフォーマットをテストするサンプル。
-    - `./examples/ffmpeg-output`：FFmpegを使用して動画を出力するサンプル。
-    - `./examples/statistics-output`：フレームごとの描画時間を計測し、統計情報を出力するサンプル。
+  - `./examples/image-rs-input`：image-rsを使用して画像を読み込むサンプル。
+  - `./examples/image-rs-output`：image-rsを使用して画像を連番で保存するサンプル。
+  - `./examples/midi-player-input`：midlyを使用してMIDIを読み込み、ピアノで再生するサンプル。
+  - `./examples/pixel-format-test-input`：それぞれのピクセルフォーマットをテストするサンプル。
+  - `./examples/ffmpeg-output`：FFmpegを使用して動画を出力するサンプル。
+  - `./examples/statistics-output`：フレームごとの描画時間を計測し、統計情報を出力するサンプル。
 
 ## ライセンス
 
