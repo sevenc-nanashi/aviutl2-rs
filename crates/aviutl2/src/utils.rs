@@ -155,3 +155,57 @@ mod ods_logger {
 #[doc(inline)]
 #[cfg(feature = "env_logger")]
 pub use ods_logger::debug_logger_target;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_flip_vertical() {
+        let mut data = vec![
+            1, 2, 3, 4, 5, 6, // Row 0
+            7, 8, 9, 10, 11, 12, // Row 1
+            13, 14, 15, 16, 17, 18, // Row 2
+        ];
+        flip_vertical(&mut data, 6, 3);
+        assert_eq!(
+            data,
+            vec![
+                13, 14, 15, 16, 17, 18, 7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6
+            ]
+        );
+    }
+
+    #[test]
+    fn test_bgr_to_rgb() {
+        let mut data = vec![(0, 0, 255), (0, 255, 0), (255, 0, 0)];
+        bgr_to_rgb(&mut data);
+        assert_eq!(data, vec![(255, 0, 0), (0, 255, 0), (0, 0, 255)]);
+    }
+
+    #[test]
+    fn test_rgb_to_bgr() {
+        let mut data = vec![(255, 0, 0), (0, 255, 0), (0, 0, 255)];
+        rgb_to_bgr(&mut data);
+        assert_eq!(data, vec![(0, 0, 255), (0, 255, 0), (255, 0, 0)]);
+    }
+
+    #[test]
+    fn test_rgba_to_bgra() {
+        let mut data = vec![(255, 0, 0, 255), (0, 255, 0, 255), (0, 0, 255, 255)];
+        rgba_to_bgra(&mut data);
+        assert_eq!(
+            data,
+            vec![(0, 0, 255, 255), (0, 255, 0, 255), (255, 0, 0, 255)]
+        );
+    }
+
+    #[test]
+    fn test_bgra_to_rgba() {
+        let mut data = vec![(0, 0, 255, 255), (0, 255, 0, 255), (255, 0, 0, 255)];
+        bgra_to_rgba(&mut data);
+        assert_eq!(
+            data,
+            vec![(255, 0, 0, 255), (0, 255, 0, 255), (0, 0, 255, 255)]
+        );
+    }
+}
