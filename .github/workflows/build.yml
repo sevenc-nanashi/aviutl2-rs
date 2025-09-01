@@ -46,6 +46,7 @@ jobs:
       - name: Build project
         run: |
           cargo build --release
+          cargo update -p aviutl2 -p aviutl2-sys
 
       - name: Prepare release
         shell: bash
