@@ -180,17 +180,17 @@ impl<T: AsImage> IntoImage for T {
 
 /// 画像データを `Cow<[u8]>` に変換するトレイト。
 pub trait AsImage {
-    fn as_image(&self) -> Cow<[u8]>;
+    fn as_image(&'_ self) -> Cow<'_, [u8]>;
 }
 
 impl AsImage for ImageBuffer {
-    fn as_image(&self) -> Cow<[u8]> {
+    fn as_image(&'_ self) -> Cow<'_, [u8]> {
         Cow::Borrowed(&self.0)
     }
 }
 
 impl AsImage for Vec<u8> {
-    fn as_image(&self) -> Cow<[u8]> {
+    fn as_image(&'_ self) -> Cow<'_, [u8]> {
         Cow::Borrowed(self)
     }
 }
@@ -233,7 +233,7 @@ duplicate::duplicate! {
     [Vec<Yc48>];
 )]
 impl AsImage for T {
-    fn as_image(&self) -> Cow<[u8]> {
+    fn as_image(&'_ self) -> Cow<'_, [u8]> {
         Cow::Borrowed(self.as_bytes())
     }
 }
@@ -241,7 +241,7 @@ impl AsImage for T {
 macro_rules! into_image_impl_for_tuple {
     ($type:ty, $($name:ident),+) => {
         impl AsImage for Vec<$type> {
-            fn as_image(&self) -> Cow<[u8]> {
+            fn as_image(&'_ self) -> Cow<'_, [u8]> {
                 let mut img_data = Vec::with_capacity(self.len() * std::mem::size_of::<$type>());
                 for ($($name,)+) in self {
                     $(img_data.extend_from_slice(&$name.to_le_bytes());)+
@@ -282,16 +282,16 @@ impl<T: AsAudio> IntoAudio for T {
 
 /// 音声データを `Cow<[u8]>` に変換するトレイト。
 pub trait AsAudio {
-    fn as_audio(&self) -> Cow<[u8]>;
+    fn as_audio(&'_ self) -> Cow<'_, [u8]>;
 }
 
 impl AsAudio for AudioBuffer {
-    fn as_audio(&self) -> Cow<[u8]> {
+    fn as_audio(&'_ self) -> Cow<'_, [u8]> {
         Cow::Borrowed(&self.0)
     }
 }
 impl AsAudio for Vec<u8> {
-    fn as_audio(&self) -> Cow<[u8]> {
+    fn as_audio(&'_ self) -> Cow<'_, [u8]> {
         Cow::Borrowed(self)
     }
 }
@@ -301,7 +301,7 @@ impl AsAudio for Vec<u8> {
     [Vec<f32>];
 )]
 impl AsAudio for T {
-    fn as_audio(&self) -> Cow<[u8]> {
+    fn as_audio(&'_ self) -> Cow<'_, [u8]> {
         Cow::Borrowed(self.as_bytes())
     }
 }
@@ -309,7 +309,7 @@ impl AsAudio for T {
 macro_rules! into_audio_impl_for_tuple {
     ($type:ty, $($name:ident),+) => {
         impl AsAudio for Vec<$type> {
-            fn as_audio(&self) -> Cow<[u8]> {
+            fn as_audio(&'_ self) -> Cow<'_, [u8]> {
                 let mut audio_data = Vec::with_capacity(self.len() * std::mem::size_of::<$type>());
                 for ($($name,)+) in self {
                     $(audio_data.extend_from_slice(&$name.to_le_bytes());)+

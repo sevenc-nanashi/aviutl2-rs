@@ -240,9 +240,9 @@ impl OutputInfo {
     /// # Arguments
     /// `length` - 一回のイテレーションで取得するサンプル数。
     pub fn get_mono_audio_samples_iter<F: FromRawAudioSamples>(
-        &self,
+        &'_ self,
         length: i32,
-    ) -> MonoAudioSamplesIterator<F> {
+    ) -> MonoAudioSamplesIterator<'_, F> {
         MonoAudioSamplesIterator::new(self, length)
     }
 
@@ -271,9 +271,9 @@ impl OutputInfo {
     /// # Arguments
     /// `length` - 一回のイテレーションで取得するサンプル数。
     pub fn get_stereo_audio_samples_iter<F: FromRawAudioSamples>(
-        &self,
+        &'_ self,
         length: i32,
-    ) -> StereoAudioSamplesIterator<F> {
+    ) -> StereoAudioSamplesIterator<'_, F> {
         StereoAudioSamplesIterator::new(self, length)
     }
 

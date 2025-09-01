@@ -165,8 +165,8 @@ impl Track {
                             }),
                         ));
                     }
-                } else if let midly::MidiMessage::NoteOff { key, .. } = message {
-                    if *key_state
+                } else if let midly::MidiMessage::NoteOff { key, .. } = message
+                    && *key_state
                         .entry(key.as_int())
                         .and_modify(|v| *v -= 1)
                         .or_insert(0)
@@ -175,7 +175,6 @@ impl Track {
                         let event_time = tempo_index.ticks_to_time(current_tick);
                         current_track_events.push((event_time, NoteEvent::NoteOff(key.as_int())));
                     }
-                }
             }
         }
 

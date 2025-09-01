@@ -443,7 +443,7 @@ pub unsafe fn func_set_track<T: InputPlugin>(
                     *audio_tracks as i32
                 } else {
                     debug_print!("Invalid track type: {}", track_type);
-                    return -1; // Invalid track type
+                    -1// Invalid track type
                 }
             }
             Some(Err(e)) => {
