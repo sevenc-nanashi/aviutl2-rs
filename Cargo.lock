@@ -544,7 +544,7 @@ dependencies = [
 
 [[package]]
 name = "aviutl2"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "aviutl2-sys",
@@ -562,7 +562,7 @@ dependencies = [
 
 [[package]]
 name = "aviutl2-sys"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "windows-sys 0.60.2",
 ]
@@ -1473,7 +1473,7 @@ dependencies = [
 
 [[package]]
 name = "example-ffmpeg-output"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1493,7 +1493,7 @@ dependencies = [
 
 [[package]]
 name = "example-image-rs-input"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1503,7 +1503,7 @@ dependencies = [
 
 [[package]]
 name = "example-image-rs-output"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1514,7 +1514,7 @@ dependencies = [
 
 [[package]]
 name = "example-midi-player-input"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1527,7 +1527,7 @@ dependencies = [
 
 [[package]]
 name = "example-pixel-format-test-input"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1535,7 +1535,7 @@ dependencies = [
 
 [[package]]
 name = "example-statistics-output"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "aviutl2",
