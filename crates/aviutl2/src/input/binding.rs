@@ -238,7 +238,43 @@ impl AsImage for T {
     }
 }
 
-macro_rules! into_image_impl_for_tuple {
+#[cfg(feature = "image")]
+impl AsImage for image::RgbImage {
+    fn as_image(&'_ self) -> Cow<'_, [u8]> {
+        let mut data = self.as_raw().to_owned();
+        crate::utils::bgr_to_rgb_bytes(&mut data);
+        crate::utils::flip_vertical(&mut data, self.width() as usize * 3, self.height() as usize);
+        Cow::Owned(data)
+    }
+}
+
+#[cfg(feature = "image")]
+impl AsImage for image::RgbaImage {
+    fn as_image(&'_ self) -> Cow<'_, [u8]> {
+        let mut data = self.as_raw().to_owned();
+        crate::utils::bgra_to_rgba_bytes(&mut data);
+        crate::utils::flip_vertical(&mut data, self.width() as usize * 4, self.height() as usize);
+        Cow::Owned(data)
+    }
+}
+
+#[cfg(feature = "image")]
+impl AsImage for image::ImageBuffer<image::Rgb<u16>, Vec<u16>> {
+    fn as_image(&'_ self) -> Cow<'_, [u8]> {
+        let data = self.as_raw();
+        Cow::Owned(data.as_bytes().to_vec())
+    }
+}
+
+#[cfg(feature = "image")]
+impl AsImage for image::ImageBuffer<image::Rgba<u16>, Vec<u16>> {
+    fn as_image(&'_ self) -> Cow<'_, [u8]> {
+        let data = self.as_raw();
+        Cow::Owned(data.as_bytes().to_vec())
+    }
+}
+
+macro_rules! as_image_impl_for_tuple {
     ($type:ty, $($name:ident),+) => {
         impl AsImage for Vec<$type> {
             fn as_image(&'_ self) -> Cow<'_, [u8]> {
@@ -252,11 +288,11 @@ macro_rules! into_image_impl_for_tuple {
     };
 }
 
-into_image_impl_for_tuple!((u8, u8, u8), r, g, b);
-into_image_impl_for_tuple!((u8, u8, u8, u8), r, g, b, a);
-into_image_impl_for_tuple!((u16, u16, u16, u16), r, g, b, a);
-into_image_impl_for_tuple!((f16, f16, f16, f16), r, g, b, a);
-into_image_impl_for_tuple!((i16, i16, i16), y, cb, cr);
+as_image_impl_for_tuple!((u8, u8, u8), r, g, b);
+as_image_impl_for_tuple!((u8, u8, u8, u8), r, g, b, a);
+as_image_impl_for_tuple!((u16, u16, u16, u16), r, g, b, a);
+as_image_impl_for_tuple!((f16, f16, f16, f16), r, g, b, a);
+as_image_impl_for_tuple!((i16, i16, i16), y, cb, cr);
 
 /// 音声のバッファを表す構造体。
 #[derive(Debug, Clone)]
