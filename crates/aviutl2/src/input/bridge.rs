@@ -2,8 +2,7 @@ use std::num::NonZeroIsize;
 
 use crate::{
     common::{
-        AnyResult, format_file_filters, leak_large_string, load_large_string,
-        result_to_bool_with_dialog,
+        AnyResult, LeakManager, format_file_filters, load_wide_string, result_to_bool_with_dialog,
     },
     debug_print,
     input::{
@@ -86,7 +85,7 @@ impl AudioInputInfo {
 
 pub struct InternalInputPluginState<T: Send + Sync + InputPlugin> {
     plugin_info: InputPluginTable,
-    will_free_on_next_call: std::sync::Mutex<Vec<LeakedPtr>>,
+    leak_manager: LeakManager,
 
     instance: T,
 }
@@ -94,38 +93,10 @@ pub struct InternalInputPluginState<T: Send + Sync + InputPlugin> {
 impl<T: Send + Sync + InputPlugin> InternalInputPluginState<T> {
     pub fn new(instance: T) -> Self {
         let plugin_info = instance.plugin_info();
-        let will_free_on_next_call = std::sync::Mutex::new(Vec::new());
         Self {
             plugin_info,
-            will_free_on_next_call,
+            leak_manager: LeakManager::new(),
             instance,
-        }
-    }
-}
-
-enum LeakedPtr {
-    BitmapInfoHeader(usize),
-    WaveFormatEx(usize),
-}
-
-impl<T: Send + Sync + InputPlugin> InternalInputPluginState<T> {
-    fn defer_leak(&self, ptr: LeakedPtr) {
-        let mut will_free = self.will_free_on_next_call.lock().unwrap();
-        will_free.push(ptr);
-    }
-    fn free_leaked_memory(&self) {
-        let mut will_free = self.will_free_on_next_call.lock().unwrap();
-        for ptr in will_free.drain(..) {
-            unsafe {
-                match ptr {
-                    LeakedPtr::BitmapInfoHeader(addr) => {
-                        let _ = Box::from_raw(addr as *mut aviutl2_sys::input2::BITMAPINFOHEADER);
-                    }
-                    LeakedPtr::WaveFormatEx(addr) => {
-                        let _ = Box::from_raw(addr as *mut aviutl2_sys::input2::WAVEFORMATEX);
-                    }
-                }
-            }
         }
     }
 }
@@ -185,9 +156,9 @@ pub unsafe fn create_table<T: InputPlugin>(
 
     aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
         flag,
-        name: leak_large_string(&name),
-        filefilter: leak_large_string(&file_filter),
-        information: leak_large_string(&information),
+        name: plugin_state.leak_manager.leak_as_wide_string(&name),
+        filefilter: plugin_state.leak_manager.leak_as_wide_string(&file_filter),
+        information: plugin_state.leak_manager.leak_as_wide_string(&information),
         func_open: Some(func_open),
         func_close: Some(func_close),
         func_info_get: Some(func_info_get),
@@ -202,8 +173,8 @@ pub unsafe fn func_open<T: InputPlugin>(
     plugin_state: &InternalInputPluginState<T>,
     file: aviutl2_sys::input2::LPCWSTR,
 ) -> aviutl2_sys::input2::INPUT_HANDLE {
-    plugin_state.free_leaked_memory();
-    let path = load_large_string(file);
+    plugin_state.leak_manager.free_leaked_memory();
+    let path = load_wide_string(file);
     let plugin = &plugin_state.instance;
     match plugin.open(std::path::PathBuf::from(path)) {
         Ok(handle) => {
@@ -227,7 +198,7 @@ pub unsafe fn func_close<T: InputPlugin>(
     plugin_state: &InternalInputPluginState<T>,
     ih: aviutl2_sys::input2::INPUT_HANDLE,
 ) -> bool {
-    plugin_state.free_leaked_memory();
+    plugin_state.leak_manager.free_leaked_memory();
     let handle = *unsafe { Box::from_raw(ih as *mut InternalInputHandle<T::InputHandle>) };
     let plugin = &plugin_state.instance;
     (T::close(plugin, handle.handle)).is_ok()
@@ -237,7 +208,7 @@ pub unsafe fn func_info_get<T: InputPlugin>(
     ih: aviutl2_sys::input2::INPUT_HANDLE,
     iip: *mut aviutl2_sys::input2::INPUT_INFO,
 ) -> bool {
-    plugin_state.free_leaked_memory();
+    plugin_state.leak_manager.free_leaked_memory();
     let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
     let video_track = {
         *handle
@@ -263,9 +234,6 @@ pub unsafe fn func_info_get<T: InputPlugin>(
                 let width = video_info.width;
                 let height = video_info.height;
                 let image_format = video_info.into_raw();
-                let image_format = Box::new(image_format);
-                let image_format_ptr = Box::into_raw(image_format);
-                plugin_state.defer_leak(LeakedPtr::BitmapInfoHeader(image_format_ptr as usize));
                 unsafe {
                     (*iip).flag |= aviutl2_sys::input2::INPUT_INFO::FLAG_VIDEO;
                     if manual_frame_index {
@@ -274,7 +242,7 @@ pub unsafe fn func_info_get<T: InputPlugin>(
                     (*iip).rate = *fps.numer();
                     (*iip).scale = *fps.denom();
                     (*iip).n = num_frames as _;
-                    (*iip).format = image_format_ptr;
+                    (*iip).format = plugin_state.leak_manager.leak(image_format);
                     (*iip).format_size = (4 * width * height) as i32; // 4 bytes per pixel for RGBA
                     (*iip).audio_n = 0;
                     (*iip).audio_format = std::ptr::null_mut();
@@ -286,13 +254,10 @@ pub unsafe fn func_info_get<T: InputPlugin>(
                 let num_samples = audio_info.num_samples;
                 let audio_format = audio_info.into_raw();
                 let audio_format_size = std::mem::size_of_val(&audio_format) as i32;
-                let audio_format = Box::new(audio_format);
-                let audio_format_ptr = Box::into_raw(audio_format);
-                plugin_state.defer_leak(LeakedPtr::WaveFormatEx(audio_format_ptr as usize));
                 unsafe {
                     (*iip).flag |= aviutl2_sys::input2::INPUT_INFO::FLAG_AUDIO;
                     (*iip).audio_n = num_samples as _;
-                    (*iip).audio_format = audio_format_ptr;
+                    (*iip).audio_format = plugin_state.leak_manager.leak(audio_format);
                     (*iip).audio_format_size = audio_format_size;
                 }
             }
@@ -311,7 +276,7 @@ pub unsafe fn func_read_video<T: InputPlugin>(
     frame: i32,
     buf: *mut std::ffi::c_void,
 ) -> i32 {
-    plugin_state.free_leaked_memory();
+    plugin_state.leak_manager.free_leaked_memory();
     let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
     let plugin = &plugin_state.instance;
     let frame = frame as u32;
@@ -355,7 +320,7 @@ pub unsafe fn func_read_audio<T: InputPlugin>(
     length: i32,
     buf: *mut std::ffi::c_void,
 ) -> i32 {
-    plugin_state.free_leaked_memory();
+    plugin_state.leak_manager.free_leaked_memory();
     let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
     let plugin = &plugin_state.instance;
     let mut returner = unsafe { AudioReturner::new(buf as *mut u8) };
@@ -397,7 +362,7 @@ pub unsafe fn func_config<T: InputPlugin>(
     hwnd: aviutl2_sys::input2::HWND,
     dll_hinst: aviutl2_sys::input2::HINSTANCE,
 ) -> bool {
-    plugin_state.free_leaked_memory();
+    plugin_state.leak_manager.free_leaked_memory();
     let mut handle =
         raw_window_handle::Win32WindowHandle::new(NonZeroIsize::new(hwnd as isize).unwrap());
     handle.hinstance = Some(NonZeroIsize::new(dll_hinst as isize).unwrap());
@@ -410,7 +375,7 @@ pub unsafe fn func_set_track<T: InputPlugin>(
     track_type: i32,
     track: i32,
 ) -> i32 {
-    plugin_state.free_leaked_memory();
+    plugin_state.leak_manager.free_leaked_memory();
     let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
     let plugin = &plugin_state.instance;
     if track == -1 {
@@ -443,7 +408,7 @@ pub unsafe fn func_set_track<T: InputPlugin>(
                     *audio_tracks as i32
                 } else {
                     debug_print!("Invalid track type: {}", track_type);
-                    -1// Invalid track type
+                    -1 // Invalid track type
                 }
             }
             Some(Err(e)) => {
@@ -498,7 +463,7 @@ pub unsafe fn func_time_to_frame<T: InputPlugin>(
     ih: aviutl2_sys::input2::INPUT_HANDLE,
     time: f64,
 ) -> i32 {
-    plugin_state.free_leaked_memory();
+    plugin_state.leak_manager.free_leaked_memory();
     let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
     let video_track = {
         *handle

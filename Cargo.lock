@@ -552,6 +552,7 @@ dependencies = [
  "env_logger",
  "half",
  "image",
+ "log",
  "native-dialog",
  "num-rational",
  "raw-window-handle",

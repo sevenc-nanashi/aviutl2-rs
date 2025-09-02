@@ -3,7 +3,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use crate::common::{AnyResult, FileFilter, Rational32, Win32WindowHandle, load_large_string};
+use crate::common::{AnyResult, FileFilter, Rational32, Win32WindowHandle, load_wide_string};
 use crate::output::FromRawVideoFrame;
 use aviutl2_sys::output2::OUTPUT_INFO;
 
@@ -149,7 +149,7 @@ impl OutputInfo {
                 None
             },
 
-            path: std::path::PathBuf::from(load_large_string(raw.savefile)),
+            path: std::path::PathBuf::from(load_wide_string(raw.savefile)),
 
             internal: oip,
             last_frame_id: Arc::new(AtomicUsize::new(0)),
