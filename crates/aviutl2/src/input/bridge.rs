@@ -1,10 +1,7 @@
 use std::num::NonZeroIsize;
 
 use crate::{
-    common::{
-        AnyResult, LeakManager, format_file_filters, load_wide_string, result_to_bool_with_dialog,
-    },
-    debug_print,
+    common::{AnyResult, LeakManager, alert_error, format_file_filters, load_wide_string},
     input::{
         AudioFormat, AudioInputInfo, AudioReturner, ImageReturner, InputInfo, InputPixelFormat,
         InputPlugin, InputPluginTable, VideoInputInfo,
@@ -175,6 +172,7 @@ pub unsafe fn func_open<T: InputPlugin>(
 ) -> aviutl2_sys::input2::INPUT_HANDLE {
     plugin_state.leak_manager.free_leaked_memory();
     let path = load_wide_string(file);
+    log::info!("func_open called with path: {}", path);
     let plugin = &plugin_state.instance;
     match plugin.open(std::path::PathBuf::from(path)) {
         Ok(handle) => {
@@ -189,7 +187,7 @@ pub unsafe fn func_open<T: InputPlugin>(
             Box::into_raw(boxed_handle) as aviutl2_sys::input2::INPUT_HANDLE
         }
         Err(e) => {
-            debug_print!("Failed to open input plugin: {}", e);
+            log::error!("Error during func_open: {}", e);
             std::ptr::null_mut()
         }
     }
@@ -201,7 +199,13 @@ pub unsafe fn func_close<T: InputPlugin>(
     plugin_state.leak_manager.free_leaked_memory();
     let handle = *unsafe { Box::from_raw(ih as *mut InternalInputHandle<T::InputHandle>) };
     let plugin = &plugin_state.instance;
-    (T::close(plugin, handle.handle)).is_ok()
+    match plugin.close(handle.handle) {
+        Ok(()) => true,
+        Err(e) => {
+            log::error!("Error during func_close: {}", e);
+            false
+        }
+    }
 }
 pub unsafe fn func_info_get<T: InputPlugin>(
     plugin_state: &InternalInputPluginState<T>,
@@ -265,7 +269,7 @@ pub unsafe fn func_info_get<T: InputPlugin>(
             true
         }
         Err(e) => {
-            debug_print!("Failed to get input info: {}", e);
+            log::error!("Error during func_info_get: {}", e);
             false
         }
     }
@@ -307,7 +311,7 @@ pub unsafe fn func_read_video<T: InputPlugin>(
             returner.written as i32
         }
         Err(e) => {
-            debug_print!("Failed to read video frame: {}", e);
+            log::error!("Error during func_read_video: {}", e);
             0
         }
     }
@@ -351,7 +355,7 @@ pub unsafe fn func_read_audio<T: InputPlugin>(
             returner.written as i32
         }
         Err(e) => {
-            debug_print!("Failed to read audio data: {}", e);
+            log::error!("Error during func_read_audio: {}", e);
             0
         }
     }
@@ -367,7 +371,14 @@ pub unsafe fn func_config<T: InputPlugin>(
         raw_window_handle::Win32WindowHandle::new(NonZeroIsize::new(hwnd as isize).unwrap());
     handle.hinstance = Some(NonZeroIsize::new(dll_hinst as isize).unwrap());
     let plugin = &plugin_state.instance;
-    result_to_bool_with_dialog(plugin.config(handle))
+    match plugin.config(handle) {
+        Ok(()) => true,
+        Err(e) => {
+            log::error!("Error during func_config: {}", e);
+            alert_error(&e);
+            false
+        }
+    }
 }
 pub unsafe fn func_set_track<T: InputPlugin>(
     plugin_state: &InternalInputPluginState<T>,
@@ -382,7 +393,7 @@ pub unsafe fn func_set_track<T: InputPlugin>(
         // track == -1：トラック数取得
         if handle.num_tracks.lock().unwrap().is_none() {
             let num_tracks = plugin.get_track_count(&mut handle.handle).map_err(|e| {
-                debug_print!("Failed to get track count: {}", e);
+                log::error!("Failed to get track count: {}", e);
                 e
             });
 
@@ -407,12 +418,12 @@ pub unsafe fn func_set_track<T: InputPlugin>(
                 } else if track_type == aviutl2_sys::input2::INPUT_PLUGIN_TABLE::TRACK_TYPE_AUDIO {
                     *audio_tracks as i32
                 } else {
-                    debug_print!("Invalid track type: {}", track_type);
+                    log::error!("Invalid track type: {}", track_type);
                     -1 // Invalid track type
                 }
             }
             Some(Err(e)) => {
-                debug_print!("Failed to get track count: {}", e);
+                log::error!("Error occurred while getting track count: {}", e);
                 -1 // Error occurred
             }
             None => {
@@ -427,7 +438,7 @@ pub unsafe fn func_set_track<T: InputPlugin>(
                     .can_set_video_track(&mut handle.handle, track as u32)
                     .map_or_else(
                         |e| {
-                            debug_print!("Failed to set video track: {}", e);
+                            log::debug!("Failed to set video track: {}", e);
                             -1
                         },
                         |t| t as i32,
@@ -443,7 +454,7 @@ pub unsafe fn func_set_track<T: InputPlugin>(
                     .can_set_audio_track(&mut handle.handle, track as u32)
                     .map_or_else(
                         |e| {
-                            debug_print!("Failed to set audio track: {}", e);
+                            log::debug!("Failed to set audio track: {}", e);
                             -1
                         },
                         |t| t as i32,
@@ -475,7 +486,7 @@ pub unsafe fn func_time_to_frame<T: InputPlugin>(
     match T::time_to_frame(plugin, &mut handle.handle, video_track, time) {
         Ok(frame) => frame as i32,
         Err(e) => {
-            debug_print!("Failed to convert time to frame: {}", e);
+            log::error!("Error during func_time_to_frame: {}", e);
             0
         }
     }

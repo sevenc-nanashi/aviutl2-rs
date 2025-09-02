@@ -1,7 +1,7 @@
 use std::num::NonZeroIsize;
 
 use crate::{
-    common::{LeakManager, format_file_filters, result_to_bool_with_dialog},
+    common::{LeakManager, alert_error, format_file_filters},
     output::{FromRawAudioSamples, OutputInfo, OutputPlugin},
 };
 
@@ -58,6 +58,7 @@ pub unsafe fn create_table<T: OutputPlugin>(
     func_config: extern "C" fn(aviutl2_sys::output2::HWND, aviutl2_sys::output2::HINSTANCE) -> bool,
     func_get_config_text: extern "C" fn() -> LPCWSTR,
 ) -> aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
+    log::info!("Creating OUTPUT_PLUGIN_TABLE");
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let plugin_info = plugin.plugin_info();
@@ -89,10 +90,18 @@ pub unsafe fn func_output<T: OutputPlugin>(
     plugin_state: &InternalOutputPluginState<T>,
     oip: *mut aviutl2_sys::output2::OUTPUT_INFO,
 ) -> bool {
+    plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let oip = unsafe { &mut *oip };
     let output_info = OutputInfo::from_raw(oip);
-    result_to_bool_with_dialog(plugin.output(output_info))
+    match plugin.output(output_info) {
+        Ok(()) => true,
+        Err(e) => {
+            log::error!("Error during func_output: {}", e);
+            alert_error(&e);
+            false
+        }
+    }
 }
 
 pub unsafe fn func_config<T: OutputPlugin>(
@@ -100,23 +109,35 @@ pub unsafe fn func_config<T: OutputPlugin>(
     hwnd: aviutl2_sys::output2::HWND,
     dll_hinst: aviutl2_sys::output2::HINSTANCE,
 ) -> bool {
+    plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let mut handle =
         raw_window_handle::Win32WindowHandle::new(NonZeroIsize::new(hwnd as isize).unwrap());
     handle.hinstance = Some(NonZeroIsize::new(dll_hinst as isize).unwrap());
-    result_to_bool_with_dialog(plugin.config(handle))
+    match plugin.config(handle) {
+        Ok(()) => true,
+        Err(e) => {
+            log::error!("Error during func_config: {}", e);
+            alert_error(&e);
+            false
+        }
+    }
 }
 
 pub unsafe fn func_get_config_text<T: OutputPlugin>(
     plugin_state: &InternalOutputPluginState<T>,
 ) -> *const u16 {
+    plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let text = plugin.config_text();
     match text {
         Ok(text) => plugin_state.leak_manager.leak_as_wide_string(&text),
-        Err(e) => plugin_state
-            .leak_manager
-            .leak_as_wide_string(format!("エラー：{}", e).as_str()),
+        Err(e) => {
+            log::error!("Error during func_get_config_text: {}", e);
+            plugin_state
+                .leak_manager
+                .leak_as_wide_string(format!("エラー：{}", e).as_str())
+        }
     }
 }
 

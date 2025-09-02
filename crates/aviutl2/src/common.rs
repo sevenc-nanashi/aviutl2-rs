@@ -174,6 +174,7 @@ impl LeakManager {
     }
 
     pub fn leak<T: IntoLeakedPtr>(&self, value: T) -> *const T {
+        log::debug!("Leaking memory for type {}", std::any::type_name::<T>());
         let mut ptrs = self.ptrs.lock().unwrap();
         let leaked = value.into_leaked_ptr();
         let ptr = leaked.1;
@@ -182,6 +183,7 @@ impl LeakManager {
     }
 
     pub fn leak_as_wide_string(&self, s: &str) -> *const u16 {
+        log::debug!("Leaking wide string: {}", s);
         let mut wide: Vec<u16> = s.encode_utf16().collect();
         wide.push(0); // Null-terminate the string
         let boxed = wide.into_boxed_slice();
@@ -193,6 +195,7 @@ impl LeakManager {
 
     pub fn free_leaked_memory(&self) {
         let mut ptrs = self.ptrs.lock().unwrap();
+        log::debug!("Freeing {} leaked pointers", ptrs.len());
         for (ptr_type, ptr) in ptrs.drain(..) {
             unsafe {
                 match ptr_type {
@@ -222,16 +225,6 @@ pub(crate) fn load_wide_string(ptr: *const u16) -> String {
     }
 
     unsafe { String::from_utf16_lossy(std::slice::from_raw_parts(ptr, len)) }
-}
-
-pub(crate) fn result_to_bool_with_dialog<T>(result: AnyResult<T>) -> bool {
-    match result {
-        Ok(_) => true,
-        Err(e) => {
-            alert_error(&e);
-            false
-        }
-    }
 }
 
 pub(crate) fn alert_error(error: &anyhow::Error) {
