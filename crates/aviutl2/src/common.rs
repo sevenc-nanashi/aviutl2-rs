@@ -139,7 +139,82 @@ pub(crate) fn format_file_filters(file_filters: &[FileFilter]) -> String {
     file_filter
 }
 
-pub(crate) fn load_large_string(ptr: *const u16) -> String {
+pub(crate) enum LeakedPtrType {
+    WideString,
+    BitmapInfoHeader,
+    WaveFormatEx,
+}
+
+pub(crate) struct LeakManager {
+    ptrs: std::sync::Mutex<Vec<(LeakedPtrType, usize)>>,
+}
+
+pub(crate) trait IntoLeakedPtr {
+    fn into_leaked_ptr(self) -> (LeakedPtrType, usize);
+}
+
+#[duplicate::duplicate_item(
+    OriginalType                             EnumValue;
+    [aviutl2_sys::input2::WAVEFORMATEX]      [WaveFormatEx];
+    [aviutl2_sys::output2::BITMAPINFOHEADER] [BitmapInfoHeader];
+)]
+impl IntoLeakedPtr for OriginalType {
+    fn into_leaked_ptr(self) -> (LeakedPtrType, usize) {
+        let boxed = Box::new(self);
+        let ptr = Box::into_raw(boxed) as usize;
+        (LeakedPtrType::EnumValue, ptr)
+    }
+}
+
+impl LeakManager {
+    pub fn new() -> Self {
+        Self {
+            ptrs: std::sync::Mutex::new(Vec::new()),
+        }
+    }
+
+    pub fn leak<T: IntoLeakedPtr>(&self, value: T) -> *const T {
+        log::debug!("Leaking memory for type {}", std::any::type_name::<T>());
+        let mut ptrs = self.ptrs.lock().unwrap();
+        let leaked = value.into_leaked_ptr();
+        let ptr = leaked.1;
+        ptrs.push(leaked);
+        ptr as *const T
+    }
+
+    pub fn leak_as_wide_string(&self, s: &str) -> *const u16 {
+        log::debug!("Leaking wide string: {}", s);
+        let mut wide: Vec<u16> = s.encode_utf16().collect();
+        wide.push(0); // Null-terminate the string
+        let boxed = wide.into_boxed_slice();
+        let ptr = Box::into_raw(boxed) as *mut u16 as usize;
+        let mut ptrs = self.ptrs.lock().unwrap();
+        ptrs.push((LeakedPtrType::WideString, ptr));
+        ptr as *const u16
+    }
+
+    pub fn free_leaked_memory(&self) {
+        let mut ptrs = self.ptrs.lock().unwrap();
+        log::debug!("Freeing {} leaked pointers", ptrs.len());
+        for (ptr_type, ptr) in ptrs.drain(..) {
+            unsafe {
+                match ptr_type {
+                    LeakedPtrType::WideString => {
+                        let _ = Box::from_raw(ptr as *mut u16);
+                    }
+                    LeakedPtrType::BitmapInfoHeader => {
+                        let _ = Box::from_raw(ptr as *mut aviutl2_sys::output2::BITMAPINFOHEADER);
+                    }
+                    LeakedPtrType::WaveFormatEx => {
+                        let _ = Box::from_raw(ptr as *mut aviutl2_sys::input2::WAVEFORMATEX);
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub(crate) fn load_wide_string(ptr: *const u16) -> String {
     if ptr.is_null() {
         return String::new();
     }
@@ -150,40 +225,6 @@ pub(crate) fn load_large_string(ptr: *const u16) -> String {
     }
 
     unsafe { String::from_utf16_lossy(std::slice::from_raw_parts(ptr, len)) }
-}
-
-static WILL_FREE_ON_NEXT_CALL: std::sync::LazyLock<std::sync::Mutex<Vec<usize>>> =
-    std::sync::LazyLock::new(|| std::sync::Mutex::new(Vec::new()));
-
-pub(crate) fn leak_large_string(s: &str) -> *mut u16 {
-    let mut will_free = WILL_FREE_ON_NEXT_CALL.lock().unwrap();
-    let vec = s
-        .encode_utf16()
-        .chain(std::iter::once(0))
-        .collect::<Vec<u16>>();
-    let ptr = vec.as_ptr() as *mut u16;
-    will_free.push(ptr as usize);
-    std::mem::forget(vec); // Prevent Rust from freeing the memory
-    ptr
-}
-
-pub(crate) fn free_leaked_memory() {
-    let mut will_free = WILL_FREE_ON_NEXT_CALL.lock().unwrap();
-    for ptr in will_free.drain(..) {
-        unsafe {
-            let _ = Box::from_raw(ptr as *mut u16);
-        }
-    }
-}
-
-pub(crate) fn result_to_bool_with_dialog<T>(result: AnyResult<T>) -> bool {
-    match result {
-        Ok(_) => true,
-        Err(e) => {
-            alert_error(&e);
-            false
-        }
-    }
 }
 
 pub(crate) fn alert_error(error: &anyhow::Error) {

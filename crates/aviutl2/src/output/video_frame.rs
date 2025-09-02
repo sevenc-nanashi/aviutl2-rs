@@ -421,3 +421,72 @@ impl FromRawVideoFrame for Name {
         }
     }
 }
+
+#[cfg(feature = "image")]
+impl FromRawVideoFrame for image::RgbImage {
+    const FORMAT: u32 = aviutl2_sys::output2::BI_RGB;
+
+    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+        Ok(())
+    }
+    unsafe fn from_raw(
+        video: &VideoOutputInfo,
+        frame_data_ptr: *const u8,
+        _last_frame_id: Arc<AtomicUsize>,
+        _frame_id: usize,
+    ) -> Self {
+        let mut buffer = unsafe {
+            std::slice::from_raw_parts(frame_data_ptr, (video.width * video.height * 3) as usize)
+                .to_owned()
+        };
+        crate::utils::bgr_to_rgb_bytes(&mut buffer);
+        crate::utils::flip_vertical(&mut buffer, video.width as usize * 3, video.height as usize);
+        image::RgbImage::from_raw(video.width, video.height, buffer).unwrap()
+    }
+}
+
+#[cfg(feature = "image")]
+impl FromRawVideoFrame for image::ImageBuffer<image::Rgba<u16>, Vec<u16>> {
+    const FORMAT: u32 = aviutl2_sys::output2::BI_PA64;
+
+    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+        Ok(())
+    }
+    unsafe fn from_raw(
+        video: &VideoOutputInfo,
+        frame_data_ptr: *const u8,
+        _last_frame_id: Arc<AtomicUsize>,
+        _frame_id: usize,
+    ) -> Self {
+        let frame_data_ptr = frame_data_ptr as *const u16;
+        let buffer = unsafe {
+            std::slice::from_raw_parts(frame_data_ptr, (video.width * video.height * 4) as usize)
+                .to_owned()
+        };
+        image::ImageBuffer::from_raw(video.width, video.height, buffer).unwrap()
+    }
+}
+
+#[cfg(feature = "image")]
+impl FromRawVideoFrame for image::Rgba32FImage {
+    const FORMAT: u32 = aviutl2_sys::output2::BI_HF64;
+
+    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+        Ok(())
+    }
+    unsafe fn from_raw(
+        video: &VideoOutputInfo,
+        frame_data_ptr: *const u8,
+        _last_frame_id: Arc<AtomicUsize>,
+        _frame_id: usize,
+    ) -> Self {
+        let frame_data_ptr = frame_data_ptr as *const f16;
+        let buffer = unsafe {
+            std::slice::from_raw_parts(frame_data_ptr, (video.width * video.height * 4) as usize)
+                .iter()
+                .map(|&v| v.to_f32())
+                .collect::<Vec<_>>()
+        };
+        image::ImageBuffer::from_raw(video.width, video.height, buffer).unwrap()
+    }
+}

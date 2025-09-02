@@ -56,7 +56,7 @@ pub struct INPUT_INFO {
     /// [`BI_PA64`]
     /// [`BI_YC48`]
     /// [`BI_HF64`]
-    pub format: *mut BITMAPINFOHEADER,
+    pub format: *const BITMAPINFOHEADER,
     /// 画像フォーマットのサイズ
     pub format_size: i32,
     /// 音声サンプル数
@@ -65,7 +65,7 @@ pub struct INPUT_INFO {
     ///
     /// # Safety
     /// 次に関数が呼ばれるまで内容を有効にしておく
-    pub audio_format: *mut WAVEFORMATEX,
+    pub audio_format: *const WAVEFORMATEX,
     /// 音声フォーマットのサイズ
     pub audio_format_size: i32,
 }
