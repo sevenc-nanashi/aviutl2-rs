@@ -99,7 +99,7 @@ pub fn rgb_to_bgr(data: &mut [(u8, u8, u8)]) {
     bgr_to_rgb(data);
 }
 
-/// Vec<u8>をBGRの配列として捉え、RGBの配列に変換する関数。
+/// `Vec<u8>`をBGRの配列として捉え、RGBの配列に変換する関数。
 /// エイリアスとして [`rgb_to_bgr_bytes`] も提供されます。
 ///
 /// # Panics
