@@ -171,10 +171,10 @@ impl Track {
                         .and_modify(|v| *v -= 1)
                         .or_insert(0)
                         == 0
-                    {
-                        let event_time = tempo_index.ticks_to_time(current_tick);
-                        current_track_events.push((event_time, NoteEvent::NoteOff(key.as_int())));
-                    }
+                {
+                    let event_time = tempo_index.ticks_to_time(current_tick);
+                    current_track_events.push((event_time, NoteEvent::NoteOff(key.as_int())));
+                }
             }
         }
 

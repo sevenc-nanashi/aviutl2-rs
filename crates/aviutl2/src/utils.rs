@@ -118,7 +118,7 @@ pub fn rgb_to_bgr_bytes(data: &mut [u8]) {
     bgr_to_rgb_bytes(data);
 }
 
-/// Vec<(u8, u8, u8, u8)>をRGBAの配列として捉え、BGRAの配列に変換する関数。
+/// `Vec<(u8, u8, u8, u8)>`をRGBAの配列として捉え、BGRAの配列に変換する関数。
 /// エイリアスとして [`bgra_to_rgba`] も提供されます。
 pub fn rgba_to_bgra(data: &mut [(u8, u8, u8, u8)]) {
     for pixel in data.iter_mut() {
@@ -133,7 +133,7 @@ pub fn bgra_to_rgba(data: &mut [(u8, u8, u8, u8)]) {
     rgba_to_bgra(data);
 }
 
-/// Vec<u8>をRGBAの配列として捉え、BGRAの配列に変換する関数。
+/// `Vec<u8>`をRGBAの配列として捉え、BGRAの配列に変換する関数。
 /// エイリアスとして [`bgra_to_rgba_bytes`] も提供されます。
 ///
 /// # Panics
