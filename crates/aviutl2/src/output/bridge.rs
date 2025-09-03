@@ -1,7 +1,8 @@
 use std::num::NonZeroIsize;
 
 use crate::{
-    common::{alert_error, format_file_filters, LeakManager}, leak_and_forget_as_wide_string, output::{FromRawAudioSamples, OutputInfo, OutputPlugin}
+    common::{LeakManager, alert_error, format_file_filters, leak_and_forget_as_wide_string},
+    output::{FromRawAudioSamples, OutputInfo, OutputPlugin},
 };
 
 use aviutl2_sys::{

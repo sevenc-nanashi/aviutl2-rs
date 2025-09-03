@@ -1,12 +1,14 @@
 use std::num::NonZeroIsize;
 
 use crate::{
-    common::{AnyResult, LeakManager, alert_error, format_file_filters, load_wide_string},
+    common::{
+        AnyResult, LeakManager, alert_error, format_file_filters, leak_and_forget_as_wide_string,
+        load_wide_string,
+    },
     input::{
         AudioFormat, AudioInputInfo, AudioReturner, ImageReturner, InputInfo, InputPixelFormat,
         InputPlugin, InputPluginTable, VideoInputInfo,
     },
-    leak_and_forget_as_wide_string,
 };
 
 impl InputPixelFormat {
