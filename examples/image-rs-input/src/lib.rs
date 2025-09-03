@@ -31,8 +31,7 @@ struct OwnedFrames {
 impl OwnedFrames {
     fn reset(self) -> anyhow::Result<Self> {
         let heads = self.into_heads();
-        let mut file = heads.file;
-        file.seek(std::io::SeekFrom::Start(0))?;
+        let file = heads.file;
 
         into_frames(file, heads.format)
     }
@@ -297,9 +296,10 @@ impl InputPlugin for ImageInputPlugin {
 }
 
 fn into_frames(
-    file: std::io::BufReader<std::fs::File>,
+    mut file: std::io::BufReader<std::fs::File>,
     format: image::ImageFormat,
 ) -> Result<OwnedFrames, anyhow::Error> {
+    file.seek(std::io::SeekFrom::Start(0))?;
     OwnedFramesTryBuilder {
         file,
         format,

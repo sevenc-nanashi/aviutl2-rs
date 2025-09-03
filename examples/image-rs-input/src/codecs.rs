@@ -11,6 +11,7 @@ pub struct AnimationInfo {
 pub fn read_apng_headers<R: std::io::BufRead + std::io::Seek>(
     reader: &mut R,
 ) -> Result<AnimationInfo, anyhow::Error> {
+    reader.seek(std::io::SeekFrom::Start(0))?;
     let png = png::Decoder::new(reader);
     let mut png = png.read_info()?;
     let info = png.info();
@@ -49,6 +50,7 @@ pub fn read_apng_headers<R: std::io::BufRead + std::io::Seek>(
 pub fn read_gif_headers<R: std::io::Read + std::io::Seek>(
     reader: &mut R,
 ) -> Result<AnimationInfo, anyhow::Error> {
+    reader.seek(std::io::SeekFrom::Start(0))?;
     let mut options = gif::DecodeOptions::new();
     options.skip_frame_decoding(true);
     let mut reader = options.read_info(reader)?;
@@ -77,6 +79,7 @@ pub fn read_gif_headers<R: std::io::Read + std::io::Seek>(
 pub fn read_webp_headers<R: std::io::Read + std::io::Seek>(
     reader: &mut R,
 ) -> Result<AnimationInfo, anyhow::Error> {
+    reader.seek(std::io::SeekFrom::Start(0))?;
     let mut header = [0; 12];
     reader.read_exact(&mut header)?;
     if &header[0..4] != b"RIFF" || &header[8..12] != b"WEBP" {
