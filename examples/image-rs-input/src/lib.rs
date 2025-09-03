@@ -1,3 +1,4 @@
+mod codecs;
 use aviutl2::{
     FileFilter,
     input::{AnyResult, ImageBuffer, ImageReturner, InputPlugin, IntoImage as _, Rational32},
@@ -33,12 +34,7 @@ impl OwnedFrames {
         let mut file = heads.file;
         file.seek(std::io::SeekFrom::Start(0))?;
 
-        OwnedFramesTryBuilder {
-            file,
-            format: heads.format,
-            frames_builder: |file| to_frames(heads.format, file),
-        }
-        .try_build()
+        into_frames(file, heads.format)
     }
 }
 
@@ -91,9 +87,33 @@ impl InputPlugin for ImageInputPlugin {
         let format = decoder
             .format()
             .ok_or_else(|| anyhow::anyhow!("Failed to guess image format"))?;
-        let frames = open_frames(&file, format).ok();
+        match format {
+            image::ImageFormat::Png | image::ImageFormat::Gif | image::ImageFormat::WebP => {
+                let mut file = std::io::BufReader::new(std::fs::File::open(&file)?);
+                let animation_info = match format {
+                    image::ImageFormat::Png => codecs::read_apng_headers(&mut file)?,
+                    image::ImageFormat::Gif => codecs::read_gif_headers(&mut file)?,
+                    image::ImageFormat::WebP => codecs::read_webp_headers(&mut file)?,
+                    _ => unreachable!(),
+                };
+                if animation_info.frame_timings.len() > 1 {
+                    let frames = into_frames(file, format)?;
+                    return Ok(ImageHandle {
+                        current_frame: 0,
+                        reader: Some(ImageReader::Animated(frames)),
+                        format: aviutl2::input::InputPixelFormat::Bgra,
+                        frame_timings: animation_info.frame_timings,
+                        length_in_seconds: animation_info.length_in_seconds,
+                        width: animation_info.width,
+                        height: animation_info.height,
+                    });
+                }
+            }
+            _ => {}
+        }
+        let frames = into_frames(std::io::BufReader::new(std::fs::File::open(&file)?), format);
         match frames {
-            Some(mut frames) => {
+            Ok(mut frames) => {
                 let (width, height, total_duration, frame_timings) =
                     frames.with_frames_mut(|frames| {
                         let mut frame_timings = std::collections::BTreeMap::new();
@@ -127,7 +147,7 @@ impl InputPlugin for ImageInputPlugin {
                     height,
                 })
             }
-            None => {
+            Err(_) => {
                 let decoded = decoder.decode()?;
                 let (width, height) = decoded.dimensions();
                 let format = match decoded {
@@ -276,39 +296,30 @@ impl InputPlugin for ImageInputPlugin {
     }
 }
 
-fn open_frames(
-    file: &std::path::PathBuf,
+fn into_frames(
+    file: std::io::BufReader<std::fs::File>,
     format: image::ImageFormat,
 ) -> Result<OwnedFrames, anyhow::Error> {
-    let file = std::fs::File::open(file)?;
-    let reader = std::io::BufReader::new(file);
     OwnedFramesTryBuilder {
-        file: reader,
+        file,
         format,
-        frames_builder: |file| to_frames(format, file),
+        frames_builder: |file| match format {
+            image::ImageFormat::Gif => {
+                let decoder = image::codecs::gif::GifDecoder::new(file)?;
+                Ok(decoder.into_frames())
+            }
+            image::ImageFormat::WebP => {
+                let decoder = image::codecs::webp::WebPDecoder::new(file)?;
+                Ok(decoder.into_frames())
+            }
+            image::ImageFormat::Png => {
+                let decoder = image::codecs::png::PngDecoder::new(file)?;
+                Ok(decoder.apng()?.into_frames())
+            }
+            _ => anyhow::bail!("Format {:?} does not support animation", format),
+        },
     }
     .try_build()
-}
-
-fn to_frames<'a>(
-    format: image::ImageFormat,
-    reader: &'a mut std::io::BufReader<std::fs::File>,
-) -> anyhow::Result<image::Frames<'a>> {
-    match format {
-        image::ImageFormat::Gif => {
-            let decoder = image::codecs::gif::GifDecoder::new(reader)?;
-            Ok(decoder.into_frames())
-        }
-        image::ImageFormat::WebP => {
-            let decoder = image::codecs::webp::WebPDecoder::new(reader)?;
-            Ok(decoder.into_frames())
-        }
-        image::ImageFormat::Png => {
-            let decoder = image::codecs::png::PngDecoder::new(reader)?;
-            Ok(decoder.apng()?.into_frames())
-        }
-        _ => anyhow::bail!("Format {:?} does not support animation", format),
-    }
 }
 
 register_input_plugin!(ImageInputPlugin);

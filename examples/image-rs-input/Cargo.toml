@@ -14,6 +14,12 @@ crate-type = ["cdylib"]
 [dependencies]
 anyhow = "1.0.98"
 aviutl2 = { workspace = true, features = ["input", "image"] }
+duplicate = "2.0.0"
+gif = "0.13.3"
 image = "0.25.6"
 ordered-float = "5.0.0"
 ouroboros = "0.18.5"
+png = "0.18.0"
+
+[dev-dependencies]
+insta = "1.43.1"
