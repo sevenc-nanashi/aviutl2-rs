@@ -31,7 +31,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
 
-      - name: Set up cargo-set-version
+      - name: Set up cargo-edit
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-edit
@@ -39,6 +39,7 @@ jobs:
       - name: Update Cargo.toml
         run: |
           cargo set-version ${{ github.event.inputs.name }}
+          cargo update -p aviutl2 -p aviutl2-sys
 
       - name: Build Page
         uses: ./.github/actions/render-statistics-page
@@ -46,7 +47,6 @@ jobs:
       - name: Build project
         run: |
           cargo build --release
-          cargo update -p aviutl2 -p aviutl2-sys
 
       - name: Prepare release
         shell: bash
