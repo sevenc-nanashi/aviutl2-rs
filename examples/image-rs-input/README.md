@@ -25,7 +25,7 @@ L-Smash Works：[Build-2025-09-02-02-14-34](https://github.com/Mr-Ojii/L-SMASH-W
 
 - プロジェクトファイルは `projects/many_apngs.aup2` を使用
 - 「0フレーム目（読み込み時間）」：VERBOSEログを有効化し、`rendered video frame [0] X ms` のログで計測
-- 「読み込み後のメモリ使用量」：0フレーム目のレンダリングが完了した直後に、AviUtlのプロセスのメモリ使用量をタスクマネージャーで確認
+- 「読み込み後のメモリ使用量」：0フレーム目のレンダリングが完了した後に、AviUtlのプロセスのメモリ使用量をタスクマネージャーで確認
 - 「レンダリング時間（最小 / 平均 / 最大）」：Rusty Statistics Outputプラグインで計測
 
 </details>
