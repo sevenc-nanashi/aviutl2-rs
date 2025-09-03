@@ -227,6 +227,15 @@ pub(crate) fn load_wide_string(ptr: *const u16) -> String {
     unsafe { String::from_utf16_lossy(std::slice::from_raw_parts(ptr, len)) }
 }
 
+pub(crate) fn leak_and_forget_as_wide_string(s: &str) -> *const u16 {
+    log::debug!("Leaking wide string: {}", s);
+    let mut wide: Vec<u16> = s.encode_utf16().collect();
+    wide.push(0); // Null-terminate the string
+    let boxed = wide.into_boxed_slice();
+    let ptr = Box::into_raw(boxed) as *mut u16 as usize;
+    ptr as *const u16
+}
+
 pub(crate) fn alert_error(error: &anyhow::Error) {
     let _ = native_dialog::DialogBuilder::message()
         .set_title("エラー")

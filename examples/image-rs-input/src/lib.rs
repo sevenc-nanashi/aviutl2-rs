@@ -78,7 +78,7 @@ impl InputPlugin for ImageInputPlugin {
                 ],
             }],
             information: format!(
-                "ril & image-rs Input for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-input",
+                "image-rs Input for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-input",
                 version = env!("CARGO_PKG_VERSION")
             ),
             can_config: false,

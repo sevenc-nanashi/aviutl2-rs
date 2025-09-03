@@ -6,6 +6,7 @@ use crate::{
         AudioFormat, AudioInputInfo, AudioReturner, ImageReturner, InputInfo, InputPixelFormat,
         InputPlugin, InputPluginTable, VideoInputInfo,
     },
+    leak_and_forget_as_wide_string,
 };
 
 impl InputPixelFormat {
@@ -151,11 +152,12 @@ pub unsafe fn create_table<T: InputPlugin>(
     }
     flag |= aviutl2_sys::input2::INPUT_PLUGIN_TABLE::FLAG_MULTI_TRACK;
 
+    // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
     aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
         flag,
-        name: plugin_state.leak_manager.leak_as_wide_string(&name),
-        filefilter: plugin_state.leak_manager.leak_as_wide_string(&file_filter),
-        information: plugin_state.leak_manager.leak_as_wide_string(&information),
+        name: leak_and_forget_as_wide_string(&name),
+        filefilter: leak_and_forget_as_wide_string(&file_filter),
+        information: leak_and_forget_as_wide_string(&information),
         func_open: Some(func_open),
         func_close: Some(func_close),
         func_info_get: Some(func_info_get),

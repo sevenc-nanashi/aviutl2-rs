@@ -1,8 +1,7 @@
 use std::num::NonZeroIsize;
 
 use crate::{
-    common::{LeakManager, alert_error, format_file_filters},
-    output::{FromRawAudioSamples, OutputInfo, OutputPlugin},
+    common::{alert_error, format_file_filters, LeakManager}, leak_and_forget_as_wide_string, output::{FromRawAudioSamples, OutputInfo, OutputPlugin}
 };
 
 use aviutl2_sys::{
@@ -75,11 +74,12 @@ pub unsafe fn create_table<T: OutputPlugin>(
         plugin_info.information
     };
 
+    // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
     aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
         flag: plugin_info.output_type.to_bits(),
-        name: plugin_state.leak_manager.leak_as_wide_string(&name),
-        filefilter: plugin_state.leak_manager.leak_as_wide_string(&filefilter),
-        information: plugin_state.leak_manager.leak_as_wide_string(&information),
+        name: leak_and_forget_as_wide_string(&name),
+        filefilter: leak_and_forget_as_wide_string(&filefilter),
+        information: leak_and_forget_as_wide_string(&information),
         func_output: Some(func_output),
         func_config: plugin_info.can_config.then_some(func_config),
         func_get_config_text: Some(func_get_config_text),
