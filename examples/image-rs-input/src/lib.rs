@@ -111,32 +111,31 @@ impl InputPlugin for ImageInputPlugin {
             _ => {}
         }
         let frames = into_frames(std::io::BufReader::new(std::fs::File::open(&file)?), format);
-        match frames {
-            Ok(mut frames) => {
-                let (width, height, total_duration, frame_timings) =
-                    frames.with_frames_mut(|frames| {
-                        let mut frame_timings = std::collections::BTreeMap::new();
-                        let mut total_duration = 0.0;
-                        let mut width = 0;
-                        let mut height = 0;
-                        for frame in frames {
-                            let frame = frame?;
-                            let delay = frame.delay().numer_denom_ms();
-                            let duration = delay.0 as f32 / delay.1 as f32 / 1000.0;
-                            if width == 0 && height == 0 {
-                                let img = frame.into_buffer();
-                                width = img.width();
-                                height = img.height();
-                            }
-                            frame_timings.insert(OrderedFloat(total_duration), frame_timings.len());
-                            total_duration += duration;
+        // 自分が実装をミスっている可能性もあるので、codecsモジュールの関数でパースできなくてもimage-rsの実装でパースできるか試す
+        if let Ok(mut frames) = frames {
+            let (width, height, total_duration, frame_timings) =
+                frames.with_frames_mut(|frames| {
+                    let mut frame_timings = std::collections::BTreeMap::new();
+                    let mut total_duration = 0.0;
+                    let mut width = 0;
+                    let mut height = 0;
+                    for frame in frames {
+                        let frame = frame?;
+                        let delay = frame.delay().numer_denom_ms();
+                        let duration = delay.0 as f32 / delay.1 as f32 / 1000.0;
+                        if width == 0 && height == 0 {
+                            let img = frame.into_buffer();
+                            width = img.width();
+                            height = img.height();
                         }
+                        frame_timings.insert(OrderedFloat(total_duration), frame_timings.len());
+                        total_duration += duration;
+                    }
 
-                        anyhow::Ok((width, height, total_duration, frame_timings))
-                    })?;
-                anyhow::ensure!(!frame_timings.is_empty(), "No frames found");
-
-                Ok(ImageHandle {
+                    anyhow::Ok((width, height, total_duration, frame_timings))
+                })?;
+            if frame_timings.len() > 1 {
+                return Ok(ImageHandle {
                     current_frame: 0,
                     reader: Some(ImageReader::Animated(frames.reset()?)),
                     format: aviutl2::input::InputPixelFormat::Bgra,
@@ -144,35 +143,34 @@ impl InputPlugin for ImageInputPlugin {
                     length_in_seconds: total_duration,
                     width,
                     height,
-                })
-            }
-            Err(_) => {
-                let decoded = decoder.decode()?;
-                let (width, height) = decoded.dimensions();
-                let format = match decoded {
-                    image::DynamicImage::ImageRgb8(_) | image::DynamicImage::ImageRgba8(_) => {
-                        aviutl2::input::InputPixelFormat::Bgra
-                    }
-                    _ => aviutl2::input::InputPixelFormat::Pa64,
-                };
-                let mut frame_timings = std::collections::BTreeMap::new();
-                frame_timings.insert(OrderedFloat(0.0), 0);
-
-                Ok(ImageHandle {
-                    current_frame: 0,
-                    reader: Some(ImageReader::Single(Box::new(
-                        image::ImageReader::open(&file)?
-                            .with_guessed_format()?
-                            .into_decoder()?,
-                    ))),
-                    format,
-                    frame_timings,
-                    length_in_seconds: 0.0,
-                    width,
-                    height,
-                })
+                });
             }
         }
+
+        let decoded = decoder.decode()?;
+        let (width, height) = decoded.dimensions();
+        let format = match decoded {
+            image::DynamicImage::ImageRgb8(_) | image::DynamicImage::ImageRgba8(_) => {
+                aviutl2::input::InputPixelFormat::Bgra
+            }
+            _ => aviutl2::input::InputPixelFormat::Pa64,
+        };
+        let mut frame_timings = std::collections::BTreeMap::new();
+        frame_timings.insert(OrderedFloat(0.0), 0);
+
+        Ok(ImageHandle {
+            current_frame: 0,
+            reader: Some(ImageReader::Single(Box::new(
+                image::ImageReader::open(&file)?
+                    .with_guessed_format()?
+                    .into_decoder()?,
+            ))),
+            format,
+            frame_timings,
+            length_in_seconds: 0.0,
+            width,
+            height,
+        })
     }
 
     fn get_input_info(
