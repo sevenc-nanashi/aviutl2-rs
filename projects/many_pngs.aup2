@@ -18,7 +18,7 @@ display.camera=
 [0]
 layer=0
 focus=1
-frame=0,80
+frame=0,120
 [0.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\000.png
@@ -42,7 +42,7 @@ Z軸回転=0.00
 [1]
 layer=1
 focus=1
-frame=0,80
+frame=0,120
 [1.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\001.png
@@ -66,7 +66,7 @@ Z軸回転=0.00
 [2]
 layer=2
 focus=1
-frame=0,80
+frame=0,120
 [2.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\002.png
@@ -90,7 +90,7 @@ Z軸回転=0.00
 [3]
 layer=3
 focus=1
-frame=0,80
+frame=0,120
 [3.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\003.png
@@ -114,7 +114,7 @@ Z軸回転=0.00
 [4]
 layer=4
 focus=1
-frame=0,80
+frame=0,120
 [4.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\004.png
@@ -138,7 +138,7 @@ Z軸回転=0.00
 [5]
 layer=5
 focus=1
-frame=0,80
+frame=0,120
 [5.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\005.png
@@ -162,7 +162,7 @@ Z軸回転=0.00
 [6]
 layer=6
 focus=1
-frame=0,80
+frame=0,120
 [6.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\006.png
@@ -186,7 +186,7 @@ Z軸回転=0.00
 [7]
 layer=7
 focus=1
-frame=0,80
+frame=0,120
 [7.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\007.png
@@ -210,7 +210,7 @@ Z軸回転=0.00
 [8]
 layer=8
 focus=1
-frame=0,80
+frame=0,120
 [8.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\008.png
@@ -234,7 +234,7 @@ Z軸回転=0.00
 [9]
 layer=9
 focus=1
-frame=0,80
+frame=0,120
 [9.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\009.png
@@ -258,7 +258,7 @@ Z軸回転=0.00
 [10]
 layer=10
 focus=1
-frame=0,80
+frame=0,120
 [10.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\010.png
@@ -282,7 +282,7 @@ Z軸回転=0.00
 [11]
 layer=11
 focus=1
-frame=0,80
+frame=0,120
 [11.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\011.png
@@ -306,7 +306,7 @@ Z軸回転=0.00
 [12]
 layer=12
 focus=1
-frame=0,80
+frame=0,120
 [12.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\012.png
@@ -330,7 +330,7 @@ Z軸回転=0.00
 [13]
 layer=13
 focus=1
-frame=0,80
+frame=0,120
 [13.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\013.png
@@ -354,7 +354,7 @@ Z軸回転=0.00
 [14]
 layer=14
 focus=1
-frame=0,80
+frame=0,120
 [14.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\014.png
@@ -378,7 +378,7 @@ Z軸回転=0.00
 [15]
 layer=15
 focus=1
-frame=0,80
+frame=0,120
 [15.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\015.png
@@ -402,7 +402,7 @@ Z軸回転=0.00
 [16]
 layer=16
 focus=1
-frame=0,80
+frame=0,120
 [16.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\016.png
@@ -426,7 +426,7 @@ Z軸回転=0.00
 [17]
 layer=17
 focus=1
-frame=0,80
+frame=0,120
 [17.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\017.png
@@ -450,7 +450,7 @@ Z軸回転=0.00
 [18]
 layer=18
 focus=1
-frame=0,80
+frame=0,120
 [18.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\018.png
@@ -474,7 +474,7 @@ Z軸回転=0.00
 [19]
 layer=19
 focus=1
-frame=0,80
+frame=0,120
 [19.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\019.png
@@ -498,7 +498,7 @@ Z軸回転=0.00
 [20]
 layer=20
 focus=1
-frame=0,80
+frame=0,120
 [20.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\020.png
@@ -522,7 +522,7 @@ Z軸回転=0.00
 [21]
 layer=21
 focus=1
-frame=0,80
+frame=0,120
 [21.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\021.png
@@ -546,7 +546,7 @@ Z軸回転=0.00
 [22]
 layer=22
 focus=1
-frame=0,80
+frame=0,120
 [22.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\022.png
@@ -570,7 +570,7 @@ Z軸回転=0.00
 [23]
 layer=23
 focus=1
-frame=0,80
+frame=0,120
 [23.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\023.png
@@ -594,7 +594,7 @@ Z軸回転=0.00
 [24]
 layer=24
 focus=1
-frame=0,80
+frame=0,120
 [24.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\024.png
@@ -618,7 +618,7 @@ Z軸回転=0.00
 [25]
 layer=25
 focus=1
-frame=0,80
+frame=0,120
 [25.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\025.png
@@ -642,7 +642,7 @@ Z軸回転=0.00
 [26]
 layer=26
 focus=1
-frame=0,80
+frame=0,120
 [26.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\026.png
@@ -666,7 +666,7 @@ Z軸回転=0.00
 [27]
 layer=27
 focus=1
-frame=0,80
+frame=0,120
 [27.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\027.png
@@ -690,7 +690,7 @@ Z軸回転=0.00
 [28]
 layer=28
 focus=1
-frame=0,80
+frame=0,120
 [28.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\028.png
@@ -714,7 +714,7 @@ Z軸回転=0.00
 [29]
 layer=29
 focus=1
-frame=0,80
+frame=0,120
 [29.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\029.png
@@ -738,7 +738,7 @@ Z軸回転=0.00
 [30]
 layer=30
 focus=1
-frame=0,80
+frame=0,120
 [30.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\030.png
@@ -762,7 +762,7 @@ Z軸回転=0.00
 [31]
 layer=31
 focus=1
-frame=0,80
+frame=0,120
 [31.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\031.png
@@ -786,7 +786,7 @@ Z軸回転=0.00
 [32]
 layer=32
 focus=1
-frame=0,80
+frame=0,120
 [32.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\032.png
@@ -810,7 +810,7 @@ Z軸回転=0.00
 [33]
 layer=33
 focus=1
-frame=0,80
+frame=0,120
 [33.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\033.png
@@ -834,7 +834,7 @@ Z軸回転=0.00
 [34]
 layer=34
 focus=1
-frame=0,80
+frame=0,120
 [34.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\034.png
@@ -858,7 +858,7 @@ Z軸回転=0.00
 [35]
 layer=35
 focus=1
-frame=0,80
+frame=0,120
 [35.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\035.png
@@ -882,7 +882,7 @@ Z軸回転=0.00
 [36]
 layer=36
 focus=1
-frame=0,80
+frame=0,120
 [36.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\036.png
@@ -906,7 +906,7 @@ Z軸回転=0.00
 [37]
 layer=37
 focus=1
-frame=0,80
+frame=0,120
 [37.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\037.png
@@ -930,7 +930,7 @@ Z軸回転=0.00
 [38]
 layer=38
 focus=1
-frame=0,80
+frame=0,120
 [38.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\038.png
@@ -954,7 +954,7 @@ Z軸回転=0.00
 [39]
 layer=39
 focus=1
-frame=0,80
+frame=0,120
 [39.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\039.png
@@ -978,7 +978,7 @@ Z軸回転=0.00
 [40]
 layer=40
 focus=1
-frame=0,80
+frame=0,120
 [40.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\040.png
@@ -1002,7 +1002,7 @@ Z軸回転=0.00
 [41]
 layer=41
 focus=1
-frame=0,80
+frame=0,120
 [41.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\041.png
@@ -1026,7 +1026,7 @@ Z軸回転=0.00
 [42]
 layer=42
 focus=1
-frame=0,80
+frame=0,120
 [42.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\042.png
@@ -1050,7 +1050,7 @@ Z軸回転=0.00
 [43]
 layer=43
 focus=1
-frame=0,80
+frame=0,120
 [43.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\043.png
@@ -1074,7 +1074,7 @@ Z軸回転=0.00
 [44]
 layer=44
 focus=1
-frame=0,80
+frame=0,120
 [44.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\044.png
@@ -1098,7 +1098,7 @@ Z軸回転=0.00
 [45]
 layer=45
 focus=1
-frame=0,80
+frame=0,120
 [45.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\045.png
@@ -1122,7 +1122,7 @@ Z軸回転=0.00
 [46]
 layer=46
 focus=1
-frame=0,80
+frame=0,120
 [46.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\046.png
@@ -1146,7 +1146,7 @@ Z軸回転=0.00
 [47]
 layer=47
 focus=1
-frame=0,80
+frame=0,120
 [47.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\047.png
@@ -1170,7 +1170,7 @@ Z軸回転=0.00
 [48]
 layer=48
 focus=1
-frame=0,80
+frame=0,120
 [48.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\048.png
@@ -1194,7 +1194,7 @@ Z軸回転=0.00
 [49]
 layer=49
 focus=1
-frame=0,80
+frame=0,120
 [49.0]
 effect.name=画像ファイル
 ファイル=E:\aviutl2-rs\projects\dummy_images\049.png
