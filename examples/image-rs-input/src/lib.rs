@@ -10,13 +10,21 @@ use ordered_float::OrderedFloat;
 struct ImageInputPlugin {}
 
 enum ImageReader {
-    Animated(image::Frames<'static>), // TODO: ライフタイム周りをどうにかする
+    Animated(OwnedFrames),
     Single(Box<dyn image::ImageDecoder>),
     SingleCached(ImageBuffer),
 }
 
 unsafe impl Send for ImageReader {}
 unsafe impl Sync for ImageReader {}
+
+#[ouroboros::self_referencing]
+struct OwnedFrames {
+    content: std::io::BufReader<std::fs::File>,
+    #[borrows(mut content)]
+    #[covariant]
+    frames: image::Frames<'this>,
+}
 
 struct ImageHandle {
     reader: Option<ImageReader>,
@@ -70,28 +78,33 @@ impl InputPlugin for ImageInputPlugin {
             .ok_or_else(|| anyhow::anyhow!("Failed to guess image format"))?;
         let frames = open_frames(&file, format).ok();
         match frames {
-            Some(frames) => {
-                let mut frame_timings = std::collections::BTreeMap::new();
-                let mut total_duration = 0.0;
-                let mut width = 0;
-                let mut height = 0;
-                for frame in frames {
-                    let frame = frame?;
-                    let delay = frame.delay().numer_denom_ms();
-                    let duration = delay.0 as f32 / delay.1 as f32 / 1000.0;
-                    let img = frame.into_buffer();
-                    if width == 0 && height == 0 {
-                        width = img.width();
-                        height = img.height();
-                    } else {
-                        anyhow::ensure!(
-                            width == img.width() && height == img.height(),
-                            "All frames must have the same dimensions"
-                        );
-                    }
-                    frame_timings.insert(OrderedFloat(total_duration), frame_timings.len());
-                    total_duration += duration;
-                }
+            Some(mut frames) => {
+                let (width, height, total_duration, frame_timings) =
+                    frames.with_frames_mut(|frames| {
+                        let mut frame_timings = std::collections::BTreeMap::new();
+                        let mut total_duration = 0.0;
+                        let mut width = 0;
+                        let mut height = 0;
+                        for frame in frames {
+                            let frame = frame?;
+                            let delay = frame.delay().numer_denom_ms();
+                            let duration = delay.0 as f32 / delay.1 as f32 / 1000.0;
+                            let img = frame.into_buffer();
+                            if width == 0 && height == 0 {
+                                width = img.width();
+                                height = img.height();
+                            } else {
+                                anyhow::ensure!(
+                                    width == img.width() && height == img.height(),
+                                    "All frames must have the same dimensions"
+                                );
+                            }
+                            frame_timings.insert(OrderedFloat(total_duration), frame_timings.len());
+                            total_duration += duration;
+                        }
+
+                        Ok((width, height, total_duration, frame_timings))
+                    })?;
                 anyhow::ensure!(!frame_timings.is_empty(), "No frames found");
 
                 Ok(ImageHandle {
@@ -187,12 +200,11 @@ impl InputPlugin for ImageInputPlugin {
                     frames
                 };
                 while handle.current_frame < frame {
-                    frames.next().transpose()?;
+                    frames.with_frames_mut(|frames| frames.next().transpose())?;
                     handle.current_frame += 1;
                 }
                 let frame = frames
-                    .next()
-                    .transpose()?
+                    .with_frames_mut(|frames| frames.next().transpose())?
                     .ok_or_else(|| anyhow::anyhow!("Failed to get frame {}", frame))?;
                 handle.current_frame += 1;
                 let img = frame.into_buffer();
@@ -259,28 +271,27 @@ impl InputPlugin for ImageInputPlugin {
 fn open_frames(
     file: &std::path::PathBuf,
     format: image::ImageFormat,
-) -> Result<image::Frames<'static>, anyhow::Error> {
-    Ok(match format {
-        image::ImageFormat::Gif => {
-            let decoder = image::codecs::gif::GifDecoder::new(std::io::BufReader::new(
-                std::fs::File::open(file)?,
-            ))?;
-            decoder.into_frames()
-        }
-        image::ImageFormat::WebP => {
-            let decoder = image::codecs::webp::WebPDecoder::new(std::io::BufReader::new(
-                std::fs::File::open(file)?,
-            ))?;
-            decoder.into_frames()
-        }
-        image::ImageFormat::Png => {
-            let decoder = image::codecs::png::PngDecoder::new(std::io::BufReader::new(
-                std::fs::File::open(file)?,
-            ))?;
-            decoder.apng()?.into_frames()
-        }
-        _ => anyhow::bail!("Unsupported animated format: {:?}", format),
-    })
+) -> Result<OwnedFrames, anyhow::Error> {
+    OwnedFrames::try_new(
+        std::io::BufReader::new(std::fs::File::open(file)?),
+        |content| {
+            Ok(match format {
+                image::ImageFormat::Gif => {
+                    let decoder = image::codecs::gif::GifDecoder::new(content)?;
+                    decoder.into_frames()
+                }
+                image::ImageFormat::WebP => {
+                    let decoder = image::codecs::webp::WebPDecoder::new(content)?;
+                    decoder.into_frames()
+                }
+                image::ImageFormat::Png => {
+                    let decoder = image::codecs::png::PngDecoder::new(content)?;
+                    decoder.apng()?.into_frames()
+                }
+                _ => anyhow::bail!("Unsupported animated format: {:?}", format),
+            })
+        },
+    )
 }
 
 register_input_plugin!(ImageInputPlugin);
