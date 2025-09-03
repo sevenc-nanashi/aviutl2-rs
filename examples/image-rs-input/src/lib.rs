@@ -89,21 +89,16 @@ impl InputPlugin for ImageInputPlugin {
                             let frame = frame?;
                             let delay = frame.delay().numer_denom_ms();
                             let duration = delay.0 as f32 / delay.1 as f32 / 1000.0;
-                            let img = frame.into_buffer();
                             if width == 0 && height == 0 {
+                                let img = frame.into_buffer();
                                 width = img.width();
                                 height = img.height();
-                            } else {
-                                anyhow::ensure!(
-                                    width == img.width() && height == img.height(),
-                                    "All frames must have the same dimensions"
-                                );
                             }
                             frame_timings.insert(OrderedFloat(total_duration), frame_timings.len());
                             total_duration += duration;
                         }
 
-                        Ok((width, height, total_duration, frame_timings))
+                        anyhow::Ok((width, height, total_duration, frame_timings))
                     })?;
                 anyhow::ensure!(!frame_timings.is_empty(), "No frames found");
 
