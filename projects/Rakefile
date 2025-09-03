@@ -5,5 +5,6 @@ task :prepare_many_pngs do
   (1..50).each do |i|
     FileUtils.cp("./dummy_images/000.png", "./dummy_images/#{i.to_s.rjust(3, "0")}.png", verbose: true)
     FileUtils.cp("./dummy_images/000.apng", "./dummy_images/#{i.to_s.rjust(3, "0")}.apng", verbose: true)
+    FileUtils.cp("./dummy_images/000.webp", "./dummy_images/#{i.to_s.rjust(3, "0")}.webp", verbose: true)
   end
 end
