@@ -201,9 +201,12 @@ impl AsImage for &[u8] {
     }
 }
 
-impl AsImage for [u8] {
+impl AsImage for Cow<'_, [u8]> {
     fn as_image(&'_ self) -> Cow<'_, [u8]> {
-        Cow::Borrowed(self)
+        match self {
+            Cow::Borrowed(b) => Cow::Borrowed(b),
+            Cow::Owned(b) => Cow::Borrowed(b),
+        }
     }
 }
 
