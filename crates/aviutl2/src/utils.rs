@@ -1,12 +1,3 @@
-/// OutputDebugStringのラッパー関数。
-#[macro_export]
-macro_rules! debug_print {
-    ($($arg:tt)*) => {
-        let message = format!($($arg)*);
-        $crate::utils::debug_print_impl(&message);
-    };
-}
-
 /// OutputDebugStringに出力する[`dbg!`]マクロ。
 ///
 /// # See Also
@@ -14,12 +5,12 @@ macro_rules! debug_print {
 #[macro_export]
 macro_rules! odbg {
     () => {
-        $crate::debug_print!("[{}:{}:{}]", ::std::file!(), ::std::line!(), ::std::column!());
+        $crate::oprintln!("[{}:{}:{}]", ::std::file!(), ::std::line!(), ::std::column!());
     };
     ($val:expr $(,)?) => {
         match $val {
             tmp => {
-                $crate::debug_print!("[{}:{}:{}] {} = {:#?}",
+                $crate::oprintln!("[{}:{}:{}] {} = {:#?}",
                     ::std::file!(),
                     ::std::line!(),
                     ::std::column!(),
@@ -43,16 +34,6 @@ macro_rules! oprintln {
         $crate::utils::debug_print_impl(&message);
     };
 }
-
-// pub(crate) fn result_to_bool_with_debug_print<T>(result: AnyResult<T>) -> bool {
-//     match result {
-//         Ok(_) => true,
-//         Err(e) => {
-//             debug_print!("Error: {e}");
-//             false
-//         }
-//     }
-// }
 
 #[doc(hidden)]
 pub fn debug_print_impl(message: &str) {
