@@ -201,6 +201,12 @@ impl AsImage for &[u8] {
     }
 }
 
+impl AsImage for [u8] {
+    fn as_image(&'_ self) -> Cow<'_, [u8]> {
+        Cow::Borrowed(self)
+    }
+}
+
 duplicate::duplicate! {
     [
         Name            Trait     method;
