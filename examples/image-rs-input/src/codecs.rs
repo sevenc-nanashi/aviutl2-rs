@@ -98,8 +98,8 @@ pub fn read_webp_headers<R: std::io::Read + std::io::Seek>(
                     chunk_data.len() >= 10,
                     "VP8 chunk too small to contain width and height"
                 );
-                width = u32::from_le_bytes(chunk_data[6..8].try_into().unwrap()) & 0x3FFF;
-                height = u32::from_le_bytes(chunk_data[8..10].try_into().unwrap()) & 0x3FFF;
+                width = u16::from_le_bytes(chunk_data[6..8].try_into().unwrap()) as u32;
+                height = u16::from_le_bytes(chunk_data[8..10].try_into().unwrap()) as u32;
             }
             "ANIM" => {
                 anyhow::ensure!(
@@ -178,11 +178,28 @@ mod tests {
     }
 
     #[test]
+    fn test_read_png_headers() {
+        let data = include_bytes!("../test_data/static.png");
+        let mut cursor = std::io::Cursor::new(data.as_ref());
+        let animation_info = read_apng_headers(&mut cursor).unwrap();
+
+        insta::assert_debug_snapshot!(animation_info);
+    }
+
+    #[test]
     fn test_read_gif_headers() {
         let data = include_bytes!("../test_data/dummy.gif");
         let mut cursor = std::io::Cursor::new(data.as_ref());
         let animation_info = read_gif_headers(&mut cursor).unwrap();
 
+        insta::assert_debug_snapshot!(animation_info);
+    }
+
+    #[test]
+    fn test_read_static_gif_headers() {
+        let data = include_bytes!("../test_data/static.gif");
+        let mut cursor = std::io::Cursor::new(data.as_ref());
+        let animation_info = read_gif_headers(&mut cursor).unwrap();
         insta::assert_debug_snapshot!(animation_info);
     }
 
@@ -198,6 +215,15 @@ mod tests {
     #[test]
     fn test_read_lossless_webp_headers() {
         let data = include_bytes!("../test_data/dummy_lossless.webp");
+        let mut cursor = std::io::Cursor::new(data.as_ref());
+        let animation_info = read_webp_headers(&mut cursor).unwrap();
+
+        insta::assert_debug_snapshot!(animation_info);
+    }
+
+    #[test]
+    fn test_read_static_webp_headers() {
+        let data = include_bytes!("../test_data/static.webp");
         let mut cursor = std::io::Cursor::new(data.as_ref());
         let animation_info = read_webp_headers(&mut cursor).unwrap();
 
