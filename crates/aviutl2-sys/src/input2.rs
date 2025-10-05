@@ -1,10 +1,6 @@
-#![allow(
-    non_snake_case,
-    non_camel_case_types,
-    non_upper_case_globals,
-    dead_code
-)]
+#![allow(non_snake_case, non_camel_case_types, non_upper_case_globals)]
 
+use crate::common::LPCWSTR;
 use std::ffi::c_void;
 
 pub use windows_sys::Win32::{
@@ -15,23 +11,6 @@ pub use windows_sys::Win32::{
         Multimedia::WAVE_FORMAT_IEEE_FLOAT,
     },
 };
-
-macro_rules! fourcc {
-    ($a:expr, $b:expr, $c:expr, $d:expr) => {
-        (($a as u32) | (($b as u32) << 8) | (($c as u32) << 16) | (($d as u32) << 24))
-    };
-}
-
-/// YUY2（YUV 4:2:2）フォーマット
-pub const BI_YUY2: u32 = fourcc!('Y', 'U', 'Y', '2');
-/// PA64（DXGI_FORMAT_R16G16B16A16_UNORM、乗算済みα）フォーマット
-pub const BI_PA64: u32 = fourcc!('P', 'A', '6', '4');
-/// YC48（互換対応の旧内部フォーマット）フォーマット
-pub const BI_YC48: u32 = fourcc!('Y', 'C', '4', '8');
-/// HF64（DXGI_FORMAT_R16G16B16A16_FLOAT、乗算済みα）フォーマット
-pub const BI_HF64: u32 = fourcc!('H', 'F', '6', '4');
-
-pub type LPCWSTR = *const u16;
 
 /// 入力ファイル情報構造体
 #[repr(C)]
@@ -191,7 +170,9 @@ impl INPUT_PLUGIN_TABLE {
     pub const FLAG_VIDEO: i32 = 1;
     /// 音声をサポートする
     pub const FLAG_AUDIO: i32 = 2;
-    /// 画像・音声データの同時取得をサポートする ※画像と音声取得関数が同時に呼ばれる
+    /// 画像・音声データの同時取得をサポートする
+    /// ※同一ハンドルで画像と音声の取得関数が同時に呼ばれる
+    /// ※異なるハンドルで各関数が同時に呼ばれる
     pub const FLAG_CONCURRENT: i32 = 16;
     /// マルチトラックをサポートする ※func_set_track()が呼ばれるようになる
     pub const FLAG_MULTI_TRACK: i32 = 32;

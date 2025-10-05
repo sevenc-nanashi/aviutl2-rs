@@ -5,10 +5,7 @@ use crate::{
     output::{FromRawAudioSamples, OutputInfo, OutputPlugin},
 };
 
-use aviutl2_sys::{
-    input2::WAVE_FORMAT_PCM,
-    output2::{LPCWSTR, WAVE_FORMAT_IEEE_FLOAT},
-};
+use aviutl2_sys::{common::LPCWSTR, input2::WAVE_FORMAT_PCM, output2::WAVE_FORMAT_IEEE_FLOAT};
 
 pub struct InternalOutputPluginState<T: Send + Sync + OutputPlugin> {
     leak_manager: LeakManager,

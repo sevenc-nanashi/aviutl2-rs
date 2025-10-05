@@ -37,10 +37,10 @@ impl VideoInputInfo {
     fn into_raw(self) -> aviutl2_sys::input2::BITMAPINFOHEADER {
         let bi_compression = match self.format {
             InputPixelFormat::Bgr | InputPixelFormat::Bgra => aviutl2_sys::input2::BI_RGB,
-            InputPixelFormat::Yuy2 => aviutl2_sys::input2::BI_YUY2,
-            InputPixelFormat::Pa64 => aviutl2_sys::input2::BI_PA64,
-            InputPixelFormat::Hf64 => aviutl2_sys::input2::BI_HF64,
-            InputPixelFormat::Yc48 => aviutl2_sys::input2::BI_YC48,
+            InputPixelFormat::Yuy2 => aviutl2_sys::common::BI_YUY2,
+            InputPixelFormat::Pa64 => aviutl2_sys::common::BI_PA64,
+            InputPixelFormat::Hf64 => aviutl2_sys::common::BI_HF64,
+            InputPixelFormat::Yc48 => aviutl2_sys::common::BI_YC48,
         };
 
         // NOTE:
@@ -113,7 +113,7 @@ struct InternalInputHandle<T: Send + Sync> {
 #[allow(clippy::too_many_arguments)]
 pub unsafe fn create_table<T: InputPlugin>(
     plugin_state: &InternalInputPluginState<T>,
-    func_open: extern "C" fn(aviutl2_sys::input2::LPCWSTR) -> aviutl2_sys::input2::INPUT_HANDLE,
+    func_open: extern "C" fn(aviutl2_sys::common::LPCWSTR) -> aviutl2_sys::input2::INPUT_HANDLE,
     func_close: extern "C" fn(aviutl2_sys::input2::INPUT_HANDLE) -> bool,
     func_info_get: extern "C" fn(
         aviutl2_sys::input2::INPUT_HANDLE,
@@ -172,7 +172,7 @@ pub unsafe fn create_table<T: InputPlugin>(
 }
 pub unsafe fn func_open<T: InputPlugin>(
     plugin_state: &InternalInputPluginState<T>,
-    file: aviutl2_sys::input2::LPCWSTR,
+    file: aviutl2_sys::common::LPCWSTR,
 ) -> aviutl2_sys::input2::INPUT_HANDLE {
     plugin_state.leak_manager.free_leaked_memory();
     let path = load_wide_string(file);
