@@ -1,4 +1,3 @@
-use aviutl2::log;
 use biquad::{Biquad, ToHertz};
 
 pub struct EqState {

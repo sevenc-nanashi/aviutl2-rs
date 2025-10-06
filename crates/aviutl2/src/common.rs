@@ -162,51 +162,9 @@ pub(crate) fn format_file_filters(file_filters: &[FileFilter]) -> String {
 
     file_filter
 }
-pub(crate) fn from_file_filters_lpcwstr(ptr: aviutl2_sys::common::LPCWSTR) -> Vec<FileFilter> {
-    let mut filters = Vec::new();
-    loop {
-        if ptr.is_null() || unsafe { *ptr } == 0 {
-            break;
-        }
-        let mut name_len = 0;
-        while unsafe { *ptr.add(name_len) } != 0 {
-            name_len += 1;
-        }
-        let name = unsafe { String::from_utf16_lossy(std::slice::from_raw_parts(ptr, name_len)) };
-        let ptr = unsafe { ptr.add(name_len + 1) };
-        if ptr.is_null() || unsafe { *ptr } == 0 {
-            break;
-        }
-        let mut ext_len = 0;
-        while unsafe { *ptr.add(ext_len) } != 0 {
-            ext_len += 1;
-        }
-        let exts_str =
-            unsafe { String::from_utf16_lossy(std::slice::from_raw_parts(ptr, ext_len)) };
-        let extensions = exts_str
-            .split(';')
-            .map(|s| s.trim_start_matches("*.").to_string())
-            .collect::<Vec<_>>();
-
-        let mut last_bracket = None;
-        for (i, c) in name.char_indices() {
-            if c == '(' {
-                last_bracket = Some(i);
-            }
-        }
-        let name = if let Some(pos) = last_bracket {
-            name[..(pos - 1)].to_string()
-        } else {
-            name
-        };
-        filters.push(FileFilter { name, extensions });
-    }
-    filters
-}
 
 pub(crate) enum LeakType {
     WideString,
-    PtrVector(usize),
     ValueVector { len: usize, name: String },
     Null,
     Other(String),
@@ -248,23 +206,18 @@ impl LeakManager {
         ptr as *const u16
     }
 
-    pub fn leak_ptr_vec<T: IntoLeakedPtr>(&self, vec: Vec<T>) -> *const T {
-        log::debug!("Leaking vector of type {}", std::any::type_name::<T>());
-        let mut raw_ptrs = Vec::with_capacity(vec.len() + 1);
-        let vec_len = vec.len();
-        for item in vec {
-            let leaked = item.into_leaked_ptr();
-            let ptr = leaked.1;
-            raw_ptrs.push(ptr as *const T);
-            let mut ptrs = self.ptrs.lock().unwrap();
-            ptrs.push(leaked);
-        }
-        let boxed = raw_ptrs.into_boxed_slice();
-        let ptr = Box::into_raw(boxed) as *mut *const T as usize;
-        let mut ptrs = self.ptrs.lock().unwrap();
-        ptrs.push((LeakType::PtrVector(vec_len), ptr));
-        ptr as *const T
-    }
+    // pub fn leak_ptr_vec<T: IntoLeakedPtr>(&self, vec: Vec<T>) -> *const *const T {
+    //     log::debug!("Leaking vector of type {}", std::any::type_name::<T>());
+    //     let mut raw_ptrs = Vec::with_capacity(vec.len() + 1);
+    //     for item in vec {
+    //         let leaked = item.into_leaked_ptr();
+    //         let ptr = leaked.1;
+    //         raw_ptrs.push(ptr);
+    //         let mut ptrs = self.ptrs.lock().unwrap();
+    //         ptrs.push(leaked);
+    //     }
+    //     self.leak_value_vec(raw_ptrs) as _
+    // }
 
     pub fn leak_value_vec<T: LeakableValue>(&self, vec: Vec<T>) -> *const T {
         log::debug!(
@@ -291,12 +244,6 @@ impl LeakManager {
             match ptr_type {
                 LeakType::WideString => unsafe {
                     let _ = Box::from_raw(ptr as *mut u16);
-                },
-                LeakType::PtrVector(len) => unsafe {
-                    let raw_ptrs = std::slice::from_raw_parts(ptr as *const *const (), len + 1);
-                    for &raw_ptr in raw_ptrs.iter().take(len) {
-                        let _ = Box::from_raw(raw_ptr as *mut ());
-                    }
                 },
                 LeakType::ValueVector { len, name } => {
                     Self::free_leaked_memory_leakable_value(&name, ptr, len);
@@ -427,11 +374,6 @@ mod tests {
         let formatted = format_file_filters(&filters);
         let expected = "Image Files (.png, .jpg)\x00*.png;*.jpg\x00All Files (*)\x00*\x00";
         assert_eq!(formatted, expected);
-
-        let leak_manager = LeakManager::new();
-        let lpcwstr = leak_manager.leak_as_wide_string(&formatted);
-        let parsed = from_file_filters_lpcwstr(lpcwstr);
-        assert_eq!(parsed, filters);
     }
 
     #[test]

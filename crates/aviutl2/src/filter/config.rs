@@ -115,10 +115,7 @@ impl FilterConfigItem {
         }
     }
 
-    pub(crate) unsafe fn apply_from_raw(
-        &mut self,
-        raw: *const aviutl2_sys::filter2::FILTER_ITEM,
-    ) -> () {
+    pub(crate) unsafe fn apply_from_raw(&mut self, raw: *const aviutl2_sys::filter2::FILTER_ITEM) {
         #[cfg(debug_assertions)]
         {
             let item_type = unsafe {
