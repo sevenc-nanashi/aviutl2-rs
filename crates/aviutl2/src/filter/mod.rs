@@ -5,7 +5,7 @@
 //! 1. [`FilterPlugin`]トレイトを実装した構造体を定義する
 //! 2. [`crate::register_filter_plugin!`]マクロを使用してプラグインを登録する
 //!
-//! サンプルは<https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/todo>を参照してください。
+//! サンプルは<https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/equalizer-filter>を参照してください。
 
 mod binding;
 mod config;

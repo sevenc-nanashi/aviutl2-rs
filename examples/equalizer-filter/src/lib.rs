@@ -56,7 +56,10 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
         aviutl2::filter::FilterPluginTable {
             name: "Equalizer Filter".to_string(),
             label: None,
-            information: "An example equalizer filter plugin.".to_string(),
+            information: format!(
+                "Simple equalizer, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/equalizer-filter",
+                version = env!("CARGO_PKG_VERSION")
+            ),
             filter_type: aviutl2::filter::FilterType::Both,
             wants_initial_input: false,
             config_items: FilterConfig::to_config_items(),
