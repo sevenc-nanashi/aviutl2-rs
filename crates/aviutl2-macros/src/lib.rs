@@ -38,9 +38,9 @@ enum FilterConfigField {
 /// ```rust
 /// #[derive(Debug, aviutl2::filter::FilterConfigItems)]
 /// struct FilterConfig {
-///     #[track(name = "サンプル整数", min = 0, max = 100, default = 50, step = 1.0)]
+///     #[track(name = "サンプル整数", range = -100..=100, default = 0, step = 1.0)]
 ///     sample_integer: i32,
-///     #[track(name = "サンプル小数", min = -1.0, max = 1.0, default = 0.0, step = 0.01)]
+///     #[track(name = "サンプル小数", range = -1.0..=1.0, default = 0.0, step = 0.01)]
 ///     sample_float: f64,
 ///     #[check(name = "サンプルチェックボックス", default = true)]
 ///     sample_checkbox: bool,
