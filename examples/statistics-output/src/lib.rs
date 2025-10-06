@@ -31,16 +31,10 @@ impl OutputPlugin for StatisticsPlugin {
                 version = env!("CARGO_PKG_VERSION")
             ),
             output_type: aviutl2::output::OutputType::Video,
-            file_filters: vec![
-                aviutl2::FileFilter {
-                    name: "Statistics Page".to_string(),
-                    extensions: vec!["html".to_string()],
-                },
-                aviutl2::FileFilter {
-                    name: "Raw Statistics Data".to_string(),
-                    extensions: vec!["json".to_string()],
-                },
-            ],
+            file_filters: aviutl2::file_filters! {
+                "Statistics Page" => ["html"],
+                "Raw Statistics Data" => ["json"],
+            },
             can_config: false,
         }
     }

@@ -1,6 +1,5 @@
 mod codecs;
 use aviutl2::{
-    FileFilter,
     input::{AnyResult, ImageBuffer, ImageReturner, InputPlugin, IntoImage as _, Rational32},
     register_input_plugin,
 };
@@ -58,20 +57,19 @@ impl InputPlugin for ImageInputPlugin {
         aviutl2::input::InputPluginTable {
             name: "Rusty Image Input".to_string(),
             input_type: aviutl2::input::InputType::Video,
-            file_filters: vec![FileFilter {
-                name: "Image Files".to_string(),
-                extensions: vec![
-                    "webp".to_string(),
-                    "png".to_string(),
-                    "apng".to_string(),
-                    "jpg".to_string(),
-                    "jpeg".to_string(),
-                    "bmp".to_string(),
-                    "tiff".to_string(),
-                    "gif".to_string(),
-                    "hdr".to_string(),
+            file_filters: aviutl2::file_filters! {
+                "Image Files" => [
+                    "webp",
+                    "png",
+                    "apng",
+                    "jpg",
+                    "jpeg",
+                    "bmp",
+                    "tiff",
+                    "gif",
+                    "hdr",
                 ],
-            }],
+            },
             information: format!(
                 "image-rs Input for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-input",
                 version = env!("CARGO_PKG_VERSION")

@@ -21,7 +21,7 @@ pub struct FileFilter {
     pub extensions: Vec<String>,
 }
 
-/// Vec<FileFilter>を簡単に作成するためのマクロ。
+/// [`Vec<FileFilter>`]を簡単に作成するためのマクロ。
 ///
 /// # Example
 ///

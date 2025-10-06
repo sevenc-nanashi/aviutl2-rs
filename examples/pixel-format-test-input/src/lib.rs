@@ -1,4 +1,3 @@
-use aviutl2::FileFilter;
 use aviutl2::input::{
     AnyResult, ImageReturner, InputInfo, InputPixelFormat, InputPlugin, InputPluginTable,
     VideoInputInfo, f16,
@@ -25,9 +24,8 @@ impl InputPlugin for PixelFormatTestPlugin {
         InputPluginTable {
             name: "Pixel Format Tester".to_string(),
             input_type: aviutl2::input::InputType::Video,
-            file_filters: vec![FileFilter {
-                name: "Pixel Formats".to_string(),
-                extensions: vec![
+            file_filters: aviutl2::file_filters! {
+                "Pixel Formats" => [
                     "bgra".to_string(),
                     "bgr".to_string(),
                     "yuy2".to_string(),
@@ -35,7 +33,7 @@ impl InputPlugin for PixelFormatTestPlugin {
                     "hf64".to_string(),
                     "yc48".to_string(),
                 ],
-            }],
+            },
             information: format!(
                 "Pixel Format Test Plugin / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/pixel-format-test-input",
                 version = env!("CARGO_PKG_VERSION")
