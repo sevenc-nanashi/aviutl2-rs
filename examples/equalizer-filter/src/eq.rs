@@ -63,6 +63,14 @@ impl EqState {
             *sample = s * self.wet + orig * (1.0 - self.wet);
         }
     }
+
+    pub fn reset(&mut self) {
+        self.bass.filter.reset_state();
+        self.mid.filter.reset_state();
+        self.treble.filter.reset_state();
+        self.lopass.filter.reset_state();
+        self.hipass.filter.reset_state();
+    }
 }
 pub struct PeakEq {
     sample_rate: f32,
