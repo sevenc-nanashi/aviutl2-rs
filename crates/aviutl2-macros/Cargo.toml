@@ -12,6 +12,7 @@ publish.workspace = true
 proc-macro = true
 
 [dependencies]
+decimal-rs = "0.1.43"
 either = "1.15.0"
 proc-macro2 = "1.0.101"
 quote = "1.0.41"

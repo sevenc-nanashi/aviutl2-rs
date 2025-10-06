@@ -50,7 +50,6 @@ pub unsafe fn create_table<T: FilterPlugin>(
     func_proc_video: extern "C" fn(video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO) -> bool,
     func_proc_audio: extern "C" fn(audio: *mut aviutl2_sys::filter2::FILTER_PROC_AUDIO) -> bool,
 ) -> aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
-    crate::odbg!();
     let plugin_info = &plugin_state.plugin_info;
 
     let name = if cfg!(debug_assertions) {
@@ -64,12 +63,14 @@ pub unsafe fn create_table<T: FilterPlugin>(
         plugin_info.information.clone()
     };
 
-    let flag = plugin_info.input_type.to_bits()
+    let flag = plugin_info.filter_type.to_bits()
         | (if plugin_info.wants_initial_input {
             aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_INPUT
         } else {
             0
         });
+
+    crate::odbg!(&flag);
 
     let items = plugin_info
         .config_items
@@ -79,9 +80,11 @@ pub unsafe fn create_table<T: FilterPlugin>(
                 .global_leak_manager
                 .leak(item.to_raw(&plugin_state.global_leak_manager))
         })
-        .chain(std::iter::once(std::ptr::null())) // 終端用
+        .chain(std::iter::once(std::ptr::null()))
         .collect::<Vec<_>>();
-    let items = plugin_state.global_leak_manager.leak_vec(items);
+    let items = plugin_state
+        .global_leak_manager
+        .leak_value_vec(items.iter().map(|&p| p as usize).collect());
 
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
     aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
@@ -94,10 +97,8 @@ pub unsafe fn create_table<T: FilterPlugin>(
             plugin_state.global_leak_manager.leak_as_wide_string(s)
         }),
         items: items as _,
-        func_proc_video: (((flag & aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_VIDEO) != 0)
-            .then_some(func_proc_video)),
-        func_proc_audio: ((flag & aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_AUDIO != 0)
-            .then_some(func_proc_audio)),
+        func_proc_video: Some(func_proc_video),
+        func_proc_audio: Some(func_proc_audio),
     }
 }
 pub unsafe fn func_proc_video<T: FilterPlugin>(
@@ -107,7 +108,7 @@ pub unsafe fn func_proc_video<T: FilterPlugin>(
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     // TODO
-    false
+    true
 }
 pub unsafe fn func_proc_audio<T: FilterPlugin>(
     plugin_state: &InternalFilterPluginState<T>,
@@ -116,7 +117,7 @@ pub unsafe fn func_proc_audio<T: FilterPlugin>(
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     // TODO
-    false
+    true
 }
 
 /// フィルタプラグインを登録するマクロ。

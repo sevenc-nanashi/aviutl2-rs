@@ -34,9 +34,9 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
     fn plugin_info(&self) -> aviutl2::filter::FilterPluginTable {
         aviutl2::filter::FilterPluginTable {
             name: "Equalizer Filter".to_string(),
-            label: Some("".to_string()),
+            label: None,
             information: "An example equalizer filter plugin.".to_string(),
-            input_type: aviutl2::filter::FilterType::Both,
+            filter_type: aviutl2::filter::FilterType::Both,
             wants_initial_input: false,
             config_items: FilterConfig::to_config_items(),
         }

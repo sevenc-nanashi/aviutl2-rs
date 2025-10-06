@@ -364,18 +364,21 @@ fn filter_config_field_track(
             "default must be between min and max",
         ));
     }
-    if ((default - min) / step).fract() != 0.0 {
+    if min % step != decimal_rs::Decimal::ZERO
+        || max % step != decimal_rs::Decimal::ZERO
+        || default % step != decimal_rs::Decimal::ZERO
+    {
         return Err(syn::Error::new_spanned(
             recognized_attr,
-            "default must be a multiple of step above min",
+            "min, max, and default must be multiples of step",
         ));
     }
     Ok(FilterConfigField::Track {
         id: field.ident.as_ref().unwrap().to_string(),
         name,
-        default,
-        min,
-        max,
+        default: default.into(),
+        min: min.into(),
+        max: max.into(),
         step,
     })
 }
@@ -648,11 +651,11 @@ fn filter_config_field_file(
     })
 }
 
-fn parse_int_or_float(lit: &syn::Lit) -> Result<f64, syn::Error> {
+fn parse_int_or_float(lit: &syn::Lit) -> Result<decimal_rs::Decimal, syn::Error> {
     if let syn::Lit::Int(lit_int) = lit {
-        Ok(lit_int.base10_parse::<f64>()?)
+        Ok(lit_int.base10_parse::<decimal_rs::Decimal>()?)
     } else if let syn::Lit::Float(lit_float) = lit {
-        Ok(lit_float.base10_parse::<f64>()?)
+        Ok(lit_float.base10_parse::<decimal_rs::Decimal>()?)
     } else {
         Err(syn::Error::new_spanned(
             lit,

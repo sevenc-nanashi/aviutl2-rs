@@ -172,8 +172,8 @@ pub(crate) fn format_file_filters(file_filters: &[FileFilter]) -> String {
 
 pub(crate) enum LeakType {
     WideString,
-    VoidPointer,
-    Vector(usize),
+    PtrVector(usize),
+    ValueVector { len: usize, name: String },
     Other(String),
 }
 
@@ -184,6 +184,7 @@ pub(crate) struct LeakManager {
 pub(crate) trait IntoLeakedPtr {
     fn into_leaked_ptr(self) -> (LeakType, usize);
 }
+pub(crate) trait LeakableValue {}
 
 impl LeakManager {
     pub fn new() -> Self {
@@ -212,7 +213,7 @@ impl LeakManager {
         ptr as *const u16
     }
 
-    pub fn leak_vec<T: IntoLeakedPtr>(&self, vec: Vec<T>) -> *const T {
+    pub fn leak_ptr_vec<T: IntoLeakedPtr>(&self, vec: Vec<T>) -> *const T {
         log::debug!("Leaking vector of type {}", std::any::type_name::<T>());
         let mut raw_ptrs = Vec::with_capacity(vec.len() + 1);
         let vec_len = vec.len();
@@ -226,7 +227,26 @@ impl LeakManager {
         let boxed = raw_ptrs.into_boxed_slice();
         let ptr = Box::into_raw(boxed) as *mut *const T as usize;
         let mut ptrs = self.ptrs.lock().unwrap();
-        ptrs.push((LeakType::Vector(vec_len), ptr));
+        ptrs.push((LeakType::PtrVector(vec_len), ptr));
+        ptr as *const T
+    }
+
+    pub fn leak_value_vec<T: LeakableValue>(&self, vec: Vec<T>) -> *const T {
+        log::debug!(
+            "Leaking value vector of type {}",
+            std::any::type_name::<T>()
+        );
+        let len = vec.len();
+        let boxed = vec.into_boxed_slice();
+        let ptr = Box::into_raw(boxed) as *mut T as usize;
+        let mut ptrs = self.ptrs.lock().unwrap();
+        ptrs.push((
+            LeakType::ValueVector {
+                len,
+                name: std::any::type_name::<T>().to_string(),
+            },
+            ptr,
+        ));
         ptr as *const T
     }
 
@@ -237,24 +257,24 @@ impl LeakManager {
                 LeakType::WideString => unsafe {
                     let _ = Box::from_raw(ptr as *mut u16);
                 },
-                LeakType::VoidPointer => {
-                    // Do nothing, as we don't know the type
-                }
-                LeakType::Vector(len) => unsafe {
+                LeakType::PtrVector(len) => unsafe {
                     let raw_ptrs = std::slice::from_raw_parts(ptr as *const *const (), len + 1);
                     for &raw_ptr in raw_ptrs.iter().take(len) {
                         let _ = Box::from_raw(raw_ptr as *mut ());
                     }
                 },
+                LeakType::ValueVector { len, name } => {
+                    Self::free_leaked_memory_leakable_value(&name, ptr, len);
+                }
                 LeakType::Other(ref type_name) => {
-                    Self::free_leaked_memory_other(type_name, ptr);
+                    Self::free_leaked_memory_other_ptr(type_name, ptr);
                 }
             }
         }
     }
 }
 macro_rules! impl_leak_ptr {
-    ($($t:ty),*) => {
+    ($($t:ty),* $(,)?) => {
         $(
             impl IntoLeakedPtr for $t {
                 fn into_leaked_ptr(self) -> (LeakType, usize) {
@@ -266,7 +286,7 @@ macro_rules! impl_leak_ptr {
         )*
 
         impl LeakManager {
-            fn free_leaked_memory_other(ptr_type: &str, ptr: usize) {
+            fn free_leaked_memory_other_ptr(ptr_type: &str, ptr: usize) {
                 unsafe {
                     match ptr_type {
                         $(
@@ -283,18 +303,35 @@ macro_rules! impl_leak_ptr {
         }
     };
 }
+macro_rules! impl_leakable_value {
+    ($($t:ty),* $(,)?) => {
+        $(
+            impl LeakableValue for $t {}
+        )*
+        impl LeakManager {
+            fn free_leaked_memory_leakable_value(type_name: &str, ptr: usize, len: usize) {
+                unsafe {
+                    match type_name {
+                        $(
+                            t if t == std::any::type_name::<$t>() => {
+                                let _ = Box::from_raw(std::slice::from_raw_parts_mut(ptr as *mut $t, len));
+                            },
+                        )*
+                        _ => {
+                            unreachable!("Unknown leaked value vector type: {}", type_name);
+                        }
+                    }
+                }
+            }
+        }
+    };
+}
 impl_leak_ptr!(
     aviutl2_sys::input2::WAVEFORMATEX,
     aviutl2_sys::output2::BITMAPINFOHEADER,
     aviutl2_sys::filter2::FILTER_ITEM,
-    aviutl2_sys::filter2::FILTER_ITEM_SELECT_ITEM
 );
-
-impl<T> IntoLeakedPtr for *const T {
-    fn into_leaked_ptr(self) -> (LeakType, usize) {
-        (LeakType::VoidPointer, self as usize)
-    }
-}
+impl_leakable_value!(aviutl2_sys::filter2::FILTER_ITEM_SELECT_ITEM, usize);
 
 impl Drop for LeakManager {
     fn drop(&mut self) {

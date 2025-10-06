@@ -35,7 +35,7 @@ pub struct FILTER_ITEM_TRACK {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct FILTER_ITEM_CHECKBOX {
-    /// 設定の種別（L"checkbox"）
+    /// 設定の種別（L"check"）
     pub r#type: LPCWSTR,
     /// 設定名
     pub name: LPCWSTR,
@@ -153,6 +153,7 @@ pub struct OBJECT_INFO {
 }
 
 /// 画像フィルタ処理用構造体
+#[repr(C)]
 pub struct FILTER_PROC_VIDEO {
     /// シーン情報
     pub scene: *const SCENE_INFO,
@@ -171,6 +172,7 @@ pub struct FILTER_PROC_VIDEO {
 }
 
 /// 音声フィルタ処理用構造体
+#[repr(C)]
 pub struct FILTER_PROC_AUDIO {
     /// シーン情報
     pub scene: *const SCENE_INFO,
@@ -199,6 +201,7 @@ impl FILTER_PLUGIN_TABLE {
 }
 
 /// フィルタプラグイン構造体
+#[repr(C)]
 pub struct FILTER_PLUGIN_TABLE {
     /// フラグ
     /// 画像と音声のフィルタ処理は別々のスレッドで処理されます

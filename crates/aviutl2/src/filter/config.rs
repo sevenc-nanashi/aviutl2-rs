@@ -54,7 +54,7 @@ impl FilterConfigItem {
             }
             FilterConfigItem::Checkbox(item) => aviutl2_sys::filter2::FILTER_ITEM {
                 checkbox: aviutl2_sys::filter2::FILTER_ITEM_CHECKBOX {
-                    r#type: leak_manager.leak_as_wide_string("checkbox"),
+                    r#type: leak_manager.leak_as_wide_string("check"),
                     name: leak_manager.leak_as_wide_string(&item.name),
                     value: item.value,
                 },
@@ -79,7 +79,7 @@ impl FilterConfigItem {
                     name: std::ptr::null(),
                     value: 0,
                 }); // 終端用
-                let raw_items_ptrs = leak_manager.leak_vec(raw_items);
+                let raw_items_ptrs = leak_manager.leak_value_vec(raw_items);
                 aviutl2_sys::filter2::FILTER_ITEM {
                     select: aviutl2_sys::filter2::FILTER_ITEM_SELECT {
                         r#type: leak_manager.leak_as_wide_string("select"),

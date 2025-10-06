@@ -17,7 +17,7 @@ pub struct FilterPluginTable {
     pub information: String,
 
     /// 入力の種類。
-    pub input_type: FilterType,
+    pub filter_type: FilterType,
 
     /// オブジェクトの初期入力をするかどうか。（メディアオブジェクトの場合）
     pub wants_initial_input: bool,
@@ -48,9 +48,12 @@ pub enum FilterType {
 impl FilterType {
     pub(crate) fn to_bits(&self) -> i32 {
         match self {
-            FilterType::Video => 1,
-            FilterType::Audio => 2,
-            FilterType::Both => 3,
+            FilterType::Video => aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_VIDEO,
+            FilterType::Audio => aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_AUDIO,
+            FilterType::Both => {
+                aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_VIDEO
+                    | aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_AUDIO
+            }
         }
     }
 }

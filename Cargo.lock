@@ -566,6 +566,7 @@ dependencies = [
 name = "aviutl2-macros"
 version = "0.8.1"
 dependencies = [
+ "decimal-rs",
  "either",
  "proc-macro2",
  "quote",
@@ -1001,6 +1002,15 @@ name = "cursor-icon"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
+
+[[package]]
+name = "decimal-rs"
+version = "0.1.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da0ad9d041ab836f528b91b4f4039feda1091adbef4d85850eac6b3d2f9cd6f3"
+dependencies = [
+ "stack-buf",
+]
 
 [[package]]
 name = "dedent"
@@ -4045,6 +4055,12 @@ name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
+
+[[package]]
+name = "stack-buf"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7386b49cb287f6fafbfd3bd604914bccb99fb8d53483f40e1ecfda5d45f3370"
 
 [[package]]
 name = "static_assertions"
