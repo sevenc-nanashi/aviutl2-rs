@@ -1,7 +1,7 @@
 use std::num::NonZeroIsize;
 
 use crate::{
-    common::{LeakManager, alert_error, format_file_filters, leak_and_forget_as_wide_string},
+    common::{LeakManager, alert_error, format_file_filters},
     output::{FromRawAudioSamples, OutputInfo, OutputPlugin},
 };
 
@@ -9,6 +9,7 @@ use aviutl2_sys::common::{LPCWSTR, WAVE_FORMAT_IEEE_FLOAT, WAVE_FORMAT_PCM};
 
 pub struct InternalOutputPluginState<T: Send + Sync + OutputPlugin> {
     leak_manager: LeakManager,
+    global_leak_manager: LeakManager,
 
     instance: T,
 }
@@ -17,6 +18,7 @@ impl<T: Send + Sync + OutputPlugin> InternalOutputPluginState<T> {
     pub fn new(instance: T) -> Self {
         Self {
             leak_manager: LeakManager::new(),
+            global_leak_manager: LeakManager::new(),
             instance,
         }
     }
@@ -75,9 +77,13 @@ pub unsafe fn create_table<T: OutputPlugin>(
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
     aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
         flag: plugin_info.output_type.to_bits(),
-        name: leak_and_forget_as_wide_string(&name),
-        filefilter: leak_and_forget_as_wide_string(&filefilter),
-        information: leak_and_forget_as_wide_string(&information),
+        name: plugin_state.global_leak_manager.leak_as_wide_string(&name),
+        filefilter: plugin_state
+            .global_leak_manager
+            .leak_as_wide_string(&filefilter),
+        information: plugin_state
+            .global_leak_manager
+            .leak_as_wide_string(&information),
         func_output: Some(func_output),
         func_config: plugin_info.can_config.then_some(func_config),
         func_get_config_text: Some(func_get_config_text),
@@ -149,17 +155,42 @@ macro_rules! register_output_plugin {
             use $crate::output::OutputPlugin as _;
 
             static PLUGIN: std::sync::LazyLock<
-                $crate::output::__bridge::InternalOutputPluginState<$struct>,
-            > = std::sync::LazyLock::new(|| {
-                $crate::output::__bridge::InternalOutputPluginState::new($struct::new())
-            });
+                std::sync::RwLock<
+                    Option<$crate::output::__bridge::InternalOutputPluginState<$struct>>,
+                >,
+            > = std::sync::LazyLock::new(|| std::sync::RwLock::new(None));
+
+            #[unsafe(no_mangle)]
+            unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
+                let info = $crate::common::AviUtl2Info { version };
+                let internal = match $struct::new(info) {
+                    Ok(plugin) => plugin,
+                    Err(e) => {
+                        $crate::log::error!("Failed to initialize plugin: {}", e);
+                        return false;
+                    }
+                };
+                let plugin = $crate::output::__bridge::InternalOutputPluginState::new(internal);
+                *PLUGIN.write().unwrap() = Some(plugin);
+
+                true
+            }
+
+            #[unsafe(no_mangle)]
+            unsafe extern "C" fn UninitializePlugin() {
+                *PLUGIN.write().unwrap() = None;
+            }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetOutputPluginTable()
             -> *mut aviutl2::sys::output2::OUTPUT_PLUGIN_TABLE {
                 let table = unsafe {
                     $crate::output::__bridge::create_table::<$struct>(
-                        &*PLUGIN,
+                        &PLUGIN
+                            .read()
+                            .unwrap()
+                            .as_ref()
+                            .expect("Plugin not initialized"),
                         func_output,
                         func_config,
                         func_get_config_text,
@@ -169,18 +200,45 @@ macro_rules! register_output_plugin {
             }
 
             extern "C" fn func_output(oip: *mut aviutl2::sys::output2::OUTPUT_INFO) -> bool {
-                unsafe { $crate::output::__bridge::func_output(&*PLUGIN, oip) }
+                unsafe {
+                    $crate::output::__bridge::func_output(
+                        &PLUGIN
+                            .read()
+                            .unwrap()
+                            .as_ref()
+                            .expect("Plugin not initialized"),
+                        oip,
+                    )
+                }
             }
 
             extern "C" fn func_config(
                 hwnd: aviutl2::sys::output2::HWND,
                 dll_hinst: aviutl2::sys::output2::HINSTANCE,
             ) -> bool {
-                unsafe { $crate::output::__bridge::func_config(&*PLUGIN, hwnd, dll_hinst) }
+                unsafe {
+                    $crate::output::__bridge::func_config(
+                        &PLUGIN
+                            .read()
+                            .unwrap()
+                            .as_ref()
+                            .expect("Plugin not initialized"),
+                        hwnd,
+                        dll_hinst,
+                    )
+                }
             }
 
             extern "C" fn func_get_config_text() -> *const u16 {
-                unsafe { $crate::output::__bridge::func_get_config_text(&*PLUGIN) }
+                unsafe {
+                    $crate::output::__bridge::func_get_config_text(
+                        &PLUGIN
+                            .read()
+                            .unwrap()
+                            .as_ref()
+                            .expect("Plugin not initialized"),
+                    )
+                }
             }
         }
     };

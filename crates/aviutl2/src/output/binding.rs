@@ -3,7 +3,9 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use crate::common::{AnyResult, FileFilter, Rational32, Win32WindowHandle, load_wide_string};
+use crate::common::{
+    AnyResult, AviUtl2Info, FileFilter, Rational32, Win32WindowHandle, load_wide_string,
+};
 use crate::output::FromRawVideoFrame;
 use aviutl2_sys::output2::OUTPUT_INFO;
 
@@ -89,9 +91,9 @@ pub struct AudioOutputInfo {
 
 /// 出力プラグインのトレイト。
 /// このトレイトを実装し、[`crate::register_output_plugin!`] マクロを使用してプラグインを登録します。
-pub trait OutputPlugin: Send + Sync {
+pub trait OutputPlugin: Send + Sync + Sized {
     /// プラグインを初期化する。
-    fn new() -> Self;
+    fn new(info: AviUtl2Info) -> AnyResult<Self>;
 
     /// プラグインの情報を返す。
     fn plugin_info(&self) -> OutputPluginTable;

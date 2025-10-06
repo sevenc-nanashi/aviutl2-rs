@@ -5,6 +5,13 @@ pub use half::{self, f16};
 pub use num_rational::{self, Rational32};
 pub use raw_window_handle::{self, Win32WindowHandle};
 
+/// AviUtl2の情報。
+#[derive(Debug, Clone)]
+pub struct AviUtl2Info {
+    /// AviUtl2のバージョン。
+    pub version: u32,
+}
+
 /// ファイル選択ダイアログのフィルタを表す構造体。
 #[derive(Debug, Clone)]
 pub struct FileFilter {
@@ -163,31 +170,19 @@ pub(crate) fn format_file_filters(file_filters: &[FileFilter]) -> String {
     file_filter
 }
 
-pub(crate) enum LeakedPtrType {
+pub(crate) enum LeakType {
     WideString,
-    BitmapInfoHeader,
-    WaveFormatEx,
+    VoidPointer,
+    Vector(usize),
+    Other(String),
 }
 
 pub(crate) struct LeakManager {
-    ptrs: std::sync::Mutex<Vec<(LeakedPtrType, usize)>>,
+    ptrs: std::sync::Mutex<Vec<(LeakType, usize)>>,
 }
 
 pub(crate) trait IntoLeakedPtr {
-    fn into_leaked_ptr(self) -> (LeakedPtrType, usize);
-}
-
-#[duplicate::duplicate_item(
-    OriginalType                             EnumValue;
-    [aviutl2_sys::input2::WAVEFORMATEX]      [WaveFormatEx];
-    [aviutl2_sys::output2::BITMAPINFOHEADER] [BitmapInfoHeader];
-)]
-impl IntoLeakedPtr for OriginalType {
-    fn into_leaked_ptr(self) -> (LeakedPtrType, usize) {
-        let boxed = Box::new(self);
-        let ptr = Box::into_raw(boxed) as usize;
-        (LeakedPtrType::EnumValue, ptr)
-    }
+    fn into_leaked_ptr(self) -> (LeakType, usize);
 }
 
 impl LeakManager {
@@ -213,28 +208,97 @@ impl LeakManager {
         let boxed = wide.into_boxed_slice();
         let ptr = Box::into_raw(boxed) as *mut u16 as usize;
         let mut ptrs = self.ptrs.lock().unwrap();
-        ptrs.push((LeakedPtrType::WideString, ptr));
+        ptrs.push((LeakType::WideString, ptr));
         ptr as *const u16
+    }
+
+    pub fn leak_vec<T: IntoLeakedPtr>(&self, vec: Vec<T>) -> *const T {
+        log::debug!("Leaking vector of type {}", std::any::type_name::<T>());
+        let mut raw_ptrs = Vec::with_capacity(vec.len() + 1);
+        let vec_len = vec.len();
+        for item in vec {
+            let leaked = item.into_leaked_ptr();
+            let ptr = leaked.1;
+            raw_ptrs.push(ptr as *const T);
+            let mut ptrs = self.ptrs.lock().unwrap();
+            ptrs.push(leaked);
+        }
+        let boxed = raw_ptrs.into_boxed_slice();
+        let ptr = Box::into_raw(boxed) as *mut *const T as usize;
+        let mut ptrs = self.ptrs.lock().unwrap();
+        ptrs.push((LeakType::Vector(vec_len), ptr));
+        ptr as *const T
     }
 
     pub fn free_leaked_memory(&self) {
         let mut ptrs = self.ptrs.lock().unwrap();
-        log::debug!("Freeing {} leaked pointers", ptrs.len());
-        for (ptr_type, ptr) in ptrs.drain(..) {
-            unsafe {
-                match ptr_type {
-                    LeakedPtrType::WideString => {
-                        let _ = Box::from_raw(ptr as *mut u16);
+        while let Some((ptr_type, ptr)) = ptrs.pop() {
+            match ptr_type {
+                LeakType::WideString => unsafe {
+                    let _ = Box::from_raw(ptr as *mut u16);
+                },
+                LeakType::VoidPointer => {
+                    // Do nothing, as we don't know the type
+                }
+                LeakType::Vector(len) => unsafe {
+                    let raw_ptrs = std::slice::from_raw_parts(ptr as *const *const (), len + 1);
+                    for &raw_ptr in raw_ptrs.iter().take(len) {
+                        let _ = Box::from_raw(raw_ptr as *mut ());
                     }
-                    LeakedPtrType::BitmapInfoHeader => {
-                        let _ = Box::from_raw(ptr as *mut aviutl2_sys::output2::BITMAPINFOHEADER);
-                    }
-                    LeakedPtrType::WaveFormatEx => {
-                        let _ = Box::from_raw(ptr as *mut aviutl2_sys::input2::WAVEFORMATEX);
+                },
+                LeakType::Other(ref type_name) => {
+                    Self::free_leaked_memory_other(type_name, ptr);
+                }
+            }
+        }
+    }
+}
+macro_rules! impl_leak_ptr {
+    ($($t:ty),*) => {
+        $(
+            impl IntoLeakedPtr for $t {
+                fn into_leaked_ptr(self) -> (LeakType, usize) {
+                    let boxed = Box::new(self);
+                    let ptr = Box::into_raw(boxed) as usize;
+                    (LeakType::Other(std::any::type_name::<$t>().to_string()), ptr)
+                }
+            }
+        )*
+
+        impl LeakManager {
+            fn free_leaked_memory_other(ptr_type: &str, ptr: usize) {
+                unsafe {
+                    match ptr_type {
+                        $(
+                            t if t == std::any::type_name::<$t>() => {
+                                let _ = Box::from_raw(ptr as *mut $t);
+                            },
+                        )*
+                        _ => {
+                            unreachable!("Unknown leaked pointer type: {}", ptr_type);
+                        }
                     }
                 }
             }
         }
+    };
+}
+impl_leak_ptr!(
+    aviutl2_sys::input2::WAVEFORMATEX,
+    aviutl2_sys::output2::BITMAPINFOHEADER,
+    aviutl2_sys::filter2::FILTER_ITEM,
+    aviutl2_sys::filter2::FILTER_ITEM_SELECT_ITEM
+);
+
+impl<T> IntoLeakedPtr for *const T {
+    fn into_leaked_ptr(self) -> (LeakType, usize) {
+        (LeakType::VoidPointer, self as usize)
+    }
+}
+
+impl Drop for LeakManager {
+    fn drop(&mut self) {
+        self.free_leaked_memory();
     }
 }
 
@@ -249,15 +313,6 @@ pub(crate) fn load_wide_string(ptr: *const u16) -> String {
     }
 
     unsafe { String::from_utf16_lossy(std::slice::from_raw_parts(ptr, len)) }
-}
-
-pub(crate) fn leak_and_forget_as_wide_string(s: &str) -> *const u16 {
-    log::debug!("Leaking wide string: {}", s);
-    let mut wide: Vec<u16> = s.encode_utf16().collect();
-    wide.push(0); // Null-terminate the string
-    let boxed = wide.into_boxed_slice();
-    let ptr = Box::into_raw(boxed) as *mut u16 as usize;
-    ptr as *const u16
 }
 
 pub(crate) fn alert_error(error: &anyhow::Error) {

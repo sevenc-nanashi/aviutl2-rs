@@ -25,7 +25,10 @@ task :install, %w[target dest] do |task, args|
       name = cargo_toml["lib"]["name"]
       file = "./target/#{target}/#{name}.dll"
       dest_name =
-        name.sub(/_output$/, "#{suffix}.auo2").sub(/_input$/, "#{suffix}.aui2")
+        name
+          .sub(/_input$/, "#{suffix}.aui2")
+          .sub(/_output$/, "#{suffix}.auo2")
+          .sub(/_filter$/, "#{suffix}.auf2")
       raise "Invalid file name: #{file}" if dest_name == name
       FileUtils.cp(file, File.join(dest_dir, dest_name), verbose: true)
     end
@@ -49,10 +52,10 @@ task :link, %w[target dest] do |task, args|
 
       source = "./target/#{target}/#{cargo_toml["lib"]["name"]}.dll"
       dest_name =
-        cargo_toml["lib"]["name"].sub(/_output$/, "#{suffix}.auo2").sub(
-          /_input$/,
-          "#{suffix}.aui2"
-        )
+        cargo_toml["lib"]["name"]
+          .sub(/_input$/, "#{suffix}.aui2")
+          .sub(/_output$/, "#{suffix}.auo2")
+          .sub(/_filter$/, "#{suffix}.auf2")
       raise "Invalid file name: #{source}" if dest_name == File.basename(source)
       from_path = File.absolute_path(source)
       if File.exist?(File.join(dest_dir, dest_name))
@@ -84,6 +87,8 @@ task :release, ["tag"] do |task, args|
           "#{lib_name.delete_suffix("_output")}.auo2"
         elsif lib_name.end_with?("_input")
           "#{lib_name.delete_suffix("_input")}.aui2"
+        elsif lib_name.end_with?("_filter")
+          "#{lib_name.delete_suffix("_filter")}.auf2"
         else
           raise "Invalid library name: #{lib_name}"
         end

@@ -17,8 +17,8 @@ struct Handle {
 impl InputPlugin for PixelFormatTestPlugin {
     type InputHandle = Handle;
 
-    fn new() -> Self {
-        PixelFormatTestPlugin
+    fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+        Ok(PixelFormatTestPlugin)
     }
 
     fn plugin_info(&self) -> InputPluginTable {

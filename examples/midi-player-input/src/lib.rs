@@ -41,8 +41,8 @@ impl MidiPlayerHandle {
 impl InputPlugin for MidiPlayerPlugin {
     type InputHandle = MidiPlayerHandle;
 
-    fn new() -> Self {
-        MidiPlayerPlugin {}
+    fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+        Ok(MidiPlayerPlugin {})
     }
 
     fn plugin_info(&self) -> aviutl2::input::InputPluginTable {

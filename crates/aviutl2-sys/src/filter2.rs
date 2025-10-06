@@ -4,8 +4,18 @@ use std::ffi::c_void;
 
 use crate::common::LPCWSTR;
 
+#[repr(C)]
+pub union FILTER_ITEM {
+    pub track: FILTER_ITEM_TRACK,
+    pub checkbox: FILTER_ITEM_CHECKBOX,
+    pub color: FILTER_ITEM_COLOR,
+    pub select: FILTER_ITEM_SELECT,
+    pub file: FILTER_ITEM_FILE,
+}
+
 /// トラックバー項目構造体
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct FILTER_ITEM_TRACK {
     /// 設定の種別（L"track"）
     pub r#type: LPCWSTR,
@@ -23,6 +33,7 @@ pub struct FILTER_ITEM_TRACK {
 
 /// チェックボックス項目構造体
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct FILTER_ITEM_CHECKBOX {
     /// 設定の種別（L"checkbox"）
     pub r#type: LPCWSTR,
@@ -34,6 +45,7 @@ pub struct FILTER_ITEM_CHECKBOX {
 
 /// 色選択項目構造体
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct FILTER_ITEM_COLOR {
     /// 設定の種別（L"color"）
     pub r#type: LPCWSTR,
@@ -45,13 +57,15 @@ pub struct FILTER_ITEM_COLOR {
 
 /// 色選択項目の設定値の色
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub union FILTER_ITEM_COLOR_VALUE {
-    code: u32,
-    bgrx: [u8; 4],
+    pub code: u32,
+    pub bgrx: [u8; 4],
 }
 
 /// 選択リスト項目構造体
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct FILTER_ITEM_SELECT {
     /// 設定の種別（L"select"）
     pub r#type: LPCWSTR,
@@ -65,6 +79,7 @@ pub struct FILTER_ITEM_SELECT {
 
 /// 選択リスト項目構造体の選択肢項目
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct FILTER_ITEM_SELECT_ITEM {
     /// 選択肢の名前
     pub name: LPCWSTR,
@@ -74,6 +89,7 @@ pub struct FILTER_ITEM_SELECT_ITEM {
 
 /// ファイル選択項目構造体
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct FILTER_ITEM_FILE {
     /// 設定の種別（L"file"）
     pub r#type: LPCWSTR,

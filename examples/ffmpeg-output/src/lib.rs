@@ -172,7 +172,7 @@ fn download_ffmpeg_if_missing() -> anyhow::Result<std::path::PathBuf> {
     Ok(ffmpeg_dir)
 }
 impl OutputPlugin for FfmpegOutputPlugin {
-    fn new() -> Self {
+    fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
         let config = match load_config() {
             Ok(config) => config,
             Err(e) => {
@@ -180,9 +180,9 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 FfmpegOutputConfig::default()
             }
         };
-        FfmpegOutputPlugin {
+        Ok(FfmpegOutputPlugin {
             config: Mutex::new(config),
-        }
+        })
     }
 
     fn plugin_info(&self) -> aviutl2::output::OutputPluginTable {

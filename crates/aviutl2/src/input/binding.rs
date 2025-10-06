@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::common::{AnyResult, FileFilter, Rational32, Win32WindowHandle, Yc48, f16};
+use crate::common::{AnyResult, AviUtl2Info, FileFilter, Rational32, Win32WindowHandle, Yc48, f16};
 use zerocopy::IntoBytes;
 
 /// 入力プラグインの情報を表す構造体。
@@ -375,12 +375,12 @@ into_audio_impl_for_tuple!((f32, f32), l, r);
 
 /// 入力プラグインのトレイト。
 /// このトレイトを実装し、[`crate::register_input_plugin!`] マクロを使用してプラグインを登録します。
-pub trait InputPlugin: Send + Sync {
+pub trait InputPlugin: Send + Sync + Sized {
     /// 入力ハンドルの型。
     type InputHandle: std::any::Any + Send + Sync;
 
     /// プラグインを初期化する。
-    fn new() -> Self;
+    fn new(info: AviUtl2Info) -> AnyResult<Self>;
 
     /// プラグインの情報を返す。
     fn plugin_info(&self) -> InputPluginTable;

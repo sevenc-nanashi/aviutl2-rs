@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use zerocopy::IntoBytes;
 
 use super::config;
-use crate::common::{AnyResult, FileFilter, Rational32, Win32WindowHandle, Yc48, f16};
+use crate::common::{AnyResult, AviUtl2Info, FileFilter, Rational32, Win32WindowHandle, Yc48, f16};
 
 /// 入力プラグインの情報を表す構造体。
 #[derive(Debug, Clone)]
@@ -57,11 +57,10 @@ impl FilterType {
 
 /// フィルタプラグインのトレイト。
 /// このトレイトを実装し、[`crate::register_filter_plugin!`] マクロを使用してプラグインを登録します。
-pub trait FilterPlugin: Send + Sync {
+pub trait FilterPlugin: Send + Sync + Sized {
     /// プラグインを初期化する。
-    fn new() -> Self;
+    fn new(info: AviUtl2Info) -> AnyResult<Self>;
 
     /// プラグインの情報を返す。
     fn plugin_info(&self) -> FilterPluginTable;
-
 }

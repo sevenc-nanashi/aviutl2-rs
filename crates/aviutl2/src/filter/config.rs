@@ -1,17 +1,14 @@
-/// フィルタの設定の一覧を返すためのトレイト。
-pub trait ToFilterConfig {
-    /// フィルタの設定を取得します。
-    fn to_filter_config() -> Vec<FilterConfigItem>;
-}
+use crate::common::LeakManager;
 
-pub use aviutl2_macros::ToFilterConfig;
+/// [`Vec<FilterConfigItem>`] と相互変換するためのトレイト。
+pub trait FilterConfigItems: Sized {
+    /// `Vec<FilterConfigItem>` に変換します。
+    fn to_config_items() -> Vec<FilterConfigItem>;
 
-/// フィルタの設定の一覧から値を取得するためのトレイト。
-pub trait FromFilterConfig {
-    /// フィルタの設定を適用します。
-    fn from_filter_config(items: &[FilterConfigItem]) -> Self;
+    /// `Vec<FilterConfigItem>` から変換します。
+    fn from_config_items(items: &[FilterConfigItem]) -> Self;
 }
-pub use aviutl2_macros::FromFilterConfig;
+pub use aviutl2_macros::FilterConfigItems;
 
 /// フィルタの設定。
 #[derive(Debug, Clone)]
@@ -26,6 +23,85 @@ pub enum FilterConfigItem {
     Select(FilterConfigSelect),
     /// ファイル選択。
     File(FilterConfigFile),
+}
+
+impl FilterConfigItem {
+    /// 設定名を取得します。
+    pub fn name(&self) -> &str {
+        match self {
+            FilterConfigItem::Track(item) => &item.name,
+            FilterConfigItem::Checkbox(item) => &item.name,
+            FilterConfigItem::Color(item) => &item.name,
+            FilterConfigItem::Select(item) => &item.name,
+            FilterConfigItem::File(item) => &item.name,
+        }
+    }
+
+    pub(crate) fn to_raw(&self, leak_manager: &LeakManager) -> aviutl2_sys::filter2::FILTER_ITEM {
+        match self {
+            FilterConfigItem::Track(item) => {
+                let step: f64 = item.step.into();
+                aviutl2_sys::filter2::FILTER_ITEM {
+                    track: aviutl2_sys::filter2::FILTER_ITEM_TRACK {
+                        r#type: leak_manager.leak_as_wide_string("track"),
+                        name: leak_manager.leak_as_wide_string(&item.name),
+                        value: item.value,
+                        s: *item.range.start(),
+                        e: *item.range.end(),
+                        step,
+                    },
+                }
+            }
+            FilterConfigItem::Checkbox(item) => aviutl2_sys::filter2::FILTER_ITEM {
+                checkbox: aviutl2_sys::filter2::FILTER_ITEM_CHECKBOX {
+                    r#type: leak_manager.leak_as_wide_string("checkbox"),
+                    name: leak_manager.leak_as_wide_string(&item.name),
+                    value: item.value,
+                },
+            },
+            FilterConfigItem::Color(item) => aviutl2_sys::filter2::FILTER_ITEM {
+                color: aviutl2_sys::filter2::FILTER_ITEM_COLOR {
+                    r#type: leak_manager.leak_as_wide_string("color"),
+                    name: leak_manager.leak_as_wide_string(&item.name),
+                    value: item.value.into(),
+                },
+            },
+            FilterConfigItem::Select(item) => {
+                let mut raw_items: Vec<aviutl2_sys::filter2::FILTER_ITEM_SELECT_ITEM> = item
+                    .items
+                    .iter()
+                    .map(|i| aviutl2_sys::filter2::FILTER_ITEM_SELECT_ITEM {
+                        name: leak_manager.leak_as_wide_string(&i.name),
+                        value: i.value,
+                    })
+                    .collect();
+                raw_items.push(aviutl2_sys::filter2::FILTER_ITEM_SELECT_ITEM {
+                    name: std::ptr::null(),
+                    value: 0,
+                }); // 終端用
+                let raw_items_ptrs = leak_manager.leak_vec(raw_items);
+                aviutl2_sys::filter2::FILTER_ITEM {
+                    select: aviutl2_sys::filter2::FILTER_ITEM_SELECT {
+                        r#type: leak_manager.leak_as_wide_string("select"),
+                        name: leak_manager.leak_as_wide_string(&item.name),
+                        value: item.value,
+                        items: raw_items_ptrs,
+                    },
+                }
+            }
+            FilterConfigItem::File(item) => {
+                let raw_filters = crate::common::format_file_filters(&item.filters);
+                aviutl2_sys::filter2::FILTER_ITEM {
+                    file: aviutl2_sys::filter2::FILTER_ITEM_FILE {
+                        r#type: leak_manager.leak_as_wide_string("file"),
+                        name: leak_manager.leak_as_wide_string(&item.name),
+                        value: leak_manager.leak_as_wide_string(&item.value),
+                        filefilter: leak_manager.leak_as_wide_string(&raw_filters),
+                    },
+                }
+            }
+        }
+    }
 }
 
 /// トラックバー。
@@ -146,6 +222,32 @@ impl From<u32> for FilterConfigColorValue {
 impl From<FilterConfigColorValue> for u32 {
     fn from(value: FilterConfigColorValue) -> Self {
         value.0
+    }
+}
+impl From<aviutl2_sys::filter2::FILTER_ITEM_COLOR_VALUE> for FilterConfigColorValue {
+    fn from(value: aviutl2_sys::filter2::FILTER_ITEM_COLOR_VALUE) -> Self {
+        unsafe { FilterConfigColorValue(value.code) }
+    }
+}
+impl From<FilterConfigColorValue> for aviutl2_sys::filter2::FILTER_ITEM_COLOR_VALUE {
+    fn from(value: FilterConfigColorValue) -> Self {
+        aviutl2_sys::filter2::FILTER_ITEM_COLOR_VALUE { code: value.0 }
+    }
+}
+impl std::fmt::Display for FilterConfigColorValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (r, g, b) = self.to_rgb();
+        write!(f, "#{:02X}{:02X}{:02X}", r, g, b)
+    }
+}
+impl std::fmt::LowerHex for FilterConfigColorValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:06x}", self.0 & 0xFFFFFF)
+    }
+}
+impl std::fmt::UpperHex for FilterConfigColorValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:06X}", self.0 & 0xFFFFFF)
     }
 }
 

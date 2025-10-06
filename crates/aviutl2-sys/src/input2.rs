@@ -77,7 +77,7 @@ pub struct INPUT_PLUGIN_TABLE {
     ///
     /// # Returns
     /// `INPUT_HANDLE`
-    pub func_open: Option<extern "C" fn(file: LPCWSTR) -> INPUT_HANDLE>,
+    pub func_open: Option<unsafe extern "C" fn(file: LPCWSTR) -> INPUT_HANDLE>,
     /// 入力ファイルをクローズする関数へのポインタ
     ///
     /// # Args

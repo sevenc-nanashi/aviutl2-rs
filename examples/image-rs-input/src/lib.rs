@@ -50,8 +50,8 @@ struct ImageHandle {
 impl InputPlugin for ImageInputPlugin {
     type InputHandle = ImageHandle;
 
-    fn new() -> Self {
-        ImageInputPlugin {}
+    fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
+        Ok(Self {})
     }
 
     fn plugin_info(&self) -> aviutl2::input::InputPluginTable {

@@ -24,6 +24,7 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 pub use aviutl2_sys as sys;
+pub use log;
 
 #[cfg(feature = "input")]
 pub mod input;

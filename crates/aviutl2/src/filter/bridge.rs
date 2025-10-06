@@ -1,16 +1,14 @@
 use std::num::NonZeroIsize;
 
 use crate::{
-    common::{
-        AnyResult, LeakManager, alert_error, format_file_filters, leak_and_forget_as_wide_string,
-        load_wide_string,
-    },
+    common::{AnyResult, LeakManager, alert_error, format_file_filters, load_wide_string},
     filter::{FilterPlugin, FilterPluginTable},
 };
 
 #[doc(hidden)]
 pub struct InternalFilterPluginState<T: Send + Sync + FilterPlugin> {
     plugin_info: FilterPluginTable,
+    global_leak_manager: LeakManager,
     leak_manager: LeakManager,
 
     instance: T,
@@ -21,10 +19,30 @@ impl<T: Send + Sync + FilterPlugin> InternalFilterPluginState<T> {
         let plugin_info = instance.plugin_info();
         Self {
             plugin_info,
+            global_leak_manager: LeakManager::new(),
             leak_manager: LeakManager::new(),
             instance,
         }
     }
+}
+
+pub unsafe fn initialize_plugin<T: FilterPlugin>(
+    plugin_state: &std::sync::RwLock<Option<InternalFilterPluginState<T>>>,
+    version: u32,
+) -> bool {
+    let info = crate::common::AviUtl2Info { version };
+    let internal = match T::new(info) {
+        Ok(plugin) => plugin,
+        Err(e) => {
+            log::error!("Failed to initialize plugin: {}", e);
+            alert_error(&e);
+            return false;
+        }
+    };
+    let plugin = InternalFilterPluginState::new(internal);
+    *plugin_state.write().unwrap() = Some(plugin);
+
+    true
 }
 
 pub unsafe fn create_table<T: FilterPlugin>(
@@ -32,6 +50,7 @@ pub unsafe fn create_table<T: FilterPlugin>(
     func_proc_video: extern "C" fn(video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO) -> bool,
     func_proc_audio: extern "C" fn(audio: *mut aviutl2_sys::filter2::FILTER_PROC_AUDIO) -> bool,
 ) -> aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
+    crate::odbg!();
     let plugin_info = &plugin_state.plugin_info;
 
     let name = if cfg!(debug_assertions) {
@@ -52,16 +71,29 @@ pub unsafe fn create_table<T: FilterPlugin>(
             0
         });
 
+    let items = plugin_info
+        .config_items
+        .iter()
+        .map(|item| {
+            plugin_state
+                .global_leak_manager
+                .leak(item.to_raw(&plugin_state.global_leak_manager))
+        })
+        .chain(std::iter::once(std::ptr::null())) // 終端用
+        .collect::<Vec<_>>();
+    let items = plugin_state.global_leak_manager.leak_vec(items);
+
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
     aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
         flag,
-        name: leak_and_forget_as_wide_string(&name),
-        information: leak_and_forget_as_wide_string(&information),
-        label: plugin_info
-            .label
-            .as_ref()
-            .map_or(std::ptr::null(), |s| leak_and_forget_as_wide_string(s)),
-        items: std::ptr::null(),
+        name: plugin_state.global_leak_manager.leak_as_wide_string(&name),
+        information: plugin_state
+            .global_leak_manager
+            .leak_as_wide_string(&information),
+        label: plugin_info.label.as_ref().map_or(std::ptr::null(), |s| {
+            plugin_state.global_leak_manager.leak_as_wide_string(s)
+        }),
+        items: items as _,
         func_proc_video: (((flag & aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_VIDEO) != 0)
             .then_some(func_proc_video)),
         func_proc_audio: ((flag & aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_AUDIO != 0)
@@ -92,91 +124,71 @@ pub unsafe fn func_proc_audio<T: FilterPlugin>(
 macro_rules! register_filter_plugin {
     ($struct:ident) => {
         #[doc(hidden)]
-        mod __au2_register_input_plugin {
+        mod __au2_register_filter_plugin {
             use super::$struct;
-            use $crate::input::FilterPlugin as _;
+            use $crate::filter::FilterPlugin;
 
             static PLUGIN: std::sync::LazyLock<
-                aviutl2::input::__bridge::InternalFilterPluginState<$struct>,
-            > = std::sync::LazyLock::new(|| {
-                aviutl2::input::__bridge::InternalFilterPluginState::new($struct::new())
-            });
+                std::sync::RwLock<
+                    Option<$crate::filter::__bridge::InternalFilterPluginState<$struct>>,
+                >,
+            > = std::sync::LazyLock::new(|| std::sync::RwLock::new(None));
+
+            #[unsafe(no_mangle)]
+            unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
+                unsafe { $crate::filter::__bridge::initialize_plugin(&PLUGIN, version) }
+            }
+
+            #[unsafe(no_mangle)]
+            unsafe extern "C" fn UninitializePlugin() {
+                *PLUGIN.write().unwrap() = None;
+            }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetFilterPluginTable()
-            -> *mut aviutl2::sys::input2::FILTER_PLUGIN_TABLE {
+            -> *mut aviutl2::sys::filter2::FILTER_PLUGIN_TABLE {
                 let table = unsafe {
                     $crate::filter::__bridge::create_table::<$struct>(
-                        &PLUGIN,
-                        func_open,
-                        func_close,
-                        func_info_get,
-                        func_read_video,
-                        func_read_audio,
-                        func_config,
-                        func_set_track,
-                        func_time_to_frame,
+                        &PLUGIN
+                            .read()
+                            .unwrap()
+                            .as_ref()
+                            .expect("Plugin not initialized"),
+                        func_proc_video,
+                        func_proc_audio,
                     )
                 };
                 Box::into_raw(Box::new(table))
             }
 
-            extern "C" fn func_open(
-                file: aviutl2::sys::common::LPCWSTR,
-            ) -> aviutl2::sys::input2::INPUT_HANDLE {
-                unsafe { $crate::input::__bridge::func_open(&*PLUGIN, file) }
-            }
-
-            extern "C" fn func_close(ih: aviutl2::sys::input2::INPUT_HANDLE) -> bool {
-                unsafe { $crate::input::__bridge::func_close(&*PLUGIN, ih) }
-            }
-
-            extern "C" fn func_info_get(
-                ih: aviutl2::sys::input2::INPUT_HANDLE,
-                iip: *mut aviutl2::sys::input2::INPUT_INFO,
+            extern "C" fn func_proc_audio(
+                video: *mut aviutl2::sys::filter2::FILTER_PROC_AUDIO,
             ) -> bool {
-                unsafe { $crate::input::__bridge::func_info_get(&*PLUGIN, ih, iip) }
-            }
-
-            extern "C" fn func_read_video(
-                ih: aviutl2::sys::input2::INPUT_HANDLE,
-                frame: i32,
-                buf: *mut std::ffi::c_void,
-            ) -> i32 {
-                unsafe { $crate::input::__bridge::func_read_video(&*PLUGIN, ih, frame, buf) }
-            }
-
-            extern "C" fn func_read_audio(
-                ih: aviutl2::sys::input2::INPUT_HANDLE,
-                start: i32,
-                length: i32,
-                buf: *mut std::ffi::c_void,
-            ) -> i32 {
                 unsafe {
-                    $crate::input::__bridge::func_read_audio(&*PLUGIN, ih, start, length, buf)
+                    $crate::filter::__bridge::func_proc_audio(
+                        &PLUGIN
+                            .read()
+                            .unwrap()
+                            .as_ref()
+                            .expect("Plugin not initialized"),
+                        video,
+                    )
                 }
             }
 
-            extern "C" fn func_config(
-                hwnd: aviutl2::sys::input2::HWND,
-                dll_hinst: aviutl2::sys::input2::HINSTANCE,
+            extern "C" fn func_proc_video(
+                video: *mut aviutl2::sys::filter2::FILTER_PROC_VIDEO,
             ) -> bool {
-                unsafe { $crate::input::__bridge::func_config(&*PLUGIN, hwnd, dll_hinst) }
-            }
-
-            extern "C" fn func_set_track(
-                ih: aviutl2::sys::input2::INPUT_HANDLE,
-                track_type: i32,
-                track: i32,
-            ) -> i32 {
-                unsafe { $crate::input::__bridge::func_set_track(&*PLUGIN, ih, track_type, track) }
-            }
-
-            extern "C" fn func_time_to_frame(
-                ih: aviutl2::sys::input2::INPUT_HANDLE,
-                time: f64,
-            ) -> i32 {
-                unsafe { $crate::input::__bridge::func_time_to_frame(&*PLUGIN, ih, time) }
+                unsafe {
+                    $crate::filter::__bridge::func_proc_video(
+                        &PLUGIN
+                            .read()
+                            .unwrap()
+                            .as_ref()
+                            .expect("Plugin not initialized"),
+                        video,
+                    )
+                }
             }
         }
     };

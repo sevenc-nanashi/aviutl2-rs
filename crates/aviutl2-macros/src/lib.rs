@@ -31,22 +31,40 @@ enum FilterConfigField {
     },
 }
 
-#[proc_macro_derive(ToFilterConfig, attributes(track, check, color, select, file))]
-pub fn to_filter_config(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_derive(FilterConfigItems, attributes(track, check, color, select, file))]
+pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut item = syn::parse_macro_input!(item as syn::ItemStruct);
 
-    if let Some(value) = parse_filter_config(&mut item) {
+    if let Some(value) = validate_filter_config(&mut item) {
         return value;
     }
 
     let name = &item.ident;
-    let to_filter_config_fields = item
+    let fields = item
         .fields
         .iter_mut()
         .map(filter_config_field)
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap()
-        .into_iter()
+        .collect::<Result<Vec<_>, _>>();
+    let fields = match fields {
+        Ok(f) => f,
+        Err(e) => return e.to_compile_error().into(),
+    };
+    let to_config_items = filter_config_items_to_config_items(&fields);
+    let from_config_items = filter_config_items_from_filter_config(&fields);
+
+    let expanded = quote::quote! {
+        impl aviutl2::filter::FilterConfigItems for #name {
+            #to_config_items
+
+            #from_config_items
+        }
+    };
+    expanded.into()
+}
+
+fn filter_config_items_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
+    let to_filter_config_fields = fields
+        .iter()
         .map(|f| match f {
             FilterConfigField::Track {
                 id: _,
@@ -130,37 +148,25 @@ pub fn to_filter_config(item: proc_macro::TokenStream) -> proc_macro::TokenStrea
     })
         .collect::<Vec<_>>();
 
-    let generated = quote::quote! {
-        impl aviutl2::filter::ToFilterConfig for #name {
-            fn to_filter_config() -> Vec<aviutl2::filter::FilterConfigItem> {
-                vec![
-                    #(#to_filter_config_fields),*
-                ]
-            }
+    quote::quote! {
+        fn to_config_items() -> Vec<aviutl2::filter::FilterConfigItem> {
+            vec![
+                #(#to_filter_config_fields),*
+            ]
         }
-    };
-    generated.into()
+    }
 }
 
-#[proc_macro_derive(FromFilterConfig, attributes(track, check, color, select, file))]
-pub fn from_filter_config(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let mut item = syn::parse_macro_input!(item as syn::ItemStruct);
-    let config_fields = item
-        .fields
-        .iter_mut()
-        .map(filter_config_field)
-        .collect::<Result<Vec<_>, _>>();
-    let config_fields = match config_fields {
-        Ok(f) => f,
-        Err(e) => return e.to_compile_error().into(),
-    };
+fn filter_config_items_from_filter_config(
+    config_fields: &[FilterConfigField],
+) -> proc_macro2::TokenStream {
     let field_assign = config_fields
-        .into_iter()
+        .iter()
         .enumerate()
         .map(|(i, f)| match f {
             FilterConfigField::Track { id, step, .. } => {
-                let id_ident = syn::Ident::new(&id, proc_macro2::Span::call_site());
-                if step == 1.0 {
+                let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+                if *step == 1.0 {
                     // i32
                     return quote::quote! {
                         #id_ident: match items[#i] {
@@ -177,7 +183,7 @@ pub fn from_filter_config(item: proc_macro::TokenStream) -> proc_macro::TokenStr
                 }
             }
             FilterConfigField::Check { id, .. } => {
-                let id_ident = syn::Ident::new(&id, proc_macro2::Span::call_site());
+                let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
                 quote::quote! {
                     #id_ident: match items[#i] {
                         aviutl2::filter::FilterConfigItem::Checkbox(ref check) => check.value,
@@ -186,7 +192,7 @@ pub fn from_filter_config(item: proc_macro::TokenStream) -> proc_macro::TokenStr
                 }
             }
             FilterConfigField::Color { id, .. } => {
-                let id_ident = syn::Ident::new(&id, proc_macro2::Span::call_site());
+                let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
                 quote::quote! {
                     #id_ident: match items[#i] {
                         aviutl2::filter::FilterConfigItem::Color(ref color) => color.value.clone().into(),
@@ -195,7 +201,7 @@ pub fn from_filter_config(item: proc_macro::TokenStream) -> proc_macro::TokenStr
                 }
             }
             FilterConfigField::Select { id, .. } => {
-                let id_ident = syn::Ident::new(&id, proc_macro2::Span::call_site());
+                let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
                 quote::quote! {
                     #id_ident: match items[#i] {
                         aviutl2::filter::FilterConfigItem::Select(ref select) => select.value.try_into().unwrap(),
@@ -204,7 +210,7 @@ pub fn from_filter_config(item: proc_macro::TokenStream) -> proc_macro::TokenStr
                 }
             }
             FilterConfigField::File { id, .. } => {
-                let id_ident = syn::Ident::new(&id, proc_macro2::Span::call_site());
+                let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
                 quote::quote! {
                     #id_ident: match items[#i] {
                         aviutl2::filter::FilterConfigItem::File(ref file) => file.value.clone().try_into().unwrap(),
@@ -214,22 +220,18 @@ pub fn from_filter_config(item: proc_macro::TokenStream) -> proc_macro::TokenStr
             }
         })
         .collect::<Vec<_>>();
-    let name = &item.ident;
-    let generated = quote::quote! {
-        impl aviutl2::filter::FromFilterConfig for #name {
-            fn from_filter_config(items: &[aviutl2::filter::FilterConfigItem]) -> Self {
-                Self {
-                    #(
-                        #field_assign
-                    ),*
-                }
+    quote::quote! {
+        fn from_config_items(items: &[aviutl2::filter::FilterConfigItem]) -> Self {
+            Self {
+                #(
+                    #field_assign
+                ),*
             }
         }
-    };
-    generated.into()
+    }
 }
 
-fn parse_filter_config(item: &mut syn::ItemStruct) -> Option<proc_macro::TokenStream> {
+fn validate_filter_config(item: &mut syn::ItemStruct) -> Option<proc_macro::TokenStream> {
     let fields = item
         .fields
         .iter_mut()

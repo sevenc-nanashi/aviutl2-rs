@@ -19,8 +19,8 @@ struct RenderData {
 struct StatisticsPlugin {}
 
 impl OutputPlugin for StatisticsPlugin {
-    fn new() -> Self {
-        StatisticsPlugin {}
+    fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+        Ok(StatisticsPlugin {})
     }
 
     fn plugin_info(&self) -> aviutl2::output::OutputPluginTable {

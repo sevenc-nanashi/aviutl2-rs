@@ -33,8 +33,8 @@ impl ImageRsOutputPlugin {
 }
 
 impl OutputPlugin for ImageRsOutputPlugin {
-    fn new() -> Self {
-        ImageRsOutputPlugin
+    fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+        Ok(ImageRsOutputPlugin)
     }
 
     fn plugin_info(&self) -> aviutl2::output::OutputPluginTable {
