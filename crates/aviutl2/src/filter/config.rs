@@ -1,3 +1,18 @@
+/// フィルタの設定の一覧を返すためのトレイト。
+pub trait ToFilterConfig {
+    /// フィルタの設定を取得します。
+    fn to_filter_config() -> Vec<FilterConfigItem>;
+}
+
+pub use aviutl2_macros::ToFilterConfig;
+
+/// フィルタの設定の一覧から値を取得するためのトレイト。
+pub trait FromFilterConfig {
+    /// フィルタの設定を適用します。
+    fn from_filter_config(items: &[FilterConfigItem]) -> Self;
+}
+pub use aviutl2_macros::FromFilterConfig;
+
 /// フィルタの設定。
 #[derive(Debug, Clone)]
 pub enum FilterConfigItem {
@@ -123,6 +138,16 @@ impl FilterConfigColorValue {
         FilterConfigColorValue(value)
     }
 }
+impl From<u32> for FilterConfigColorValue {
+    fn from(value: u32) -> Self {
+        FilterConfigColorValue(value)
+    }
+}
+impl From<FilterConfigColorValue> for u32 {
+    fn from(value: FilterConfigColorValue) -> Self {
+        value.0
+    }
+}
 
 /// 選択リスト。
 #[derive(Debug, Clone)]
@@ -152,5 +177,5 @@ pub struct FilterConfigFile {
     /// 設定値。
     pub value: String,
     /// ファイルフィルタ。
-    pub filefilter: crate::common::FileFilter,
+    pub filters: Vec<crate::common::FileFilter>,
 }

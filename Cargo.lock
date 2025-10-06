@@ -566,6 +566,7 @@ dependencies = [
 name = "aviutl2-macros"
 version = "0.8.1"
 dependencies = [
+ "either",
  "proc-macro2",
  "quote",
  "syn",

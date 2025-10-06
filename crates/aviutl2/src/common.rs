@@ -14,6 +14,30 @@ pub struct FileFilter {
     pub extensions: Vec<String>,
 }
 
+/// Vec<FileFilter>を簡単に作成するためのマクロ。
+///
+/// # Example
+///
+/// ```rust
+/// let filters = file_filters! {
+///     "Image Files" => ["png", "jpg"],
+///     "All Files" => ["*"]
+/// };
+/// ```
+#[macro_export]
+macro_rules! file_filters {
+    ($($name:expr => [$($ext:expr),* $(,)?] ),* $(,)?) => {
+        vec![
+            $(
+                $crate::FileFilter {
+                    name: $name.to_string(),
+                    extensions: vec![$($ext.to_string()),*],
+                }
+            ),*
+        ]
+    };
+}
+
 /// YC48のピクセルフォーマットを表す構造体。
 ///
 /// # See Also
@@ -243,4 +267,42 @@ pub(crate) fn alert_error(error: &anyhow::Error) {
         .set_text(format!("エラーが発生しました: {error}"))
         .alert()
         .show();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_file_filters() {
+        let filters = vec![
+            FileFilter {
+                name: "Image Files".to_string(),
+                extensions: vec!["png".to_string(), "jpg".to_string()],
+            },
+            FileFilter {
+                name: "All Files".to_string(),
+                extensions: vec!["*".to_string()],
+            },
+        ];
+        let formatted = format_file_filters(&filters);
+        let expected = "Image Files (png, jpg)\x00*.png;*.jpg\x00All Files (*)\x00*.*\x00";
+        assert_eq!(formatted, expected);
+    }
+
+    #[test]
+    fn test_file_filters_macro() {
+        let filters = file_filters! {
+            "Image Files" => ["png", "jpg"],
+            "All Files" => ["*"]
+        };
+        assert_eq!(filters.len(), 2);
+        assert_eq!(filters[0].name, "Image Files");
+        assert_eq!(
+            filters[0].extensions,
+            vec!["png".to_string(), "jpg".to_string()]
+        );
+        assert_eq!(filters[1].name, "All Files");
+        assert_eq!(filters[1].extensions, vec!["*".to_string()]);
+    }
 }

@@ -133,34 +133,6 @@ pub fn bgra_to_rgba_bytes(data: &mut [u8]) {
     rgba_to_bgra_bytes(data);
 }
 
-struct OdsWriter {
-    buffer: Vec<u8>,
-}
-
-impl OdsWriter {
-    fn new() -> Self {
-        Self { buffer: Vec::new() }
-    }
-}
-
-impl std::io::Write for OdsWriter {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.buffer.extend_from_slice(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        while let Some(pos) = self.buffer.iter().position(|&b| b == b'\n') {
-            let line = &self.buffer[..=pos];
-            if let Ok(line_str) = std::str::from_utf8(line) {
-                debug_print_impl(line_str);
-            }
-            self.buffer.drain(..=pos);
-        }
-        Ok(())
-    }
-}
-
 #[cfg(feature = "env_logger")]
 mod ods_logger {
     /// [`env_logger::fmt::Target`]の実装。
@@ -177,8 +149,36 @@ mod ods_logger {
     ///     .init();
     /// ```
     pub fn debug_logger_target() -> env_logger::fmt::Target {
-        let write_target = super::OdsWriter::new();
+        let write_target = OdsWriter::new();
         env_logger::fmt::Target::Pipe(Box::new(write_target))
+    }
+
+    struct OdsWriter {
+        buffer: Vec<u8>,
+    }
+
+    impl OdsWriter {
+        fn new() -> Self {
+            Self { buffer: Vec::new() }
+        }
+    }
+
+    impl std::io::Write for OdsWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.buffer.extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            while let Some(pos) = self.buffer.iter().position(|&b| b == b'\n') {
+                let line = &self.buffer[..=pos];
+                if let Ok(line_str) = std::str::from_utf8(line) {
+                    super::debug_print_impl(line_str);
+                }
+                self.buffer.drain(..=pos);
+            }
+            Ok(())
+        }
     }
 }
 #[doc(inline)]

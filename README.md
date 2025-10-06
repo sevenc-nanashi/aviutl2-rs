@@ -11,6 +11,7 @@ AviUtl2 SDKのRust版です。
 - `./crates/`：AviUtl2 SDKのRustクレート。
   - `./crates/aviutl2-sys`：AviUtl2 SDKのRustバインディング。ほぼ1:1の対応です。
   - `./crates/aviutl2`：AviUtl2 SDKのRustラッパー。`aviutl2-sys`を使用して、よりRustらしいAPIを提供します。
+  - `./crates/aviutl2-macros`：`aviutl2`で使用するマクロを提供します。
 
 - `./examples/`：AviUtl2 SDKを使用したサンプルコード。
   - `./examples/image-rs-input`：image-rsを使用して画像を読み込むサンプル。
