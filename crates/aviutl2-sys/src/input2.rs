@@ -5,11 +5,8 @@ use std::ffi::c_void;
 
 pub use windows_sys::Win32::{
     Foundation::{HINSTANCE, HWND},
-    Graphics::Gdi::{BI_BITFIELDS, BI_RGB, BITMAPINFOHEADER},
-    Media::{
-        Audio::{WAVE_FORMAT_PCM, WAVEFORMATEX},
-        Multimedia::WAVE_FORMAT_IEEE_FLOAT,
-    },
+    Graphics::Gdi::BITMAPINFOHEADER,
+    Media::Audio::WAVEFORMATEX,
 };
 
 /// 入力ファイル情報構造体
@@ -30,11 +27,11 @@ pub struct INPUT_INFO {
     ///
     /// # See Also
     /// [`BITMAPINFOHEADER`]
-    /// [`BI_RGB`]
-    /// [`BI_YUY2`]
-    /// [`BI_PA64`]
-    /// [`BI_YC48`]
-    /// [`BI_HF64`]
+    /// [`crate::common::BI_RGB`]
+    /// [`crate::common::BI_YUY2`]
+    /// [`crate::common::BI_PA64`]
+    /// [`crate::common::BI_YC48`]
+    /// [`crate::common::BI_HF64`]
     pub format: *const BITMAPINFOHEADER,
     /// 画像フォーマットのサイズ
     pub format_size: i32,

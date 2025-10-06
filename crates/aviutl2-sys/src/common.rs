@@ -4,6 +4,11 @@ macro_rules! fourcc {
     };
 }
 
+pub use windows_sys::Win32::{
+    Graphics::Gdi::{BI_BITFIELDS, BI_RGB},
+    Media::{Audio::WAVE_FORMAT_PCM, Multimedia::WAVE_FORMAT_IEEE_FLOAT},
+};
+
 /// YUY2（YUV 4:2:2）フォーマット
 pub const BI_YUY2: u32 = fourcc!('Y', 'U', 'Y', '2');
 /// PA64（DXGI_FORMAT_R16G16B16A16_UNORM、乗算済みα）フォーマット

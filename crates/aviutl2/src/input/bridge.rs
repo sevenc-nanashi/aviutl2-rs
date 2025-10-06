@@ -36,7 +36,7 @@ impl AudioFormat {
 impl VideoInputInfo {
     fn into_raw(self) -> aviutl2_sys::input2::BITMAPINFOHEADER {
         let bi_compression = match self.format {
-            InputPixelFormat::Bgr | InputPixelFormat::Bgra => aviutl2_sys::input2::BI_RGB,
+            InputPixelFormat::Bgr | InputPixelFormat::Bgra => aviutl2_sys::common::BI_RGB,
             InputPixelFormat::Yuy2 => aviutl2_sys::common::BI_YUY2,
             InputPixelFormat::Pa64 => aviutl2_sys::common::BI_PA64,
             InputPixelFormat::Hf64 => aviutl2_sys::common::BI_HF64,
@@ -64,8 +64,8 @@ impl VideoInputInfo {
 impl AudioInputInfo {
     fn into_raw(self) -> aviutl2_sys::input2::WAVEFORMATEX {
         let format = match self.format {
-            AudioFormat::IeeeFloat32 => aviutl2_sys::input2::WAVE_FORMAT_IEEE_FLOAT,
-            AudioFormat::Pcm16 => aviutl2_sys::input2::WAVE_FORMAT_PCM,
+            AudioFormat::IeeeFloat32 => aviutl2_sys::common::WAVE_FORMAT_IEEE_FLOAT,
+            AudioFormat::Pcm16 => aviutl2_sys::common::WAVE_FORMAT_PCM,
         };
         let bytes_per_sample = self.format.bytes_per_sample();
         aviutl2_sys::input2::WAVEFORMATEX {
@@ -531,7 +531,7 @@ macro_rules! register_input_plugin {
             }
 
             extern "C" fn func_open(
-                file: aviutl2::sys::input2::LPCWSTR,
+                file: aviutl2::sys::common::LPCWSTR,
             ) -> aviutl2::sys::input2::INPUT_HANDLE {
                 unsafe { $crate::input::__bridge::func_open(&*PLUGIN, file) }
             }

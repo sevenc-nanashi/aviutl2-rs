@@ -5,7 +5,7 @@ use std::ffi::c_void;
 
 pub use windows_sys::Win32::{
     Foundation::{HINSTANCE, HWND},
-    Graphics::Gdi::{BI_RGB, BITMAPINFOHEADER},
+    Graphics::Gdi::BITMAPINFOHEADER,
     Media::{Audio::WAVE_FORMAT_PCM, Multimedia::WAVE_FORMAT_IEEE_FLOAT},
 };
 /// 出力情報構造体
@@ -37,11 +37,11 @@ pub struct OUTPUT_INFO {
     /// 画像データポインタの内容は次に外部関数を使うかメインに処理を戻すまで有効
     ///
     /// # See Also
-    /// [`BI_RGB`]
-    /// [`BI_YUY2`]
-    /// [`BI_PA64`]
-    /// [`BI_YC48`]
-    /// [`BI_HF64`]
+    /// [`crate::common::BI_RGB`]
+    /// [`crate::common::BI_YUY2`]
+    /// [`crate::common::BI_PA64`]
+    /// [`crate::common::BI_YC48`]
+    /// [`crate::common::BI_HF64`]
     pub func_get_video: Option<extern "C" fn(frame: i32, format: u32) -> *mut c_void>,
     /// PCM形式の音声データへのポインタを取得します
     ///
