@@ -17,4 +17,3 @@ pub use config::*;
 #[doc(hidden)]
 #[path = "bridge.rs"]
 pub mod __bridge;
-
