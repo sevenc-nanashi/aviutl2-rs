@@ -10,6 +10,18 @@ pub trait FilterConfigItems: Sized {
 }
 pub use aviutl2_macros::FilterConfigItems;
 
+/// `&[FilterConfigItem]` に対する拡張トレイト。
+pub trait FilterConfigItemSliceExt {
+    /// `&[FilterConfigItem]` から指定した構造体に変換します。
+    fn to_struct<T: FilterConfigItems>(&self) -> T;
+}
+
+impl FilterConfigItemSliceExt for &[FilterConfigItem] {
+    fn to_struct<T: FilterConfigItems>(&self) -> T {
+        T::from_config_items(self)
+    }
+}
+
 /// フィルタの設定。
 #[derive(Debug, Clone)]
 pub enum FilterConfigItem {
@@ -99,6 +111,57 @@ impl FilterConfigItem {
                         filefilter: leak_manager.leak_as_wide_string(&raw_filters),
                     },
                 }
+            }
+        }
+    }
+
+    pub(crate) unsafe fn apply_from_raw(
+        &mut self,
+        raw: *const aviutl2_sys::filter2::FILTER_ITEM,
+    ) -> () {
+        #[cfg(debug_assertions)]
+        {
+            let item_type = unsafe {
+                crate::common::load_wide_string(
+                    // SAFETY: aviutl2_sys::filter2::FILTER_ITEM の最初のメンバーはLPCWSTRなので問題ないはず
+                    *(raw as *const aviutl2_sys::common::LPCWSTR),
+                )
+            };
+            let expected_types = match self {
+                FilterConfigItem::Track(_) => "track",
+                FilterConfigItem::Checkbox(_) => "check",
+                FilterConfigItem::Color(_) => "color",
+                FilterConfigItem::Select(_) => "select",
+                FilterConfigItem::File(_) => "file",
+            };
+            if item_type != expected_types {
+                panic!(
+                    "Mismatched filter config item type: expected {}, got {}",
+                    expected_types, item_type
+                );
+            }
+        }
+
+        match self {
+            FilterConfigItem::Track(item) => {
+                let raw_track = unsafe { &(*raw).track };
+                item.value = raw_track.value;
+            }
+            FilterConfigItem::Checkbox(item) => {
+                let raw_checkbox = unsafe { &(*raw).checkbox };
+                item.value = raw_checkbox.value;
+            }
+            FilterConfigItem::Color(item) => {
+                let raw_color = unsafe { &(*raw).color };
+                item.value = raw_color.value.into();
+            }
+            FilterConfigItem::Select(item) => {
+                let raw_select = unsafe { &(*raw).select };
+                item.value = raw_select.value;
+            }
+            FilterConfigItem::File(item) => {
+                let raw_file = unsafe { &(*raw).file };
+                item.value = unsafe { crate::common::load_wide_string(raw_file.value) };
             }
         }
     }

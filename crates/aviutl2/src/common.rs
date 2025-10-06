@@ -13,7 +13,7 @@ pub struct AviUtl2Info {
 }
 
 /// ファイル選択ダイアログのフィルタを表す構造体。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileFilter {
     /// フィルタの名前。
     pub name: String,
@@ -161,6 +161,47 @@ pub(crate) fn format_file_filters(file_filters: &[FileFilter]) -> String {
     }
 
     file_filter
+}
+pub(crate) fn from_file_filters_lpcwstr(ptr: aviutl2_sys::common::LPCWSTR) -> Vec<FileFilter> {
+    let mut filters = Vec::new();
+    loop {
+        if ptr.is_null() || unsafe { *ptr } == 0 {
+            break;
+        }
+        let mut name_len = 0;
+        while unsafe { *ptr.add(name_len) } != 0 {
+            name_len += 1;
+        }
+        let name = unsafe { String::from_utf16_lossy(std::slice::from_raw_parts(ptr, name_len)) };
+        let ptr = unsafe { ptr.add(name_len + 1) };
+        if ptr.is_null() || unsafe { *ptr } == 0 {
+            break;
+        }
+        let mut ext_len = 0;
+        while unsafe { *ptr.add(ext_len) } != 0 {
+            ext_len += 1;
+        }
+        let exts_str =
+            unsafe { String::from_utf16_lossy(std::slice::from_raw_parts(ptr, ext_len)) };
+        let extensions = exts_str
+            .split(';')
+            .map(|s| s.trim_start_matches("*.").to_string())
+            .collect::<Vec<_>>();
+
+        let mut last_bracket = None;
+        for (i, c) in name.char_indices() {
+            if c == '(' {
+                last_bracket = Some(i);
+            }
+        }
+        let name = if let Some(pos) = last_bracket {
+            name[..(pos - 1)].to_string()
+        } else {
+            name
+        };
+        filters.push(FileFilter { name, extensions });
+    }
+    filters
 }
 
 pub(crate) enum LeakType {
@@ -345,7 +386,7 @@ impl Drop for LeakManager {
     }
 }
 
-pub(crate) fn load_wide_string(ptr: *const u16) -> String {
+pub(crate) unsafe fn load_wide_string(ptr: *const u16) -> String {
     if ptr.is_null() {
         return String::new();
     }
@@ -386,6 +427,11 @@ mod tests {
         let formatted = format_file_filters(&filters);
         let expected = "Image Files (.png, .jpg)\x00*.png;*.jpg\x00All Files (*)\x00*\x00";
         assert_eq!(formatted, expected);
+
+        let leak_manager = LeakManager::new();
+        let lpcwstr = leak_manager.leak_as_wide_string(&formatted);
+        let parsed = from_file_filters_lpcwstr(lpcwstr);
+        assert_eq!(parsed, filters);
     }
 
     #[test]

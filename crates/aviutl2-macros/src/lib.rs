@@ -198,14 +198,14 @@ fn filter_config_items_from_filter_config(
                     // i32
                     return quote::quote! {
                         #id_ident: match items[#i] {
-                            aviutl2::filter::FilterConfigItem::Track(ref track) => (track.value as i32).try_into().unwrap(),
+                            aviutl2::filter::FilterConfigItem::Track(ref track) => (track.value as i32) as _,
                             _ => panic!("Expected Track at index {}", #i),
                         }
                     };
                 }
                 quote::quote! {
                     #id_ident: match items[#i] {
-                        aviutl2::filter::FilterConfigItem::Track(ref track) => track.value.try_into().unwrap(),
+                        aviutl2::filter::FilterConfigItem::Track(ref track) => track.value as _,
                         _ => panic!("Expected Track at index {}", #i),
                     }
                 }
@@ -356,8 +356,8 @@ fn filter_config_field_track(
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("step") {
             let value_token = m.value()?.parse::<syn::LitFloat>()?;
-            let value = value_token.base10_parse::<f64>()?;
-            if !matches!(value, 1.0 | 0.1 | 0.01 | 0.001) {
+            let value = value_token.base10_parse::<decimal_rs::Decimal>()?;
+            if !matches!(value.into(), 1.0 | 0.1 | 0.01 | 0.001) {
                 return Err(syn::Error::new_spanned(
                     value_token,
                     "step must be one of 1.0, 0.1, 0.01, or 0.001",
@@ -365,12 +365,38 @@ fn filter_config_field_track(
             }
 
             step = Some(value);
-        } else if m.path.is_ident("min") {
+        } else if m.path.is_ident("range") {
             let value_token = m.value()?;
-            min = Some(parse_int_or_float(&value_token.parse()?)?);
-        } else if m.path.is_ident("max") {
-            let value_token = m.value()?;
-            max = Some(parse_int_or_float(&value_token.parse()?)?);
+            let expr = value_token.parse::<syn::Expr>()?;
+            if let syn::Expr::Range(expr_range) = expr {
+                if !matches!(expr_range.limits, syn::RangeLimits::Closed(_)) {
+                    return Err(syn::Error::new_spanned(
+                        expr_range,
+                        "range must be a closed range (e.g., 0.0..=1.0)",
+                    ));
+                }
+                if let Some(ref from) = expr_range.start {
+                    min = Some(parse_int_or_float(from)?);
+                } else {
+                    return Err(syn::Error::new_spanned(
+                        expr_range,
+                        "range must have a start value",
+                    ));
+                }
+                if let Some(to) = expr_range.end {
+                    max = Some(parse_int_or_float(&to)?);
+                } else {
+                    return Err(syn::Error::new_spanned(
+                        expr_range,
+                        "range must have an end value",
+                    ));
+                }
+            } else {
+                return Err(syn::Error::new_spanned(
+                    expr,
+                    "range must be a range expression (e.g., 0.0..=1.0)",
+                ));
+            }
         } else if m.path.is_ident("default") {
             let value_token = m.value()?;
             default = Some(parse_int_or_float(&value_token.parse()?)?);
@@ -397,14 +423,26 @@ fn filter_config_field_track(
             "default must be between min and max",
         ));
     }
-    if min % step != decimal_rs::Decimal::ZERO
-        || max % step != decimal_rs::Decimal::ZERO
-        || default % step != decimal_rs::Decimal::ZERO
-    {
-        return Err(syn::Error::new_spanned(
-            recognized_attr,
-            "min, max, and default must be multiples of step",
-        ));
+    match (min % step, max % step, default % step) {
+        (d, _, _) if d != decimal_rs::Decimal::ZERO => {
+            return Err(syn::Error::new_spanned(
+                recognized_attr,
+                "min must be a multiple of step",
+            ));
+        }
+        (_, d, _) if d != decimal_rs::Decimal::ZERO => {
+            return Err(syn::Error::new_spanned(
+                recognized_attr,
+                "max must be a multiple of step",
+            ));
+        }
+        (_, _, d) if d != decimal_rs::Decimal::ZERO => {
+            return Err(syn::Error::new_spanned(
+                recognized_attr,
+                "default must be a multiple of step",
+            ));
+        }
+        _ => {}
     }
     Ok(FilterConfigField::Track {
         id: field.ident.as_ref().unwrap().to_string(),
@@ -412,7 +450,7 @@ fn filter_config_field_track(
         default: default.into(),
         min: min.into(),
         max: max.into(),
-        step,
+        step: step.into(),
     })
 }
 
@@ -684,15 +722,39 @@ fn filter_config_field_file(
     })
 }
 
-fn parse_int_or_float(lit: &syn::Lit) -> Result<decimal_rs::Decimal, syn::Error> {
-    if let syn::Lit::Int(lit_int) = lit {
-        Ok(lit_int.base10_parse::<decimal_rs::Decimal>()?)
-    } else if let syn::Lit::Float(lit_float) = lit {
-        Ok(lit_float.base10_parse::<decimal_rs::Decimal>()?)
-    } else {
-        Err(syn::Error::new_spanned(
-            lit,
+fn parse_int_or_float(expr: &syn::Expr) -> Result<decimal_rs::Decimal, syn::Error> {
+    match expr {
+        syn::Expr::Lit(syn::ExprLit { lit, .. }) => match lit {
+            syn::Lit::Int(lit_int) => lit_int.base10_parse::<decimal_rs::Decimal>(),
+            syn::Lit::Float(lit_float) => lit_float.base10_parse::<decimal_rs::Decimal>(),
+            _ => Err(syn::Error::new_spanned(
+                lit,
+                "Expected integer or float literal",
+            )),
+        },
+        syn::Expr::Unary(syn::ExprUnary {
+            op: syn::UnOp::Neg(_),
+            expr,
+            ..
+        }) => match &**expr {
+            syn::Expr::Lit(syn::ExprLit { lit, .. }) => match lit {
+                syn::Lit::Int(lit_int) => lit_int.base10_parse::<decimal_rs::Decimal>().map(|v| -v),
+                syn::Lit::Float(lit_float) => {
+                    lit_float.base10_parse::<decimal_rs::Decimal>().map(|v| -v)
+                }
+                _ => Err(syn::Error::new_spanned(
+                    lit,
+                    "Expected integer or float literal",
+                )),
+            },
+            _ => Err(syn::Error::new_spanned(
+                expr,
+                "Expected integer or float literal",
+            )),
+        },
+        _ => Err(syn::Error::new_spanned(
+            expr,
             "Expected integer or float literal",
-        ))
+        )),
     }
 }

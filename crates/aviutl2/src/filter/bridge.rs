@@ -1,8 +1,8 @@
 use crate::{
     common::{LeakManager, alert_error},
     filter::{
-        AudioObjectInfo, FilterPlugin, FilterPluginTable, FilterProcAudio, FilterProcVideo,
-        ObjectInfo, SceneInfo, VideoObjectInfo,
+        AudioObjectInfo, FilterConfigItem, FilterPlugin, FilterPluginTable, FilterProcAudio,
+        FilterProcVideo, ObjectInfo, SceneInfo, VideoObjectInfo,
     },
 };
 
@@ -77,22 +77,40 @@ pub struct InternalFilterPluginState<T: Send + Sync + FilterPlugin> {
     plugin_info: FilterPluginTable,
     global_leak_manager: LeakManager,
     leak_manager: LeakManager,
+    config_pointers: Vec<*const aviutl2_sys::filter2::FILTER_ITEM>,
+    config_items: Vec<FilterConfigItem>,
 
     instance: T,
 }
+unsafe impl<T: Send + Sync + FilterPlugin> Send for InternalFilterPluginState<T> {}
+unsafe impl<T: Send + Sync + FilterPlugin> Sync for InternalFilterPluginState<T> {}
 
 impl<T: Send + Sync + FilterPlugin> InternalFilterPluginState<T> {
     pub fn new(instance: T) -> Self {
         let plugin_info = instance.plugin_info();
+        let config_items = plugin_info.config_items.clone();
         Self {
             plugin_info,
             global_leak_manager: LeakManager::new(),
             leak_manager: LeakManager::new(),
+            config_pointers: Vec::new(),
+            config_items,
+
             instance,
         }
     }
-}
 
+    /// TODO: &mutなので音声・映像の同時処理ができないのをなんとかしていい感じにしたい
+    pub unsafe fn apply_configs(&mut self) {
+        for (item, raw) in self
+            .config_items
+            .iter_mut()
+            .zip(self.config_pointers.iter())
+        {
+            unsafe { item.apply_from_raw(*raw) };
+        }
+    }
+}
 pub unsafe fn initialize_plugin<T: FilterPlugin>(
     plugin_state: &std::sync::RwLock<Option<InternalFilterPluginState<T>>>,
     version: u32,
@@ -113,7 +131,7 @@ pub unsafe fn initialize_plugin<T: FilterPlugin>(
 }
 
 pub unsafe fn create_table<T: FilterPlugin>(
-    plugin_state: &InternalFilterPluginState<T>,
+    plugin_state: &mut InternalFilterPluginState<T>,
     func_proc_video: extern "C" fn(video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO) -> bool,
     func_proc_audio: extern "C" fn(audio: *mut aviutl2_sys::filter2::FILTER_PROC_AUDIO) -> bool,
 ) -> aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
@@ -137,13 +155,27 @@ pub unsafe fn create_table<T: FilterPlugin>(
             0
         });
 
-    let items = plugin_info
+    let config_items = plugin_info
         .config_items
         .iter()
-        .map(|item| Some(item.to_raw(&plugin_state.global_leak_manager)))
-        .chain(std::iter::once(None))
+        .map(|item| {
+            plugin_state
+                .global_leak_manager
+                .leak(item.to_raw(&plugin_state.global_leak_manager))
+        })
         .collect::<Vec<_>>();
-    let items = plugin_state.global_leak_manager.leak_ptr_vec(items);
+    plugin_state.config_pointers = config_items.to_vec();
+    // null終端
+    plugin_state
+        .config_pointers
+        .push(std::ptr::null::<aviutl2_sys::filter2::FILTER_ITEM>());
+    let config_items = plugin_state.global_leak_manager.leak_value_vec(
+        plugin_state
+            .config_pointers
+            .iter()
+            .map(|p| *p as usize)
+            .collect(),
+    );
 
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
     aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
@@ -155,7 +187,7 @@ pub unsafe fn create_table<T: FilterPlugin>(
         label: plugin_info.label.as_ref().map_or(std::ptr::null(), |s| {
             plugin_state.global_leak_manager.leak_as_wide_string(s)
         }),
-        items: items as _,
+        items: config_items as _,
         func_proc_video: Some(func_proc_video),
         func_proc_audio: Some(func_proc_audio),
     }
@@ -167,7 +199,7 @@ pub unsafe fn func_proc_video<T: FilterPlugin>(
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let video = unsafe { FilterProcVideo::from_raw(video) };
-    if let Err(e) = plugin.proc_video(&video) {
+    if let Err(e) = plugin.proc_video(&plugin_state.config_items, &video) {
         log::error!("Error in proc_video: {}", e);
         return false;
     }
@@ -180,7 +212,7 @@ pub unsafe fn func_proc_audio<T: FilterPlugin>(
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let audio = unsafe { FilterProcAudio::from_raw(audio) };
-    if let Err(e) = plugin.proc_audio(&audio) {
+    if let Err(e) = plugin.proc_audio(&plugin_state.config_items, &audio) {
         log::error!("Error in proc_audio: {}", e);
         return false;
     }
@@ -217,10 +249,10 @@ macro_rules! register_filter_plugin {
             -> *mut aviutl2::sys::filter2::FILTER_PLUGIN_TABLE {
                 let table = unsafe {
                     $crate::filter::__bridge::create_table::<$struct>(
-                        &PLUGIN
-                            .read()
+                        &mut PLUGIN
+                            .write()
                             .unwrap()
-                            .as_ref()
+                            .as_mut()
                             .expect("Plugin not initialized"),
                         func_proc_video,
                         func_proc_audio,
@@ -233,6 +265,7 @@ macro_rules! register_filter_plugin {
                 video: *mut aviutl2::sys::filter2::FILTER_PROC_AUDIO,
             ) -> bool {
                 unsafe {
+                    PLUGIN.write().unwrap().as_mut().unwrap().apply_configs();
                     $crate::filter::__bridge::func_proc_audio(
                         &PLUGIN
                             .read()
@@ -248,6 +281,7 @@ macro_rules! register_filter_plugin {
                 video: *mut aviutl2::sys::filter2::FILTER_PROC_VIDEO,
             ) -> bool {
                 unsafe {
+                    PLUGIN.write().unwrap().as_mut().unwrap().apply_configs();
                     $crate::filter::__bridge::func_proc_video(
                         &PLUGIN
                             .read()

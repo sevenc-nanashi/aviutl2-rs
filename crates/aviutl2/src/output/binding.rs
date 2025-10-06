@@ -151,7 +151,7 @@ impl OutputInfo {
                 None
             },
 
-            path: std::path::PathBuf::from(load_wide_string(raw.savefile)),
+            path: std::path::PathBuf::from(unsafe { load_wide_string(raw.savefile) }),
 
             internal: oip,
             last_frame_id: Arc::new(AtomicUsize::new(0)),

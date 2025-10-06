@@ -59,12 +59,20 @@ pub trait FilterPlugin: Send + Sync + Sized {
     fn plugin_info(&self) -> FilterPluginTable;
 
     /// 画像フィルタ処理関数。
-    fn proc_video(&self, _video: &FilterProcVideo) -> AnyResult<()> {
+    fn proc_video(
+        &self,
+        _config: &[config::FilterConfigItem],
+        _video: &FilterProcVideo,
+    ) -> AnyResult<()> {
         anyhow::bail!("proc_video is not implemented");
     }
 
     /// 音声フィルタ処理関数。
-    fn proc_audio(&self, _audio: &FilterProcAudio) -> AnyResult<()> {
+    fn proc_audio(
+        &self,
+        _config: &[config::FilterConfigItem],
+        _audio: &FilterProcAudio,
+    ) -> AnyResult<()> {
         anyhow::bail!("proc_audio is not implemented");
     }
 }

@@ -180,7 +180,7 @@ pub unsafe fn func_open<T: InputPlugin>(
     file: aviutl2_sys::common::LPCWSTR,
 ) -> aviutl2_sys::input2::INPUT_HANDLE {
     plugin_state.leak_manager.free_leaked_memory();
-    let path = load_wide_string(file);
+    let path = unsafe { load_wide_string(file) };
     log::info!("func_open called with path: {}", path);
     let plugin = &plugin_state.instance;
     match plugin.open(std::path::PathBuf::from(path)) {
