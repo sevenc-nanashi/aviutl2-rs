@@ -15,6 +15,3 @@ publish = false
 aviutl2 = { path = "./crates/aviutl2", version = "0.8.1" }
 aviutl2-sys = { path = "./crates/aviutl2-sys", version = "0.8.1" }
 aviutl2-macros = { path = "./crates/aviutl2-macros", version = "0.8.1" }
-
-[workspace.lints.clippy]
-allow_attributes = "warn"
