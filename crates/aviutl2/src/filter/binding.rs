@@ -1,8 +1,7 @@
-use std::borrow::Cow;
-use zerocopy::IntoBytes;
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 use super::config;
-use crate::common::{AnyResult, AviUtl2Info, FileFilter, Rational32, Win32WindowHandle, Yc48, f16};
+use crate::common::{AnyResult, AviUtl2Info, Rational32};
 
 /// 入力プラグインの情報を表す構造体。
 #[derive(Debug, Clone)]
@@ -26,14 +25,6 @@ pub struct FilterPluginTable {
     pub config_items: Vec<config::FilterConfigItem>,
 }
 /// 動画・画像と音声の入力情報をまとめた構造体。
-#[derive(Debug, Clone)]
-pub struct InputInfo {
-    // /// 動画・画像のフォーマット。
-    // pub video: Option<VideoInputInfo>,
-    // /// 音声のフォーマット。
-    // pub audio: Option<AudioInputInfo>,
-}
-
 /// 入力の種類を表す列挙型。
 #[derive(Debug, Clone)]
 pub enum FilterType {
@@ -66,4 +57,152 @@ pub trait FilterPlugin: Send + Sync + Sized {
 
     /// プラグインの情報を返す。
     fn plugin_info(&self) -> FilterPluginTable;
+
+    /// 画像フィルタ処理関数。
+    fn proc_video(&self, _video: &FilterProcVideo) -> AnyResult<()> {
+        anyhow::bail!("proc_video is not implemented");
+    }
+
+    /// 音声フィルタ処理関数。
+    fn proc_audio(&self, _audio: &FilterProcAudio) -> AnyResult<()> {
+        anyhow::bail!("proc_audio is not implemented");
+    }
+}
+
+/// シーン情報。
+pub struct SceneInfo {
+    /// 解像度（幅）。
+    pub width: u32,
+    /// 解像度（高さ）。
+    pub height: u32,
+    /// フレームレート。
+    pub frame_rate: Rational32,
+    /// サンプリングレート。
+    pub sample_rate: u32,
+}
+
+/// オブジェクト情報。
+pub struct ObjectInfo {
+    /// ID。
+    pub id: i64,
+    /// オブジェクトの現在のフレーム番号。
+    pub frame: u32,
+    /// オブジェクトの総フレーム数。
+    pub frame_total: u32,
+    /// オブジェクトの現在の時間（秒）。
+    pub time: f64,
+    /// オブジェクトの総時間（秒）。
+    pub time_total: f64,
+}
+
+/// 画像フィルタのオブジェクト情報。
+pub struct VideoObjectInfo {
+    /// オブジェクトの現在の画像サイズの幅。
+    pub width: u32,
+    /// オブジェクトの現在の画像サイズの高さ。
+    pub height: u32,
+}
+
+/// 音声フィルタのオブジェクト情報。
+pub struct AudioObjectInfo {
+    /// オブジェクトの現在の音声サンプル位置。
+    pub sample_index: u64,
+    /// オブジェクトの総サンプル数。
+    pub sample_total: u64,
+    /// オブジェクトの現在の音声サンプル数。
+    pub sample_num: u32,
+    /// オブジェクトの現在の音声チャンネル数。
+    /// 通常2になります。
+    pub channel_num: u32,
+}
+
+/// RGBAのピクセル。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, IntoBytes, FromBytes, Immutable, KnownLayout)]
+pub struct RgbaPixel {
+    /// 赤。
+    pub r: u8,
+    /// 緑。
+    pub g: u8,
+    /// 青。
+    pub b: u8,
+    /// アルファ。
+    pub a: u8,
+}
+
+/// 画像フィルタ処理のための構造体。
+pub struct FilterProcVideo {
+    /// シーン情報。
+    pub scene: SceneInfo,
+    /// オブジェクト情報。
+    pub object: ObjectInfo,
+    /// 画像フィルタ特有のオブジェクト情報。
+    pub video_object: VideoObjectInfo,
+
+    pub(crate) inner: *const aviutl2_sys::filter2::FILTER_PROC_VIDEO,
+}
+unsafe impl Send for FilterProcVideo {}
+unsafe impl Sync for FilterProcVideo {}
+
+impl FilterProcVideo {
+    /// 現在の画像のデータを取得する。
+    pub fn get_image_data(&self) -> Vec<RgbaPixel> {
+        let width = self.scene.width as usize;
+        let height = self.scene.height as usize;
+        let mut buffer: Vec<u8> = vec![0; width * height * 4];
+        let inner = unsafe { &*self.inner };
+        (inner.get_image_data)(buffer.as_mut_ptr() as *mut aviutl2_sys::filter2::PIXEL_RGBA);
+        let pixels: &[RgbaPixel] = <[RgbaPixel]>::ref_from_bytes(&buffer).unwrap();
+
+        pixels.to_vec()
+    }
+
+    /// 現在の画像のデータを設定する。
+    pub fn set_image_data<T: IntoBytes + Immutable>(&self, data: &[T]) {
+        let width = self.scene.width as usize;
+        let height = self.scene.height as usize;
+        let bytes = &data.as_bytes();
+        assert!(bytes.len() == width * height * 4);
+        let inner = unsafe { &*self.inner };
+        (inner.set_image_data)(
+            bytes.as_ptr() as *const aviutl2_sys::filter2::PIXEL_RGBA,
+            width as i32,
+            height as i32,
+        );
+    }
+}
+
+/// 音声フィルタ処理のための構造体。
+pub struct FilterProcAudio {
+    /// シーン情報。
+    pub scene: SceneInfo,
+    /// オブジェクト情報。
+    pub object: ObjectInfo,
+    /// 音声フィルタ特有のオブジェクト情報。
+    pub audio_object: AudioObjectInfo,
+
+    pub(crate) inner: *const aviutl2_sys::filter2::FILTER_PROC_AUDIO,
+}
+
+unsafe impl Send for FilterProcAudio {}
+unsafe impl Sync for FilterProcAudio {}
+
+impl FilterProcAudio {
+    /// 現在の音声のデータを取得する。
+    /// `channel` は 0 が左チャンネル、1 が右チャンネルです。
+    pub fn get_sample_data(&self, channel: u32) -> Vec<f32> {
+        let sample_num = self.audio_object.sample_num as usize;
+        let mut buffer: Vec<f32> = vec![0.0; sample_num];
+        let inner = unsafe { &*self.inner };
+        (inner.get_sample_data)(buffer.as_mut_ptr(), channel as i32);
+        buffer
+    }
+
+    /// 現在の音声のデータを設定する。
+    /// `channel` は 0 が左チャンネル、1 が右チャンネルです。
+    pub fn set_sample_data(&self, data: &[f32], channel: u32) {
+        let sample_num = self.audio_object.sample_num as usize;
+        assert!(data.len() == sample_num);
+        let inner = unsafe { &*self.inner };
+        (inner.set_sample_data)(data.as_ptr(), channel as i32);
+    }
 }

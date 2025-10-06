@@ -20,7 +20,7 @@ struct FilterConfig {
         "テキストファイル" => ["txt"],
         "すべてのファイル" => ["*"]
     })]
-    sample_file: std::path::PathBuf,
+    sample_file: Option<std::path::PathBuf>,
 }
 
 struct EqualizerFilter {}

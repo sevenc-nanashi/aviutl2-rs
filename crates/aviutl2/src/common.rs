@@ -26,7 +26,7 @@ pub struct FileFilter {
 /// # Example
 ///
 /// ```rust
-/// let filters = file_filters! {
+/// let filters = aviutl2::file_filters! {
 ///     "Image Files" => ["png", "jpg"],
 ///     "All Files" => ["*"]
 /// };
@@ -129,41 +129,34 @@ impl Yc48 {
 pub(crate) fn format_file_filters(file_filters: &[FileFilter]) -> String {
     let mut file_filter = String::new();
     for filter in file_filters {
-        if !file_filter.is_empty() {
-            file_filter.push('\x00');
-        }
         let display = format!(
             "{} ({})",
             filter.name,
-            filter
-                .extensions
-                .iter()
-                .map(|ext| {
-                    if ext.is_empty() {
-                        "*".to_string()
-                    } else {
-                        ext.to_string()
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join(", "),
+            if filter.extensions.is_empty() {
+                "*".to_string()
+            } else {
+                filter
+                    .extensions
+                    .iter()
+                    .map(|ext| format!(".{ext}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            }
         );
         file_filter.push_str(&display);
         file_filter.push('\x00');
-        file_filter.push_str(
-            &filter
-                .extensions
-                .iter()
-                .map(|ext| {
-                    if ext.is_empty() {
-                        "*".to_string()
-                    } else {
-                        format!("*.{ext}")
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join(";"),
-        );
+        if filter.extensions.is_empty() {
+            file_filter.push('*');
+        } else {
+            file_filter.push_str(
+                &filter
+                    .extensions
+                    .iter()
+                    .map(|ext| format!("*.{ext}"))
+                    .collect::<Vec<_>>()
+                    .join(";"),
+            );
+        }
         file_filter.push('\x00');
     }
 
@@ -174,6 +167,7 @@ pub(crate) enum LeakType {
     WideString,
     PtrVector(usize),
     ValueVector { len: usize, name: String },
+    Null,
     Other(String),
 }
 
@@ -266,6 +260,9 @@ impl LeakManager {
                 LeakType::ValueVector { len, name } => {
                     Self::free_leaked_memory_leakable_value(&name, ptr, len);
                 }
+                LeakType::Null => {
+                    assert!(ptr == 0);
+                }
                 LeakType::Other(ref type_name) => {
                     Self::free_leaked_memory_other_ptr(type_name, ptr);
                 }
@@ -333,6 +330,15 @@ impl_leak_ptr!(
 );
 impl_leakable_value!(aviutl2_sys::filter2::FILTER_ITEM_SELECT_ITEM, usize);
 
+impl<T: IntoLeakedPtr> IntoLeakedPtr for Option<T> {
+    fn into_leaked_ptr(self) -> (LeakType, usize) {
+        match self {
+            Some(value) => value.into_leaked_ptr(),
+            None => (LeakType::Null, 0),
+        }
+    }
+}
+
 impl Drop for LeakManager {
     fn drop(&mut self) {
         self.free_leaked_memory();
@@ -374,11 +380,11 @@ mod tests {
             },
             FileFilter {
                 name: "All Files".to_string(),
-                extensions: vec!["*".to_string()],
+                extensions: vec![],
             },
         ];
         let formatted = format_file_filters(&filters);
-        let expected = "Image Files (png, jpg)\x00*.png;*.jpg\x00All Files (*)\x00*.*\x00";
+        let expected = "Image Files (.png, .jpg)\x00*.png;*.jpg\x00All Files (*)\x00*\x00";
         assert_eq!(formatted, expected);
     }
 
@@ -386,7 +392,7 @@ mod tests {
     fn test_file_filters_macro() {
         let filters = file_filters! {
             "Image Files" => ["png", "jpg"],
-            "All Files" => ["*"]
+            "All Files" => []
         };
         assert_eq!(filters.len(), 2);
         assert_eq!(filters[0].name, "Image Files");
@@ -395,6 +401,6 @@ mod tests {
             vec!["png".to_string(), "jpg".to_string()]
         );
         assert_eq!(filters[1].name, "All Files");
-        assert_eq!(filters[1].extensions, vec!["*".to_string()]);
+        assert_eq!(filters[1].extensions, Vec::<String>::new());
     }
 }

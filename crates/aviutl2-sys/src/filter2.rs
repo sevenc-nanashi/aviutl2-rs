@@ -131,9 +131,9 @@ pub struct OBJECT_INFO {
     /// オブジェクトのID (アプリ起動毎の固有ID)
     pub id: i64,
     /// オブジェクトの現在のフレーム番号
-    pub frame: i64,
+    pub frame: i32,
     /// オブジェクトの総フレーム数
-    pub frame_total: i64,
+    pub frame_total: i32,
     /// オブジェクトの現在の時間(秒)
     pub time: f64,
     /// オブジェクトの総時間(秒)

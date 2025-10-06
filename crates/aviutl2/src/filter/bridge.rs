@@ -1,11 +1,78 @@
-use std::num::NonZeroIsize;
-
 use crate::{
-    common::{AnyResult, LeakManager, alert_error, format_file_filters, load_wide_string},
-    filter::{FilterPlugin, FilterPluginTable},
+    common::{LeakManager, alert_error},
+    filter::{
+        AudioObjectInfo, FilterPlugin, FilterPluginTable, FilterProcAudio, FilterProcVideo,
+        ObjectInfo, SceneInfo, VideoObjectInfo,
+    },
 };
 
-#[doc(hidden)]
+impl FilterProcAudio {
+    unsafe fn from_raw(raw_ptr: *const aviutl2_sys::filter2::FILTER_PROC_AUDIO) -> FilterProcAudio {
+        let raw = unsafe { &*raw_ptr };
+        FilterProcAudio {
+            scene: unsafe { SceneInfo::from_raw(raw.scene) },
+            object: unsafe { ObjectInfo::from_raw(raw.object) },
+            audio_object: unsafe { AudioObjectInfo::from_raw(raw.object) },
+            inner: raw_ptr,
+        }
+    }
+}
+impl FilterProcVideo {
+    unsafe fn from_raw(raw_ptr: *const aviutl2_sys::filter2::FILTER_PROC_VIDEO) -> FilterProcVideo {
+        let raw = unsafe { &*raw_ptr };
+        FilterProcVideo {
+            scene: unsafe { SceneInfo::from_raw(raw.scene) },
+            object: unsafe { ObjectInfo::from_raw(raw.object) },
+            video_object: unsafe { VideoObjectInfo::from_raw(raw.object) },
+            inner: raw_ptr,
+        }
+    }
+}
+
+impl SceneInfo {
+    unsafe fn from_raw(raw: *const aviutl2_sys::filter2::SCENE_INFO) -> SceneInfo {
+        let raw = unsafe { &*raw };
+        SceneInfo {
+            width: raw.width as u32,
+            height: raw.height as u32,
+            frame_rate: num_rational::Rational32::new(raw.rate, raw.scale),
+            sample_rate: raw.sample_rate as u32,
+        }
+    }
+}
+impl ObjectInfo {
+    unsafe fn from_raw(raw: *const aviutl2_sys::filter2::OBJECT_INFO) -> ObjectInfo {
+        let raw = unsafe { &*raw };
+        ObjectInfo {
+            id: raw.id,
+            frame: raw.frame as u32,
+            frame_total: raw.frame_total as u32,
+            time: raw.time,
+            time_total: raw.time_total,
+        }
+    }
+}
+impl VideoObjectInfo {
+    unsafe fn from_raw(raw: *const aviutl2_sys::filter2::OBJECT_INFO) -> VideoObjectInfo {
+        let raw = unsafe { &*raw };
+        VideoObjectInfo {
+            width: raw.width as u32,
+            height: raw.height as u32,
+        }
+    }
+}
+impl AudioObjectInfo {
+    unsafe fn from_raw(raw: *const aviutl2_sys::filter2::OBJECT_INFO) -> AudioObjectInfo {
+        let raw = unsafe { &*raw };
+        AudioObjectInfo {
+            sample_index: raw.sample_index as u64,
+            sample_total: raw.sample_total as u64,
+            sample_num: raw.sample_num as u32,
+            channel_num: raw.channel_num as u32,
+        }
+    }
+}
+
 pub struct InternalFilterPluginState<T: Send + Sync + FilterPlugin> {
     plugin_info: FilterPluginTable,
     global_leak_manager: LeakManager,
@@ -70,21 +137,13 @@ pub unsafe fn create_table<T: FilterPlugin>(
             0
         });
 
-    crate::odbg!(&flag);
-
     let items = plugin_info
         .config_items
         .iter()
-        .map(|item| {
-            plugin_state
-                .global_leak_manager
-                .leak(item.to_raw(&plugin_state.global_leak_manager))
-        })
-        .chain(std::iter::once(std::ptr::null()))
+        .map(|item| Some(item.to_raw(&plugin_state.global_leak_manager)))
+        .chain(std::iter::once(None))
         .collect::<Vec<_>>();
-    let items = plugin_state
-        .global_leak_manager
-        .leak_value_vec(items.iter().map(|&p| p as usize).collect());
+    let items = plugin_state.global_leak_manager.leak_ptr_vec(items);
 
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
     aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
@@ -107,7 +166,11 @@ pub unsafe fn func_proc_video<T: FilterPlugin>(
 ) -> bool {
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
-    // TODO
+    let video = unsafe { FilterProcVideo::from_raw(video) };
+    if let Err(e) = plugin.proc_video(&video) {
+        log::error!("Error in proc_video: {}", e);
+        return false;
+    }
     true
 }
 pub unsafe fn func_proc_audio<T: FilterPlugin>(
@@ -116,7 +179,11 @@ pub unsafe fn func_proc_audio<T: FilterPlugin>(
 ) -> bool {
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
-    // TODO
+    let audio = unsafe { FilterProcAudio::from_raw(audio) };
+    if let Err(e) = plugin.proc_audio(&audio) {
+        log::error!("Error in proc_audio: {}", e);
+        return false;
+    }
     true
 }
 
