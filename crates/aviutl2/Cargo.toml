@@ -22,9 +22,6 @@ filter = []
 env_logger = ["dep:env_logger"]
 image = ["dep:image"]
 
-[lints]
-workspace = true
-
 [dependencies]
 anyhow = "1.0.98"
 aviutl2-macros.workspace = true
