@@ -10,8 +10,7 @@
 
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
+pub mod common;
+pub mod filter2;
 pub mod input2;
 pub mod output2;
-pub mod filter2;
-pub mod common;
-
