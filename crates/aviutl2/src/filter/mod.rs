@@ -17,3 +17,5 @@ pub use config::*;
 #[doc(hidden)]
 #[path = "bridge.rs"]
 pub mod __bridge;
+
+pub use aviutl2_macros::filter_config;

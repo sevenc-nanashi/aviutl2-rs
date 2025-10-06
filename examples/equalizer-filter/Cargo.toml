@@ -1,0 +1,19 @@
+[package]
+name = "example-equalizer-filter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "rusty_equalizer_filter"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.98"
+aviutl2.workspace = true
+image = "0.25.6"
+lazy-regex = "3.4.1"
+regex = "1.11.1"

@@ -83,6 +83,7 @@ impl AudioInputInfo {
     }
 }
 
+#[doc(hidden)]
 pub struct InternalInputPluginState<T: Send + Sync + InputPlugin> {
     plugin_info: InputPluginTable,
     leak_manager: LeakManager,

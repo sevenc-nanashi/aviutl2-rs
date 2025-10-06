@@ -22,8 +22,12 @@ filter = []
 env_logger = ["dep:env_logger"]
 image = ["dep:image"]
 
+[lints]
+workspace = true
+
 [dependencies]
 anyhow = "1.0.98"
+aviutl2-macros.workspace = true
 aviutl2-sys.workspace = true
 duplicate = "2.0.0"
 env_logger = { version = "0.11.8", optional = true }

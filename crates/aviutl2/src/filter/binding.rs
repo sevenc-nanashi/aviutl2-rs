@@ -28,10 +28,10 @@ pub struct FilterPluginTable {
 /// 動画・画像と音声の入力情報をまとめた構造体。
 #[derive(Debug, Clone)]
 pub struct InputInfo {
-    /// 動画・画像のフォーマット。
-    pub video: Option<VideoInputInfo>,
-    /// 音声のフォーマット。
-    pub audio: Option<AudioInputInfo>,
+    // /// 動画・画像のフォーマット。
+    // pub video: Option<VideoInputInfo>,
+    // /// 音声のフォーマット。
+    // pub audio: Option<AudioInputInfo>,
 }
 
 /// 入力の種類を表す列挙型。

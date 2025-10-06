@@ -2,15 +2,6 @@
 
 use std::ffi::c_void;
 
-pub use windows_sys::Win32::{
-    Foundation::{HINSTANCE, HWND},
-    Graphics::Gdi::{BI_BITFIELDS, BI_RGB, BITMAPINFOHEADER},
-    Media::{
-        Audio::{WAVE_FORMAT_PCM, WAVEFORMATEX},
-        Multimedia::WAVE_FORMAT_IEEE_FLOAT,
-    },
-};
-
 use crate::common::LPCWSTR;
 
 /// トラックバー項目構造体

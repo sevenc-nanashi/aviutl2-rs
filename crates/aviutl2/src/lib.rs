@@ -21,8 +21,8 @@
 //! - `env_logger`：`env_logger`を使用してデバッグログを出力するのに便利な関数を提供します。
 //! - `image`：`image`クレートを使用して画像の読み書きをサポートします。
 //!
-
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 pub use aviutl2_sys as sys;
 
 #[cfg(feature = "input")]
