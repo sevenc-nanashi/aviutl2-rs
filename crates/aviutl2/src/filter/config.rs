@@ -37,6 +37,15 @@ pub enum FilterConfigItem {
     File(FilterConfigFile),
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum FilterConfigItemValue {
+    Track(f64),
+    Checkbox(bool),
+    Color(FilterConfigColorValue),
+    Select(i32),
+    File(String),
+}
+
 impl FilterConfigItem {
     /// 設定名を取得します。
     pub fn name(&self) -> &str {
@@ -115,50 +124,89 @@ impl FilterConfigItem {
         }
     }
 
-    pub(crate) unsafe fn apply_from_raw(&mut self, raw: *const aviutl2_sys::filter2::FILTER_ITEM) {
-        #[cfg(debug_assertions)]
-        {
-            let item_type = unsafe {
-                crate::common::load_wide_string(
-                    // SAFETY: aviutl2_sys::filter2::FILTER_ITEM の最初のメンバーはLPCWSTRなので問題ないはず
-                    *(raw as *const aviutl2_sys::common::LPCWSTR),
-                )
-            };
-            let expected_types = match self {
-                FilterConfigItem::Track(_) => "track",
-                FilterConfigItem::Checkbox(_) => "check",
-                FilterConfigItem::Color(_) => "color",
-                FilterConfigItem::Select(_) => "select",
-                FilterConfigItem::File(_) => "file",
-            };
-            if item_type != expected_types {
-                panic!(
-                    "Mismatched filter config item type: expected {}, got {}",
-                    expected_types, item_type
-                );
+    /// # Safety
+    ///
+    /// `raw` は有効なポインタである必要があります。
+    pub(crate) unsafe fn get_value(
+        raw: *const aviutl2_sys::filter2::FILTER_ITEM,
+    ) -> FilterConfigItemValue {
+        let item_type = unsafe {
+            crate::common::load_wide_string(
+                // SAFETY: aviutl2_sys::filter2::FILTER_ITEM の最初のメンバーはLPCWSTRなので問題ないはず
+                *(raw as *const aviutl2_sys::common::LPCWSTR),
+            )
+        };
+        match item_type.as_str() {
+            "track" => {
+                let raw_track = unsafe { &(*raw).track };
+                FilterConfigItemValue::Track(raw_track.value)
+            }
+            "check" => {
+                let raw_checkbox = unsafe { &(*raw).checkbox };
+                FilterConfigItemValue::Checkbox(raw_checkbox.value)
+            }
+            "color" => {
+                let raw_color = unsafe { &(*raw).color };
+                FilterConfigItemValue::Color(raw_color.value.into())
+            }
+            "select" => {
+                let raw_select = unsafe { &(*raw).select };
+                FilterConfigItemValue::Select(raw_select.value)
+            }
+            "file" => {
+                let raw_file = unsafe { &(*raw).file };
+                let value = unsafe { crate::common::load_wide_string(raw_file.value) };
+                FilterConfigItemValue::File(value)
+            }
+            _ => panic!("Unknown filter config item type: {}", item_type),
+        }
+    }
+
+    /// # Safety
+    ///
+    /// `raw` は有効なポインタである必要があります。
+    pub(crate) unsafe fn should_apply_from_raw(
+        &self,
+        raw: *const aviutl2_sys::filter2::FILTER_ITEM,
+    ) -> bool {
+        let value = unsafe { Self::get_value(raw) };
+        match (self, value) {
+            (FilterConfigItem::Track(item), FilterConfigItemValue::Track(v)) => item.value != v,
+            (FilterConfigItem::Checkbox(item), FilterConfigItemValue::Checkbox(v)) => {
+                item.value != v
+            }
+            (FilterConfigItem::Color(item), FilterConfigItemValue::Color(v)) => item.value != v,
+            (FilterConfigItem::Select(item), FilterConfigItemValue::Select(v)) => item.value != v,
+            (FilterConfigItem::File(item), FilterConfigItemValue::File(v)) => item.value != v,
+            _ => {
+                panic!("Mismatched filter config item type");
             }
         }
+    }
 
-        match self {
-            FilterConfigItem::Track(item) => {
-                let raw_track = unsafe { &(*raw).track };
-                item.value = raw_track.value;
+    /// # Safety
+    ///
+    /// `raw` は有効なポインタである必要があります。
+    pub(crate) unsafe fn apply_from_raw(&mut self, raw: *const aviutl2_sys::filter2::FILTER_ITEM) {
+        let value = unsafe { Self::get_value(raw) };
+        match (self, value) {
+            (FilterConfigItem::Track(item), FilterConfigItemValue::Track(v)) => {
+                item.value = v;
             }
-            FilterConfigItem::Checkbox(item) => {
-                let raw_checkbox = unsafe { &(*raw).checkbox };
-                item.value = raw_checkbox.value;
+            (FilterConfigItem::Checkbox(item), FilterConfigItemValue::Checkbox(v)) => {
+                item.value = v;
             }
-            FilterConfigItem::Color(item) => {
-                let raw_color = unsafe { &(*raw).color };
-                item.value = raw_color.value.into();
+            (FilterConfigItem::Color(item), FilterConfigItemValue::Color(v)) => {
+                item.value = v;
             }
-            FilterConfigItem::Select(item) => {
-                let raw_select = unsafe { &(*raw).select };
-                item.value = raw_select.value;
+            (FilterConfigItem::Select(item), FilterConfigItemValue::Select(v)) => {
+                item.value = v;
             }
-            FilterConfigItem::File(item) => {
-                let raw_file = unsafe { &(*raw).file };
-                item.value = unsafe { crate::common::load_wide_string(raw_file.value) };
+            (FilterConfigItem::File(item), FilterConfigItemValue::File(v)) => {
+                item.value = v;
+            }
+            _ => {
+                panic!("Mismatched filter config item type");
             }
         }
     }
@@ -243,7 +291,7 @@ pub struct FilterConfigColor {
 }
 
 /// 色選択の設定値の色。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FilterConfigColorValue(pub u32);
 impl FilterConfigColorValue {
     /// 色をBGR形式の各成分に分解して取得します。

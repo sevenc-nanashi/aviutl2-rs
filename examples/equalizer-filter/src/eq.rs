@@ -7,12 +7,12 @@ pub struct EqState {
     lopass: LowPass,
     hipass: HighPass,
 
-    wet: f32,
+    wet: f64,
     lopass_enable: bool,
     hipass_enable: bool,
 }
 impl EqState {
-    pub fn new(sample_rate: f32, config: &crate::FilterConfig) -> Self {
+    pub fn new(sample_rate: f64, config: &crate::FilterConfig) -> Self {
         Self {
             bass: PeakEq::new(config.bass_freq, config.bass_gain, sample_rate),
             mid: PeakEq::new(config.mid_freq, config.mid_gain, sample_rate),
@@ -26,7 +26,7 @@ impl EqState {
         }
     }
 
-    pub fn update_params(&mut self, sample_rate: f32, config: &crate::FilterConfig) {
+    pub fn update_params(&mut self, sample_rate: f64, config: &crate::FilterConfig) {
         self.bass
             .set_params(config.bass_freq, config.bass_gain, sample_rate);
         self.mid
@@ -41,7 +41,7 @@ impl EqState {
         self.hipass_enable = config.hipass_enable;
     }
 
-    pub fn process(&mut self, samples: &mut [f32]) {
+    pub fn process(&mut self, samples: &mut [f64]) {
         for sample in samples.iter_mut() {
             let mut s = *sample;
             let orig = s;
@@ -73,22 +73,22 @@ impl EqState {
     }
 }
 pub struct PeakEq {
-    sample_rate: f32,
-    freq: f32,
-    gain: f32,
+    sample_rate: f64,
+    freq: f64,
+    gain: f64,
 
-    filter: biquad::DirectForm1<f32>,
+    filter: biquad::DirectForm1<f64>,
 }
 impl PeakEq {
-    fn new(freq: f32, gain: f32, sample_rate: f32) -> Self {
-        let coeffs = biquad::Coefficients::<f32>::from_params(
+    fn new(freq: f64, gain: f64, sample_rate: f64) -> Self {
+        let coeffs = biquad::Coefficients::<f64>::from_params(
             biquad::Type::PeakingEQ(gain),
             sample_rate.hz(),
             freq.hz(),
             Q,
         )
         .unwrap();
-        let filter = biquad::DirectForm1::<f32>::new(coeffs);
+        let filter = biquad::DirectForm1::<f64>::new(coeffs);
         Self {
             freq,
             gain,
@@ -97,8 +97,8 @@ impl PeakEq {
         }
     }
 
-    fn set_params(&mut self, freq: f32, gain: f32, sample_rate: f32) {
-        let coeffs = biquad::Coefficients::<f32>::from_params(
+    fn set_params(&mut self, freq: f64, gain: f64, sample_rate: f64) {
+        let coeffs = biquad::Coefficients::<f64>::from_params(
             biquad::Type::PeakingEQ(gain),
             sample_rate.hz(),
             freq.hz(),
@@ -111,25 +111,25 @@ impl PeakEq {
         self.sample_rate = sample_rate;
     }
 
-    fn apply(&mut self, sample: f32) -> f32 {
+    fn apply(&mut self, sample: f64) -> f64 {
         self.filter.run(sample)
     }
 }
 pub struct LowPass {
-    sample_rate: f32,
-    freq: f32,
-    filter: biquad::DirectForm1<f32>,
+    sample_rate: f64,
+    freq: f64,
+    filter: biquad::DirectForm1<f64>,
 }
 impl LowPass {
-    fn new(freq: f32, sample_rate: f32) -> Self {
-        let coeffs = biquad::Coefficients::<f32>::from_params(
+    fn new(freq: f64, sample_rate: f64) -> Self {
+        let coeffs = biquad::Coefficients::<f64>::from_params(
             biquad::Type::LowPass,
             sample_rate.hz(),
             freq.hz(),
             Q,
         )
         .unwrap();
-        let filter = biquad::DirectForm1::<f32>::new(coeffs);
+        let filter = biquad::DirectForm1::<f64>::new(coeffs);
         Self {
             freq,
             sample_rate,
@@ -137,8 +137,8 @@ impl LowPass {
         }
     }
 
-    fn set_params(&mut self, freq: f32, sample_rate: f32) {
-        let coeffs = biquad::Coefficients::<f32>::from_params(
+    fn set_params(&mut self, freq: f64, sample_rate: f64) {
+        let coeffs = biquad::Coefficients::<f64>::from_params(
             biquad::Type::LowPass,
             sample_rate.hz(),
             freq.hz(),
@@ -150,25 +150,25 @@ impl LowPass {
         self.sample_rate = sample_rate;
     }
 
-    fn apply(&mut self, sample: f32) -> f32 {
+    fn apply(&mut self, sample: f64) -> f64 {
         self.filter.run(sample)
     }
 }
 pub struct HighPass {
-    sample_rate: f32,
-    freq: f32,
-    filter: biquad::DirectForm1<f32>,
+    sample_rate: f64,
+    freq: f64,
+    filter: biquad::DirectForm1<f64>,
 }
 impl HighPass {
-    fn new(freq: f32, sample_rate: f32) -> Self {
-        let coeffs = biquad::Coefficients::<f32>::from_params(
+    fn new(freq: f64, sample_rate: f64) -> Self {
+        let coeffs = biquad::Coefficients::<f64>::from_params(
             biquad::Type::HighPass,
             sample_rate.hz(),
             freq.hz(),
             Q,
         )
         .unwrap();
-        let filter = biquad::DirectForm1::<f32>::new(coeffs);
+        let filter = biquad::DirectForm1::<f64>::new(coeffs);
         Self {
             freq,
             sample_rate,
@@ -176,8 +176,8 @@ impl HighPass {
         }
     }
 
-    fn set_params(&mut self, freq: f32, sample_rate: f32) {
-        let coeffs = biquad::Coefficients::<f32>::from_params(
+    fn set_params(&mut self, freq: f64, sample_rate: f64) {
+        let coeffs = biquad::Coefficients::<f64>::from_params(
             biquad::Type::HighPass,
             sample_rate.hz(),
             freq.hz(),
@@ -189,9 +189,9 @@ impl HighPass {
         self.sample_rate = sample_rate;
     }
 
-    fn apply(&mut self, sample: f32) -> f32 {
+    fn apply(&mut self, sample: f64) -> f64 {
         self.filter.run(sample)
     }
 }
 
-pub const Q: f32 = std::f32::consts::FRAC_1_SQRT_2; // Quality factor for the filters
+pub const Q: f64 = std::f64::consts::FRAC_1_SQRT_2; // Quality factor for the filters

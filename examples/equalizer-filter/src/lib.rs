@@ -7,28 +7,28 @@ use aviutl2::{
 #[derive(Debug, Clone, PartialEq, aviutl2::filter::FilterConfigItems)]
 pub struct FilterConfig {
     #[track(name = "Wet", range = 0.0..=1.0, step = 0.01, default = 1.0)]
-    wet: f32,
+    wet: f64,
     #[track(name = "Bass: Gain", range = -15.0..=15.0, step = 0.1, default = 0.0)]
-    bass_gain: f32,
+    bass_gain: f64,
     #[track(name = "Mid: Gain", range = -15.0..=15.0, step = 0.1, default = 0.0)]
-    mid_gain: f32,
+    mid_gain: f64,
     #[track(name = "Treble: Gain", range = -15.0..=15.0, step = 0.1, default = 0.0)]
-    treble_gain: f32,
+    treble_gain: f64,
     #[track(name = "Bass: Frequency", range = 20.0..=250.0, step = 1.0, default = 100.0)]
-    bass_freq: f32,
+    bass_freq: f64,
     #[track(name = "Mid: Frequency", range = 250.0..=4000.0, step = 1.0, default = 1000.0)]
-    mid_freq: f32,
+    mid_freq: f64,
     #[track(name = "Treble: Frequency", range = 4000.0..=20000.0, step = 1.0, default = 10000.0)]
-    treble_freq: f32,
+    treble_freq: f64,
 
     #[check(name = "Hi-pass: Enable", default = false)]
     hipass_enable: bool,
     #[track(name = "Hi-pass: Frequency", range = 20.0..=20000.0, step = 1.0, default = 20.0)]
-    hipass_freq: f32,
+    hipass_freq: f64,
     #[check(name = "Lo-pass: Enable", default = false)]
     lopass_enable: bool,
     #[track(name = "Lo-pass: Frequency", range = 20.0..=20000.0, step = 1.0, default = 20000.0)]
-    lopass_freq: f32,
+    lopass_freq: f64,
 }
 
 const NUM_CACHES: usize = 2;
@@ -47,7 +47,7 @@ struct EqCache {
     right: Vec<f32>,
 }
 impl EqStates {
-    fn new(sample_rate: f32, config: &FilterConfig) -> Self {
+    fn new(sample_rate: f64, config: &FilterConfig) -> Self {
         Self {
             left: eq::EqState::new(sample_rate, config),
             right: eq::EqState::new(sample_rate, config),
@@ -63,14 +63,11 @@ impl EqStates {
                 .collect(),
         }
     }
-}
-
-impl EqStates {
-    fn update_params(&mut self, sample_rate: f32, config: &FilterConfig) {
+    fn update_params(&mut self, sample_rate: f64, config: &FilterConfig) {
         self.left.update_params(sample_rate, config);
         self.right.update_params(sample_rate, config);
     }
-    fn process(&mut self, left: &mut [f32], right: &mut [f32]) {
+    fn process(&mut self, left: &mut [f64], right: &mut [f64]) {
         self.left.process(left);
         self.right.process(right);
     }
@@ -105,7 +102,7 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
                 "Simple equalizer, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/equalizer-filter",
                 version = env!("CARGO_PKG_VERSION")
             ),
-            filter_type: aviutl2::filter::FilterType::Both,
+            filter_type: aviutl2::filter::FilterType::Audio,
             wants_initial_input: false,
             config_items: FilterConfig::to_config_items(),
         }
@@ -118,9 +115,9 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
     ) -> anyhow::Result<()> {
         let config: FilterConfig = config.to_struct();
 
-        let mut left_samples = audio.get_sample_data(0);
-        let mut right_samples = audio.get_sample_data(1);
-        let sample_rate = audio.scene.sample_rate as f32;
+        let left_samples = audio.get_sample_data(0);
+        let right_samples = audio.get_sample_data(1);
+        let sample_rate = audio.scene.sample_rate as f64;
         let obj_id = audio.object.id;
 
         let q_state = {
@@ -151,8 +148,8 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
                         obj_id,
                         audio.audio_object.sample_index
                     );
-                    left_samples.copy_from_slice(&cache.left);
-                    right_samples.copy_from_slice(&cache.right);
+                    audio.set_sample_data(&left_samples, 0);
+                    audio.set_sample_data(&right_samples, 1);
                     return Ok(());
                 }
             }
@@ -176,8 +173,21 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
 
             q_state.update_params(sample_rate, &config);
 
+            let mut left_samples = left_samples
+                .into_iter()
+                .map(|s| s as f64)
+                .collect::<Vec<_>>();
+            let mut right_samples = right_samples
+                .into_iter()
+                .map(|s| s as f64)
+                .collect::<Vec<_>>();
             q_state.process(&mut left_samples, &mut right_samples);
             let next_cache_index = q_state.next_cache_index;
+            let left_samples = left_samples.iter().map(|&s| s as f32).collect::<Vec<_>>();
+            let right_samples = right_samples.iter().map(|&s| s as f32).collect::<Vec<_>>();
+            audio.set_sample_data(&left_samples, 0);
+            audio.set_sample_data(&right_samples, 1);
+
             let cache = &mut q_state.caches[next_cache_index];
             cache.sample_index = audio.audio_object.sample_index;
             cache.config = config.clone();
@@ -187,8 +197,6 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
             cache.right.extend_from_slice(&right_samples);
             q_state.next_cache_index = (q_state.next_cache_index + 1) % NUM_CACHES;
         }
-        audio.set_sample_data(&left_samples, 0);
-        audio.set_sample_data(&right_samples, 1);
 
         Ok(())
     }

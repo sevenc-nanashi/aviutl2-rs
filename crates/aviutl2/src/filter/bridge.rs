@@ -100,8 +100,16 @@ impl<T: Send + Sync + FilterPlugin> InternalFilterPluginState<T> {
         }
     }
 
-    /// TODO: &mutなので音声・映像の同時処理ができないのをなんとかしていい感じにしたい
-    pub unsafe fn apply_configs(&mut self) {
+    pub fn should_apply_configs(&self) -> bool {
+        for (item, raw) in self.config_items.iter().zip(self.config_pointers.iter()) {
+            if unsafe { item.should_apply_from_raw(*raw) } {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn apply_configs(&mut self) {
         for (item, raw) in self
             .config_items
             .iter_mut()
@@ -265,7 +273,14 @@ macro_rules! register_filter_plugin {
                 video: *mut aviutl2::sys::filter2::FILTER_PROC_AUDIO,
             ) -> bool {
                 unsafe {
-                    PLUGIN.write().unwrap().as_mut().unwrap().apply_configs();
+                    {
+                        let plugin_lock = PLUGIN.read().unwrap();
+                        let plugin = plugin_lock.as_ref().expect("Plugin not initialized");
+                        if plugin.should_apply_configs() {
+                            drop(plugin_lock);
+                            PLUGIN.write().unwrap().as_mut().unwrap().apply_configs();
+                        }
+                    }
                     $crate::filter::__bridge::func_proc_audio(
                         &PLUGIN
                             .read()
@@ -281,7 +296,14 @@ macro_rules! register_filter_plugin {
                 video: *mut aviutl2::sys::filter2::FILTER_PROC_VIDEO,
             ) -> bool {
                 unsafe {
-                    PLUGIN.write().unwrap().as_mut().unwrap().apply_configs();
+                    {
+                        let plugin_lock = PLUGIN.read().unwrap();
+                        let plugin = plugin_lock.as_ref().expect("Plugin not initialized");
+                        if plugin.should_apply_configs() {
+                            drop(plugin_lock);
+                            PLUGIN.write().unwrap().as_mut().unwrap().apply_configs();
+                        }
+                    }
                     $crate::filter::__bridge::func_proc_video(
                         &PLUGIN
                             .read()
