@@ -12,6 +12,12 @@ struct FilterConfig {
     #[track(name = "しきい値", range = 0.0..=1.0, step = 0.01, default = 0.5)]
     threshold: f64,
     #[select(
+        name = "基準",
+        items = ["しきい値以上", "しきい値以下"],
+        default = 0
+    )]
+    threshold_type: usize,
+    #[select(
         name = "ソート方向",
         items = ["右", "下", "左", "上"],
         default = 0
@@ -83,14 +89,17 @@ impl FilterPlugin for PixelSortFilter {
                 let brightness =
                     ((pixel.r as u16 * 76 + pixel.g as u16 * 150 + pixel.b as u16 * 29) >> 8) as u8;
 
-                if brightness < threshold {
-                    if start < x {
-                        row[start..x].sort_by_key(|p| {
-                            ((p.r as u16 * 76 + p.g as u16 * 150 + p.b as u16 * 29) >> 8) as u8
-                        });
-                    }
-                    start = x + 1;
+                if (config.threshold_type == 0 && brightness >= threshold)
+                    || (config.threshold_type == 1 && brightness < threshold)
+                {
+                    continue;
                 }
+                if start < x {
+                    row[start..x].sort_by_key(|p| {
+                        ((p.r as u16 * 76 + p.g as u16 * 150 + p.b as u16 * 29) >> 8) as u8
+                    });
+                }
+                start = x + 1;
             }
             if start < row.len() {
                 row[start..].sort_by_key(|p| {
