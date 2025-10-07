@@ -18,8 +18,8 @@ pub struct FilterPluginTable {
     /// 入力の種類。
     pub filter_type: FilterType,
 
-    /// オブジェクトにするかどうか。
-    /// `true` の場合、オブジェクトとして動作します。
+    /// カスタムオブジェクトにするかどうか。
+    /// `true` の場合、カスタムオブジェクトとして動作します。
     /// `false` の場合、フィルタ効果として動作します。
     pub as_object: bool,
 

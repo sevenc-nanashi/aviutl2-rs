@@ -22,6 +22,7 @@ AviUtl2 SDKのRust版です。
   - `./examples/statistics-output`：フレームごとの描画時間を計測し、統計情報を出力するサンプル。
   - `./examples/equalizer-filter`：biquadクレートを使用してイコライザーフィルタを実装したサンプル。
   - `./examples/pixelsort-filter`：ピクセルソートフィルタのサンプル。
+  - `./examples/wgpu-filter`：wgpuクレートを使用してGPUで画像を生成するフィルタのサンプル。
 
 ## ライセンス
 

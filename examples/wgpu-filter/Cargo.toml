@@ -16,6 +16,7 @@ crate-type = ["cdylib"]
 anyhow = "1.0.100"
 aviutl2 = { workspace = true, features = ["env_logger"] }
 env_logger = "0.11.8"
+log = "0.4.28"
 pollster = "0.4.0"
 wgpu = "27.0.1"
 zerocopy = "0.8.27"

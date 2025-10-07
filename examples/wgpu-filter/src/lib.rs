@@ -49,6 +49,10 @@ impl FilterPlugin for WgpuFilter {
                 ..Default::default()
             }))?;
 
+        device.on_uncaptured_error(Arc::new(|error| {
+            log::error!("WGPU Error: {:?}", error);
+        }));
+
         // --- Create uniform layout ---
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Color Bind Group Layout"),
@@ -130,6 +134,8 @@ impl FilterPlugin for WgpuFilter {
         video: &FilterProcVideo,
     ) -> AnyResult<()> {
         let config: FilterConfig = config.to_struct();
+        let width = config.width;
+        let height = config.height;
         let color_data = [
             config.red as f32,
             config.green as f32,
@@ -155,8 +161,8 @@ impl FilterPlugin for WgpuFilter {
         let texture_desc = wgpu::TextureDescriptor {
             label: Some("Render Texture"),
             size: wgpu::Extent3d {
-                width: config.width,
-                height: config.height,
+                width: width,
+                height: height,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -198,7 +204,9 @@ impl FilterPlugin for WgpuFilter {
         }
 
         // --- Copy result to buffer ---
-        let buffer_size = (config.width * config.height * 4) as u64;
+        let padded_width = (width * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT)
+            * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+        let buffer_size = (padded_width * height) as wgpu::BufferAddress;
         let output_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Output Buffer"),
             size: buffer_size,
@@ -212,7 +220,7 @@ impl FilterPlugin for WgpuFilter {
                 buffer: &output_buffer,
                 layout: wgpu::TexelCopyBufferLayout {
                     offset: 0,
-                    bytes_per_row: Some(config.width * 4),
+                    bytes_per_row: Some(padded_width),
                     rows_per_image: None,
                 },
             },
@@ -228,9 +236,22 @@ impl FilterPlugin for WgpuFilter {
         self.device.poll(wgpu::PollType::wait_indefinitely())?;
         rx.recv().unwrap().unwrap();
 
-        let data = buffer_slice.get_mapped_range().to_vec();
+        let data = buffer_slice.get_mapped_range();
+        let mut pixels = vec![0u8; (width * height * 4) as usize];
+        if padded_width == width * 4 {
+            pixels.copy_from_slice(&data);
+        } else {
+            for y in 0..height as usize {
+                let src_offset = y * padded_width as usize;
+                let dst_offset = y * width as usize * 4;
+                pixels[dst_offset..(dst_offset + (width as usize * 4))]
+                    .copy_from_slice(&data[src_offset..(src_offset + (width as usize * 4))]);
+            }
+        }
+        drop(data);
         output_buffer.unmap();
-        video.set_image_data(&data, config.width, config.height);
+
+        video.set_image_data(&pixels, width, height);
         Ok(())
     }
 }
