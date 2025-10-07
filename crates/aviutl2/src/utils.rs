@@ -37,7 +37,7 @@ macro_rules! oprintln {
 
 #[doc(hidden)]
 pub fn debug_print_impl(message: &str) {
-    let mut cstr = message.encode_utf16().collect::<Vec<u16>>();
+    let mut cstr = format!("{message}\n").encode_utf16().collect::<Vec<u16>>();
     cstr.push(0); // Null-terminate the string
     unsafe {
         let ptr = cstr.as_ptr();

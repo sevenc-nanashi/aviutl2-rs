@@ -5,30 +5,25 @@ use aviutl2::{
         FilterProcVideo,
     },
 };
-use std::sync::Arc;
 use wgpu::util::DeviceExt;
 use zerocopy::IntoBytes;
 
 #[derive(Debug, Clone, PartialEq, FilterConfigItems)]
 struct FilterConfig {
-    #[track(name = "Red", range = 0.0..=1.0, step = 0.01, default = 1.0)]
-    red: f64,
-    #[track(name = "Green", range = 0.0..=1.0, step = 0.01, default = 0.0)]
-    green: f64,
-    #[track(name = "Blue", range = 0.0..=1.0, step = 0.01, default = 0.0)]
-    blue: f64,
+    #[color(name = "Color", default = "#48b0d5")]
+    color: aviutl2::filter::FilterConfigColorValue,
 
-    #[track(name = "Width", range = 1..=1920, step = 1.0, default = 640)]
+    #[track(name = "Width", range = 1..=4096, step = 1.0, default = 640)]
     width: u32,
-    #[track(name = "Height", range = 1..=1080, step = 1.0, default = 480)]
+    #[track(name = "Height", range = 1..=4096, step = 1.0, default = 640)]
     height: u32,
 }
 
 struct WgpuFilter {
-    device: Arc<wgpu::Device>,
-    queue: Arc<wgpu::Queue>,
-    pipeline: Arc<wgpu::RenderPipeline>,
-    bind_group_layout: Arc<wgpu::BindGroupLayout>,
+    device: std::sync::Arc<wgpu::Device>,
+    queue: std::sync::Arc<wgpu::Queue>,
+    pipeline: std::sync::Arc<wgpu::RenderPipeline>,
+    bind_group_layout: std::sync::Arc<wgpu::BindGroupLayout>,
 }
 
 impl FilterPlugin for WgpuFilter {
@@ -49,7 +44,7 @@ impl FilterPlugin for WgpuFilter {
                 ..Default::default()
             }))?;
 
-        device.on_uncaptured_error(Arc::new(|error| {
+        device.on_uncaptured_error(std::sync::Arc::new(|error| {
             log::error!("WGPU Error: {:?}", error);
         }));
 
@@ -107,10 +102,10 @@ impl FilterPlugin for WgpuFilter {
         });
 
         Ok(Self {
-            device: Arc::new(device),
-            queue: Arc::new(queue),
-            pipeline: Arc::new(pipeline),
-            bind_group_layout: Arc::new(bind_group_layout),
+            device: std::sync::Arc::new(device),
+            queue: std::sync::Arc::new(queue),
+            pipeline: std::sync::Arc::new(pipeline),
+            bind_group_layout: std::sync::Arc::new(bind_group_layout),
         })
     }
 
@@ -136,10 +131,11 @@ impl FilterPlugin for WgpuFilter {
         let config: FilterConfig = config.to_struct();
         let width = config.width;
         let height = config.height;
+        let (red, green, blue) = config.color.to_rgb();
         let color_data = [
-            config.red as f32,
-            config.green as f32,
-            config.blue as f32,
+            red as f32 / 255.0f32,
+            green as f32 / 255.0f32,
+            blue as f32 / 255.0f32,
             1.0f32,
         ];
         let uniform_buffer = self
@@ -161,8 +157,8 @@ impl FilterPlugin for WgpuFilter {
         let texture_desc = wgpu::TextureDescriptor {
             label: Some("Render Texture"),
             size: wgpu::Extent3d {
-                width: width,
-                height: height,
+                width,
+                height,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,

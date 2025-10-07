@@ -308,25 +308,11 @@ pub struct FilterConfigColor {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FilterConfigColorValue(pub u32);
 impl FilterConfigColorValue {
-    /// 色をBGR形式の各成分に分解して取得します。
-    pub fn to_bgr(&self) -> (u8, u8, u8) {
-        let b = (self.0 & 0x0000FF) as u8;
-        let g = ((self.0 & 0x00FF00) >> 8) as u8;
-        let r = ((self.0 & 0xFF0000) >> 16) as u8;
-        (b, g, r)
-    }
-
-    /// BGR形式の各成分から色を作成します。
-    pub fn from_bgr(b: u8, g: u8, r: u8) -> Self {
-        let value = (r as u32) << 16 | (g as u32) << 8 | (b as u32);
-        FilterConfigColorValue(value)
-    }
-
     /// 色をRGB形式の各成分に分解して取得します。
     pub fn to_rgb(&self) -> (u8, u8, u8) {
-        let r = ((self.0 & 0xFF0000) >> 16) as u8;
-        let g = ((self.0 & 0x00FF00) >> 8) as u8;
-        let b = (self.0 & 0x0000FF) as u8;
+        let r = ((self.0 >> 16) & 0xFF) as u8;
+        let g = ((self.0 >> 8) & 0xFF) as u8;
+        let b = (self.0 & 0xFF) as u8;
         (r, g, b)
     }
 
