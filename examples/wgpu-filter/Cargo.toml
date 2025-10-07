@@ -1,0 +1,21 @@
+[package]
+name = "wgpu-filter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "rusty_wgpu_filter"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.100"
+aviutl2 = { workspace = true, features = ["env_logger"] }
+env_logger = "0.11.8"
+pollster = "0.4.0"
+wgpu = "27.0.1"
+zerocopy = "0.8.27"
