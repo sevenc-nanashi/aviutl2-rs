@@ -7,3 +7,4 @@
 - `./pixel_test.aup2`：`rusty_pixel_format_test.aui2` 用のピクセルフォーマットテストプロジェクト
 - `./many_pngs.aup2`：PNGを多数読み込むテストプロジェクト。`rake prepare_many_pngs` を最初に実行してください。
 - `./many_apngs.aup2`：APNGを多数読み込むテストプロジェクト。`rake prepare_many_pngs` を最初に実行してください。
+- `./chiptune_music.aup2`：`rusty_chiptune.auf2` を使用したテストプロジェクト
