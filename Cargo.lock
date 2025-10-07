@@ -1548,6 +1548,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "example-chiptune-filter"
+version = "0.8.1"
+dependencies = [
+ "anyhow",
+ "aviutl2",
+ "env_logger",
+ "rand",
+]
+
+[[package]]
 name = "example-equalizer-filter"
 version = "0.8.1"
 dependencies = [
