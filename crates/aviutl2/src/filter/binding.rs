@@ -153,23 +153,21 @@ unsafe impl Sync for FilterProcVideo {}
 
 impl FilterProcVideo {
     /// 現在の画像のデータを取得する。
-    pub fn get_image_data(&self) -> Vec<RgbaPixel> {
+    pub fn get_image_data<T: Clone + FromBytes + Immutable>(&self) -> Vec<T> {
         let width = self.scene.width as usize;
         let height = self.scene.height as usize;
         let mut buffer: Vec<u8> = vec![0; width * height * 4];
         let inner = unsafe { &*self.inner };
         (inner.get_image_data)(buffer.as_mut_ptr() as *mut aviutl2_sys::filter2::PIXEL_RGBA);
-        let pixels: &[RgbaPixel] = <[RgbaPixel]>::ref_from_bytes(&buffer).unwrap();
+        let pixels: &[T] = <[T]>::ref_from_bytes(&buffer).unwrap();
 
         pixels.to_vec()
     }
 
     /// 現在の画像のデータを設定する。
-    pub fn set_image_data<T: IntoBytes + Immutable>(&self, data: &[T]) {
-        let width = self.scene.width as usize;
-        let height = self.scene.height as usize;
+    pub fn set_image_data<T: IntoBytes + Immutable>(&self, data: &[T], width: u32, height: u32) {
         let bytes = &data.as_bytes();
-        assert!(bytes.len() == width * height * 4);
+        assert!(bytes.len() == (width * height * 4) as usize);
         let inner = unsafe { &*self.inner };
         (inner.set_image_data)(
             bytes.as_ptr() as *const aviutl2_sys::filter2::PIXEL_RGBA,

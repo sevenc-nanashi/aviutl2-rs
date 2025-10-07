@@ -3358,6 +3358,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "pixelsort-filter"
+version = "0.8.1"
+dependencies = [
+ "aviutl2",
+]
+
+[[package]]
 name = "pkg-config"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"

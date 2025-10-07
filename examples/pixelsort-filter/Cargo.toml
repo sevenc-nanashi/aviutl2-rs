@@ -1,0 +1,16 @@
+[package]
+name = "pixelsort-filter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "rusty_pixelsort_filter"
+crate-type = ["cdylib"]
+
+[dependencies]
+aviutl2.workspace = true
