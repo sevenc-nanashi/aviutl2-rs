@@ -148,8 +148,8 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
                         obj_id,
                         audio.audio_object.sample_index
                     );
-                    audio.set_sample_data(&left_samples, 0);
-                    audio.set_sample_data(&right_samples, 1);
+                    audio.set_sample_data(&cache.left, 0);
+                    audio.set_sample_data(&cache.right, 1);
                     return Ok(());
                 }
             }
