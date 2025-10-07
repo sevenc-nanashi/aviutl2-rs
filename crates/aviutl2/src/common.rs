@@ -333,6 +333,10 @@ impl Drop for LeakManager {
     }
 }
 
+/// # Safety
+///
+/// - `ptr` は有効なLPCWSTRであること。
+/// - `ptr` はNull Terminatedなu16文字列を指していること。
 pub(crate) unsafe fn load_wide_string(ptr: *const u16) -> String {
     if ptr.is_null() {
         return String::new();
