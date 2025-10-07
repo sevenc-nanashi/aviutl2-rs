@@ -39,7 +39,7 @@ impl FilterPlugin for PixelSortFilter {
                 version = env!("CARGO_PKG_VERSION")
             ),
             filter_type: aviutl2::filter::FilterType::Video,
-            as_object: true,
+            as_object: false,
             config_items: FilterConfig::to_config_items(),
         }
     }
