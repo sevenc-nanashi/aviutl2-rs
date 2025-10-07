@@ -31,7 +31,7 @@ impl FilterPlugin for PixelSortFilter {
             name: "Pixel Sort Filter".to_string(),
             label: None,
             information: format!(
-                "Pixel sort filter, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/equalizer-filter",
+                "Pixel sort filter, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/pixelsort-filter",
                 version = env!("CARGO_PKG_VERSION")
             ),
             filter_type: aviutl2::filter::FilterType::Video,
