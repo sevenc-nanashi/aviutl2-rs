@@ -18,8 +18,10 @@ pub struct FilterPluginTable {
     /// 入力の種類。
     pub filter_type: FilterType,
 
-    /// オブジェクトの初期入力をするかどうか。（メディアオブジェクトの場合）
-    pub wants_initial_input: bool,
+    /// オブジェクトにするかどうか。
+    /// `true` の場合、オブジェクトとして動作します。
+    /// `false` の場合、フィルタ効果として動作します。
+    pub as_object: bool,
 
     /// 設定項目。
     pub config_items: Vec<config::FilterConfigItem>,
@@ -78,6 +80,7 @@ pub trait FilterPlugin: Send + Sync + Sized {
 }
 
 /// シーン情報。
+#[derive(Debug, Clone, Copy)]
 pub struct SceneInfo {
     /// 解像度（幅）。
     pub width: u32,
@@ -90,6 +93,7 @@ pub struct SceneInfo {
 }
 
 /// オブジェクト情報。
+#[derive(Debug, Clone, Copy)]
 pub struct ObjectInfo {
     /// ID。
     pub id: i64,
@@ -104,6 +108,7 @@ pub struct ObjectInfo {
 }
 
 /// 画像フィルタのオブジェクト情報。
+#[derive(Debug, Clone, Copy)]
 pub struct VideoObjectInfo {
     /// オブジェクトの現在の画像サイズの幅。
     pub width: u32,
@@ -112,6 +117,7 @@ pub struct VideoObjectInfo {
 }
 
 /// 音声フィルタのオブジェクト情報。
+#[derive(Debug, Clone, Copy)]
 pub struct AudioObjectInfo {
     /// オブジェクトの現在の音声サンプル位置。
     pub sample_index: u64,
@@ -138,6 +144,7 @@ pub struct RgbaPixel {
 }
 
 /// 画像フィルタ処理のための構造体。
+#[derive(Debug)]
 pub struct FilterProcVideo {
     /// シーン情報。
     pub scene: SceneInfo,
@@ -153,7 +160,16 @@ unsafe impl Sync for FilterProcVideo {}
 
 impl FilterProcVideo {
     /// 現在の画像のデータを取得する。
+    /// RGBA32bit で取得されます。
+    ///
+    /// # Note
+    ///
+    /// [`FilterPluginTable::as_object`] が `true` の場合、この関数は空の配列を返します。
     pub fn get_image_data<T: Clone + FromBytes + Immutable>(&self) -> Vec<T> {
+        if self.video_object.width == 0 || self.video_object.height == 0 {
+            log::warn!("width or height is 0, perhaps the filter plugin is an object");
+            return vec![];
+        }
         let width = self.video_object.width as usize;
         let height = self.video_object.height as usize;
         let mut buffer: Vec<u8> = vec![0; width * height * 4];
@@ -178,6 +194,7 @@ impl FilterProcVideo {
 }
 
 /// 音声フィルタ処理のための構造体。
+#[derive(Debug)]
 pub struct FilterProcAudio {
     /// シーン情報。
     pub scene: SceneInfo,

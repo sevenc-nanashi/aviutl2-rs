@@ -157,7 +157,7 @@ pub unsafe fn create_table<T: FilterPlugin>(
     };
 
     let flag = plugin_info.filter_type.to_bits()
-        | (if plugin_info.wants_initial_input {
+        | (if plugin_info.as_object {
             aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_INPUT
         } else {
             0

@@ -23,6 +23,10 @@ struct PixelSortFilter;
 
 impl FilterPlugin for PixelSortFilter {
     fn new(_info: AviUtl2Info) -> AnyResult<Self> {
+        env_logger::Builder::new()
+            .parse_filters("info")
+            .target(aviutl2::utils::debug_logger_target())
+            .init();
         Ok(Self)
     }
 
@@ -35,7 +39,7 @@ impl FilterPlugin for PixelSortFilter {
                 version = env!("CARGO_PKG_VERSION")
             ),
             filter_type: aviutl2::filter::FilterType::Video,
-            wants_initial_input: false,
+            as_object: true,
             config_items: FilterConfig::to_config_items(),
         }
     }

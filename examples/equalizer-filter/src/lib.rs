@@ -103,7 +103,7 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
                 version = env!("CARGO_PKG_VERSION")
             ),
             filter_type: aviutl2::filter::FilterType::Audio,
-            wants_initial_input: false,
+            as_object: false,
             config_items: FilterConfig::to_config_items(),
         }
     }

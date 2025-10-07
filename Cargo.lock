@@ -3362,6 +3362,7 @@ name = "pixelsort-filter"
 version = "0.8.1"
 dependencies = [
  "aviutl2",
+ "env_logger",
  "rayon",
 ]
 
