@@ -723,37 +723,38 @@ fn filter_config_field_file(
 }
 
 fn parse_int_or_float(expr: &syn::Expr) -> Result<decimal_rs::Decimal, syn::Error> {
-    match expr {
+    let mut current = expr;
+    let mut neg_count = 0;
+    // Iteratively handle nested unary negations
+    loop {
+        match current {
+            syn::Expr::Unary(syn::ExprUnary { op: syn::UnOp::Neg(_), expr, .. }) => {
+                neg_count += 1;
+                current = &**expr;
+            }
+            syn::Expr::Paren(syn::ExprParen { expr, .. }) => {
+                current = &**expr;
+            }
+            _ => break,
+        }
+    }
+    match current {
         syn::Expr::Lit(syn::ExprLit { lit, .. }) => match lit {
-            syn::Lit::Int(lit_int) => lit_int.base10_parse::<decimal_rs::Decimal>(),
-            syn::Lit::Float(lit_float) => lit_float.base10_parse::<decimal_rs::Decimal>(),
+            syn::Lit::Int(lit_int) => {
+                let v = lit_int.base10_parse::<decimal_rs::Decimal>()?;
+                if neg_count % 2 == 0 { Ok(v) } else { Ok(-v) }
+            }
+            syn::Lit::Float(lit_float) => {
+                let v = lit_float.base10_parse::<decimal_rs::Decimal>()?;
+                if neg_count % 2 == 0 { Ok(v) } else { Ok(-v) }
+            }
             _ => Err(syn::Error::new_spanned(
                 lit,
                 "Expected integer or float literal",
             )),
         },
-        syn::Expr::Unary(syn::ExprUnary {
-            op: syn::UnOp::Neg(_),
-            expr,
-            ..
-        }) => match &**expr {
-            syn::Expr::Lit(syn::ExprLit { lit, .. }) => match lit {
-                syn::Lit::Int(lit_int) => lit_int.base10_parse::<decimal_rs::Decimal>().map(|v| -v),
-                syn::Lit::Float(lit_float) => {
-                    lit_float.base10_parse::<decimal_rs::Decimal>().map(|v| -v)
-                }
-                _ => Err(syn::Error::new_spanned(
-                    lit,
-                    "Expected integer or float literal",
-                )),
-            },
-            _ => Err(syn::Error::new_spanned(
-                expr,
-                "Expected integer or float literal",
-            )),
-        },
         _ => Err(syn::Error::new_spanned(
-            expr,
+            current,
             "Expected integer or float literal",
         )),
     }
