@@ -154,8 +154,8 @@ unsafe impl Sync for FilterProcVideo {}
 impl FilterProcVideo {
     /// 現在の画像のデータを取得する。
     pub fn get_image_data<T: Clone + FromBytes + Immutable>(&self) -> Vec<T> {
-        let width = self.scene.width as usize;
-        let height = self.scene.height as usize;
+        let width = self.video_object.width as usize;
+        let height = self.video_object.height as usize;
         let mut buffer: Vec<u8> = vec![0; width * height * 4];
         let inner = unsafe { &*self.inner };
         (inner.get_image_data)(buffer.as_mut_ptr() as *mut aviutl2_sys::filter2::PIXEL_RGBA);

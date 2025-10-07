@@ -14,3 +14,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 aviutl2.workspace = true
+rayon = "1.11.0"
