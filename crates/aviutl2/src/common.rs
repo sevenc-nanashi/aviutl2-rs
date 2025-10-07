@@ -28,7 +28,7 @@ pub struct FileFilter {
 /// ```rust
 /// let filters = aviutl2::file_filters! {
 ///     "Image Files" => ["png", "jpg"],
-///     "All Files" => ["*"]
+///     "All Files" => []
 /// };
 /// ```
 #[macro_export]

@@ -1,3 +1,10 @@
+//! # aviutl2-macros
+//!
+//! [aviutl2-rs](https://docs.rs/aviutl2)のためのproc macroを提供するクレート。
+//! 詳細は[aviutl2-rs](https://docs.rs/aviutl2)のドキュメントを参照してください。
+
+use syn::parse::Parse;
+
 #[derive(Debug)]
 enum FilterConfigField {
     Track {
@@ -27,11 +34,143 @@ enum FilterConfigField {
     File {
         id: String,
         name: String,
-        filters: Vec<(String, Vec<String>)>,
+        filters: Vec<FileFilterEntry>,
     },
 }
 
-/// 自動的にFilterConfigItemsトレイトを実装するためのマクロ。
+#[derive(Debug)]
+struct FileFilterEntry {
+    name: String,
+    exts: Vec<String>,
+}
+
+impl syn::parse::Parse for FileFilterEntry {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let name: syn::LitStr = input.parse()?;
+        input.parse::<syn::Token![=>]>()?;
+        let exts: syn::ExprArray = input.parse()?;
+        let exts = exts
+            .elems
+            .iter()
+            .map(|e| {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Str(s),
+                    ..
+                }) = e
+                {
+                    Ok(s.value())
+                } else {
+                    Err(syn::Error::new_spanned(
+                        e,
+                        "expected string literal for file extension",
+                    ))
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(FileFilterEntry {
+            name: name.value(),
+            exts,
+        })
+    }
+}
+
+/// `FilterConfigItems` を自動で実装するためのマクロ。
+///
+/// # Attributes
+///
+/// - structのフィールドはすべてちょうど1つの属性を持つ必要があります。
+///
+/// ## `track`
+///
+/// ```rust
+/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # struct S {
+/// #[track(name = "サンプル整数", range = 0..=100, default = 50, step = 1.0)]
+/// int_field: i32,
+/// #[track(name = "サンプル小数", range = 0.0..=1.0, default = 0.5, step = 0.01)]
+/// float_field: f64,
+/// # }
+/// ```
+///
+/// `name` - トラックバーの名前。省略した場合、フィールド名が使用されます。
+/// `range` - トラックバーの範囲。閉区間で指定します（例: `0.0..=1.0`）。
+/// `default` - トラックバーの初期値。
+/// `step` - トラックバーのステップ値。`1.0`, `0.1`, `0.01`, `0.001` のいずれかを指定します。
+///
+/// - `range`、`default`は`step`で割り切れる値である必要があります。
+/// - 値の型はプリミティブ、厳密には`value as _`で変換可能な型である必要があります。
+///
+/// ## `check`
+///
+/// ```rust
+/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # struct S {
+/// #[check(name = "サンプルチェックボックス", default = true)]
+/// bool_field: bool,
+/// # }
+/// ```
+///
+/// `name` - チェックボックスの名前。省略した場合、フィールド名が使用されます。
+/// `default` - チェックボックスの初期値。
+///
+/// - 値の型は`bool`である必要があります。
+///
+/// ## `color`
+///
+/// ```rust
+/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # struct S {
+/// #[color(name = "サンプルカラー", default = 0x48b0d5)]
+/// color_field: aviutl2::filter::FilterConfigColorValue,
+/// #[color(name = "サンプルカラー2", default = "#48b0d5")]
+/// color_field2: aviutl2::filter::FilterConfigColorValue,
+/// #[color(name = "サンプルカラー3", default = (72, 176, 213))]
+/// color_field3: aviutl2::filter::FilterConfigColorValue,
+/// # }
+/// ```
+///
+/// `name` - 色選択の名前。省略した場合、フィールド名が使用されます。
+/// `default` - 色の初期値。`0xRRGGBB`形式の整数、`"#RRGGBB"`形式の文字列、または`(R, G, B)`形式のタプルで指定します。
+///
+/// - 値の型は`From<aviutl2::filter::FilterConfigColorValue>`を実装している必要があります。
+///
+/// ## `select`
+///
+/// ```rust
+/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # struct S {
+/// #[select(
+///     name = "サンプルセレクトボックス",
+///     items = ["オプション1", "オプション2", "オプション3"],
+///     default = 0
+/// )]
+/// select_field: usize,
+/// # }
+/// ```
+///
+/// `name` - セレクトボックスの名前。省略した場合、フィールド名が使用されます。
+/// `items` - セレクトボックスの項目のリスト。
+/// `default` - セレクトボックスの初期値。`items`のインデックスで指定します。
+///
+/// - 値の型は`usize`、または`usize as _`で変換可能な型である必要があります。
+///
+/// ## `file`
+///
+/// ```rust
+/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # struct S {
+/// #[file(name = "サンプルファイル", filters = {
+///     "テキストファイル" => ["txt"],
+///     "すべてのファイル" => []
+/// })]
+/// file_field: Option<std::path::PathBuf>,
+/// # }
+/// ```
+///
+/// `name` - ファイル選択の名前。省略した場合、フィールド名が使用されます。
+/// `filters` - ファイルフィルタのリスト。キーがフィルタ名、値が拡張子のリストです。
+///
+/// - 値の型は`Option<std::path::PathBuf>`である必要があります。
 ///
 /// # Example
 ///
@@ -54,7 +193,7 @@ enum FilterConfigField {
 ///     sample_color: aviutl2::filter::FilterConfigColorValue,
 ///     #[file(name = "サンプルファイル", filters = {
 ///         "テキストファイル" => ["txt"],
-///         "すべてのファイル" => ["*"]
+///         "すべてのファイル" => [],
 ///     })]
 ///     sample_file: Option<std::path::PathBuf>,
 /// }
@@ -157,7 +296,9 @@ fn filter_config_items_to_config_items(fields: &[FilterConfigField]) -> proc_mac
                 }
             }
             FilterConfigField::File { id: _, name, filters: filter } => {
-                let filter_entries = filter.iter().map(|(n, exts)| {
+                let filter_entries = filter.iter().map(|entry| {
+                    let n = &entry.name;
+                    let exts = &entry.exts;
                     quote::quote! {
                         aviutl2::common::FileFilter {
                             name: #n.to_string(),
@@ -232,7 +373,7 @@ fn filter_config_items_from_filter_config(
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
                 quote::quote! {
                     #id_ident: match items[#i] {
-                        aviutl2::filter::FilterConfigItem::Select(ref select) => select.value.try_into().unwrap(),
+                        aviutl2::filter::FilterConfigItem::Select(ref select) => (select.value as usize) as _,
                         _ => panic!("Expected Select at index {}", #i),
                     }
                 }
@@ -473,7 +614,12 @@ fn filter_config_field_check(
     })?;
 
     let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
-    let default = default.unwrap_or(false);
+    let Some(default) = default else {
+        return Err(syn::Error::new_spanned(
+            recognized_attr,
+            "default is required",
+        ));
+    };
     Ok(FilterConfigField::Check {
         id: field.ident.as_ref().unwrap().to_string(),
         name,
@@ -671,37 +817,12 @@ fn filter_config_field_file(
         } else if m.path.is_ident("filters") {
             let content;
             syn::braced!(content in &m.value()?);
-            let mut filter_inner = vec![];
-            loop {
-                let name: syn::LitStr = content.parse()?;
-                content.parse::<syn::Token![=>]>()?;
-                let extensions = content.parse::<syn::ExprArray>()?;
-                let exts = extensions
-                    .elems
-                    .iter()
-                    .map(|e| {
-                        if let syn::Expr::Lit(syn::ExprLit {
-                            lit: syn::Lit::Str(lit_str),
-                            ..
-                        }) = e
-                        {
-                            Ok(lit_str.value())
-                        } else {
-                            Err(syn::Error::new_spanned(
-                                e,
-                                "Extensions must be string literals",
-                            ))
-                        }
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                filter_inner.push((name.value(), exts));
-                if content.is_empty() {
-                    break;
-                }
-
-                content.parse::<syn::Token![,]>()?;
-            }
-            filter = Some(filter_inner);
+            filter = Some(
+                content
+                    .parse_terminated(FileFilterEntry::parse, syn::Token![,])?
+                    .into_iter()
+                    .collect::<Vec<_>>(),
+            );
         } else {
             return Err(m.error("Unknown attribute for file"));
         }
@@ -728,7 +849,11 @@ fn parse_int_or_float(expr: &syn::Expr) -> Result<decimal_rs::Decimal, syn::Erro
     // Iteratively handle nested unary negations
     loop {
         match current {
-            syn::Expr::Unary(syn::ExprUnary { op: syn::UnOp::Neg(_), expr, .. }) => {
+            syn::Expr::Unary(syn::ExprUnary {
+                op: syn::UnOp::Neg(_),
+                expr,
+                ..
+            }) => {
                 neg_count += 1;
                 current = &**expr;
             }

@@ -1,6 +1,19 @@
 use crate::common::LeakManager;
 
 /// [`Vec<FilterConfigItem>`] と相互変換するためのトレイト。
+/// 基本的にはこのトレイトを手動で実装する必要はありません。
+/// [`derive@FilterConfigItems`] マクロを使用してください。
+///
+/// <div class="warning">
+///
+/// このcrateは[`Vec<FilterConfigItem>`]との相互変換が可能であれば十分に機能します。
+/// このトレイトをわざわざ実装する必要はありません。
+///
+/// </div>
+///
+/// # See Also
+///
+/// [derive@FilterConfigItems]
 pub trait FilterConfigItems: Sized {
     /// `Vec<FilterConfigItem>` に変換します。
     fn to_config_items() -> Vec<FilterConfigItem>;
@@ -8,6 +21,7 @@ pub trait FilterConfigItems: Sized {
     /// `Vec<FilterConfigItem>` から変換します。
     fn from_config_items(items: &[FilterConfigItem]) -> Self;
 }
+#[doc(inline)]
 pub use aviutl2_macros::FilterConfigItems;
 
 /// `&[FilterConfigItem]` に対する拡張トレイト。

@@ -2,7 +2,6 @@ use crate::{DEFAULT_ARGS, config::PixelFormat};
 
 #[derive(Debug, Clone)]
 pub struct FfmpegPreset {
-    #[expect(dead_code)]
     pub id: &'static str, // Unique identifier for the preset
     pub name: &'static str,
     pub description: &'static str,

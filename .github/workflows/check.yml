@@ -46,4 +46,4 @@ jobs:
 
       - name: Check docs
         run: |
-          RUSTDOCFLAGS="-D warnings" cargo doc --no-deps -p aviutl2 -p aviutl2-sys
+          RUSTDOCFLAGS="-D warnings" cargo doc --no-deps -p aviutl2 -p aviutl2-sys -p aviutl2-macros

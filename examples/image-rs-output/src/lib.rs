@@ -45,7 +45,7 @@ impl OutputPlugin for ImageRsOutputPlugin {
                 "WebP Image" => ["webp"],
                 "PNG Image" => ["png"],
                 "JPEG Image" => ["jpg", "jpeg"],
-                "All Image Formats" => ["*"],
+                "All Image Formats" => [],
             },
 
             information: format!(
