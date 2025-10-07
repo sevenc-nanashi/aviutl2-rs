@@ -274,6 +274,9 @@ macro_rules! register_filter_plugin {
             ) -> bool {
                 unsafe {
                     {
+                        // AviUtl2 -> aviutl2-rsの設定の反映は2回行っても特に問題ないはずなので、
+                        // read()ロックをアップグレードしてロックが途切れないようにするといった
+                        // 高等テクニックは使わない。
                         let plugin_lock = PLUGIN.read().unwrap();
                         let plugin = plugin_lock.as_ref().expect("Plugin not initialized");
                         if plugin.should_apply_configs() {
@@ -297,6 +300,9 @@ macro_rules! register_filter_plugin {
             ) -> bool {
                 unsafe {
                     {
+                        // AviUtl2 -> aviutl2-rsの設定の反映は2回行っても特に問題ないはずなので、
+                        // read()ロックをアップグレードしてロックが途切れないようにするといった
+                        // 高等テクニックは使わない。
                         let plugin_lock = PLUGIN.read().unwrap();
                         let plugin = plugin_lock.as_ref().expect("Plugin not initialized");
                         if plugin.should_apply_configs() {
