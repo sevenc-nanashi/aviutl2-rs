@@ -31,12 +31,12 @@ macro_rules! odbg {
 macro_rules! oprintln {
     ($($arg:tt)*) => {
         let message = format!($($arg)*);
-        $crate::utils::debug_print_impl(&message);
+        $crate::utils::debug_println_impl(&message);
     };
 }
 
 #[doc(hidden)]
-pub fn debug_print_impl(message: &str) {
+pub fn debug_println_impl(message: &str) {
     let mut cstr = format!("{message}\n").encode_utf16().collect::<Vec<u16>>();
     cstr.push(0); // Null-terminate the string
     unsafe {
@@ -173,7 +173,7 @@ mod ods_logger {
             while let Some(pos) = self.buffer.iter().position(|&b| b == b'\n') {
                 let line = &self.buffer[..=pos];
                 if let Ok(line_str) = std::str::from_utf8(line) {
-                    super::debug_print_impl(line_str);
+                    super::debug_println_impl(line_str);
                 }
                 self.buffer.drain(..=pos);
             }
