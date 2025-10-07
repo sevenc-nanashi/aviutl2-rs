@@ -1,7 +1,8 @@
-# Chiptune Filter
+# Rusty Chiptune Filter
 
-A chiptune audio filter for AviUtl.
+フィルタプラグインのサンプルです。
+チップチューンで使われるような音を実装しています。
 
-## Effect
+## インストール
 
-This filter applies a bitcrushing effect to the audio, giving it a retro, chiptune-like sound.
+`C:\ProgramData\aviutl2\Plugin` に `rusty_chiptune.auf2` を配置してください。
