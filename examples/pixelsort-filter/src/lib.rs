@@ -46,7 +46,10 @@ impl FilterPlugin for PixelSortFilter {
         video: &FilterProcVideo,
     ) -> AnyResult<()> {
         let config: FilterConfig = config.to_struct();
-        let (width, height) = (video.video_object.width as usize, video.video_object.height as usize);
+        let (width, height) = (
+            video.video_object.width as usize,
+            video.video_object.height as usize,
+        );
         let image: Vec<RgbaPixel> = video.get_image_data();
         let mut pixels = image.to_vec();
         let (width, height) = if config.direction == 1 {
@@ -56,7 +59,12 @@ impl FilterPlugin for PixelSortFilter {
             transpose::transpose_image(&mut pixels, width, height, transpose::Transpose::OneEighty);
             (width, height)
         } else if config.direction == 3 {
-            transpose::transpose_image(&mut pixels, width, height, transpose::Transpose::TwoSeventy);
+            transpose::transpose_image(
+                &mut pixels,
+                width,
+                height,
+                transpose::Transpose::TwoSeventy,
+            );
             (height, width)
         } else {
             (width, height)
@@ -88,7 +96,12 @@ impl FilterPlugin for PixelSortFilter {
         });
 
         let (pixels, width, height) = if config.direction == 1 {
-            transpose::transpose_image(&mut pixels, width, height, transpose::Transpose::TwoSeventy);
+            transpose::transpose_image(
+                &mut pixels,
+                width,
+                height,
+                transpose::Transpose::TwoSeventy,
+            );
             (pixels, height, width)
         } else if config.direction == 2 {
             transpose::transpose_image(&mut pixels, width, height, transpose::Transpose::OneEighty);
