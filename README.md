@@ -21,6 +21,7 @@ AviUtl2 SDKのRust版です。
   - `./examples/ffmpeg-output`：FFmpegを使用して動画を出力するサンプル。
   - `./examples/statistics-output`：フレームごとの描画時間を計測し、統計情報を出力するサンプル。
   - `./examples/equalizer-filter`：biquadクレートを使用してイコライザーフィルタを実装したサンプル。
+  - `./examples/pixelsort-filter`：ピクセルソートフィルタのサンプル。
 
 ## ライセンス
 
