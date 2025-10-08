@@ -12,8 +12,16 @@ publish.workspace = true
 name = "rusty_pixelsort_filter"
 crate-type = ["cdylib"]
 
+[features]
+default = ["rayon", "simd-luminance"]
+simd = ["simd-luminance", "simd-threshold"]
+simd-luminance = []
+simd-threshold = []
+rayon = []
+
 [dependencies]
 aviutl2 = { workspace = true, features = ["env_logger"] }
+cfg-elif = "0.6.5"
 duplicate = "2.0.0"
 env_logger = "0.11.8"
 rayon = "1.11.0"

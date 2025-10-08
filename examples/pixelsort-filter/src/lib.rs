@@ -6,6 +6,7 @@ use aviutl2::{
         FilterProcVideo, RgbaPixel,
     },
 };
+#[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, FilterConfigItems)]
@@ -88,34 +89,30 @@ impl FilterPlugin for PixelSortFilter {
         } else {
             under_threshold(&luminance, threshold)
         };
-        pixels
-            .par_chunks_mut(width)
-            .enumerate()
-            .for_each(|(height, row)| {
-                let mut start = 0;
-                for x in 0..row.len() {
-                    if !mask[x + height * width] {
-                        continue;
-                    }
-                    if start < x {
-                        let mut indices = (start..x).collect::<Vec<_>>();
-                        indices.sort_by_key(|&i| luminance[i + height * width]);
-                        let original = row[start..x].to_vec();
-                        for (i, &idx) in indices.iter().enumerate() {
-                            row[start + i] = original[idx - start];
-                        }
-                    }
-                    start = x + 1;
+        cfg_elif::expr_feature!(if ("rayon") {
+            pixels.par_chunks_mut(width)
+        } else {
+            pixels.chunks_mut(width)
+        })
+        .enumerate()
+        .for_each(|(height, row)| {
+            let mut start = 0;
+            let mut indices = (0..row.len()).collect::<Vec<_>>();
+            for x in 0..row.len() {
+                if !mask[x + height * width] {
+                    continue;
                 }
-                if start < row.len() {
-                    let mut indices = (start..row.len()).collect::<Vec<_>>();
-                    indices.sort_by_key(|&i| luminance[i + height * width]);
-                    let original = row[start..].to_vec();
-                    for (i, &idx) in indices.iter().enumerate() {
-                        row[start + i] = original[idx - start];
-                    }
+                if start < x {
+                    indices[start..x].sort_by_key(|&i| luminance[i + height * width]);
                 }
-            });
+                start = x + 1;
+            }
+            if start < row.len() {
+                indices[start..].sort_by_key(|&i| luminance[i + height * width]);
+            }
+
+            permute_in_place(row, indices);
+        });
 
         let (pixels, width, height) = if config.direction == 1 {
             transpose::transpose_image(
@@ -140,6 +137,26 @@ impl FilterPlugin for PixelSortFilter {
     }
 }
 
+fn permute_in_place<T>(data: &mut [T], mut perm: Vec<usize>) {
+    let n = data.len();
+    debug_assert_eq!(n, perm.len());
+
+    let p = perm.to_vec();
+    for i in 0..n {
+        perm[p[i]] = i;
+    }
+
+    for i in 0..n {
+        let current = i;
+        while perm[current] != current {
+            let next = perm[current];
+            data.swap(current, next);
+            perm.swap(current, next);
+        }
+    }
+}
+
+#[allow(unused_macros)]
 macro_rules! repeat_32 {
     ($e:expr) => {
         [
@@ -149,6 +166,7 @@ macro_rules! repeat_32 {
     };
 }
 
+#[cfg(feature = "simd-luminance")]
 fn calc_luminances(pixels: &[RgbaPixel]) -> Vec<u16> {
     pixels
         .chunks(32)
@@ -162,12 +180,25 @@ fn calc_luminances(pixels: &[RgbaPixel]) -> Vec<u16> {
             let luminance = red * wide::u16x32::splat(76)
                 + green * wide::u16x32::splat(150)
                 + blue * wide::u16x32::splat(29);
-            let luminance: wide::u16x32 = luminance;
             luminance.to_array()
         })
         .collect()
 }
 
+#[cfg(not(feature = "simd-luminance"))]
+fn calc_luminances(pixels: &[RgbaPixel]) -> Vec<u16> {
+    pixels
+        .iter()
+        .map(|px| {
+            let r = px.r as u16;
+            let g = px.g as u16;
+            let b = px.b as u16;
+            r * 76 + g * 150 + b * 29
+        })
+        .collect()
+}
+
+#[cfg(feature = "simd-threshold")]
 #[duplicate::duplicate_item(
     method_name       compare;
     [over_threshold]  [simd_gt];
@@ -186,4 +217,27 @@ fn method_name(luminances: &[u16], threshold: u16) -> Vec<bool> {
         .collect()
 }
 
+#[cfg(not(feature = "simd-threshold"))]
+#[duplicate::duplicate_item(
+    method_name       compare;
+    [over_threshold]  [gt];
+    [under_threshold] [lt];
+)]
+fn method_name(luminances: &[u16], threshold: u16) -> Vec<bool> {
+    luminances.iter().map(|&l| l.compare(&threshold)).collect()
+}
+
 aviutl2::register_filter_plugin!(PixelSortFilter);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_permute_in_place() {
+        let mut data = vec!['a', 'b', 'c', 'd'];
+        let perm = vec![2, 0, 1, 3];
+        permute_in_place(&mut data, perm);
+        assert_eq!(data, vec!['c', 'a', 'b', 'd']);
+    }
+}
