@@ -861,4 +861,18 @@ mod tests {
         let output = filter_config_items(input).unwrap();
         insta::assert_snapshot!(prettyplease::unparse(&syn::parse2(output).unwrap()));
     }
+
+    #[test]
+    fn test_duplicate_field_name() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[track(name = "Frequency", range = 20.0..=20000.0, step = 1.0, default = 440.0)]
+                frequency1: f64,
+                #[track(name = "Frequency", range = 20.0..=20000.0, step = 1.0, default = 440.0)]
+                frequency2: f64,
+            }
+        };
+        let result = filter_config_items(input);
+        assert!(result.is_err());
+    }
 }
