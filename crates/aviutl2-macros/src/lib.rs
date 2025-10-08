@@ -131,5 +131,7 @@ mod filter_config_items;
 /// ```
 #[proc_macro_derive(FilterConfigItems, attributes(track, check, color, select, file))]
 pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    filter_config_items::filter_config_items(item)
+    filter_config_items::filter_config_items(item.into())
+        .unwrap_or_else(|e| e)
+        .into()
 }

@@ -1,0 +1,38 @@
+---
+source: crates/aviutl2-macros/src/filter_config_items.rs
+expression: "prettyplease::unparse(&syn::parse2(output).unwrap())"
+---
+impl ::aviutl2::filter::FilterConfigItems for Config {
+    fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
+        vec![
+            ::aviutl2::filter::FilterConfigItem::Color(::aviutl2::filter::FilterConfigColor
+            { name : "IntColor".to_string(), value : 16711935u32.into(), }),
+            ::aviutl2::filter::FilterConfigItem::Color(::aviutl2::filter::FilterConfigColor
+            { name : "StrColor".to_string(), value : 65280u32.into(), }),
+            ::aviutl2::filter::FilterConfigItem::Color(::aviutl2::filter::FilterConfigColor
+            { name : "TupleColor".to_string(), value : 16711680u32.into(), })
+        ]
+    }
+    fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
+        Self {
+            int_color: match items[0usize] {
+                ::aviutl2::filter::FilterConfigItem::Color(ref color) => {
+                    color.value.clone().into()
+                }
+                _ => panic!("Expected Color at index {}", 0usize),
+            },
+            str_color: match items[1usize] {
+                ::aviutl2::filter::FilterConfigItem::Color(ref color) => {
+                    color.value.clone().into()
+                }
+                _ => panic!("Expected Color at index {}", 1usize),
+            },
+            tuple_color: match items[2usize] {
+                ::aviutl2::filter::FilterConfigItem::Color(ref color) => {
+                    color.value.clone().into()
+                }
+                _ => panic!("Expected Color at index {}", 2usize),
+            },
+        }
+    }
+}

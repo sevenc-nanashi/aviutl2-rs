@@ -1,11 +1,10 @@
 use syn::parse::Parse;
 
-pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let mut item = syn::parse_macro_input!(item as syn::ItemStruct);
-
-    if let Some(value) = validate_filter_config(&mut item) {
-        return value;
-    }
+pub fn filter_config_items(
+    item: proc_macro2::TokenStream,
+) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
+    let mut item: syn::ItemStruct = syn::parse2(item).map_err(|e| e.to_compile_error())?;
+    validate_filter_config(&mut item)?;
 
     let name = &item.ident;
     let (fields, field_errors) = item
@@ -21,7 +20,7 @@ pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenSt
             a
         });
     if let Some(err) = field_errors {
-        return err.into_compile_error().into();
+        return Err(err.into_compile_error());
     }
     let fields = fields.into_iter().map(Result::unwrap).collect::<Vec<_>>();
     let to_config_items = filter_config_items_to_config_items(&fields);
@@ -35,7 +34,7 @@ pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenSt
         }
     };
 
-    expanded.into()
+    Ok(expanded)
 }
 
 #[derive(Debug)]
@@ -324,7 +323,7 @@ fn filter_config_items_from_filter_config(
     }
 }
 
-fn validate_filter_config(item: &mut syn::ItemStruct) -> Option<proc_macro::TokenStream> {
+fn validate_filter_config(item: &mut syn::ItemStruct) -> Result<(), proc_macro2::TokenStream> {
     let fields = item
         .fields
         .iter_mut()
@@ -332,7 +331,7 @@ fn validate_filter_config(item: &mut syn::ItemStruct) -> Option<proc_macro::Toke
         .collect::<Result<Vec<_>, _>>();
     let fields = match fields {
         Ok(f) => f,
-        Err(e) => return Some(e.to_compile_error().into()),
+        Err(e) => return Err(e.to_compile_error()),
     };
     let field_names = fields
         .iter()
@@ -352,13 +351,9 @@ fn validate_filter_config(item: &mut syn::ItemStruct) -> Option<proc_macro::Toke
             .len()
     {
         // TODO: フィールドに対してエラーを吐くようにしたい
-        return Some(
-            syn::Error::new_spanned(&item, "Field names must be unique")
-                .to_compile_error()
-                .into(),
-        );
+        return Err(syn::Error::new_spanned(&item, "Field names must be unique").to_compile_error());
     }
-    None
+    Ok(())
 }
 
 fn filter_config_field(field: &mut syn::Field) -> Result<FilterConfigField, syn::Error> {
@@ -796,5 +791,74 @@ fn parse_int_or_float(expr: &syn::Expr) -> Result<decimal_rs::Decimal, syn::Erro
             current,
             "Expected integer or float literal",
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_track() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[track(name = "Frequency", range = 20.0..=20000.0, step = 1.0, default = 440.0)]
+                frequency: f64,
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(prettyplease::unparse(&syn::parse2(output).unwrap()));
+    }
+
+    #[test]
+    fn test_check() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[check(name = "Enable", default = true)]
+                enable: bool,
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(prettyplease::unparse(&syn::parse2(output).unwrap()));
+    }
+
+    #[test]
+    fn test_color() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[color(name = "IntColor", default = 0xFF00FF)]
+                int_color: u32,
+                #[color(name = "StrColor", default = "#00FF00")]
+                str_color: u32,
+                #[color(name = "TupleColor", default = (255, 0, 0))]
+                tuple_color: u32,
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(prettyplease::unparse(&syn::parse2(output).unwrap()));
+    }
+
+    #[test]
+    fn test_select() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[select(name = "Mode", items = ["Easy", "Medium", "Hard"], default = 1)]
+                mode: usize,
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(prettyplease::unparse(&syn::parse2(output).unwrap()));
+    }
+
+    #[test]
+    fn test_file() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[file(name = "Input File", filters = { "Text Files" => ["*.txt"], "All Files" => ["*.*"] })]
+                input_file: Option<std::path::PathBuf>,
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(prettyplease::unparse(&syn::parse2(output).unwrap()));
     }
 }

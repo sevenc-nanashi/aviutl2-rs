@@ -1,0 +1,20 @@
+---
+source: crates/aviutl2-macros/src/filter_config_items.rs
+expression: "prettyplease::unparse(&syn::parse2(output).unwrap())"
+---
+impl ::aviutl2::filter::FilterConfigItems for Config {
+    fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
+        vec![
+            ::aviutl2::filter::FilterConfigItem::Checkbox(::aviutl2::filter::FilterConfigCheckbox
+            { name : "Enable".to_string(), value : true, })
+        ]
+    }
+    fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
+        Self {
+            enable: match items[0usize] {
+                ::aviutl2::filter::FilterConfigItem::Checkbox(ref check) => check.value,
+                _ => panic!("Expected Checkbox at index {}", 0usize),
+            },
+        }
+    }
+}
