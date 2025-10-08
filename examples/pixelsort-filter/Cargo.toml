@@ -13,11 +13,14 @@ name = "rusty_pixelsort_filter"
 crate-type = ["cdylib"]
 
 [features]
-default = ["rayon", "simd-luminance"]
+default = ["rayon-sort-rows", "rayon-rotate", "rayon-sort-inner", "simd-luminance"]
 simd = ["simd-luminance", "simd-threshold"]
 simd-luminance = []
 simd-threshold = []
-rayon = []
+rayon = ["rayon-sort-rows", "rayon-sort-inner", "rayon-rotate"]
+rayon-sort-rows = []
+rayon-sort-inner = []
+rayon-rotate = []
 
 [dependencies]
 aviutl2 = { workspace = true, features = ["env_logger"] }

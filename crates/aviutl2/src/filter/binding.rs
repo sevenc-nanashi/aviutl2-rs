@@ -181,6 +181,10 @@ impl FilterProcVideo {
     }
 
     /// 現在の画像のデータを設定する。
+    ///
+    /// # Panics
+    ///
+    /// `data` をバイト列に変換した際の長さが `width * height * 4` と一致しない場合、パニックします。
     pub fn set_image_data<T: IntoBytes + Immutable>(&self, data: &[T], width: u32, height: u32) {
         let bytes = &data.as_bytes();
         assert!(bytes.len() == (width * height * 4) as usize);

@@ -8,6 +8,9 @@
 せっかくなので爆速なピクセルソートを作りたいです。
 一応実験として以下のFeature Flagを用意しています：
 - `rayon` - Rayonを使ってマルチスレッド化します。
+  - `rayon-sort-rows` - ピクセルソートで行ごとにRayonを使います。
+  - `rayon-sort-inner` - ピクセルソートの行内のソートにRayonを使います。
+  - `rayon-rotate` - ピクセルの回転にRayonを使います。
 - `simd` - SIMDを使って高速化します。
   - `simd-luminance` - 輝度計算にSIMDを使います。
   - `simd-threshold` - ピクセルの閾値計算にSIMDを使います。

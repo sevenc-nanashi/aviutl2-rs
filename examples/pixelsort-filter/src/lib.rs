@@ -1,4 +1,4 @@
-mod transpose;
+mod rotate;
 use aviutl2::{
     AnyResult, AviUtl2Info,
     filter::{
@@ -6,7 +6,6 @@ use aviutl2::{
         FilterProcVideo, RgbaPixel,
     },
 };
-#[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, FilterConfigItems)]
@@ -63,23 +62,26 @@ impl FilterPlugin for PixelSortFilter {
             video.video_object.height as usize,
         );
         let image: Vec<RgbaPixel> = video.get_image_data();
-        let mut pixels = image.to_vec();
-        let (width, height) = if config.direction == 1 {
-            transpose::transpose_image(&mut pixels, width, height, transpose::Transpose::Ninety);
-            (height, width)
+        let (mut pixels, width, height) = if config.direction == 1 {
+            (
+                rotate::rotate_image(&image, width, height, rotate::Rotate::Ninety),
+                height,
+                width,
+            )
         } else if config.direction == 2 {
-            transpose::transpose_image(&mut pixels, width, height, transpose::Transpose::OneEighty);
-            (width, height)
-        } else if config.direction == 3 {
-            transpose::transpose_image(
-                &mut pixels,
+            (
+                rotate::rotate_image(&image, width, height, rotate::Rotate::OneEighty),
                 width,
                 height,
-                transpose::Transpose::TwoSeventy,
-            );
-            (height, width)
+            )
+        } else if config.direction == 3 {
+            (
+                rotate::rotate_image(&image, width, height, rotate::Rotate::TwoSeventy),
+                height,
+                width,
+            )
         } else {
-            (width, height)
+            (image, width, height)
         };
 
         let threshold = (config.threshold * 65535.0) as u16;
@@ -89,50 +91,49 @@ impl FilterPlugin for PixelSortFilter {
         } else {
             under_threshold(&luminance, threshold)
         };
-        cfg_elif::expr_feature!(if ("rayon") {
+        cfg_elif::expr_feature!(if ("rayon-sort-rows") {
             pixels.par_chunks_mut(width)
         } else {
             pixels.chunks_mut(width)
         })
         .enumerate()
-        .for_each(|(height, row)| {
+        .for_each(|(y, row)| {
             let mut start = 0;
             let mut indices = (0..row.len()).collect::<Vec<_>>();
             for x in 0..row.len() {
-                if !mask[x + height * width] {
+                if !mask[x + y * width] {
                     continue;
                 }
                 if start < x {
-                    indices[start..x].sort_by_key(|&i| luminance[i + height * width]);
+                    if cfg!(feature = "rayon-sort-inner") {
+                        indices[start..x].par_sort_by_key(|&i| luminance[i + y * width]);
+                    } else {
+                        indices[start..x].sort_by_key(|&i| luminance[i + y * width]);
+                    }
                 }
                 start = x + 1;
             }
             if start < row.len() {
-                indices[start..].sort_by_key(|&i| luminance[i + height * width]);
+                if cfg!(feature = "rayon-sort-inner") {
+                    indices[start..row.len()].par_sort_by_key(|&i| luminance[i + y * width]);
+                } else {
+                    indices[start..row.len()].sort_by_key(|&i| luminance[i + y * width]);
+                }
             }
 
             permute_in_place(row, indices);
         });
 
-        let (pixels, width, height) = if config.direction == 1 {
-            transpose::transpose_image(
-                &mut pixels,
-                width,
-                height,
-                transpose::Transpose::TwoSeventy,
-            );
-            (pixels, height, width)
+        let pixels = if config.direction == 1 {
+            rotate::rotate_image(&pixels, width, height, rotate::Rotate::TwoSeventy)
         } else if config.direction == 2 {
-            transpose::transpose_image(&mut pixels, width, height, transpose::Transpose::OneEighty);
-            (pixels, width, height)
+            rotate::rotate_image(&pixels, width, height, rotate::Rotate::OneEighty)
         } else if config.direction == 3 {
-            transpose::transpose_image(&mut pixels, width, height, transpose::Transpose::Ninety);
-            (pixels, height, width)
+            rotate::rotate_image(&pixels, width, height, rotate::Rotate::Ninety)
         } else {
-            (pixels, width, height)
+            pixels
         };
-
-        video.set_image_data(&pixels, width as u32, height as u32);
+        video.set_image_data(&pixels, video.video_object.width, video.video_object.height);
         Ok(())
     }
 }
