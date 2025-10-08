@@ -20,10 +20,10 @@ struct FilterConfig {
 }
 
 struct WgpuFilter {
-    device: std::sync::Arc<wgpu::Device>,
-    queue: std::sync::Arc<wgpu::Queue>,
-    pipeline: std::sync::Arc<wgpu::RenderPipeline>,
-    bind_group_layout: std::sync::Arc<wgpu::BindGroupLayout>,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    pipeline: wgpu::RenderPipeline,
+    bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl FilterPlugin for WgpuFilter {
@@ -102,10 +102,10 @@ impl FilterPlugin for WgpuFilter {
         });
 
         Ok(Self {
-            device: std::sync::Arc::new(device),
-            queue: std::sync::Arc::new(queue),
-            pipeline: std::sync::Arc::new(pipeline),
-            bind_group_layout: std::sync::Arc::new(bind_group_layout),
+            device,
+            queue,
+            pipeline,
+            bind_group_layout,
         })
     }
 
