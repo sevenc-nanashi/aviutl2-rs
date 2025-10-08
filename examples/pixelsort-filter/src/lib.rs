@@ -13,14 +13,14 @@ struct FilterConfig {
     #[track(name = "しきい値", range = 0.0..=1.0, step = 0.001, default = 0.5)]
     threshold: f64,
     #[select(
-        name = "基準",
+        name = "ソート対象",
         items = ["しきい値以上", "しきい値以下"],
         default = 0
     )]
     threshold_type: usize,
     #[select(
         name = "ソート方向",
-        items = ["右", "下", "左", "上"],
+        items = ["左右", "左右（反転）", "上下", "上下（反転）"],
         default = 0
     )]
     direction: usize,
@@ -64,15 +64,15 @@ impl FilterPlugin for PixelSortFilter {
         let image: Vec<RgbaPixel> = video.get_image_data();
         let (mut pixels, width, height) = if config.direction == 1 {
             (
-                rotate::rotate_image(&image, width, height, rotate::Rotate::Ninety),
-                height,
-                width,
-            )
-        } else if config.direction == 2 {
-            (
                 rotate::rotate_image(&image, width, height, rotate::Rotate::OneEighty),
                 width,
                 height,
+            )
+        } else if config.direction == 2 {
+            (
+                rotate::rotate_image(&image, width, height, rotate::Rotate::Ninety),
+                height,
+                width,
             )
         } else if config.direction == 3 {
             (
@@ -84,13 +84,10 @@ impl FilterPlugin for PixelSortFilter {
             (image, width, height)
         };
 
-        let threshold = (config.threshold * 65535.0) as u16;
         let luminance = calc_luminances(&pixels);
-        let mask = if config.threshold_type == 0 {
-            over_threshold(&luminance, threshold)
-        } else {
-            under_threshold(&luminance, threshold)
-        };
+        let threshold = (config.threshold * 65535.0) as u16;
+        let mask = over_threshold(&luminance, threshold);
+        let sort_if_brighter = config.threshold_type == 0;
         cfg_elif::expr_feature!(if ("rayon-sort-rows") {
             pixels.par_chunks_mut(width)
         } else {
@@ -101,17 +98,17 @@ impl FilterPlugin for PixelSortFilter {
             let mut start = 0;
             let mut indices = (0..row.len()).collect::<Vec<_>>();
             for x in 0..row.len() {
-                if !mask[x + y * width] {
-                    continue;
-                }
-                if start < x {
-                    if cfg!(feature = "rayon-sort-inner") {
-                        indices[start..x].par_sort_by_key(|&i| luminance[i + y * width]);
-                    } else {
-                        indices[start..x].sort_by_key(|&i| luminance[i + y * width]);
+                if mask[x + y * width] != sort_if_brighter {
+                    // ソートしないときの処理（区間の確定とソート）
+                    if start < x {
+                        if cfg!(feature = "rayon-sort-inner") {
+                            indices[start..x].par_sort_by_key(|&i| luminance[i + y * width]);
+                        } else {
+                            indices[start..x].sort_by_key(|&i| luminance[i + y * width]);
+                        }
                     }
+                    start = x + 1;
                 }
-                start = x + 1;
             }
             if start < row.len() {
                 if cfg!(feature = "rayon-sort-inner") {
@@ -125,9 +122,9 @@ impl FilterPlugin for PixelSortFilter {
         });
 
         let pixels = if config.direction == 1 {
-            rotate::rotate_image(&pixels, width, height, rotate::Rotate::TwoSeventy)
-        } else if config.direction == 2 {
             rotate::rotate_image(&pixels, width, height, rotate::Rotate::OneEighty)
+        } else if config.direction == 2 {
+            rotate::rotate_image(&pixels, width, height, rotate::Rotate::TwoSeventy)
         } else if config.direction == 3 {
             rotate::rotate_image(&pixels, width, height, rotate::Rotate::Ninety)
         } else {
@@ -200,32 +197,22 @@ fn calc_luminances(pixels: &[RgbaPixel]) -> Vec<u16> {
 }
 
 #[cfg(feature = "simd-threshold")]
-#[duplicate::duplicate_item(
-    method_name       compare;
-    [over_threshold]  [simd_gt];
-    [under_threshold] [simd_lt];
-)]
-fn method_name(luminances: &[u16], threshold: u16) -> Vec<bool> {
+fn over_threshold(luminances: &[u16], threshold: u16) -> Vec<bool> {
     let threshold = wide::u16x32::splat(threshold);
     luminances
         .chunks(32)
         .flat_map(|p| {
             let mut p = p.iter().copied();
             let chunk = wide::u16x32::new(repeat_32!(p.next().unwrap_or(0)));
-            let mask = chunk.compare(threshold);
+            let mask = chunk.simd_gt(threshold);
             mask.to_array().map(|b| b != 0)
         })
         .collect()
 }
 
 #[cfg(not(feature = "simd-threshold"))]
-#[duplicate::duplicate_item(
-    method_name       compare;
-    [over_threshold]  [gt];
-    [under_threshold] [lt];
-)]
-fn method_name(luminances: &[u16], threshold: u16) -> Vec<bool> {
-    luminances.iter().map(|&l| l.compare(&threshold)).collect()
+fn over_threshold(luminances: &[u16], threshold: u16) -> Vec<bool> {
+    luminances.iter().map(|&l| l > threshold).collect()
 }
 
 aviutl2::register_filter_plugin!(PixelSortFilter);
