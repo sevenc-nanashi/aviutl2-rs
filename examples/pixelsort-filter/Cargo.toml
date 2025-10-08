@@ -14,5 +14,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 aviutl2 = { workspace = true, features = ["env_logger"] }
+duplicate = "2.0.0"
 env_logger = "0.11.8"
 rayon = "1.11.0"
+wide = "0.8.0"

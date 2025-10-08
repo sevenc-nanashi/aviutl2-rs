@@ -6,10 +6,11 @@ use aviutl2::{
         FilterProcVideo, RgbaPixel,
     },
 };
+use rayon::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, FilterConfigItems)]
 struct FilterConfig {
-    #[track(name = "しきい値", range = 0.0..=1.0, step = 0.01, default = 0.5)]
+    #[track(name = "しきい値", range = 0.0..=1.0, step = 0.001, default = 0.5)]
     threshold: f64,
     #[select(
         name = "基準",
@@ -80,33 +81,41 @@ impl FilterPlugin for PixelSortFilter {
             (width, height)
         };
 
-        use rayon::prelude::*;
-        let threshold = (config.threshold * 255.0) as u8;
-        pixels.par_chunks_mut(width).for_each(|row| {
-            let mut start = 0;
-            for x in 0..row.len() {
-                let pixel = row[x];
-                let brightness =
-                    ((pixel.r as u16 * 76 + pixel.g as u16 * 150 + pixel.b as u16 * 29) >> 8) as u8;
-
-                if (config.threshold_type == 0 && brightness >= threshold)
-                    || (config.threshold_type == 1 && brightness < threshold)
-                {
-                    continue;
+        let threshold = (config.threshold * 65535.0) as u16;
+        let luminance = calc_luminances(&pixels);
+        let mask = if config.threshold_type == 0 {
+            over_threshold(&luminance, threshold)
+        } else {
+            under_threshold(&luminance, threshold)
+        };
+        pixels
+            .par_chunks_mut(width)
+            .enumerate()
+            .for_each(|(height, row)| {
+                let mut start = 0;
+                for x in 0..row.len() {
+                    if !mask[x + height * width] {
+                        continue;
+                    }
+                    if start < x {
+                        let mut indices = (start..x).collect::<Vec<_>>();
+                        indices.sort_by_key(|&i| luminance[i + height * width]);
+                        let original = row[start..x].to_vec();
+                        for (i, &idx) in indices.iter().enumerate() {
+                            row[start + i] = original[idx - start];
+                        }
+                    }
+                    start = x + 1;
                 }
-                if start < x {
-                    row[start..x].sort_by_key(|p| {
-                        ((p.r as u16 * 76 + p.g as u16 * 150 + p.b as u16 * 29) >> 8) as u8
-                    });
+                if start < row.len() {
+                    let mut indices = (start..row.len()).collect::<Vec<_>>();
+                    indices.sort_by_key(|&i| luminance[i + height * width]);
+                    let original = row[start..].to_vec();
+                    for (i, &idx) in indices.iter().enumerate() {
+                        row[start + i] = original[idx - start];
+                    }
                 }
-                start = x + 1;
-            }
-            if start < row.len() {
-                row[start..].sort_by_key(|p| {
-                    ((p.r as u16 * 76 + p.g as u16 * 150 + p.b as u16 * 29) >> 8) as u8
-                });
-            }
-        });
+            });
 
         let (pixels, width, height) = if config.direction == 1 {
             transpose::transpose_image(
@@ -129,6 +138,52 @@ impl FilterPlugin for PixelSortFilter {
         video.set_image_data(&pixels, width as u32, height as u32);
         Ok(())
     }
+}
+
+macro_rules! repeat_32 {
+    ($e:expr) => {
+        [
+            $e, $e, $e, $e, $e, $e, $e, $e, $e, $e, $e, $e, $e, $e, $e, $e, $e, $e, $e, $e, $e, $e,
+            $e, $e, $e, $e, $e, $e, $e, $e, $e, $e,
+        ]
+    };
+}
+
+fn calc_luminances(pixels: &[RgbaPixel]) -> Vec<u16> {
+    pixels
+        .chunks(32)
+        .flat_map(|p| {
+            let mut red = p.iter().map(|px| px.r as u16);
+            let mut green = p.iter().map(|px| px.g as u16);
+            let mut blue = p.iter().map(|px| px.b as u16);
+            let red = wide::u16x32::new(repeat_32!(red.next().unwrap_or(0)));
+            let green = wide::u16x32::new(repeat_32!(green.next().unwrap_or(0)));
+            let blue = wide::u16x32::new(repeat_32!(blue.next().unwrap_or(0)));
+            let luminance = red * wide::u16x32::splat(76)
+                + green * wide::u16x32::splat(150)
+                + blue * wide::u16x32::splat(29);
+            let luminance: wide::u16x32 = luminance;
+            luminance.to_array()
+        })
+        .collect()
+}
+
+#[duplicate::duplicate_item(
+    method_name       compare;
+    [over_threshold]  [simd_gt];
+    [under_threshold] [simd_lt];
+)]
+fn method_name(luminances: &[u16], threshold: u16) -> Vec<bool> {
+    let threshold = wide::u16x32::splat(threshold);
+    luminances
+        .chunks(32)
+        .flat_map(|p| {
+            let mut p = p.iter().copied();
+            let chunk = wide::u16x32::new(repeat_32!(p.next().unwrap_or(0)));
+            let mask = chunk.compare(threshold);
+            mask.to_array().map(|b| b != 0)
+        })
+        .collect()
 }
 
 aviutl2::register_filter_plugin!(PixelSortFilter);
