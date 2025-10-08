@@ -99,7 +99,7 @@ impl FilterPlugin for ChiptuneFilter {
         let mut right = vec![0.0; sample_num];
 
         let mut phase = synthesizer.phase;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for i in 0..sample_num {
             let value = match config.wave_type {
                 0 => {
@@ -118,7 +118,7 @@ impl FilterPlugin for ChiptuneFilter {
                 }
                 2 => phase * 2.0 - 1.0,
                 3 => (phase * 2.0 * std::f64::consts::PI).sin(),
-                4 => Rng::r#gen::<f64>(&mut rng) * 2.0 - 1.0,
+                4 => Rng::random::<f64>(&mut rng) * 2.0 - 1.0,
                 _ => 0.0,
             };
             left[i] = (value * config.volume) as f32;
