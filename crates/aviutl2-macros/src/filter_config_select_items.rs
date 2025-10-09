@@ -33,6 +33,7 @@ pub fn filter_config_select_items(
     let to_select_item_value = impl_to_select_item_value(&variants)?;
 
     let expanded = quote::quote! {
+        #[automatically_derived]
         impl ::aviutl2::filter::FilterConfigSelectItems for #name {
             #to_select_items
             #from_select_item_value
@@ -51,8 +52,18 @@ fn parse_enum_variant(variant: &syn::Variant) -> Result<BaseEnumVariant, syn::Er
         .find(|attr| attr.path().is_ident("item"))
         .and_then(|attr| {
             attr.parse_args_with(|input: syn::parse::ParseStream| {
-                let name: syn::LitStr = input.parse()?;
-                Ok(name.value())
+                let lookahead = input.lookahead1();
+                if lookahead.peek(syn::Ident) && input.peek2(syn::Token![=]) {
+                    let ident: syn::Ident = input.parse()?;
+                    if ident != "name" {
+                        return Err(syn::Error::new_spanned(ident, "Expected `name`"));
+                    }
+                    let _eq_token: syn::Token![=] = input.parse()?;
+                    let name_lit: syn::LitStr = input.parse()?;
+                    Ok(name_lit.value())
+                } else {
+                    Err(lookahead.error())
+                }
             })
             .ok()
         });
@@ -111,7 +122,7 @@ fn impl_to_select_items(
         items.push(quote::quote! {
             ::aviutl2::filter::FilterConfigSelectItem {
                 name: #name.to_string(),
-                value: #discriminant,
+                value: const { #discriminant },
             }
         });
     }
@@ -137,20 +148,19 @@ fn impl_from_select_item_value(
         let ident = &variant.ident;
         let discriminant = &variant.discriminant;
         match_arms.push(quote::quote! {
-            else if value == (const { #discriminant }) {
-                return Self::#ident;
+            _ if value == (const { #discriminant }) => {
+                Self::#ident
             }
         });
     }
 
     let expanded = quote::quote! {
         fn from_select_item_value(value: i32) -> Self {
-            if false {
-                unreachable!()
-            }
-            #(#match_arms)*
-            else {
-                panic!("Invalid value for {}", stringify!(#enum_name))
+            match value {
+                #(#match_arms)*
+                _ => {
+                    panic!("Invalid value for {}", stringify!(#enum_name))
+                }
             }
         }
     };
@@ -188,9 +198,9 @@ mod tests {
 
     #[derive(Debug, PartialEq, Eq, aviutl2::filter::FilterConfigSelectItems)]
     enum MySelectItem {
-        #[item(name = "Hoge")]
+        #[item(name = "ほげ")]
         Hoge,
-        #[item(name = "Fuga")]
+        #[item(name = "ふが")]
         Fuga,
 
         Foo = 42,

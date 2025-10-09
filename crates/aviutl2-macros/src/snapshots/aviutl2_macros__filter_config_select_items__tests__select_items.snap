@@ -4,11 +4,11 @@ expression: items
 ---
 [
     FilterConfigSelectItem {
-        name: "Hoge",
+        name: "ほげ",
         value: 0,
     },
     FilterConfigSelectItem {
-        name: "Fuga",
+        name: "ふが",
         value: 1,
     },
     FilterConfigSelectItem {

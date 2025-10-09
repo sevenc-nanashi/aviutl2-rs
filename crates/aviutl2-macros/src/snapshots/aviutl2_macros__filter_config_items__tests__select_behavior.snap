@@ -1,0 +1,66 @@
+---
+source: crates/aviutl2-macros/src/filter_config_items.rs
+expression: items
+---
+[
+    Select(
+        FilterConfigSelect {
+            name: "Mode",
+            value: 1,
+            items: [
+                FilterConfigSelectItem {
+                    name: "Easy",
+                    value: 0,
+                },
+                FilterConfigSelectItem {
+                    name: "Medium",
+                    value: 1,
+                },
+                FilterConfigSelectItem {
+                    name: "Hard",
+                    value: 2,
+                },
+            ],
+        },
+    ),
+    Select(
+        FilterConfigSelect {
+            name: "Behavior 1",
+            value: 1,
+            items: [
+                FilterConfigSelectItem {
+                    name: "Easy",
+                    value: 0,
+                },
+                FilterConfigSelectItem {
+                    name: "Medium",
+                    value: 1,
+                },
+                FilterConfigSelectItem {
+                    name: "Hard",
+                    value: 2,
+                },
+            ],
+        },
+    ),
+    Select(
+        FilterConfigSelect {
+            name: "Behavior 2",
+            value: 1,
+            items: [
+                FilterConfigSelectItem {
+                    name: "Easy",
+                    value: 0,
+                },
+                FilterConfigSelectItem {
+                    name: "Medium",
+                    value: 1,
+                },
+                FilterConfigSelectItem {
+                    name: "Hard",
+                    value: 2,
+                },
+            ],
+        },
+    ),
+]

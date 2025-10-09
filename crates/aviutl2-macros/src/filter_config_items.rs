@@ -1,3 +1,4 @@
+use quote::ToTokens;
 use syn::parse::Parse;
 
 pub fn filter_config_items(
@@ -17,6 +18,7 @@ pub fn filter_config_items(
     let from_config_items = impl_from_filter_config(&fields);
 
     let expanded = quote::quote! {
+        #[automatically_derived]
         impl ::aviutl2::filter::FilterConfigItems for #name {
             #to_config_items
 
@@ -50,7 +52,7 @@ enum FilterConfigField {
         id: String,
         name: String,
         default: either::Either<i32, syn::ExprPath>,
-        items: either::Either<Vec<String>, syn::ExprPath>,
+        items: either::Either<Vec<String>, syn::TypePath>,
     },
     File {
         id: String,
@@ -144,40 +146,54 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                 let step_enum = match step {
                     TrackStep::One => {
                         quote::quote! { ::aviutl2::filter::FilterConfigTrackStep::One }
-                    },
+                    }
                     TrackStep::PointOne => {
                         quote::quote! { ::aviutl2::filter::FilterConfigTrackStep::PointOne }
-                    },
+                    }
                     TrackStep::PointZeroOne => {
                         quote::quote! { ::aviutl2::filter::FilterConfigTrackStep::PointZeroOne }
-                    },
+                    }
                     TrackStep::PointZeroZeroOne => {
                         quote::quote! { ::aviutl2::filter::FilterConfigTrackStep::PointZeroZeroOne }
                     }
                 };
                 quote::quote! {
-                    ::aviutl2::filter::FilterConfigItem::Track(::aviutl2::filter::FilterConfigTrack {
-                        name: #name.to_string(),
-                        value: #default,
-                        range: #min..=#max,
-                        step: #step_enum,
-                    })
+                    ::aviutl2::filter::FilterConfigItem::Track(
+                        ::aviutl2::filter::FilterConfigTrack {
+                            name: #name.to_string(),
+                            value: #default,
+                            range: #min..=#max,
+                            step: #step_enum,
+                        }
+                    )
                 }
             }
-            FilterConfigField::Check { id: _, name, default } => {
+            FilterConfigField::Check {
+                id: _,
+                name,
+                default,
+            } => {
                 quote::quote! {
-                    ::aviutl2::filter::FilterConfigItem::Checkbox(::aviutl2::filter::FilterConfigCheckbox {
-                        name: #name.to_string(),
-                        value: #default,
-                    })
+                    ::aviutl2::filter::FilterConfigItem::Checkbox(
+                        ::aviutl2::filter::FilterConfigCheckbox {
+                            name: #name.to_string(),
+                            value: #default,
+                        }
+                    )
                 }
             }
-            FilterConfigField::Color { id: _, name, default } => {
+            FilterConfigField::Color {
+                id: _,
+                name,
+                default,
+            } => {
                 quote::quote! {
-                    ::aviutl2::filter::FilterConfigItem::Color(::aviutl2::filter::FilterConfigColor {
-                        name: #name.to_string(),
-                        value: #default.into(),
-                    })
+                    ::aviutl2::filter::FilterConfigItem::Color(
+                        ::aviutl2::filter::FilterConfigColor {
+                            name: #name.to_string(),
+                            value: #default.into(),
+                        }
+                    )
                 }
             }
             FilterConfigField::Select {
@@ -186,7 +202,7 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                 default,
                 items,
             } => {
-                let items =                     match items {
+                let items = match items {
                     either::Either::Left(items) => {
                         let items = items.iter().enumerate().map(|(i, item)| {
                             quote::quote! {
@@ -197,24 +213,30 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                             }
                         });
                         quote::quote! { vec![#(#items),*] }
-                    },
-                    either::Either::Right(items) => {
-                        quote::quote! { (#items)::to_select_items() }
+                    }
+                    either::Either::Right(ty) => {
+                        quote::quote! { <#ty as ::aviutl2::filter::FilterConfigSelectItems>::to_select_items() }
                     }
                 };
                 let default = match default {
                     either::Either::Left(v) => quote::quote! { #v },
-                    either::Either::Right(v) => quote::quote! { (#v).to_select_item_value() }
+                    either::Either::Right(v) => quote::quote! { ::aviutl2::filter::FilterConfigSelectItems::to_select_item_value(&#v) },
                 };
                 quote::quote! {
-                    ::aviutl2::filter::FilterConfigItem::Select(::aviutl2::filter::FilterConfigSelect {
-                        name: #name.to_string(),
-                        value: #default,
-                        items: #items,
-                    })
+                    ::aviutl2::filter::FilterConfigItem::Select(
+                        ::aviutl2::filter::FilterConfigSelect {
+                            name: #name.to_string(),
+                            value: #default,
+                            items: #items,
+                        }
+                    )
                 }
             }
-            FilterConfigField::File { id: _, name, filters: filter } => {
+            FilterConfigField::File {
+                id: _,
+                name,
+                filters: filter,
+            } => {
                 let filter_entries = filter.iter().map(|entry| {
                     let n = &entry.name;
                     let exts = &entry.exts;
@@ -226,14 +248,16 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     }
                 });
                 quote::quote! {
-                    ::aviutl2::filter::FilterConfigItem::File(::aviutl2::filter::FilterConfigFile {
-                        name: #name.to_string(),
-                        value: String::new(),
-                        filters: vec![#(#filter_entries),*],
-                    })
+                    ::aviutl2::filter::FilterConfigItem::File(
+                        ::aviutl2::filter::FilterConfigFile {
+                            name: #name.to_string(),
+                            value: String::new(),
+                            filters: vec![#(#filter_entries),*],
+                        }
+                    )
                 }
             }
-    })
+        })
         .collect::<Vec<_>>();
 
     quote::quote! {
@@ -252,18 +276,19 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
         .map(|(i, f)| match f {
             FilterConfigField::Track { id, step, .. } => {
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
-                if *step == TrackStep::One {
-                    // i32
-                    return quote::quote! {
-                        #id_ident: match items[#i] {
-                            ::aviutl2::filter::FilterConfigItem::Track(ref track) => (track.value as i32) as _,
-                            _ => panic!("Expected Track at index {}", #i),
-                        }
-                    };
-                }
+                let to_value = if *step == TrackStep::One {
+                    // 一回i32に変換する
+                    quote::quote! {
+                         (track.value as i32) as _
+                    }
+                } else {
+                    quote::quote! {
+                        track.value as _
+                    }
+                };
                 quote::quote! {
                     #id_ident: match items[#i] {
-                        ::aviutl2::filter::FilterConfigItem::Track(ref track) => track.value as _,
+                        ::aviutl2::filter::FilterConfigItem::Track(ref track) => #to_value,
                         _ => panic!("Expected Track at index {}", #i),
                     }
                 }
@@ -281,16 +306,44 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
                 quote::quote! {
                     #id_ident: match items[#i] {
-                        ::aviutl2::filter::FilterConfigItem::Color(ref color) => color.value.clone().into(),
+                        ::aviutl2::filter::FilterConfigItem::Color(ref color) => color.value.into(),
                         _ => panic!("Expected Color at index {}", #i),
                     }
                 }
             }
-            FilterConfigField::Select { id, .. } => {
+            FilterConfigField::Select {
+                id, items, default, ..
+            } => {
+                // defaultが：
+                //   i32（Left）：インデックスで返す
+                //   syn::TypePath（Right）：FilterConfigSelectItems::from_select_item_valueで変換して返す
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+                let to_value = match default {
+                    either::Either::Left(_) => {
+                        quote::quote! {
+                            (select.value as usize) as _
+                        }
+                    }
+                    either::Either::Right(_) => match items {
+                        either::Either::Left(items) => {
+                            quote::quote! {
+                                [#(#items),*][select.value as usize].into()
+                            }
+                        }
+                        either::Either::Right(type_path) => {
+                            let type_path = type_path.to_token_stream();
+                            quote::quote! {
+                                <#type_path as ::aviutl2::filter::FilterConfigSelectItems>::from_select_item_value(select.value)
+                            }
+                        }
+                    },
+                };
+
                 quote::quote! {
                     #id_ident: match items[#i] {
-                        ::aviutl2::filter::FilterConfigItem::Select(ref select) => (select.value as usize) as _,
+                        ::aviutl2::filter::FilterConfigItem::Select(ref select) => {
+                            #to_value
+                        },
                         _ => panic!("Expected Select at index {}", #i),
                     }
                 }
@@ -657,51 +710,49 @@ fn filter_config_field_select(
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("default") {
             let value = m.value()?;
-            if let Ok(lit) = value.parse::<syn::LitInt>() {
+            let lookahead = value.lookahead1();
+            if lookahead.peek(syn::LitInt) {
+                let lit = value.parse::<syn::LitInt>()?;
                 let v = lit.base10_parse::<i32>()?;
                 default = Some(either::Either::Left(v));
-            } else if let Ok(expr) = value.parse::<syn::Expr>() {
+            } else if lookahead.peek(syn::Ident) || lookahead.peek(syn::Token![::]) {
+                let expr = value.parse::<syn::Expr>()?;
                 if let syn::Expr::Path(expr) = expr {
                     default = Some(either::Either::Right(expr.clone()));
                 } else {
                     return Err(syn::Error::new_spanned(
                         expr,
-                        "default must be an integer literal or string literal",
+                        "default must be an integer literal or a path expression",
                     ));
                 }
             } else {
-                return Err(syn::Error::new(
-                    value.span(),
-                    "default must be an integer literal or string literal",
-                ));
+                return Err(lookahead.error());
             }
         } else if m.path.is_ident("items") {
             let value_token = m.value()?;
-            if let Ok(expr_array)   = value_token.parse::<syn::ExprArray>() {
-                    let mut opts = Vec::new();
-                    for elem in expr_array.elems.iter() {
-                        if let syn::Expr::Lit(syn::ExprLit {
-                            lit: syn::Lit::Str(lit_str),
-                            ..
-                        }) = elem
-                        {
-                            opts.push(lit_str.value());
-                        } else {
-                            return Err(syn::Error::new_spanned(
-                                elem,
-                                "Options must be string literals",
-                            ));
-                        }
+            let lookahead = value_token.lookahead1();
+            if lookahead.peek(syn::token::Bracket) {
+                let expr_array = value_token.parse::<syn::ExprArray>()?;
+                let mut opts = Vec::new();
+                for elem in expr_array.elems.iter() {
+                    if let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(lit_str),
+                        ..
+                    }) = elem
+                    {
+                        opts.push(lit_str.value());
+                    } else {
+                        return Err(syn::Error::new_spanned(
+                            elem,
+                            "Options must be string literals",
+                        ));
                     }
-                    items = Some(either::Either::Left(opts));
-                } else if let Ok(expr_path) = value_token.parse::<syn::ExprPath>() {
-                    items = Some(either::Either::Right(expr_path.clone()));
                 }
-                else {
-                    return Err(syn::Error::new(
-                        value_token.span(),
-                        "Options must be an array of string literals, or a path to enum which implements FilterConfigSelectItems",
-                    ));
+                items = Some(either::Either::Left(opts));
+            } else if lookahead.peek(syn::Ident) || lookahead.peek(syn::Token![::]) {
+                items = Some(either::Either::Right(value_token.parse::<syn::TypePath>()?));
+            } else {
+                return Err(lookahead.error());
             }
         } else {
             return Err(m.error("Unknown attribute for select"));
@@ -869,6 +920,37 @@ mod tests {
         };
         let output = filter_config_items(input).unwrap();
         insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
+    #[allow(dead_code)]
+    fn test_select_behavior() {
+        use aviutl2::filter::FilterConfigItems;
+
+        #[derive(Debug, PartialEq, Eq, aviutl2::filter::FilterConfigSelectItems)]
+        enum Behavior {
+            #[item(name = "Easy")]
+            Easy,
+            #[item(name = "Medium")]
+            Medium,
+            #[item(name = "Hard")]
+            Hard,
+        }
+
+        #[derive(aviutl2::filter::FilterConfigItems)]
+        struct Config {
+            #[select(name = "Mode", items = ["Easy", "Medium", "Hard"], default = 1)]
+            mode: usize,
+
+            #[select(name = "Behavior 1", items = Behavior, default = Behavior::Medium)]
+            behavior1: Behavior,
+
+            #[select(name = "Behavior 2", items = Behavior, default = 1)]
+            behavior2: usize,
+        }
+
+        let items = Config::to_config_items();
+        insta::assert_debug_snapshot!(items);
     }
 
     #[test]

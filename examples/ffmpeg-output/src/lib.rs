@@ -164,7 +164,11 @@ fn download_ffmpeg_if_missing() -> anyhow::Result<std::path::PathBuf> {
 
     let ffmpeg_zip =
         std::fs::File::open(&ffmpeg_zip_path).context("Failed to open FFmpeg zip file")?;
-    zip_extract::extract(&ffmpeg_zip, &ffmpeg_tmp_dir, true)?;
+    let mut ffmpeg_zip =
+        zip::ZipArchive::new(ffmpeg_zip).context("Failed to read FFmpeg zip file")?;
+    ffmpeg_zip
+        .extract_unwrapped_root_dir(&ffmpeg_tmp_dir, zip::read::root_dir_common_filter)
+        .context("Failed to extract FFmpeg zip file")?;
     std::fs::remove_file(&ffmpeg_zip_path).context("Failed to remove FFmpeg zip file")?;
     std::fs::rename(&ffmpeg_tmp_dir, &ffmpeg_dir)
         .context("Failed to move extracted FFmpeg directory")?;

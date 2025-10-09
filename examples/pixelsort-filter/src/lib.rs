@@ -1,17 +1,31 @@
 mod rotate;
 use aviutl2::{
+    AnyResult, AviUtl2Info,
     filter::{
-        FilterConfigItemSliceExt, FilterConfigItems, FilterConfigSelectItems, FilterPlugin, FilterPluginTable, FilterProcVideo, RgbaPixel
-    }, AnyResult, AviUtl2Info
+        FilterConfigItemSliceExt, FilterConfigItems, FilterConfigSelectItems, FilterPlugin,
+        FilterPluginTable, FilterProcVideo, RgbaPixel,
+    },
 };
 use rayon::prelude::*;
 
-#[derive(Debug, Clone, FilterConfigSelectItems)]
+#[derive(Debug, Clone, PartialEq, Eq, FilterConfigSelectItems)]
 enum ThresholdType {
     #[item(name = "しきい値以上")]
     Above,
     #[item(name = "しきい値以下")]
     Below,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, FilterConfigSelectItems)]
+enum SortDirection {
+    #[item(name = "左右")]
+    Horizontal,
+    #[item(name = "左右（反転）")]
+    HorizontalInverted,
+    #[item(name = "上下")]
+    Vertical,
+    #[item(name = "上下（反転）")]
+    VerticalInverted,
 }
 
 #[derive(Debug, Clone, PartialEq, FilterConfigItems)]
@@ -23,13 +37,13 @@ struct FilterConfig {
         items = ThresholdType,
         default = ThresholdType::Above
     )]
-    threshold_type: usize,
+    threshold_type: ThresholdType,
     #[select(
         name = "ソート方向",
-        items = ["左右", "左右（反転）", "上下", "上下（反転）"],
-        default = 0
+        items = SortDirection,
+        default = SortDirection::Horizontal
     )]
-    direction: usize,
+    direction: SortDirection,
 }
 
 struct PixelSortFilter;
@@ -68,32 +82,29 @@ impl FilterPlugin for PixelSortFilter {
             video.video_object.height as usize,
         );
         let image: Vec<RgbaPixel> = video.get_image_data();
-        let (mut pixels, width, height) = if config.direction == 1 {
-            (
+        let (mut pixels, width, height) = match config.direction {
+            SortDirection::Horizontal => (image, width, height),
+            SortDirection::HorizontalInverted => (
                 rotate::rotate_image(&image, width, height, rotate::Rotate::OneEighty),
                 width,
                 height,
-            )
-        } else if config.direction == 2 {
-            (
+            ),
+            SortDirection::Vertical => (
                 rotate::rotate_image(&image, width, height, rotate::Rotate::Ninety),
                 height,
                 width,
-            )
-        } else if config.direction == 3 {
-            (
+            ),
+            SortDirection::VerticalInverted => (
                 rotate::rotate_image(&image, width, height, rotate::Rotate::TwoSeventy),
                 height,
                 width,
-            )
-        } else {
-            (image, width, height)
+            ),
         };
 
         let luminance = calc_luminances(&pixels);
         let threshold = (config.threshold * 65535.0) as u16;
         let mask = over_threshold(&luminance, threshold);
-        let sort_if_brighter = config.threshold_type == 0;
+        let sort_if_brighter = config.threshold_type == ThresholdType::Above;
         cfg_elif::expr_feature!(if ("rayon-sort-rows") {
             pixels.par_chunks_mut(width)
         } else {
@@ -127,14 +138,17 @@ impl FilterPlugin for PixelSortFilter {
             permute_in_place(row, indices);
         });
 
-        let pixels = if config.direction == 1 {
-            rotate::rotate_image(&pixels, width, height, rotate::Rotate::OneEighty)
-        } else if config.direction == 2 {
-            rotate::rotate_image(&pixels, width, height, rotate::Rotate::TwoSeventy)
-        } else if config.direction == 3 {
-            rotate::rotate_image(&pixels, width, height, rotate::Rotate::Ninety)
-        } else {
-            pixels
+        let pixels = match config.direction {
+            SortDirection::Horizontal => pixels,
+            SortDirection::HorizontalInverted => {
+                rotate::rotate_image(&pixels, width, height, rotate::Rotate::OneEighty)
+            }
+            SortDirection::Vertical => {
+                rotate::rotate_image(&pixels, width, height, rotate::Rotate::TwoSeventy)
+            }
+            SortDirection::VerticalInverted => {
+                rotate::rotate_image(&pixels, width, height, rotate::Rotate::Ninety)
+            }
         };
         video.set_image_data(&pixels, video.video_object.width, video.video_object.height);
         Ok(())

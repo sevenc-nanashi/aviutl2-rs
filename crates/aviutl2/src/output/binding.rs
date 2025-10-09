@@ -240,7 +240,7 @@ impl OutputInfo {
     /// モノラルの音声サンプルをイテレータとして取得する。
     ///
     /// # Arguments
-    /// `length` - 一回のイテレーションで取得するサンプル数。
+    /// - `length`: 一回のイテレーションで取得するサンプル数。
     pub fn get_mono_audio_samples_iter<F: FromRawAudioSamples>(
         &'_ self,
         length: i32,
@@ -271,7 +271,7 @@ impl OutputInfo {
     /// ステレオの音声サンプルをイテレータとして取得する。
     ///
     /// # Arguments
-    /// `length` - 一回のイテレーションで取得するサンプル数。
+    /// - `length`: 一回のイテレーションで取得するサンプル数。
     pub fn get_stereo_audio_samples_iter<F: FromRawAudioSamples>(
         &'_ self,
         length: i32,

@@ -25,10 +25,10 @@ mod utils;
 /// # }
 /// ```
 ///
-/// `name` - トラックバーの名前。省略した場合、フィールド名が使用されます。
-/// `range` - トラックバーの範囲。閉区間で指定します（例: `0.0..=1.0`）。
-/// `default` - トラックバーの初期値。
-/// `step` - トラックバーのステップ値。`1.0`, `0.1`, `0.01`, `0.001` のいずれかを指定します。
+/// - `name`: トラックバーの名前。省略した場合、フィールド名が使用されます。
+/// - `range`: トラックバーの範囲。閉区間で指定します（例: `0.0..=1.0`）。
+/// - `default`: トラックバーの初期値。
+/// - `step`: トラックバーのステップ値。`1.0`, `0.1`, `0.01`, `0.001` のいずれかを指定します。
 ///
 /// - `range`、`default`は`step`で割り切れる値である必要があります。
 /// - 値の型はプリミティブ、厳密には`value as _`で変換可能な型である必要があります。
@@ -43,8 +43,8 @@ mod utils;
 /// # }
 /// ```
 ///
-/// `name` - チェックボックスの名前。省略した場合、フィールド名が使用されます。
-/// `default` - チェックボックスの初期値。
+/// - `name`: チェックボックスの名前。省略した場合、フィールド名が使用されます。
+/// - `default`: チェックボックスの初期値。
 ///
 /// - 値の型は`bool`である必要があります。
 ///
@@ -62,8 +62,8 @@ mod utils;
 /// # }
 /// ```
 ///
-/// `name` - 色選択の名前。省略した場合、フィールド名が使用されます。
-/// `default` - 色の初期値。`0xRRGGBB`形式の整数、`"#RRGGBB"`形式の文字列、または`(R, G, B)`形式のタプルで指定します。
+/// - `name`: 色選択の名前。省略した場合、フィールド名が使用されます。
+/// - `default`: 色の初期値。`0xRRGGBB`形式の整数、`"#RRGGBB"`形式の文字列、または`(R, G, B)`形式のタプルで指定します。
 ///
 /// - 値の型は`From<aviutl2::filter::FilterConfigColorValue>`を実装している必要があります。
 ///
@@ -81,11 +81,32 @@ mod utils;
 /// # }
 /// ```
 ///
-/// `name` - セレクトボックスの名前。省略した場合、フィールド名が使用されます。
-/// `items` - セレクトボックスの項目のリスト。
-/// `default` - セレクトボックスの初期値。`items`のインデックスで指定します。
+/// ```rust
+/// #[derive(aviutl2_macros::FilterConfigSelectItems)]
+/// enum MySelectItem {
+///    #[item(name = "Hoge")]
+///    Hoge,
+///    #[item(name = "Fuga")]
+///    Fuga,
+/// }
 ///
-/// - 値の型は`usize`、または`usize as _`で変換可能な型である必要があります。
+/// #[derive(aviutl2_macros::FilterConfigItems)]
+/// struct MyConfig {
+///     #[select(
+///         name = "サンプルセレクトボックス",
+///         items = MySelectItem,
+///         default = MySelectItem::Hoge
+///     )]
+///     select_field: MySelectItem,
+/// }
+/// ```
+///
+/// - `name`: セレクトボックスの名前。省略した場合、フィールド名が使用されます。
+/// - `items`: セレクトボックスの項目のリスト、または`aviutl2::filter::FilterConfigSelectItems`を実装したenumの名前。
+/// - `default`: セレクトボックスの初期値。`items`のインデックス、またはenumのVariantを指定します。
+///
+/// - 値の型は`default`が`items`のインデックスの場合は`usize`、
+///   `default`がenumのVariantの場合はそのenumである必要があります。
 ///
 /// ## `file`
 ///
@@ -100,8 +121,8 @@ mod utils;
 /// # }
 /// ```
 ///
-/// `name` - ファイル選択の名前。省略した場合、フィールド名が使用されます。
-/// `filters` - ファイルフィルタのリスト。キーがフィルタ名、値が拡張子のリストです。
+/// - `name`: ファイル選択の名前。省略した場合、フィールド名が使用されます。
+/// - `filters`: ファイルフィルタのリスト。キーがフィルタ名、値が拡張子のリストです。
 ///
 /// - 値の型は`Option<std::path::PathBuf>`である必要があります。
 ///
@@ -131,6 +152,10 @@ mod utils;
 ///     sample_file: Option<std::path::PathBuf>,
 /// }
 /// ```
+///
+/// # See Also
+///
+/// - [`FilterConfigSelectItems`]
 #[proc_macro_derive(FilterConfigItems, attributes(track, check, color, select, file))]
 pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     filter_config_items::filter_config_items(item.into())
@@ -158,7 +183,7 @@ pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenSt
 /// # }
 /// ```
 ///
-/// `name` - AviUtl2上で表示されるテキスト。省略された場合はVariantの名前になります。
+/// - `name`: AviUtl2上で表示されるテキスト。省略された場合はVariantの名前になります。
 ///
 /// # Example
 ///

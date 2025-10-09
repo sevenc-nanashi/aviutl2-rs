@@ -7,25 +7,47 @@ use aviutl2::{
 };
 use rand::Rng;
 
+#[derive(Debug, Clone, PartialEq, Eq, aviutl2::filter::FilterConfigSelectItems)]
+enum WaveType {
+    #[item(name = "矩形波")]
+    Square,
+    #[item(name = "三角波")]
+    Triangle,
+    #[item(name = "のこぎり波")]
+    Sawtooth,
+    #[item(name = "正弦波")]
+    Sine,
+    #[item(name = "ノイズ")]
+    Noise,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, aviutl2::filter::FilterConfigSelectItems)]
+enum FrequencyMode {
+    #[item(name = "MIDIノート")]
+    MidiNote,
+    #[item(name = "周波数（Hz）")]
+    FrequencyHz,
+}
+
 #[derive(Debug, Clone, PartialEq, FilterConfigItems)]
 struct FilterConfig {
-    #[track(name = "Volume", range = 0.0..=1.0, step = 0.01, default = 0.5)]
+    #[track(name = "音量", range = 0.0..=1.0, step = 0.01, default = 0.5)]
     volume: f64,
     #[select(
-        name = "Wave Type",
-        items = ["Square", "Triangle", "Sawtooth", "Sine", "Noise"],
-        default = 0
+        name = "音源",
+        items = WaveType,
+        default = WaveType::Square
     )]
-    wave_type: usize,
+    wave_type: WaveType,
     #[select(
-        name = "Frequency Mode",
-        items = ["MIDI Note", "Frequency (Hz)"],
-        default = 0
+        name = "周波数モード",
+        items = FrequencyMode,
+        default = FrequencyMode::MidiNote
     )]
-    freq_mode: usize,
-    #[track(name = "MIDI Note", range = 0.0..=127.0, step = 1.0, default = 69.0)]
+    freq_mode: FrequencyMode,
+    #[track(name = "MIDIノート", range = 0.0..=127.0, step = 1.0, default = 69.0)]
     midi_note: f64,
-    #[track(name = "Frequency", range = 20.0..=20000.0, step = 1.0, default = 440.0)]
+    #[track(name = "周波数（Hz）", range = 20.0..=20000.0, step = 1.0, default = 440.0)]
     frequency: f64,
 }
 
@@ -89,7 +111,7 @@ impl FilterPlugin for ChiptuneFilter {
 
         let sample_rate = audio.scene.sample_rate as f64;
         let sample_num = audio.audio_object.sample_num as usize;
-        let frequency = if config.freq_mode == 0 {
+        let frequency = if config.freq_mode == FrequencyMode::MidiNote {
             440.0 * 2.0f64.powf((config.midi_note - 69.0) / 12.0)
         } else {
             config.frequency
@@ -102,24 +124,23 @@ impl FilterPlugin for ChiptuneFilter {
         let mut rng = rand::rng();
         for i in 0..sample_num {
             let value = match config.wave_type {
-                0 => {
+                WaveType::Square => {
                     if phase < 0.5 {
                         1.0
                     } else {
                         -1.0
                     }
                 }
-                1 => {
+                WaveType::Triangle => {
                     if phase < 0.5 {
                         phase * 4.0 - 1.0
                     } else {
                         (1.0 - phase) * 4.0 - 1.0
                     }
                 }
-                2 => phase * 2.0 - 1.0,
-                3 => (phase * 2.0 * std::f64::consts::PI).sin(),
-                4 => Rng::random::<f64>(&mut rng) * 2.0 - 1.0,
-                _ => 0.0,
+                WaveType::Sawtooth => phase * 2.0 - 1.0,
+                WaveType::Sine => (phase * 2.0 * std::f64::consts::PI).sin(),
+                WaveType::Noise => Rng::random::<f64>(&mut rng) * 2.0 - 1.0,
             };
             left[i] = (value * config.volume) as f32;
             right[i] = (value * config.volume) as f32;

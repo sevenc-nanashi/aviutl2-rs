@@ -2,6 +2,7 @@
 source: crates/aviutl2-macros/src/filter_config_items.rs
 expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
+#[automatically_derived]
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
         vec![
@@ -22,15 +23,15 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
     fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
         Self {
             int_color: match items[0usize] {
-                ::aviutl2::filter::FilterConfigItem::Color(ref color) => color.value.clone().into(),
+                ::aviutl2::filter::FilterConfigItem::Color(ref color) => color.value.into(),
                 _ => panic!("Expected Color at index {}", 0usize),
             },
             str_color: match items[1usize] {
-                ::aviutl2::filter::FilterConfigItem::Color(ref color) => color.value.clone().into(),
+                ::aviutl2::filter::FilterConfigItem::Color(ref color) => color.value.into(),
                 _ => panic!("Expected Color at index {}", 1usize),
             },
             tuple_color: match items[2usize] {
-                ::aviutl2::filter::FilterConfigItem::Color(ref color) => color.value.clone().into(),
+                ::aviutl2::filter::FilterConfigItem::Color(ref color) => color.value.into(),
                 _ => panic!("Expected Color at index {}", 2usize),
             },
         }
