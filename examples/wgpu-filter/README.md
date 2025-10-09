@@ -1,4 +1,4 @@
-# Rusty Wgpu Filter
+# Rusty wgpu Filter
 
 カスタムオブジェクトとして動くフィルタプラグインのサンプルです。
 [wgpu](https://crates.io/crates/wgpu)クレートを使用して、GPUで適当な画像を生成しています。

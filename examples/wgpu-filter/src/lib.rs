@@ -111,7 +111,7 @@ impl FilterPlugin for WgpuFilter {
 
     fn plugin_info(&self) -> FilterPluginTable {
         FilterPluginTable {
-            name: "wgsl Render Filter".to_string(),
+            name: "Rusty wgpu Filter".to_string(),
             label: None,
             information: format!(
                 "Example render filter plugin, using wgsl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/wgsl-filter",

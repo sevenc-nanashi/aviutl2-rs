@@ -75,7 +75,7 @@ impl FilterPlugin for ChiptuneFilter {
 
     fn plugin_info(&self) -> FilterPluginTable {
         FilterPluginTable {
-            name: "Chiptune Synthesizer Filter".to_string(),
+            name: "Rusty Chiptune Filter".to_string(),
             label: None,
             information: format!(
                 "Example chiptune synthesizer, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/chiptune-filter",

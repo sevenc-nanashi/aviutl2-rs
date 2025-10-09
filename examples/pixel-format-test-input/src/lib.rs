@@ -22,7 +22,7 @@ impl InputPlugin for PixelFormatTestPlugin {
 
     fn plugin_info(&self) -> InputPluginTable {
         InputPluginTable {
-            name: "Pixel Format Tester".to_string(),
+            name: "Rusty Pixel Format Tester Input".to_string(),
             input_type: aviutl2::input::InputType::Video,
             file_filters: aviutl2::file_filters! {
                 "Pixel Formats" => [

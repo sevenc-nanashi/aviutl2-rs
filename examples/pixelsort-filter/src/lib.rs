@@ -59,7 +59,7 @@ impl FilterPlugin for PixelSortFilter {
 
     fn plugin_info(&self) -> FilterPluginTable {
         FilterPluginTable {
-            name: "Pixel Sort Filter".to_string(),
+            name: "Rusty Pixel Sort Filter".to_string(),
             label: None,
             information: format!(
                 "Pixel sort filter, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/pixelsort-filter",

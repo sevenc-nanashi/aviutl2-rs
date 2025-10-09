@@ -96,7 +96,7 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
 
     fn plugin_info(&self) -> aviutl2::filter::FilterPluginTable {
         aviutl2::filter::FilterPluginTable {
-            name: "Equalizer Filter".to_string(),
+            name: "Rusty Equalizer Filter".to_string(),
             label: None,
             information: format!(
                 "Simple equalizer, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/equalizer-filter",

@@ -47,7 +47,7 @@ impl InputPlugin for MidiPlayerPlugin {
 
     fn plugin_info(&self) -> aviutl2::input::InputPluginTable {
         aviutl2::input::InputPluginTable {
-            name: "Midi Piano Player Plugin".to_string(),
+            name: "Rusty Piano Midi Player Input".to_string(),
             input_type: aviutl2::input::InputType::Audio,
             file_filters: aviutl2::file_filters! {
                 "MIDI Files" => ["mid"]
