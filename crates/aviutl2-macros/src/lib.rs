@@ -4,6 +4,8 @@
 //! 詳細は[aviutl2-rs](https://docs.rs/aviutl2)のドキュメントを参照してください。
 
 mod filter_config_items;
+mod filter_config_select_items;
+mod utils;
 
 /// `FilterConfigItems` を自動で実装するためのマクロ。
 ///
@@ -132,6 +134,46 @@ mod filter_config_items;
 #[proc_macro_derive(FilterConfigItems, attributes(track, check, color, select, file))]
 pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     filter_config_items::filter_config_items(item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// `FilterConfigSelectItems` を自動で実装するためのマクロ。
+///
+/// # Attributes
+///
+/// - enumのフィールドはすべて最大1つのitem属性を持つことができます。
+/// - enumは値を持つことができません（Unit-only Enumである必要があります）。
+///
+/// ## `item`
+///
+/// ```rust
+/// # #[derive(aviutl2::filter::FilterConfigSelectItems)]
+/// # enum MySelectItem {
+/// #[item(name = "hoge")]
+/// Hoge,
+/// #[item(name = "fuga")]
+/// Fuga = 4,
+/// Piyo,
+/// # }
+/// ```
+///
+/// `name` - AviUtl2上で表示されるテキスト。省略された場合はVariantの名前になります。
+///
+/// # Example
+///
+/// ```rust
+/// #[derive(Debug, aviutl2::filter::FilterConfigSelectItems)]
+/// enum MySelectItem {
+///     #[item(name = "Hoge")]
+///     Hoge,
+///     #[item(name = "Fuga")]
+///     Fuga,
+/// }
+/// ```
+#[proc_macro_derive(FilterConfigSelectItems, attributes(item))]
+pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    filter_config_select_items::filter_config_select_items(item.into())
         .unwrap_or_else(|e| e)
         .into()
 }

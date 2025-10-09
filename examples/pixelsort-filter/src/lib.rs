@@ -1,12 +1,18 @@
 mod rotate;
 use aviutl2::{
-    AnyResult, AviUtl2Info,
     filter::{
-        FilterConfigItemSliceExt, FilterConfigItems, FilterPlugin, FilterPluginTable,
-        FilterProcVideo, RgbaPixel,
-    },
+        FilterConfigItemSliceExt, FilterConfigItems, FilterConfigSelectItems, FilterPlugin, FilterPluginTable, FilterProcVideo, RgbaPixel
+    }, AnyResult, AviUtl2Info
 };
 use rayon::prelude::*;
+
+#[derive(Debug, Clone, FilterConfigSelectItems)]
+enum ThresholdType {
+    #[item(name = "しきい値以上")]
+    Above,
+    #[item(name = "しきい値以下")]
+    Below,
+}
 
 #[derive(Debug, Clone, PartialEq, FilterConfigItems)]
 struct FilterConfig {
@@ -14,8 +20,8 @@ struct FilterConfig {
     threshold: f64,
     #[select(
         name = "ソート対象",
-        items = ["しきい値以上", "しきい値以下"],
-        default = 0
+        items = ThresholdType,
+        default = ThresholdType::Above
     )]
     threshold_type: usize,
     #[select(

@@ -7,7 +7,7 @@ use crate::common::LeakManager;
 /// <div class="warning">
 ///
 /// このcrateは[`Vec<FilterConfigItem>`]との相互変換が可能であれば十分に機能します。
-/// このトレイトをわざわざ実装する必要はありません。
+/// このトレイトを手動で実装する必要はありません。
 ///
 /// </div>
 ///
@@ -15,10 +15,14 @@ use crate::common::LeakManager;
 ///
 /// [derive@FilterConfigItems]
 pub trait FilterConfigItems: Sized {
-    /// `Vec<FilterConfigItem>` に変換します。
+    /// [`Vec<FilterConfigItem>`] に変換します。
     fn to_config_items() -> Vec<FilterConfigItem>;
 
-    /// `Vec<FilterConfigItem>` から変換します。
+    /// [`Vec<FilterConfigItem>`] から変換します。
+    ///
+    /// # Panics
+    ///
+    /// `items` の内容が不正な場合、パニックします。
     fn from_config_items(items: &[FilterConfigItem]) -> Self;
 }
 #[doc(inline)]
@@ -378,6 +382,39 @@ pub struct FilterConfigSelectItem {
     /// 選択肢の値。
     pub value: i32,
 }
+
+/// `[Vec<FilterConfigSelectItem>]`に変換したり、AviUtl2側の値から変換するためのトレイト。
+///
+/// 基本的にはこのトレイトを手動で実装する必要はありません。
+/// [`derive@FilterConfigSelectItems`] マクロを使用してください。
+///
+/// <div class="warning">
+///
+/// [`FilterConfigSelect`]は[`Vec<FilterConfigSelectItems>`]との相互変換が可能であれば十分に機能します。
+/// このトレイトを手動で実装する必要はありません。
+///
+/// </div>
+///
+/// # See Also
+///
+/// [derive@FilterConfigSelectItems]
+pub trait FilterConfigSelectItems {
+    /// [`Vec<FilterConfigSelectItem>`] に変換します。
+    fn to_select_items() -> Vec<FilterConfigSelectItem>;
+
+    /// [`i32`] から変換します。
+    ///
+    /// # Panics
+    ///
+    /// `item` の内容が不正な場合、パニックします。
+    fn from_select_item_value(item: i32) -> Self;
+
+    /// [`i32`] へ変換します。
+    fn to_select_item_value(&self) -> i32;
+}
+
+#[doc(inline)]
+pub use aviutl2_macros::FilterConfigSelectItems;
 
 /// ファイル選択。
 #[derive(Debug, Clone)]

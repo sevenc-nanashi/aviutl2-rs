@@ -3,28 +3,18 @@ use syn::parse::Parse;
 pub fn filter_config_items(
     item: proc_macro2::TokenStream,
 ) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
-    let mut item: syn::ItemStruct = syn::parse2(item).map_err(|e| e.to_compile_error())?;
-    validate_filter_config(&mut item)?;
+    let item: syn::ItemStruct = syn::parse2(item).map_err(|e| e.to_compile_error())?;
+    validate_filter_config(&item)?;
 
     let name = &item.ident;
-    let (fields, field_errors) = item
+    let fields = item
         .fields
-        .iter_mut()
+        .iter()
         .map(filter_config_field)
-        .partition::<Vec<_>, _>(Result::is_ok);
-    let field_errors = field_errors
-        .into_iter()
-        .map(Result::unwrap_err)
-        .reduce(|mut a, b| {
-            a.combine(b);
-            a
-        });
-    if let Some(err) = field_errors {
-        return Err(err.into_compile_error());
-    }
-    let fields = fields.into_iter().map(Result::unwrap).collect::<Vec<_>>();
-    let to_config_items = filter_config_items_to_config_items(&fields);
-    let from_config_items = filter_config_items_from_filter_config(&fields);
+        .collect::<crate::utils::CombinedVecResults<_>>()
+        .into_result()?;
+    let to_config_items = impl_to_config_items(&fields);
+    let from_config_items = impl_from_filter_config(&fields);
 
     let expanded = quote::quote! {
         impl ::aviutl2::filter::FilterConfigItems for #name {
@@ -37,7 +27,6 @@ pub fn filter_config_items(
     Ok(expanded)
 }
 
-#[derive(Debug)]
 enum FilterConfigField {
     Track {
         id: String,
@@ -60,8 +49,8 @@ enum FilterConfigField {
     Select {
         id: String,
         name: String,
-        default: i32,
-        items: Vec<String>,
+        default: either::Either<i32, syn::ExprPath>,
+        items: either::Either<Vec<String>, syn::ExprPath>,
     },
     File {
         id: String,
@@ -140,7 +129,7 @@ impl syn::parse::Parse for FileFilterEntry {
     }
 }
 
-fn filter_config_items_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
+fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
     let to_filter_config_fields = fields
         .iter()
         .map(|f| match f {
@@ -197,19 +186,31 @@ fn filter_config_items_to_config_items(fields: &[FilterConfigField]) -> proc_mac
                 default,
                 items,
             } => {
-                let items = items.iter().enumerate().map(|(i, item)| {
-                    quote::quote! {
-                        ::aviutl2::filter::FilterConfigSelectItem {
-                            name: #item.to_string(),
-                            value: #i as i32,
-                        }
+                let items =                     match items {
+                    either::Either::Left(items) => {
+                        let items = items.iter().enumerate().map(|(i, item)| {
+                            quote::quote! {
+                                ::aviutl2::filter::FilterConfigSelectItem {
+                                    name: #item.to_string(),
+                                    value: #i as i32,
+                                }
+                            }
+                        });
+                        quote::quote! { vec![#(#items),*] }
+                    },
+                    either::Either::Right(items) => {
+                        quote::quote! { (#items)::to_select_items() }
                     }
-                });
+                };
+                let default = match default {
+                    either::Either::Left(v) => quote::quote! { #v },
+                    either::Either::Right(v) => quote::quote! { (#v).to_select_item_value() }
+                };
                 quote::quote! {
                     ::aviutl2::filter::FilterConfigItem::Select(::aviutl2::filter::FilterConfigSelect {
                         name: #name.to_string(),
                         value: #default,
-                        items: vec![#(#items),*]
+                        items: #items,
                     })
                 }
             }
@@ -244,9 +245,7 @@ fn filter_config_items_to_config_items(fields: &[FilterConfigField]) -> proc_mac
     }
 }
 
-fn filter_config_items_from_filter_config(
-    config_fields: &[FilterConfigField],
-) -> proc_macro2::TokenStream {
+fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
     let field_assign = config_fields
         .iter()
         .enumerate()
@@ -323,10 +322,10 @@ fn filter_config_items_from_filter_config(
     }
 }
 
-fn validate_filter_config(item: &mut syn::ItemStruct) -> Result<(), proc_macro2::TokenStream> {
+fn validate_filter_config(item: &syn::ItemStruct) -> Result<(), proc_macro2::TokenStream> {
     let fields = item
         .fields
-        .iter_mut()
+        .iter()
         .map(filter_config_field)
         .collect::<Result<Vec<_>, _>>();
     let fields = match fields {
@@ -351,12 +350,12 @@ fn validate_filter_config(item: &mut syn::ItemStruct) -> Result<(), proc_macro2:
             .len()
     {
         // TODO: フィールドに対してエラーを吐くようにしたい
-        return Err(syn::Error::new_spanned(&item, "Field names must be unique").to_compile_error());
+        return Err(syn::Error::new_spanned(item, "Field names must be unique").to_compile_error());
     }
     Ok(())
 }
 
-fn filter_config_field(field: &mut syn::Field) -> Result<FilterConfigField, syn::Error> {
+fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Error> {
     static RECOGNIZED_FIELDS: &[&str] = &["track", "check", "color", "select", "file"];
     let recognized_fields = field
         .attrs
@@ -371,7 +370,7 @@ fn filter_config_field(field: &mut syn::Field) -> Result<FilterConfigField, syn:
         .collect::<Vec<_>>();
     if recognized_fields.len() != 1 {
         return Err(syn::Error::new_spanned(
-            &field,
+            field,
             format!(
                 "Exactly one of #[track], #[check], #[color], #[select], or #[file] is required (found {})",
                 recognized_fields.len()
@@ -657,34 +656,52 @@ fn filter_config_field_select(
         if m.path.is_ident("name") {
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("default") {
-            let value_token = m.value()?.parse::<syn::LitInt>()?;
-            let value = value_token.base10_parse::<i32>()?;
-            default = Some(value);
+            let value = m.value()?;
+            if let Ok(lit) = value.parse::<syn::LitInt>() {
+                let v = lit.base10_parse::<i32>()?;
+                default = Some(either::Either::Left(v));
+            } else if let Ok(expr) = value.parse::<syn::Expr>() {
+                if let syn::Expr::Path(expr) = expr {
+                    default = Some(either::Either::Right(expr.clone()));
+                } else {
+                    return Err(syn::Error::new_spanned(
+                        expr,
+                        "default must be an integer literal or string literal",
+                    ));
+                }
+            } else {
+                return Err(syn::Error::new(
+                    value.span(),
+                    "default must be an integer literal or string literal",
+                ));
+            }
         } else if m.path.is_ident("items") {
             let value_token = m.value()?;
-            let expr = value_token.parse::<syn::Expr>()?;
-            if let syn::Expr::Array(expr_array) = expr {
-                let mut opts = Vec::new();
-                for elem in expr_array.elems.iter() {
-                    if let syn::Expr::Lit(syn::ExprLit {
-                        lit: syn::Lit::Str(lit_str),
-                        ..
-                    }) = elem
-                    {
-                        opts.push(lit_str.value());
-                    } else {
-                        return Err(syn::Error::new_spanned(
-                            elem,
-                            "Options must be string literals",
-                        ));
+            if let Ok(expr_array)   = value_token.parse::<syn::ExprArray>() {
+                    let mut opts = Vec::new();
+                    for elem in expr_array.elems.iter() {
+                        if let syn::Expr::Lit(syn::ExprLit {
+                            lit: syn::Lit::Str(lit_str),
+                            ..
+                        }) = elem
+                        {
+                            opts.push(lit_str.value());
+                        } else {
+                            return Err(syn::Error::new_spanned(
+                                elem,
+                                "Options must be string literals",
+                            ));
+                        }
                     }
+                    items = Some(either::Either::Left(opts));
+                } else if let Ok(expr_path) = value_token.parse::<syn::ExprPath>() {
+                    items = Some(either::Either::Right(expr_path.clone()));
                 }
-                items = Some(opts);
-            } else {
-                return Err(syn::Error::new_spanned(
-                    expr,
-                    "Options must be an array of string literals",
-                ));
+                else {
+                    return Err(syn::Error::new(
+                        value_token.span(),
+                        "Options must be an array of string literals, or a path to enum which implements FilterConfigSelectItems",
+                    ));
             }
         } else {
             return Err(m.error("Unknown attribute for select"));
@@ -699,7 +716,11 @@ fn filter_config_field_select(
             "default and items are required",
         ));
     };
-    if !(0 <= default && (default as usize) < items.len()) {
+
+    if let (either::Either::Left(items), either::Either::Left(&default)) =
+        (items.as_ref(), default.as_ref())
+        && !(0 <= default && (default as usize) < items.len())
+    {
         return Err(syn::Error::new_spanned(
             recognized_attr,
             "default must be a valid index into items",
@@ -807,7 +828,7 @@ mod tests {
             }
         };
         let output = filter_config_items(input).unwrap();
-        insta::assert_snapshot!(prettyplease::unparse(&syn::parse2(output).unwrap()));
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
     }
 
     #[test]
@@ -819,7 +840,7 @@ mod tests {
             }
         };
         let output = filter_config_items(input).unwrap();
-        insta::assert_snapshot!(prettyplease::unparse(&syn::parse2(output).unwrap()));
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
     }
 
     #[test]
@@ -835,7 +856,7 @@ mod tests {
             }
         };
         let output = filter_config_items(input).unwrap();
-        insta::assert_snapshot!(prettyplease::unparse(&syn::parse2(output).unwrap()));
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
     }
 
     #[test]
@@ -847,7 +868,7 @@ mod tests {
             }
         };
         let output = filter_config_items(input).unwrap();
-        insta::assert_snapshot!(prettyplease::unparse(&syn::parse2(output).unwrap()));
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
     }
 
     #[test]
@@ -859,7 +880,7 @@ mod tests {
             }
         };
         let output = filter_config_items(input).unwrap();
-        insta::assert_snapshot!(prettyplease::unparse(&syn::parse2(output).unwrap()));
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
     }
 
     #[test]

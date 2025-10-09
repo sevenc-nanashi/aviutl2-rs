@@ -21,4 +21,4 @@ syn = "2.0.106"
 [dev-dependencies]
 aviutl2.workspace = true
 insta = "1.43.2"
-prettyplease = "0.2.37"
+rustfmt-wrapper = "0.2.1"

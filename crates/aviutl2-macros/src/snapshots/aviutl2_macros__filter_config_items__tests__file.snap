@@ -1,16 +1,25 @@
 ---
 source: crates/aviutl2-macros/src/filter_config_items.rs
-expression: "prettyplease::unparse(&syn::parse2(output).unwrap())"
+expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
-        vec![
-            ::aviutl2::filter::FilterConfigItem::File(::aviutl2::filter::FilterConfigFile
-            { name : "Input File".to_string(), value : String::new(), filters :
-            vec![::aviutl2::common::FileFilter { name : "Text Files".to_string(),
-            extensions : vec!["*.txt".to_string()], }, ::aviutl2::common::FileFilter {
-            name : "All Files".to_string(), extensions : vec!["*.*".to_string()], }], })
-        ]
+        vec![::aviutl2::filter::FilterConfigItem::File(
+            ::aviutl2::filter::FilterConfigFile {
+                name: "Input File".to_string(),
+                value: String::new(),
+                filters: vec![
+                    ::aviutl2::common::FileFilter {
+                        name: "Text Files".to_string(),
+                        extensions: vec!["*.txt".to_string()],
+                    },
+                    ::aviutl2::common::FileFilter {
+                        name: "All Files".to_string(),
+                        extensions: vec!["*.*".to_string()],
+                    },
+                ],
+            },
+        )]
     }
     fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
         Self {
