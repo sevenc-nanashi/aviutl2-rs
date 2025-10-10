@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- AviUtl2の最小サポートをbeta14に引き上げ
-- aviutl2-sysの共通定義をaviutl2_sys::commonに移動
+- **Breaking:** AviUtl2の最小サポートをbeta14に引き上げ
+- **Breaking:** aviutl2-sysの共通定義をaviutl2_sys::commonに移動
+
 - 変更履歴を追加
 - フィルタプラグインを追加
 - `aviutl2-macros`クレートを追加
@@ -11,4 +12,4 @@
 
 ### デモプラグイン
 
-- 名前を`Rusty [...] (Input|Output|Filter)`に変更
+- **Breaking:** 名前を`Rusty [...] (Input|Output|Filter)`に変更
