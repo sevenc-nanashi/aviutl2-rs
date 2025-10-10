@@ -18,4 +18,4 @@ aviutl2-macros = { path = "./crates/aviutl2-macros", version = "0.8.1" }
 
 [patch.crates-io]
 # examples/binaural-filter
-audionimbus-sys = { git = "https://github.com/sevenc-nanashi/audionimbus", branch = "chore/use-lib" }
+audionimbus-sys = { git = "https://github.com/sevenc-nanashi/audionimbus", branch = "all/20251010" }
