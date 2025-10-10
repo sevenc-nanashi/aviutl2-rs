@@ -52,12 +52,13 @@ jobs:
         shell: bash
         run: |
           rake release[${{ github.event.inputs.name }}]
+          cp ./release/CHANGELOG.md ./CHANGELOG.md
 
       - name: Commit version change
         run: |
           git config --local user.name "GitHub Actions"
           git config --local user.email "actions@github.com"
-          git add Cargo.toml Cargo.lock
+          git add Cargo.toml Cargo.lock CHANGELOG.md
           git commit -m "release: v${{ github.event.inputs.name }}"
           git push
 

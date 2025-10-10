@@ -99,10 +99,19 @@ task :release, ["tag"] do |task, args|
     `C:/ProgramData/AviUtl2/Plugin`に放り込めば動きます。
 
     ## 説明書
+    変更履歴：<https://github.com/sevenc-nanashi/aviutl2-rs/blob/#{tag}/CHANGELOG.md>
   MARKDOWN
   plugins.each do |lib_name, dir|
     description << "- `#{lib_name}`：<https://github.com/sevenc-nanashi/aviutl2-rs/blob/#{tag}/examples/#{File.basename(dir)}/README.md>\n"
   end
 
   File.write(File.join(dest_dir, "README.md"), description)
+
+  changelog = File.read("./CHANGELOG.md")
+  changelog.sub!(
+    "## Unreleased",
+    "## [#{tag}](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/#{tag})"
+  )
+  changelog.sub!(/(?<=# 変更履歴\n\n)/, "## Unreleased\n\n### デモプラグイン\n\n")
+  File.write(File.join(dest_dir, "CHANGELOG.md"), changelog)
 end
