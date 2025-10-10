@@ -138,7 +138,6 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
     ) -> anyhow::Result<()> {
         let config: FilterConfig = config.to_struct();
         let obj_id = audio.object.id;
-        let frame_id = audio.object.frame;
 
         let num_samples = audio.audio_object.sample_num as usize;
         let sample_rate = audio.scene.sample_rate as f64;
@@ -240,4 +239,3 @@ fn larger_min_pow2(n: usize) -> usize {
 }
 
 aviutl2::register_filter_plugin!(BinauralFilter);
-
