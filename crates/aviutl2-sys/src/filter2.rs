@@ -163,12 +163,12 @@ pub struct FILTER_PROC_VIDEO {
 
     /// 現在の画像のデータを取得する
     /// buffer: 画像データの格納先へのポインタ
-    pub get_image_data: extern "C" fn(buffer: *mut PIXEL_RGBA),
+    pub get_image_data: unsafe extern "C" fn(buffer: *mut PIXEL_RGBA),
 
     /// 現在の画像のデータを設定します
     /// buffer: 画像データへのポインタ
     /// width,height: 画像サイズ
-    pub set_image_data: extern "C" fn(buffer: *const PIXEL_RGBA, width: i32, height: i32),
+    pub set_image_data: unsafe extern "C" fn(buffer: *const PIXEL_RGBA, width: i32, height: i32),
 }
 
 /// 音声フィルタ処理用構造体
@@ -183,12 +183,12 @@ pub struct FILTER_PROC_AUDIO {
     /// 現在の音声のデータを取得する
     /// buffer: 音声データの格納先へのポインタ ※音声データはPCM(float)32bit
     /// channel: 音声データのチャンネル ( 0 = 左チャンネル / 1 = 右チャンネル )
-    pub get_sample_data: extern "C" fn(buffer: *mut f32, channel: i32),
+    pub get_sample_data: unsafe extern "C" fn(buffer: *mut f32, channel: i32),
 
     /// 現在の音声のデータを設定する
     /// buffer: 音声データへのポインタ ※音声データはPCM(float)32bit
     /// channel: 音声データのチャンネル ( 0 = 左チャンネル / 1 = 右チャンネル )
-    pub set_sample_data: extern "C" fn(buffer: *const f32, channel: i32),
+    pub set_sample_data: unsafe extern "C" fn(buffer: *const f32, channel: i32),
 }
 
 impl FILTER_PLUGIN_TABLE {

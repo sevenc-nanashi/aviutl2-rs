@@ -174,7 +174,9 @@ impl FilterProcVideo {
         let height = self.video_object.height as usize;
         let mut buffer: Vec<u8> = vec![0; width * height * 4];
         let inner = unsafe { &*self.inner };
-        (inner.get_image_data)(buffer.as_mut_ptr() as *mut aviutl2_sys::filter2::PIXEL_RGBA);
+        unsafe {
+            (inner.get_image_data)(buffer.as_mut_ptr() as *mut aviutl2_sys::filter2::PIXEL_RGBA)
+        };
         let pixels: &[T] = <[T]>::ref_from_bytes(&buffer).unwrap();
 
         pixels.to_vec()
@@ -189,11 +191,13 @@ impl FilterProcVideo {
         let bytes = &data.as_bytes();
         assert!(bytes.len() == (width * height * 4) as usize);
         let inner = unsafe { &*self.inner };
-        (inner.set_image_data)(
-            bytes.as_ptr() as *const aviutl2_sys::filter2::PIXEL_RGBA,
-            width as i32,
-            height as i32,
-        );
+        unsafe {
+            (inner.set_image_data)(
+                bytes.as_ptr() as *const aviutl2_sys::filter2::PIXEL_RGBA,
+                width as i32,
+                height as i32,
+            )
+        };
     }
 }
 
