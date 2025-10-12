@@ -15,8 +15,3 @@ publish = false
 aviutl2 = { path = "./crates/aviutl2", version = "0.8.1" }
 aviutl2-sys = { path = "./crates/aviutl2-sys", version = "0.8.1" }
 aviutl2-macros = { path = "./crates/aviutl2-macros", version = "0.8.1" }
-
-[patch.crates-io]
-# examples/binaural-filter
-audionimbus = { git = "https://github.com/sevenc-nanashi/audionimbus", branch = "all/20251010" }
-audionimbus-sys = { git = "https://github.com/sevenc-nanashi/audionimbus", branch = "all/20251010" }

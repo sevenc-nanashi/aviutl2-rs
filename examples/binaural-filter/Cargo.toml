@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1.0.98"
-audionimbus = { version = "0.8.3", features = ["auto-install", "static"] }
+audionimbus = { version = "0.8.3", features = ["auto-install"] }
 aviutl2 = { workspace = true, features = ["env_logger"] }
 dashmap = "6.1.0"
 env_logger = "0.11.8"
