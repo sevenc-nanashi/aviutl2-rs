@@ -153,8 +153,8 @@ impl FilterPlugin for ChiptuneFilter {
 
         synthesizer.phase = phase;
 
-        audio.set_sample_data(&left, 0);
-        audio.set_sample_data(&right, 1);
+        audio.set_sample_data(&left, aviutl2::filter::AudioChannel::Left);
+        audio.set_sample_data(&right, aviutl2::filter::AudioChannel::Right);
 
         Ok(())
     }

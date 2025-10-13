@@ -217,23 +217,48 @@ pub struct FilterProcAudio {
 unsafe impl Send for FilterProcAudio {}
 unsafe impl Sync for FilterProcAudio {}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AudioChannel {
+    Left,
+    Right,
+    Any(i32),
+}
+impl From<i32> for AudioChannel {
+    fn from(value: i32) -> Self {
+        match value {
+            0 => AudioChannel::Left,
+            1 => AudioChannel::Right,
+            v => AudioChannel::Any(v),
+        }
+    }
+}
+impl From<AudioChannel> for i32 {
+    fn from(value: AudioChannel) -> Self {
+        match value {
+            AudioChannel::Left => 0,
+            AudioChannel::Right => 1,
+            AudioChannel::Any(v) => v,
+        }
+    }
+}
+
 impl FilterProcAudio {
     /// 現在の音声のデータを取得する。
     /// `channel` は 0 が左チャンネル、1 が右チャンネルです。
-    pub fn get_sample_data(&self, channel: u32) -> Vec<f32> {
+    pub fn get_sample_data(&self, channel: AudioChannel) -> Vec<f32> {
         let sample_num = self.audio_object.sample_num as usize;
         let mut buffer: Vec<f32> = vec![0.0; sample_num];
         let inner = unsafe { &*self.inner };
-        (inner.get_sample_data)(buffer.as_mut_ptr(), channel as i32);
+        unsafe { (inner.get_sample_data)(buffer.as_mut_ptr(), channel.into()) };
         buffer
     }
 
     /// 現在の音声のデータを設定する。
     /// `channel` は 0 が左チャンネル、1 が右チャンネルです。
-    pub fn set_sample_data(&self, data: &[f32], channel: u32) {
+    pub fn set_sample_data(&self, data: &[f32], channel: AudioChannel) {
         let sample_num = self.audio_object.sample_num as usize;
         assert!(data.len() == sample_num);
         let inner = unsafe { &*self.inner };
-        (inner.set_sample_data)(data.as_ptr(), channel as i32);
+        unsafe { (inner.set_sample_data)(data.as_ptr(), channel.into()) };
     }
 }

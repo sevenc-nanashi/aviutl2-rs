@@ -162,8 +162,8 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
                 audio.scene.sample_rate as usize * 10,
             )?;
         }
-        let left_samples = audio.get_sample_data(0);
-        let right_samples = audio.get_sample_data(1);
+        let left_samples = audio.get_sample_data(aviutl2::filter::AudioChannel::Left);
+        let right_samples = audio.get_sample_data(aviutl2::filter::AudioChannel::Right);
 
         if (audio.audio_object.sample_index as i64)
             <= (states.tail_index as i64) - (states.audio_cache.len() as i64)
@@ -223,8 +223,8 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
         let new_right = &new_right[(new_right.len() - num_samples)..];
         assert!(new_left.len() == num_samples);
         assert!(new_right.len() == num_samples);
-        audio.set_sample_data(new_left, 0);
-        audio.set_sample_data(new_right, 1);
+        audio.set_sample_data(new_left, aviutl2::filter::AudioChannel::Left);
+        audio.set_sample_data(new_right, aviutl2::filter::AudioChannel::Right);
 
         Ok(())
     }
