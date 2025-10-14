@@ -7,7 +7,7 @@ fn main() -> anyhow::Result<()> {
         let tmp_path = hrir_path.with_extension("tmp");
         let download_url = "https://github.com/mrDIMAS/hrir_sphere_builder/raw/refs/heads/master/hrtf_base/IRCAM/IRC_1059_C.bin";
         let response = ureq::get(download_url).call()?;
-        let mut out_file = std::fs::File::create(&hrir_path)?;
+        let mut out_file = std::fs::File::create(&tmp_path)?;
         std::io::copy(&mut response.into_body().into_reader(), &mut out_file)?;
         drop(out_file);
         fs_err::rename(&tmp_path, &hrir_path)?;
