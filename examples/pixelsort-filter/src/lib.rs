@@ -74,14 +74,15 @@ impl FilterPlugin for PixelSortFilter {
     fn proc_video(
         &self,
         config: &[aviutl2::filter::FilterConfigItem],
-        video: &FilterProcVideo,
+        video: &mut FilterProcVideo,
     ) -> AnyResult<()> {
         let config: FilterConfig = config.to_struct();
         let (width, height) = (
             video.video_object.width as usize,
             video.video_object.height as usize,
         );
-        let image: Vec<RgbaPixel> = video.get_image_data();
+        let mut image: Vec<RgbaPixel> = vec![RgbaPixel::default(); width * height];
+        video.get_image_data(&mut image);
         let (mut pixels, width, height) = match config.direction {
             SortDirection::Horizontal => (image, width, height),
             SortDirection::HorizontalInverted => (

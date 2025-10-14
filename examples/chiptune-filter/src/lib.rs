@@ -90,7 +90,7 @@ impl FilterPlugin for ChiptuneFilter {
     fn proc_audio(
         &self,
         config: &[aviutl2::filter::FilterConfigItem],
-        audio: &FilterProcAudio,
+        audio: &mut FilterProcAudio,
     ) -> AnyResult<()> {
         let config: FilterConfig = config.to_struct();
 
@@ -153,8 +153,8 @@ impl FilterPlugin for ChiptuneFilter {
 
         synthesizer.phase = phase;
 
-        audio.set_sample_data(&left, aviutl2::filter::AudioChannel::Left);
-        audio.set_sample_data(&right, aviutl2::filter::AudioChannel::Right);
+        audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &left);
+        audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &right);
 
         Ok(())
     }

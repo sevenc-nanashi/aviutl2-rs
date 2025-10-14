@@ -206,8 +206,8 @@ pub unsafe fn func_proc_video<T: FilterPlugin>(
 ) -> bool {
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
-    let video = unsafe { FilterProcVideo::from_raw(video) };
-    if let Err(e) = plugin.proc_video(&plugin_state.config_items, &video) {
+    let mut video = unsafe { FilterProcVideo::from_raw(video) };
+    if let Err(e) = plugin.proc_video(&plugin_state.config_items, &mut video) {
         log::error!("Error in proc_video: {}", e);
         return false;
     }
@@ -219,8 +219,8 @@ pub unsafe fn func_proc_audio<T: FilterPlugin>(
 ) -> bool {
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
-    let audio = unsafe { FilterProcAudio::from_raw(audio) };
-    if let Err(e) = plugin.proc_audio(&plugin_state.config_items, &audio) {
+    let mut audio = unsafe { FilterProcAudio::from_raw(audio) };
+    if let Err(e) = plugin.proc_audio(&plugin_state.config_items, &mut audio) {
         log::error!("Error in proc_audio: {}", e);
         return false;
     }

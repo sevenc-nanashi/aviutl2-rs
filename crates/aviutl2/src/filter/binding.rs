@@ -64,7 +64,7 @@ pub trait FilterPlugin: Send + Sync + Sized {
     fn proc_video(
         &self,
         _config: &[config::FilterConfigItem],
-        _video: &FilterProcVideo,
+        _video: &mut FilterProcVideo,
     ) -> AnyResult<()> {
         anyhow::bail!("proc_video is not implemented");
     }
@@ -73,7 +73,7 @@ pub trait FilterPlugin: Send + Sync + Sized {
     fn proc_audio(
         &self,
         _config: &[config::FilterConfigItem],
-        _audio: &FilterProcAudio,
+        _audio: &mut FilterProcAudio,
     ) -> AnyResult<()> {
         anyhow::bail!("proc_audio is not implemented");
     }
@@ -131,7 +131,9 @@ pub struct AudioObjectInfo {
 }
 
 /// RGBAのピクセル。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, IntoBytes, FromBytes, Immutable, KnownLayout)]
+#[derive(
+    Debug, Default, Clone, Copy, PartialEq, Eq, IntoBytes, FromBytes, Immutable, KnownLayout,
+)]
 pub struct RgbaPixel {
     /// 赤。
     pub r: u8,
@@ -162,24 +164,38 @@ impl FilterProcVideo {
     /// 現在の画像のデータを取得する。
     /// RGBA32bit で取得されます。
     ///
+    /// # Panics
+    ///
+    /// `buffer` の長さが `width * height * 4` と一致しない場合、パニックします。
+    ///
     /// # Note
     ///
-    /// [`FilterPluginTable::as_object`] が `true` の場合、この関数は空の配列を返します。
-    pub fn get_image_data<T: Clone + FromBytes + Immutable>(&self) -> Vec<T> {
+    /// [`FilterPluginTable::as_object`] が `true` の場合、この関数は何もせずに 0 を返します。
+    pub fn get_image_data<T>(&mut self, buffer: &mut [T]) -> usize
+    where
+        T: Copy + FromBytes + Immutable,
+    {
         if self.video_object.width == 0 || self.video_object.height == 0 {
-            log::warn!("width or height is 0, perhaps the filter plugin is an object");
-            return vec![];
+            log::warn!("width or height is 0, perhaps the filter plugin is a custom object");
+            return 0;
         }
+        assert!(
+            std::mem::size_of_val(buffer)
+                == (self.video_object.width * self.video_object.height * 4) as usize
+        );
+        assert!(
+            std::mem::align_of::<T>() >= std::mem::align_of::<aviutl2_sys::filter2::PIXEL_RGBA>()
+        );
         let width = self.video_object.width as usize;
         let height = self.video_object.height as usize;
-        let mut buffer: Vec<u8> = vec![0; width * height * 4];
         let inner = unsafe { &*self.inner };
         unsafe {
-            (inner.get_image_data)(buffer.as_mut_ptr() as *mut aviutl2_sys::filter2::PIXEL_RGBA)
+            (inner.get_image_data)(
+                buffer.as_mut_ptr() as *mut u8 as *mut aviutl2_sys::filter2::PIXEL_RGBA
+            )
         };
-        let pixels: &[T] = <[T]>::ref_from_bytes(&buffer).unwrap();
 
-        pixels.to_vec()
+        width * height * 4
     }
 
     /// 現在の画像のデータを設定する。
@@ -187,7 +203,12 @@ impl FilterProcVideo {
     /// # Panics
     ///
     /// `data` をバイト列に変換した際の長さが `width * height * 4` と一致しない場合、パニックします。
-    pub fn set_image_data<T: IntoBytes + Immutable>(&self, data: &[T], width: u32, height: u32) {
+    pub fn set_image_data<T: IntoBytes + Immutable>(
+        &mut self,
+        data: &[T],
+        width: u32,
+        height: u32,
+    ) {
         let bytes = &data.as_bytes();
         assert!(bytes.len() == (width * height * 4) as usize);
         let inner = unsafe { &*self.inner };
@@ -245,17 +266,25 @@ impl From<AudioChannel> for i32 {
 impl FilterProcAudio {
     /// 現在の音声のデータを取得する。
     /// `channel` は 0 が左チャンネル、1 が右チャンネルです。
-    pub fn get_sample_data(&self, channel: AudioChannel) -> Vec<f32> {
+    ///
+    /// # Panics
+    ///
+    /// `buffer` の長さが `sample_num` と一致しない場合、パニックします。
+    pub fn get_sample_data(&mut self, channel: AudioChannel, buffer: &mut [f32]) -> usize {
         let sample_num = self.audio_object.sample_num as usize;
-        let mut buffer: Vec<f32> = vec![0.0; sample_num];
+        assert!(buffer.len() == sample_num);
         let inner = unsafe { &*self.inner };
         unsafe { (inner.get_sample_data)(buffer.as_mut_ptr(), channel.into()) };
-        buffer
+        sample_num
     }
 
     /// 現在の音声のデータを設定する。
     /// `channel` は 0 が左チャンネル、1 が右チャンネルです。
-    pub fn set_sample_data(&self, data: &[f32], channel: AudioChannel) {
+    ///
+    /// # Panics
+    ///
+    /// `data` の長さが `sample_num` と一致しない場合、パニックします。
+    pub fn set_sample_data(&mut self, channel: AudioChannel, data: &[f32]) {
         let sample_num = self.audio_object.sample_num as usize;
         assert!(data.len() == sample_num);
         let inner = unsafe { &*self.inner };

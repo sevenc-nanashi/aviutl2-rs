@@ -126,7 +126,7 @@ impl FilterPlugin for WgpuFilter {
     fn proc_video(
         &self,
         config: &[aviutl2::filter::FilterConfigItem],
-        video: &FilterProcVideo,
+        video: &mut FilterProcVideo,
     ) -> AnyResult<()> {
         let config: FilterConfig = config.to_struct();
         let width = config.width;

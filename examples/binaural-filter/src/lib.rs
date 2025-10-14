@@ -182,7 +182,7 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
     fn proc_audio(
         &self,
         config: &[aviutl2::filter::FilterConfigItem],
-        audio: &aviutl2::filter::FilterProcAudio,
+        audio: &mut aviutl2::filter::FilterProcAudio,
     ) -> anyhow::Result<()> {
         let config: FilterConfig = config.to_struct();
         let obj_id = audio.object.id;
@@ -199,8 +199,10 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
             );
             *states = BinauralStates::new(num_samples, audio.scene.sample_rate as f64)?;
         }
-        let left_samples = audio.get_sample_data(aviutl2::filter::AudioChannel::Left);
-        let right_samples = audio.get_sample_data(aviutl2::filter::AudioChannel::Right);
+        let mut left_samples = vec![0.0f32; num_samples];
+        let mut right_samples = vec![0.0f32; num_samples];
+        audio.get_sample_data(aviutl2::filter::AudioChannel::Left, &mut left_samples);
+        audio.get_sample_data(aviutl2::filter::AudioChannel::Right, &mut right_samples);
 
         let cache_start = (states.tail_index as i64) - (states.audio_cache.len() as i64);
 
@@ -260,8 +262,8 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
         let new_right = &new_right[(new_right.len() - num_samples)..];
         assert!(new_left.len() == num_samples);
         assert!(new_right.len() == num_samples);
-        audio.set_sample_data(new_left, aviutl2::filter::AudioChannel::Left);
-        audio.set_sample_data(new_right, aviutl2::filter::AudioChannel::Right);
+        audio.set_sample_data(aviutl2::filter::AudioChannel::Left, new_left);
+        audio.set_sample_data(aviutl2::filter::AudioChannel::Right, new_right);
 
         Ok(())
     }

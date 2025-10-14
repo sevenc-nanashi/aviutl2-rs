@@ -111,12 +111,14 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
     fn proc_audio(
         &self,
         config: &[aviutl2::filter::FilterConfigItem],
-        audio: &aviutl2::filter::FilterProcAudio,
+        audio: &mut aviutl2::filter::FilterProcAudio,
     ) -> anyhow::Result<()> {
         let config: FilterConfig = config.to_struct();
 
-        let left_samples = audio.get_sample_data(aviutl2::filter::AudioChannel::Left);
-        let right_samples = audio.get_sample_data(aviutl2::filter::AudioChannel::Right);
+        let mut left_samples = vec![0.0f32; audio.audio_object.sample_num as usize];
+        let mut right_samples = vec![0.0f32; audio.audio_object.sample_num as usize];
+        audio.get_sample_data(aviutl2::filter::AudioChannel::Left, &mut left_samples);
+        audio.get_sample_data(aviutl2::filter::AudioChannel::Right, &mut right_samples);
         let sample_rate = audio.scene.sample_rate as f64;
         let obj_id = audio.object.id;
 
@@ -148,8 +150,8 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
                         obj_id,
                         audio.audio_object.sample_index
                     );
-                    audio.set_sample_data(&cache.left, aviutl2::filter::AudioChannel::Left);
-                    audio.set_sample_data(&cache.right, aviutl2::filter::AudioChannel::Right);
+                    audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &cache.left);
+                    audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &cache.right);
                     return Ok(());
                 }
             }
@@ -185,8 +187,8 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
             let next_cache_index = q_state.next_cache_index;
             let left_samples = left_samples.iter().map(|&s| s as f32).collect::<Vec<_>>();
             let right_samples = right_samples.iter().map(|&s| s as f32).collect::<Vec<_>>();
-            audio.set_sample_data(&left_samples, aviutl2::filter::AudioChannel::Left);
-            audio.set_sample_data(&right_samples, aviutl2::filter::AudioChannel::Right);
+            audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &left_samples);
+            audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &right_samples);
 
             let cache = &mut q_state.caches[next_cache_index];
             cache.sample_index = audio.audio_object.sample_index;
