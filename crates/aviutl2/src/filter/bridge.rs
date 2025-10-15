@@ -2,9 +2,36 @@ use crate::{
     common::{LeakManager, alert_error},
     filter::{
         AudioObjectInfo, FilterConfigItem, FilterPlugin, FilterPluginTable, FilterProcAudio,
-        FilterProcVideo, ObjectInfo, SceneInfo, VideoObjectInfo,
+        FilterProcVideo, FilterType, ObjectInfo, SceneInfo, VideoObjectInfo,
     },
 };
+
+impl FilterPluginTable {
+    pub fn from_raw(raw: &aviutl2_sys::filter2::FILTER_PLUGIN_TABLE) -> FilterPluginTable {
+        let mut config_items = Vec::new();
+        if !raw.items.is_null() {
+            let mut ptr = raw.items as *const aviutl2_sys::filter2::FILTER_ITEM;
+            unsafe {
+                while !ptr.is_null() {
+                    config_items.push(FilterConfigItem::from_raw(ptr));
+                    ptr = ptr.add(1);
+                }
+            }
+        }
+        FilterPluginTable {
+            name: unsafe { crate::common::load_wide_string(raw.name) },
+            information: unsafe { crate::common::load_wide_string(raw.information) },
+            label: if raw.label.is_null() {
+                None
+            } else {
+                Some(unsafe { crate::common::load_wide_string(raw.label) })
+            },
+            filter_type: FilterType::from_bits(raw.flag),
+            as_object: (raw.flag & aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_INPUT) != 0,
+            config_items,
+        }
+    }
+}
 
 impl FilterProcAudio {
     unsafe fn from_raw(raw_ptr: *const aviutl2_sys::filter2::FILTER_PROC_AUDIO) -> FilterProcAudio {
@@ -39,6 +66,17 @@ impl SceneInfo {
             sample_rate: raw.sample_rate as u32,
         }
     }
+
+    #[doc(hidden)]
+    pub fn to_raw(&self) -> aviutl2_sys::filter2::SCENE_INFO {
+        aviutl2_sys::filter2::SCENE_INFO {
+            width: self.width as i32,
+            height: self.height as i32,
+            rate: *self.frame_rate.numer(),
+            scale: *self.frame_rate.denom(),
+            sample_rate: self.sample_rate as i32,
+        }
+    }
 }
 impl ObjectInfo {
     unsafe fn from_raw(raw: *const aviutl2_sys::filter2::OBJECT_INFO) -> ObjectInfo {
@@ -49,6 +87,27 @@ impl ObjectInfo {
             frame_total: raw.frame_total as u32,
             time: raw.time,
             time_total: raw.time_total,
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn to_raw(
+        &self,
+        video: Option<&VideoObjectInfo>,
+        audio: Option<&AudioObjectInfo>,
+    ) -> aviutl2_sys::filter2::OBJECT_INFO {
+        aviutl2_sys::filter2::OBJECT_INFO {
+            id: self.id,
+            frame: self.frame as i32,
+            frame_total: self.frame_total as i32,
+            time: self.time,
+            time_total: self.time_total,
+            width: video.map_or(0, |v| v.width as i32),
+            height: video.map_or(0, |v| v.height as i32),
+            sample_index: audio.map_or(0, |a| a.sample_index as i64),
+            sample_total: audio.map_or(0, |a| a.sample_total as i64),
+            sample_num: audio.map_or(0, |a| a.sample_num as i32),
+            channel_num: audio.map_or(0, |a| a.channel_num as i32),
         }
     }
 }

@@ -49,6 +49,19 @@ impl FilterType {
             }
         }
     }
+    pub(crate) fn from_bits(bits: i32) -> Self {
+        let video = (bits & aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_VIDEO) != 0;
+        let audio = (bits & aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_AUDIO) != 0;
+        match (video, audio) {
+            (true, false) => FilterType::Video,
+            (false, true) => FilterType::Audio,
+            (true, true) => FilterType::Both,
+            (false, false) => {
+                log::warn!("FilterType has neither video nor audio flag, defaulting to Video");
+                FilterType::Video
+            }
+        }
+    }
 }
 
 /// フィルタプラグインのトレイト。

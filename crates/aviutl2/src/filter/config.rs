@@ -145,6 +145,79 @@ impl FilterConfigItem {
     /// # Safety
     ///
     /// `raw` は有効なポインタである必要があります。
+    pub(crate) unsafe fn from_raw(raw: *const aviutl2_sys::filter2::FILTER_ITEM) -> Self {
+        let item_type = unsafe {
+            crate::common::load_wide_string(
+                // SAFETY: aviutl2_sys::filter2::FILTER_ITEM の最初のメンバーはLPCWSTRなので問題ないはず
+                *(raw as *const aviutl2_sys::common::LPCWSTR),
+            )
+        };
+        match item_type.as_str() {
+            "track" => {
+                let raw_track = unsafe { &(*raw).track };
+                FilterConfigItem::Track(FilterConfigTrack {
+                    name: unsafe { crate::common::load_wide_string(raw_track.name) },
+                    value: raw_track.value,
+                    range: raw_track.s..=raw_track.e,
+                    step: FilterConfigTrackStep::try_from(raw_track.step)
+                        .unwrap_or(FilterConfigTrackStep::PointOne),
+                })
+            }
+            "check" => {
+                let raw_checkbox = unsafe { &(*raw).checkbox };
+                FilterConfigItem::Checkbox(FilterConfigCheckbox {
+                    name: unsafe { crate::common::load_wide_string(raw_checkbox.name) },
+                    value: raw_checkbox.value,
+                })
+            }
+            "color" => {
+                let raw_color = unsafe { &(*raw).color };
+                FilterConfigItem::Color(FilterConfigColor {
+                    name: unsafe { crate::common::load_wide_string(raw_color.name) },
+                    value: raw_color.value.into(),
+                })
+            }
+            "select" => {
+                let raw_select = unsafe { &(*raw).select };
+                let mut items = Vec::new();
+                if !raw_select.items.is_null() {
+                    let mut ptr = raw_select.items;
+                    loop {
+                        let item = unsafe { &*ptr };
+                        if item.name.is_null() {
+                            break;
+                        }
+                        let name = unsafe { crate::common::load_wide_string(item.name) };
+                        items.push(FilterConfigSelectItem {
+                            name,
+                            value: item.value,
+                        });
+                        ptr = unsafe { ptr.add(1) };
+                    }
+                }
+                FilterConfigItem::Select(FilterConfigSelect {
+                    name: unsafe { crate::common::load_wide_string(raw_select.name) },
+                    value: raw_select.value,
+                    items,
+                })
+            }
+            "file" => {
+                let raw_file = unsafe { &(*raw).file };
+                let value = unsafe { crate::common::load_wide_string(raw_file.value) };
+                let filters = unsafe { crate::common::parse_file_filters( raw_file.filefilter ) };
+                FilterConfigItem::File(FilterConfigFile {
+                    name: unsafe { crate::common::load_wide_string(raw_file.name) },
+                    value,
+                    filters,
+                })
+            }
+            _ => panic!("Unknown filter config item type: {}", item_type),
+        }
+    }
+
+    /// # Safety
+    ///
+    /// `raw` は有効なポインタである必要があります。
     pub(crate) unsafe fn get_value(
         raw: *const aviutl2_sys::filter2::FILTER_ITEM,
     ) -> FilterConfigItemValue {
