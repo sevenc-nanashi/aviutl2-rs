@@ -4,6 +4,7 @@
 
 - **Breaking:** AviUtl2の最小サポートをbeta14に引き上げ
 - **Breaking:** aviutl2-sysの共通定義をaviutl2_sys::commonに移動
+- **Breaking:** `InputPlugin::new`、`OutputPlugin::new`の引数に`AvUtl2Info`を追加
 
 - 変更履歴を追加
 - フィルタプラグインを追加

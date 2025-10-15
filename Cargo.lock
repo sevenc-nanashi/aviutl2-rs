@@ -1704,6 +1704,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "example-pixelsort-filter"
+version = "0.8.1"
+dependencies = [
+ "aviutl2",
+ "cfg-elif",
+ "duplicate",
+ "env_logger",
+ "rayon",
+ "wide 0.8.0",
+]
+
+[[package]]
 name = "example-statistics-output"
 version = "0.8.1"
 dependencies = [
@@ -1714,6 +1726,19 @@ dependencies = [
  "open",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "example-wgpu-filter"
+version = "0.8.1"
+dependencies = [
+ "anyhow",
+ "aviutl2",
+ "env_logger",
+ "log",
+ "pollster",
+ "wgpu 27.0.1",
+ "zerocopy",
 ]
 
 [[package]]
@@ -3746,18 +3771,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pixelsort-filter"
-version = "0.8.1"
-dependencies = [
- "aviutl2",
- "cfg-elif",
- "duplicate",
- "env_logger",
- "rayon",
- "wide 0.8.0",
-]
-
-[[package]]
 name = "pkg-config"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5631,19 +5644,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71197027d61a71748e4120f05a9242b2ad142e3c01f8c1b47707945a879a03c3"
 dependencies = [
  "wgpu-hal 27.0.2",
-]
-
-[[package]]
-name = "wgpu-filter"
-version = "0.8.1"
-dependencies = [
- "anyhow",
- "aviutl2",
- "env_logger",
- "log",
- "pollster",
- "wgpu 27.0.1",
- "zerocopy",
 ]
 
 [[package]]
