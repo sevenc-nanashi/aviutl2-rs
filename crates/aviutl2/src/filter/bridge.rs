@@ -123,7 +123,9 @@ pub unsafe fn initialize_plugin<T: FilterPlugin>(
     plugin_state: &std::sync::RwLock<Option<InternalFilterPluginState<T>>>,
     version: u32,
 ) -> bool {
-    let info = crate::common::AviUtl2Info { version };
+    let info = crate::common::AviUtl2Info {
+        version: version.into(),
+    };
     let internal = match T::new(info) {
         Ok(plugin) => plugin,
         Err(e) => {

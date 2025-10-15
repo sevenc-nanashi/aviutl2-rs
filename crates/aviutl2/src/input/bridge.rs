@@ -110,6 +110,27 @@ struct InternalInputHandle<T: Send + Sync> {
     handle: T,
 }
 
+pub unsafe fn initialize_plugin<T: InputPlugin>(
+    plugin_state: &std::sync::RwLock<Option<InternalInputPluginState<T>>>,
+    version: u32,
+) -> bool {
+    let info = crate::common::AviUtl2Info {
+        version: version.into(),
+    };
+    let internal = match T::new(info) {
+        Ok(plugin) => plugin,
+        Err(e) => {
+            log::error!("Failed to initialize plugin: {}", e);
+            alert_error(&e);
+            return false;
+        }
+    };
+    let plugin = InternalInputPluginState::new(internal);
+    *plugin_state.write().unwrap() = Some(plugin);
+
+    true
+}
+
 #[expect(clippy::too_many_arguments)]
 pub unsafe fn create_table<T: InputPlugin>(
     plugin_state: &InternalInputPluginState<T>,
@@ -518,18 +539,7 @@ macro_rules! register_input_plugin {
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                let info = $crate::common::AviUtl2Info { version };
-                let internal = match $struct::new(info) {
-                    Ok(plugin) => plugin,
-                    Err(e) => {
-                        $crate::log::error!("Failed to initialize plugin: {}", e);
-                        return false;
-                    }
-                };
-                let plugin = aviutl2::input::__bridge::InternalInputPluginState::new(internal);
-                *PLUGIN.write().unwrap() = Some(plugin);
-
-                true
+                unsafe { $crate::input::__bridge::initialize_plugin(&PLUGIN, version) }
             }
 
             #[unsafe(no_mangle)]

@@ -9,7 +9,59 @@ pub use raw_window_handle::{self, Win32WindowHandle};
 #[derive(Debug, Clone)]
 pub struct AviUtl2Info {
     /// AviUtl2のバージョン。
-    pub version: u32,
+    pub version: AviUtl2Version,
+}
+
+/// AviUtl2のバージョン。
+///
+/// # Note
+///
+/// バージョン番号の形式は公式に定義されていないため、暫定的に以下のように解釈しています。
+/// ```text
+/// 2001500
+/// || | |
+/// || | +-- ビルドバージョン
+/// || +---- ベータバージョン
+/// |+------ マイナーバージョン
+/// +------- メジャーバージョン
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct AviUtl2Version(pub u32);
+impl From<u32> for AviUtl2Version {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+impl From<AviUtl2Version> for u32 {
+    fn from(value: AviUtl2Version) -> Self {
+        value.0
+    }
+}
+impl AviUtl2Version {
+    /// 新しいバージョンを作成します。
+    pub fn new(major: u32, minor: u32, patch: u32, build: u32) -> Self {
+        Self(major * 1000000 + minor * 10000 + patch * 100 + build)
+    }
+
+    /// メジャーバージョンを取得します。
+    pub fn major(self) -> u32 {
+        self.0 / 1000000
+    }
+
+    /// マイナーバージョンを取得します。
+    pub fn minor(self) -> u32 {
+        (self.0 / 10000) % 100
+    }
+
+    /// ベータバージョンを取得します。
+    pub fn patch(self) -> u32 {
+        (self.0 / 100) % 100
+    }
+
+    /// ビルドバージョンを取得します。
+    pub fn build(self) -> u32 {
+        self.0 % 100
+    }
 }
 
 /// ファイル選択ダイアログのフィルタを表す構造体。
@@ -394,5 +446,21 @@ mod tests {
         );
         assert_eq!(filters[1].name, "All Files");
         assert_eq!(filters[1].extensions, Vec::<String>::new());
+    }
+
+    #[test]
+    fn test_aviutl2_version() {
+        let version = AviUtl2Version::new(2, 0, 15, 0);
+        assert_eq!(version.0, 2001500);
+        assert_eq!(version.major(), 2);
+        assert_eq!(version.minor(), 0);
+        assert_eq!(version.patch(), 15);
+        assert_eq!(version.build(), 0);
+
+        let version_from_u32: AviUtl2Version = 2001500u32.into();
+        assert_eq!(version_from_u32, version);
+
+        let u32_from_version: u32 = version.into();
+        assert_eq!(u32_from_version, 2001500);
     }
 }

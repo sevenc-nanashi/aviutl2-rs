@@ -51,6 +51,27 @@ impl FromRawAudioSamples for i16 {
     }
 }
 
+pub unsafe fn initialize_plugin<T: OutputPlugin>(
+    plugin_state: &std::sync::RwLock<Option<InternalOutputPluginState<T>>>,
+    version: u32,
+) -> bool {
+    let info = crate::common::AviUtl2Info {
+        version: version.into(),
+    };
+    let internal = match T::new(info) {
+        Ok(plugin) => plugin,
+        Err(e) => {
+            log::error!("Failed to initialize plugin: {}", e);
+            alert_error(&e);
+            return false;
+        }
+    };
+    let plugin = InternalOutputPluginState::new(internal);
+    *plugin_state.write().unwrap() = Some(plugin);
+
+    true
+}
+
 pub unsafe fn create_table<T: OutputPlugin>(
     plugin_state: &InternalOutputPluginState<T>,
     func_output: extern "C" fn(*mut aviutl2_sys::output2::OUTPUT_INFO) -> bool,
@@ -162,18 +183,7 @@ macro_rules! register_output_plugin {
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                let info = $crate::common::AviUtl2Info { version };
-                let internal = match $struct::new(info) {
-                    Ok(plugin) => plugin,
-                    Err(e) => {
-                        $crate::log::error!("Failed to initialize plugin: {}", e);
-                        return false;
-                    }
-                };
-                let plugin = $crate::output::__bridge::InternalOutputPluginState::new(internal);
-                *PLUGIN.write().unwrap() = Some(plugin);
-
-                true
+                unsafe { $crate::output::__bridge::initialize_plugin(&PLUGIN, version) }
             }
 
             #[unsafe(no_mangle)]
