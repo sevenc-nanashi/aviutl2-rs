@@ -19,6 +19,8 @@ quote = "1.0.41"
 syn = "2.0.106"
 
 [dev-dependencies]
-aviutl2.workspace = true
+# https://github.com/rust-lang/cargo/issues/4242 のワークアラウンド。
+# aviutl2.workspace = true
+aviutl2 = { path = "../aviutl2" }
 insta = "1.43.2"
 rustfmt-wrapper = "0.2.1"
