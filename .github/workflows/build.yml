@@ -60,17 +60,6 @@ jobs:
           git config --local user.email "actions@github.com"
           git add Cargo.toml Cargo.lock CHANGELOG.md
           git commit -m "release: v${{ github.event.inputs.name }}"
-          git push
-
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.inputs.name }}
-          body_path: "./release/README.md"
-          files: |
-            ./release/*.aui2
-            ./release/*.auo2
-            ./release/*.auf2
 
       - name: Login to crates.io
         uses: rust-lang/crates-io-auth-action@v1
@@ -81,3 +70,16 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates-io-auth.outputs.token }}
 
+      - name: Push Tag
+        run: |
+          git push
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.name }}
+          body_path: "./release/README.md"
+          files: |
+            ./release/*.aui2
+            ./release/*.auo2
+            ./release/*.auf2
