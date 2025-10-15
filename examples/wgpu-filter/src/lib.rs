@@ -252,4 +252,10 @@ impl FilterPlugin for WgpuFilter {
     }
 }
 
+impl Drop for WgpuFilter {
+    fn drop(&mut self) {
+        self.device.poll(wgpu::PollType::wait_indefinitely());
+    }
+}
+
 aviutl2::register_filter_plugin!(WgpuFilter);

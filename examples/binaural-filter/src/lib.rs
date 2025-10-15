@@ -71,7 +71,7 @@ struct BinauralStates {
     tail_index: usize,
 }
 impl BinauralStates {
-    fn new(frame_size: usize, sample_rate: f64) -> anyhow::Result<Self> {
+     fn new(frame_size: usize, sample_rate: f64) -> anyhow::Result<Self> {
         let frame_44100_size = resample_size(frame_size, sample_rate as usize, 44100);
         let num_blocks = 2_usize.pow(3);
         let block_size = next_pow2(frame_44100_size) / (num_blocks / 2);

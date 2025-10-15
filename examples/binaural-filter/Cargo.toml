@@ -21,7 +21,6 @@ itertools = "0.14.0"
 lru = "0.16.1"
 num-integer = "0.1.46"
 ringbuffer = "0.16.0"
-rotate = "0.4.0"
 
 [build-dependencies]
 anyhow = "1.0.98"
