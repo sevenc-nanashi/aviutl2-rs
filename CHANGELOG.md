@@ -2,11 +2,11 @@
 
 ## Unreleased
 
-- `env_logger`の初期化でtry_initを推奨するように変更
+（なし）
 
 ### デモプラグイン
 
-- `env_logger`の初期化をtry_initに変更
+- binaural: クラッシュを修正
 
 ## [0.9.2](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.9.2)
 
