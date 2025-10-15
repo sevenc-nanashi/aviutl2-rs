@@ -210,6 +210,7 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
             || (states.tail_index as i64)
                 < (audio.audio_object.sample_index as i64 + num_samples as i64
                     - states.requested_sample_count as i64)
+            || (states.tail_index < audio.audio_object.sample_index as usize)
         {
             log::info!(
                 "Cache reset: sample_index={}, tail_index={}, cache_length={}",
