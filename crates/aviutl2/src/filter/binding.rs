@@ -166,7 +166,9 @@ impl FilterProcVideo {
     ///
     /// # Panics
     ///
-    /// `buffer` の長さが `width * height * 4` と一致しない場合、パニックします。
+    /// `buffer` をバイト列に変換した際の長さが `width * height * 4` と一致しない場合、パニックします。
+    /// 例えば[`u8`] の場合、`buffer` の長さは `width * height * 4` と一致する必要があり、
+    /// [`RgbaPixel`] の場合、`buffer` の長さは `width * height` と一致する必要があります。
     ///
     /// # Note
     ///
