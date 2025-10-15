@@ -1,6 +1,6 @@
 fn main() -> anyhow::Result<()> {
     let out_dir = std::env::var("OUT_DIR")?;
-    let hrir_dir = std::path::Path::new(&out_dir).join("hrir");
+    let hrir_dir = std::path::Path::new(&out_dir).join("hrir_data");
     fs_err::create_dir_all(&hrir_dir)?;
     let hrir_path = hrir_dir.join("hrir.bin");
     if !hrir_path.exists() {
