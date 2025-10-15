@@ -254,7 +254,7 @@ impl FilterPlugin for WgpuFilter {
 
 impl Drop for WgpuFilter {
     fn drop(&mut self) {
-        self.device.poll(wgpu::PollType::wait_indefinitely());
+        let _ = self.device.poll(wgpu::PollType::wait_indefinitely());
     }
 }
 

@@ -138,24 +138,15 @@ mod ods_logger {
     /// [`env_logger::fmt::Target`]の実装。
     /// OutputDebugStringを使用してログを出力します。
     ///
-    /// <div class="warning">
-    /// 必ずtry_initを使ってください。
-    /// 通常のinit()は常に初期化されているときにPanicします。
-    /// また、他のプラグインと競合してしまうことを防ぐため、
-    /// 初期化は`cfg!(debug_assertions)`が`true`のときにのみ行うことを強く推奨します。
-    /// </div>
-    ///
     /// # Example
     ///
     /// ```rust
     /// use aviutl2::utils::debug_logger_target;
     ///
-    /// if cfg!(debug_assertions) {
-    ///     let _ = env_logger::Builder::new()
-    ///         .parse_filters("info")
-    ///         .target(debug_logger_target())
-    ///         .try_init();
-    /// }
+    /// let env_logger::Builder::new()
+    ///     .parse_filters("info")
+    ///     .target(debug_logger_target())
+    ///     .init();
     /// ```
     pub fn debug_logger_target() -> env_logger::fmt::Target {
         let write_target = OdsWriter::new();
