@@ -1,5 +1,5 @@
 [package]
-name = "pixelsort-filter"
+name = "example-pixelsort-filter"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
