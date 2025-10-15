@@ -3,7 +3,9 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use crate::common::{AnyResult, FileFilter, Rational32, Win32WindowHandle, load_wide_string};
+use crate::common::{
+    AnyResult, AviUtl2Info, FileFilter, Rational32, Win32WindowHandle, load_wide_string,
+};
 use crate::output::FromRawVideoFrame;
 use aviutl2_sys::output2::OUTPUT_INFO;
 
@@ -89,9 +91,9 @@ pub struct AudioOutputInfo {
 
 /// 出力プラグインのトレイト。
 /// このトレイトを実装し、[`crate::register_output_plugin!`] マクロを使用してプラグインを登録します。
-pub trait OutputPlugin: Send + Sync {
+pub trait OutputPlugin: Send + Sync + Sized {
     /// プラグインを初期化する。
-    fn new() -> Self;
+    fn new(info: AviUtl2Info) -> AnyResult<Self>;
 
     /// プラグインの情報を返す。
     fn plugin_info(&self) -> OutputPluginTable;
@@ -149,7 +151,7 @@ impl OutputInfo {
                 None
             },
 
-            path: std::path::PathBuf::from(load_wide_string(raw.savefile)),
+            path: std::path::PathBuf::from(unsafe { load_wide_string(raw.savefile) }),
 
             internal: oip,
             last_frame_id: Arc::new(AtomicUsize::new(0)),
@@ -238,7 +240,7 @@ impl OutputInfo {
     /// モノラルの音声サンプルをイテレータとして取得する。
     ///
     /// # Arguments
-    /// `length` - 一回のイテレーションで取得するサンプル数。
+    /// - `length`: 一回のイテレーションで取得するサンプル数。
     pub fn get_mono_audio_samples_iter<F: FromRawAudioSamples>(
         &'_ self,
         length: i32,
@@ -269,7 +271,7 @@ impl OutputInfo {
     /// ステレオの音声サンプルをイテレータとして取得する。
     ///
     /// # Arguments
-    /// `length` - 一回のイテレーションで取得するサンプル数。
+    /// - `length`: 一回のイテレーションで取得するサンプル数。
     pub fn get_stereo_audio_samples_iter<F: FromRawAudioSamples>(
         &'_ self,
         length: i32,

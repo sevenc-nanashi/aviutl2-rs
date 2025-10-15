@@ -7,6 +7,7 @@
 //!
 //! - [`input`][]：AviUtl2の入力プラグインを実装するためのモジュール。
 //! - [`output`][]：AviUtl2の出力プラグインを実装するためのモジュール。
+//! - [`filter`][]：AviUtl2のフィルタプラグインを実装するためのモジュール。
 //! - [`common`][]：共通の型や関数を提供するモジュール。
 //! - [`utils`][]：ユーティリティ関数を提供するモジュール。
 //!
@@ -16,18 +17,23 @@
 //!
 //! - `input`（デフォルト）：入力プラグイン機能を有効にします。
 //! - `output`（デフォルト）：出力プラグイン機能を有効にします。
+//! - `filter`（デフォルト）：フィルタプラグイン機能を有効にします。
 //! - `env_logger`：`env_logger`を使用してデバッグログを出力するのに便利な関数を提供します。
 //! - `image`：`image`クレートを使用して画像の読み書きをサポートします。
 //!
-
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 pub use aviutl2_sys as sys;
+pub use log;
 
 #[cfg(feature = "input")]
 pub mod input;
 
 #[cfg(feature = "output")]
 pub mod output;
+
+#[cfg(feature = "filter")]
+pub mod filter;
 
 pub mod common;
 pub mod utils;

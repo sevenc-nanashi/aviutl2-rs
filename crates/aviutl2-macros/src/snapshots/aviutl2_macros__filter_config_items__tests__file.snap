@@ -1,0 +1,39 @@
+---
+source: crates/aviutl2-macros/src/filter_config_items.rs
+expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
+---
+#[automatically_derived]
+impl ::aviutl2::filter::FilterConfigItems for Config {
+    fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
+        vec![::aviutl2::filter::FilterConfigItem::File(
+            ::aviutl2::filter::FilterConfigFile {
+                name: "Input File".to_string(),
+                value: String::new(),
+                filters: vec![
+                    ::aviutl2::common::FileFilter {
+                        name: "Text Files".to_string(),
+                        extensions: vec!["*.txt".to_string()],
+                    },
+                    ::aviutl2::common::FileFilter {
+                        name: "All Files".to_string(),
+                        extensions: vec!["*.*".to_string()],
+                    },
+                ],
+            },
+        )]
+    }
+    fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
+        Self {
+            input_file: match items[0usize] {
+                ::aviutl2::filter::FilterConfigItem::File(ref file) => {
+                    if file.value.is_empty() {
+                        None
+                    } else {
+                        Some(std::path::PathBuf::from(&file.value))
+                    }
+                }
+                _ => panic!("Expected File at index {}", 0usize),
+            },
+        }
+    }
+}

@@ -1,0 +1,31 @@
+[package]
+name = "pixelsort-filter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "rusty_pixelsort_filter"
+crate-type = ["cdylib"]
+
+[features]
+default = ["rayon-sort-rows", "rayon-rotate", "rayon-sort-inner", "simd-luminance"]
+simd = ["simd-luminance", "simd-threshold"]
+simd-luminance = []
+simd-threshold = []
+rayon = ["rayon-sort-rows", "rayon-sort-inner", "rayon-rotate"]
+rayon-sort-rows = []
+rayon-sort-inner = []
+rayon-rotate = []
+
+[dependencies]
+aviutl2 = { workspace = true, features = ["env_logger"] }
+cfg-elif = "0.6.5"
+duplicate = "2.0.0"
+env_logger = "0.11.8"
+rayon = "1.11.0"
+wide = "0.8.0"

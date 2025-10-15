@@ -1,0 +1,18 @@
+[package]
+name = "example-chiptune-filter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "rusty_chiptune_filter"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.98"
+aviutl2 = { workspace = true, features = ["env_logger"] }
+env_logger = "0.11.8"
+rand = "0.9.2"

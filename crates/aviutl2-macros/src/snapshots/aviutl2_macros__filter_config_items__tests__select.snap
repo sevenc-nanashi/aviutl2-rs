@@ -1,0 +1,39 @@
+---
+source: crates/aviutl2-macros/src/filter_config_items.rs
+expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
+---
+#[automatically_derived]
+impl ::aviutl2::filter::FilterConfigItems for Config {
+    fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
+        vec![::aviutl2::filter::FilterConfigItem::Select(
+            ::aviutl2::filter::FilterConfigSelect {
+                name: "Mode".to_string(),
+                value: 1i32,
+                items: vec![
+                    ::aviutl2::filter::FilterConfigSelectItem {
+                        name: "Easy".to_string(),
+                        value: 0usize as i32,
+                    },
+                    ::aviutl2::filter::FilterConfigSelectItem {
+                        name: "Medium".to_string(),
+                        value: 1usize as i32,
+                    },
+                    ::aviutl2::filter::FilterConfigSelectItem {
+                        name: "Hard".to_string(),
+                        value: 2usize as i32,
+                    },
+                ],
+            },
+        )]
+    }
+    fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
+        Self {
+            mode: match items[0usize] {
+                ::aviutl2::filter::FilterConfigItem::Select(ref select) => {
+                    (select.value as usize) as _
+                }
+                _ => panic!("Expected Select at index {}", 0usize),
+            },
+        }
+    }
+}

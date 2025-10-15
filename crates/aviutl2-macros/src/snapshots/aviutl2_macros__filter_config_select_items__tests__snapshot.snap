@@ -1,0 +1,46 @@
+---
+source: crates/aviutl2-macros/src/filter_config_select_items.rs
+expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
+---
+#[automatically_derived]
+impl ::aviutl2::filter::FilterConfigSelectItems for MySelectItem {
+    fn to_select_items() -> Vec<::aviutl2::filter::FilterConfigSelectItem> {
+        vec![
+            ::aviutl2::filter::FilterConfigSelectItem {
+                name: "Hoge".to_string(),
+                value: const { 0 },
+            },
+            ::aviutl2::filter::FilterConfigSelectItem {
+                name: "Fuga".to_string(),
+                value: const { 0 + 1 },
+            },
+            ::aviutl2::filter::FilterConfigSelectItem {
+                name: "Foo".to_string(),
+                value: const { 42 },
+            },
+            ::aviutl2::filter::FilterConfigSelectItem {
+                name: "Bar".to_string(),
+                value: const { 42 + 1 },
+            },
+        ]
+    }
+    fn from_select_item_value(value: i32) -> Self {
+        match value {
+            _ if value == (const { 0 }) => Self::Hoge,
+            _ if value == (const { 0 + 1 }) => Self::Fuga,
+            _ if value == (const { 42 }) => Self::Foo,
+            _ if value == (const { 42 + 1 }) => Self::Bar,
+            _ => {
+                panic!("Invalid value for {}", stringify!(MySelectItem))
+            }
+        }
+    }
+    fn to_select_item_value(&self) -> i32 {
+        match self {
+            Self::Hoge => (const { 0 }),
+            Self::Fuga => (const { 0 + 1 }),
+            Self::Foo => (const { 42 }),
+            Self::Bar => (const { 42 + 1 }),
+        }
+    }
+}

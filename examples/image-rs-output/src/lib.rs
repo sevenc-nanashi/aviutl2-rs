@@ -33,32 +33,20 @@ impl ImageRsOutputPlugin {
 }
 
 impl OutputPlugin for ImageRsOutputPlugin {
-    fn new() -> Self {
-        ImageRsOutputPlugin
+    fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+        Ok(ImageRsOutputPlugin)
     }
 
     fn plugin_info(&self) -> aviutl2::output::OutputPluginTable {
         aviutl2::output::OutputPluginTable {
             name: "Rusty Image Output".to_string(),
             output_type: aviutl2::output::OutputType::Video,
-            file_filters: vec![
-                aviutl2::output::FileFilter {
-                    name: "WebP Image".to_string(),
-                    extensions: vec!["webp".to_string()],
-                },
-                aviutl2::output::FileFilter {
-                    name: "PNG Image".to_string(),
-                    extensions: vec!["png".to_string()],
-                },
-                aviutl2::output::FileFilter {
-                    name: "JPEG Image".to_string(),
-                    extensions: vec!["jpg".to_string(), "jpeg".to_string()],
-                },
-                aviutl2::output::FileFilter {
-                    name: "All Image Formats".to_string(),
-                    extensions: vec!["*".to_string()],
-                },
-            ],
+            file_filters: aviutl2::file_filters! {
+                "WebP Image" => ["webp"],
+                "PNG Image" => ["png"],
+                "JPEG Image" => ["jpg", "jpeg"],
+                "All Image Formats" => [],
+            },
 
             information: format!(
                 "image-rs Output for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-output",

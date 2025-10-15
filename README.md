@@ -11,14 +11,24 @@ AviUtl2 SDKのRust版です。
 - `./crates/`：AviUtl2 SDKのRustクレート。
   - `./crates/aviutl2-sys`：AviUtl2 SDKのRustバインディング。ほぼ1:1の対応です。
   - `./crates/aviutl2`：AviUtl2 SDKのRustラッパー。`aviutl2-sys`を使用して、よりRustらしいAPIを提供します。
+  - `./crates/aviutl2-macros`：`aviutl2`で使用するマクロを提供します。
 
 - `./examples/`：AviUtl2 SDKを使用したサンプルコード。
-  - `./examples/image-rs-input`：image-rsを使用して画像を読み込むサンプル。
-  - `./examples/image-rs-output`：image-rsを使用して画像を連番で保存するサンプル。
-  - `./examples/midi-player-input`：midlyを使用してMIDIを読み込み、ピアノで再生するサンプル。
-  - `./examples/pixel-format-test-input`：それぞれのピクセルフォーマットをテストするサンプル。
-  - `./examples/ffmpeg-output`：FFmpegを使用して動画を出力するサンプル。
-  - `./examples/statistics-output`：フレームごとの描画時間を計測し、統計情報を出力するサンプル。
+  - 入力プラグイン：
+    - `./examples/image-rs-input`：image-rsを使用して画像を読み込むサンプル。
+    - `./examples/midi-player-input`：midlyを使用してMIDIを読み込み、ピアノで再生するサンプル。
+    - `./examples/pixel-format-test-input`：それぞれのピクセルフォーマットをテストするサンプル。
+  - 出力プラグイン：
+    - `./examples/image-rs-output`：image-rsを使用して画像を連番で保存するサンプル。
+    - `./examples/ffmpeg-output`：FFmpegを使用して動画を出力するサンプル。
+    - `./examples/statistics-output`：フレームごとの描画時間を計測し、統計情報を出力するサンプル。
+  - フィルタプラグイン（フィルタ効果）：
+    - `./examples/binaural-filter`：hrtfクレートを使用してバイノーラルなパン振りを実装したサンプル。
+    - `./examples/equalizer-filter`：biquadクレートを使用してイコライザーフィルタを実装したサンプル。
+    - `./examples/pixelsort-filter`：ピクセルソートフィルタのサンプル。
+  - フィルタプラグイン（カスタムオブジェクト）：
+    - `./examples/chiptune-filter`：チップチューンの音を生成するサンプル。
+    - `./examples/wgpu-filter`：wgpuクレートを使用してGPUで画像を生成するフィルタのサンプル。
 
 ## ライセンス
 

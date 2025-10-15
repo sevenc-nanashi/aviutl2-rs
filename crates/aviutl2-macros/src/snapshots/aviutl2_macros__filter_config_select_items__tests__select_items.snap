@@ -1,0 +1,22 @@
+---
+source: crates/aviutl2-macros/src/filter_config_select_items.rs
+expression: items
+---
+[
+    FilterConfigSelectItem {
+        name: "ほげ",
+        value: 0,
+    },
+    FilterConfigSelectItem {
+        name: "ふが",
+        value: 1,
+    },
+    FilterConfigSelectItem {
+        name: "Foo",
+        value: 42,
+    },
+    FilterConfigSelectItem {
+        name: "Bar",
+        value: 43,
+    },
+]

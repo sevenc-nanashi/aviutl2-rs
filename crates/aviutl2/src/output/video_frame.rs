@@ -177,7 +177,7 @@ duplicate::duplicate! {
 }
 
 impl FromRawVideoFrame for RgbVideoFrame {
-    const FORMAT: u32 = aviutl2_sys::output2::BI_RGB;
+    const FORMAT: u32 = aviutl2_sys::common::BI_RGB;
 
     fn check(_video: &VideoOutputInfo) -> Result<(), String> {
         Ok(())
@@ -209,7 +209,7 @@ impl FromRawVideoFrame for RgbVideoFrame {
     }
 }
 impl FromRawVideoFrame for Yuy2VideoFrame {
-    const FORMAT: u32 = aviutl2_sys::output2::BI_YUY2;
+    const FORMAT: u32 = aviutl2_sys::common::BI_YUY2;
 
     fn check(video: &VideoOutputInfo) -> Result<(), String> {
         if video.width % 2 != 0 || video.height % 2 != 0 {
@@ -247,7 +247,7 @@ impl FromRawVideoFrame for Yuy2VideoFrame {
 }
 
 impl FromRawVideoFrame for Hf64VideoFrame {
-    const FORMAT: u32 = aviutl2_sys::output2::BI_HF64;
+    const FORMAT: u32 = aviutl2_sys::common::BI_HF64;
 
     fn check(_video: &VideoOutputInfo) -> Result<(), String> {
         Ok(())
@@ -286,7 +286,7 @@ impl FromRawVideoFrame for Hf64VideoFrame {
     }
 }
 impl FromRawVideoFrame for Yc48VideoFrame {
-    const FORMAT: u32 = aviutl2_sys::output2::BI_YC48;
+    const FORMAT: u32 = aviutl2_sys::common::BI_YC48;
 
     fn check(_video: &VideoOutputInfo) -> Result<(), String> {
         Ok(())
@@ -323,7 +323,7 @@ impl FromRawVideoFrame for Yc48VideoFrame {
     }
 }
 impl FromRawVideoFrame for Pa64VideoFrame {
-    const FORMAT: u32 = aviutl2_sys::output2::BI_PA64;
+    const FORMAT: u32 = aviutl2_sys::common::BI_PA64;
 
     fn check(_video: &VideoOutputInfo) -> Result<(), String> {
         Ok(())
@@ -359,11 +359,11 @@ impl FromRawVideoFrame for Pa64VideoFrame {
 
 #[duplicate::duplicate_item(
     Name                Type  elms FMT;
-    [RawBgrVideoFrame]  [u8]  [3]  [aviutl2_sys::output2::BI_RGB];
-    [RawYuy2VideoFrame] [u8]  [2]  [aviutl2_sys::output2::BI_YUY2];
-    [RawHf64VideoFrame] [f16] [4]  [aviutl2_sys::output2::BI_HF64];
-    [RawYc48VideoFrame] [i16] [3]  [aviutl2_sys::output2::BI_YC48];
-    [RawPa64VideoFrame] [u16] [4]  [aviutl2_sys::output2::BI_PA64];
+    [RawBgrVideoFrame]  [u8]  [3]  [aviutl2_sys::common::BI_RGB];
+    [RawYuy2VideoFrame] [u8]  [2]  [aviutl2_sys::common::BI_YUY2];
+    [RawHf64VideoFrame] [f16] [4]  [aviutl2_sys::common::BI_HF64];
+    [RawYc48VideoFrame] [i16] [3]  [aviutl2_sys::common::BI_YC48];
+    [RawPa64VideoFrame] [u16] [4]  [aviutl2_sys::common::BI_PA64];
 )]
 impl FromRawVideoFrame for Name {
     const FORMAT: u32 = FMT;
@@ -392,11 +392,11 @@ impl FromRawVideoFrame for Name {
 
 #[duplicate::duplicate_item(
     Name                        Type  elms FMT;
-    [BorrowedRawBgrVideoFrame]  [u8]  [3]  [aviutl2_sys::output2::BI_RGB];
-    [BorrowedRawYuy2VideoFrame] [u8]  [2]  [aviutl2_sys::output2::BI_YUY2];
-    [BorrowedRawHf64VideoFrame] [f16] [4]  [aviutl2_sys::output2::BI_HF64];
-    [BorrowedRawYc48VideoFrame] [i16] [3]  [aviutl2_sys::output2::BI_YC48];
-    [BorrowedRawPa64VideoFrame] [u16] [4]  [aviutl2_sys::output2::BI_PA64];
+    [BorrowedRawBgrVideoFrame]  [u8]  [3]  [aviutl2_sys::common::BI_RGB];
+    [BorrowedRawYuy2VideoFrame] [u8]  [2]  [aviutl2_sys::common::BI_YUY2];
+    [BorrowedRawHf64VideoFrame] [f16] [4]  [aviutl2_sys::common::BI_HF64];
+    [BorrowedRawYc48VideoFrame] [i16] [3]  [aviutl2_sys::common::BI_YC48];
+    [BorrowedRawPa64VideoFrame] [u16] [4]  [aviutl2_sys::common::BI_PA64];
 )]
 impl FromRawVideoFrame for Name {
     const FORMAT: u32 = FMT;
@@ -424,7 +424,7 @@ impl FromRawVideoFrame for Name {
 
 #[cfg(feature = "image")]
 impl FromRawVideoFrame for image::RgbImage {
-    const FORMAT: u32 = aviutl2_sys::output2::BI_RGB;
+    const FORMAT: u32 = aviutl2_sys::common::BI_RGB;
 
     fn check(_video: &VideoOutputInfo) -> Result<(), String> {
         Ok(())
@@ -447,7 +447,7 @@ impl FromRawVideoFrame for image::RgbImage {
 
 #[cfg(feature = "image")]
 impl FromRawVideoFrame for image::ImageBuffer<image::Rgba<u16>, Vec<u16>> {
-    const FORMAT: u32 = aviutl2_sys::output2::BI_PA64;
+    const FORMAT: u32 = aviutl2_sys::common::BI_PA64;
 
     fn check(_video: &VideoOutputInfo) -> Result<(), String> {
         Ok(())
@@ -469,7 +469,7 @@ impl FromRawVideoFrame for image::ImageBuffer<image::Rgba<u16>, Vec<u16>> {
 
 #[cfg(feature = "image")]
 impl FromRawVideoFrame for image::Rgba32FImage {
-    const FORMAT: u32 = aviutl2_sys::output2::BI_HF64;
+    const FORMAT: u32 = aviutl2_sys::common::BI_HF64;
 
     fn check(_video: &VideoOutputInfo) -> Result<(), String> {
         Ok(())

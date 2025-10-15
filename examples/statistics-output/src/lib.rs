@@ -19,28 +19,22 @@ struct RenderData {
 struct StatisticsPlugin {}
 
 impl OutputPlugin for StatisticsPlugin {
-    fn new() -> Self {
-        StatisticsPlugin {}
+    fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+        Ok(StatisticsPlugin {})
     }
 
     fn plugin_info(&self) -> aviutl2::output::OutputPluginTable {
         aviutl2::output::OutputPluginTable {
-            name: "Rusty Statistics Output Plugin".to_string(),
+            name: "Rusty Statistics Output".to_string(),
             information: format!(
                 "Statistics Output for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/statistics-output",
                 version = env!("CARGO_PKG_VERSION")
             ),
             output_type: aviutl2::output::OutputType::Video,
-            file_filters: vec![
-                aviutl2::FileFilter {
-                    name: "Statistics Page".to_string(),
-                    extensions: vec!["html".to_string()],
-                },
-                aviutl2::FileFilter {
-                    name: "Raw Statistics Data".to_string(),
-                    extensions: vec!["json".to_string()],
-                },
-            ],
+            file_filters: aviutl2::file_filters! {
+                "Statistics Page" => ["html"],
+                "Raw Statistics Data" => ["json"],
+            },
             can_config: false,
         }
     }

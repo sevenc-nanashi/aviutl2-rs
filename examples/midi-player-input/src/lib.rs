@@ -41,18 +41,17 @@ impl MidiPlayerHandle {
 impl InputPlugin for MidiPlayerPlugin {
     type InputHandle = MidiPlayerHandle;
 
-    fn new() -> Self {
-        MidiPlayerPlugin {}
+    fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+        Ok(MidiPlayerPlugin {})
     }
 
     fn plugin_info(&self) -> aviutl2::input::InputPluginTable {
         aviutl2::input::InputPluginTable {
-            name: "Midi Piano Player Plugin".to_string(),
+            name: "Rusty Piano Midi Player Input".to_string(),
             input_type: aviutl2::input::InputType::Audio,
-            file_filters: vec![aviutl2::FileFilter {
-                name: "MIDI Files".to_string(),
-                extensions: vec!["mid".to_string()],
-            }],
+            file_filters: aviutl2::file_filters! {
+                "MIDI Files" => ["mid"]
+            },
             information: format!(
                 "Midi Piano Player for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/midi-player-input",
                 version = env!("CARGO_PKG_VERSION")

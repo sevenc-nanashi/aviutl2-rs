@@ -1,6 +1,18 @@
 # frozen_string_literal: true
 require "bundler/inline"
 
+suffixes = { "_input" => ".aui2", "_output" => ".auo2", "_filter" => ".auf2" }
+
+def replace_suffix(name, target, suffixes)
+  target_suffix = target == "release" ? "" : "_#{target}"
+  suffixes.each do |key, value|
+    if name.end_with?(key)
+      return name.sub(/#{key}$/, "#{target_suffix}#{value}")
+    end
+  end
+  raise "Invalid file name: #{name}"
+end
+
 gemfile(true) do
   source "https://rubygems.org"
   gem "tomlrb", "~> 2.0", ">= 2.0.3"
@@ -16,7 +28,6 @@ task :install, %w[target dest] do |task, args|
   end
 
   dest_dir = args.dest || "C:/ProgramData/AviUtl2/Plugin"
-  suffix = target == "release" ? "" : "_#{target}"
   Dir.mkdir(dest_dir) unless Dir.exist?(dest_dir)
   Dir
     .glob("./examples/*/Cargo.toml")
@@ -24,8 +35,7 @@ task :install, %w[target dest] do |task, args|
       cargo_toml = Tomlrb.load_file(manifest)
       name = cargo_toml["lib"]["name"]
       file = "./target/#{target}/#{name}.dll"
-      dest_name =
-        name.sub(/_output$/, "#{suffix}.auo2").sub(/_input$/, "#{suffix}.aui2")
+      dest_name = replace_suffix(name, target, suffixes)
       raise "Invalid file name: #{file}" if dest_name == name
       FileUtils.cp(file, File.join(dest_dir, dest_name), verbose: true)
     end
@@ -40,7 +50,6 @@ task :link, %w[target dest] do |task, args|
   end
 
   dest_dir = args.dest || "C:/ProgramData/AviUtl2/Plugin"
-  suffix = target == "release" ? "" : "_#{target}"
   Dir.mkdir(dest_dir) unless Dir.exist?(dest_dir)
   Dir
     .glob("./examples/*/Cargo.toml")
@@ -48,11 +57,7 @@ task :link, %w[target dest] do |task, args|
       cargo_toml = Tomlrb.load_file(manifest)
 
       source = "./target/#{target}/#{cargo_toml["lib"]["name"]}.dll"
-      dest_name =
-        cargo_toml["lib"]["name"].sub(/_output$/, "#{suffix}.auo2").sub(
-          /_input$/,
-          "#{suffix}.aui2"
-        )
+      dest_name = replace_suffix(cargo_toml["lib"]["name"], target, suffixes)
       raise "Invalid file name: #{source}" if dest_name == File.basename(source)
       from_path = File.absolute_path(source)
       if File.exist?(File.join(dest_dir, dest_name))
@@ -79,14 +84,7 @@ task :release, ["tag"] do |task, args|
     .each do |dir|
       cargo_toml = File.join(dir, "Cargo.toml")
       lib_name = Tomlrb.load_file(cargo_toml)["lib"]["name"]
-      plugin_name =
-        if lib_name.end_with?("_output")
-          "#{lib_name.delete_suffix("_output")}.auo2"
-        elsif lib_name.end_with?("_input")
-          "#{lib_name.delete_suffix("_input")}.aui2"
-        else
-          raise "Invalid library name: #{lib_name}"
-        end
+      plugin_name = replace_suffix(lib_name, "release", suffixes)
       plugins[plugin_name] = dir
       FileUtils.cp(
         File.join("target/release", "#{lib_name}.dll"),
@@ -101,10 +99,19 @@ task :release, ["tag"] do |task, args|
     `C:/ProgramData/AviUtl2/Plugin`に放り込めば動きます。
 
     ## 説明書
+    変更履歴：<https://github.com/sevenc-nanashi/aviutl2-rs/blob/#{tag}/CHANGELOG.md>
   MARKDOWN
   plugins.each do |lib_name, dir|
     description << "- `#{lib_name}`：<https://github.com/sevenc-nanashi/aviutl2-rs/blob/#{tag}/examples/#{File.basename(dir)}/README.md>\n"
   end
 
   File.write(File.join(dest_dir, "README.md"), description)
+
+  changelog = File.read("./CHANGELOG.md")
+  changelog.sub!(
+    "## Unreleased",
+    "## [#{tag}](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/#{tag})"
+  )
+  changelog.sub!(/(?<=# 変更履歴\n\n)/, "## Unreleased\n\n### デモプラグイン\n\n")
+  File.write(File.join(dest_dir, "CHANGELOG.md"), changelog)
 end

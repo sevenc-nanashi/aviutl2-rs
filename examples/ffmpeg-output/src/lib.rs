@@ -164,7 +164,11 @@ fn download_ffmpeg_if_missing() -> anyhow::Result<std::path::PathBuf> {
 
     let ffmpeg_zip =
         std::fs::File::open(&ffmpeg_zip_path).context("Failed to open FFmpeg zip file")?;
-    zip_extract::extract(&ffmpeg_zip, &ffmpeg_tmp_dir, true)?;
+    let mut ffmpeg_zip =
+        zip::ZipArchive::new(ffmpeg_zip).context("Failed to read FFmpeg zip file")?;
+    ffmpeg_zip
+        .extract_unwrapped_root_dir(&ffmpeg_tmp_dir, zip::read::root_dir_common_filter)
+        .context("Failed to extract FFmpeg zip file")?;
     std::fs::remove_file(&ffmpeg_zip_path).context("Failed to remove FFmpeg zip file")?;
     std::fs::rename(&ffmpeg_tmp_dir, &ffmpeg_dir)
         .context("Failed to move extracted FFmpeg directory")?;
@@ -172,7 +176,7 @@ fn download_ffmpeg_if_missing() -> anyhow::Result<std::path::PathBuf> {
     Ok(ffmpeg_dir)
 }
 impl OutputPlugin for FfmpegOutputPlugin {
-    fn new() -> Self {
+    fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
         let config = match load_config() {
             Ok(config) => config,
             Err(e) => {
@@ -180,28 +184,20 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 FfmpegOutputConfig::default()
             }
         };
-        FfmpegOutputPlugin {
+        Ok(FfmpegOutputPlugin {
             config: Mutex::new(config),
-        }
+        })
     }
 
     fn plugin_info(&self) -> aviutl2::output::OutputPluginTable {
         aviutl2::output::OutputPluginTable {
-            name: "Rusty FFmpeg Output Plugin".to_string(),
+            name: "Rusty FFmpeg Output".to_string(),
             output_type: aviutl2::output::OutputType::Both,
-            file_filters: vec![aviutl2::output::FileFilter {
-                name: "Video Files".to_string(),
-                extensions: vec![
-                    "mp4".to_string(),
-                    "mkv".to_string(),
-                    "avi".to_string(),
-                    "webm".to_string(),
-                    "mov".to_string(),
-                    "flv".to_string(),
-                    "ts".to_string(),
-                    "m4v".to_string(),
-                ],
-            }],
+            file_filters: aviutl2::file_filters! {
+                "Video Files" => [
+                    "mp4", "mkv", "avi", "webm", "mov", "flv", "ts", "m4v"
+                ]
+            },
             information: format!(
                 "FFmpeg for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/ffmpeg-output",
                 version = env!("CARGO_PKG_VERSION")

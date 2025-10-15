@@ -1,35 +1,13 @@
-#![allow(
-    non_snake_case,
-    non_camel_case_types,
-    non_upper_case_globals,
-    dead_code
-)]
+#![allow(non_snake_case, non_camel_case_types, non_upper_case_globals)]
 
+use crate::common::LPCWSTR;
 use std::ffi::c_void;
 
 pub use windows_sys::Win32::{
     Foundation::{HINSTANCE, HWND},
-    Graphics::Gdi::{BI_RGB, BITMAPINFOHEADER},
+    Graphics::Gdi::BITMAPINFOHEADER,
     Media::{Audio::WAVE_FORMAT_PCM, Multimedia::WAVE_FORMAT_IEEE_FLOAT},
 };
-
-macro_rules! fourcc {
-    ($a:expr, $b:expr, $c:expr, $d:expr) => {
-        (($a as u32) | (($b as u32) << 8) | (($c as u32) << 16) | (($d as u32) << 24))
-    };
-}
-
-/// YUY2（YUV 4:2:2）フォーマット
-pub const BI_YUY2: u32 = fourcc!('Y', 'U', 'Y', '2');
-/// PA64（DXGI_FORMAT_R16G16B16A16_UNORM、乗算済みα）フォーマット
-pub const BI_PA64: u32 = fourcc!('P', 'A', '6', '4');
-/// YC48（互換対応の旧内部フォーマット）フォーマット
-pub const BI_YC48: u32 = fourcc!('Y', 'C', '4', '8');
-/// HF64（DXGI_FORMAT_R16G16B16A16_FLOAT、乗算済みα）フォーマット
-pub const BI_HF64: u32 = fourcc!('H', 'F', '6', '4');
-
-pub type LPCWSTR = *const u16;
-
 /// 出力情報構造体
 #[repr(C)]
 pub struct OUTPUT_INFO {
@@ -59,11 +37,11 @@ pub struct OUTPUT_INFO {
     /// 画像データポインタの内容は次に外部関数を使うかメインに処理を戻すまで有効
     ///
     /// # See Also
-    /// [`BI_RGB`]
-    /// [`BI_YUY2`]
-    /// [`BI_PA64`]
-    /// [`BI_YC48`]
-    /// [`BI_HF64`]
+    /// [`crate::common::BI_RGB`]
+    /// [`crate::common::BI_YUY2`]
+    /// [`crate::common::BI_PA64`]
+    /// [`crate::common::BI_YC48`]
+    /// [`crate::common::BI_HF64`]
     pub func_get_video: Option<extern "C" fn(frame: i32, format: u32) -> *mut c_void>,
     /// PCM形式の音声データへのポインタを取得します
     ///

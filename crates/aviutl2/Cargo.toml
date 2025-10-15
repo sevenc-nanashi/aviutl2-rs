@@ -15,14 +15,16 @@ targets = []
 all-features = true
 
 [features]
-default = ["input", "output"]
+default = ["input", "output", "filter"]
 input = []
 output = []
+filter = []
 env_logger = ["dep:env_logger"]
 image = ["dep:image"]
 
 [dependencies]
 anyhow = "1.0.98"
+aviutl2-macros.workspace = true
 aviutl2-sys.workspace = true
 duplicate = "2.0.0"
 env_logger = { version = "0.11.8", optional = true }

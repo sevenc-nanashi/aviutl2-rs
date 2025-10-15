@@ -1,0 +1,2997 @@
+[project]
+file=Z:\signpo5ts.aup2
+display.scene=0
+[scene.0]
+scene=0
+name=Root
+video.width=1920
+video.height=1080
+video.rate=30
+video.scale=1
+audio.rate=44100
+cursor.frame=364
+display.frame=0
+display.layer=3
+display.zoom=15000
+display.order=0
+display.camera=
+display.grid.x=16,-16
+display.grid.y=16,-16
+display.grid.width=200
+display.grid.height=200
+display.grid.step=200.000000
+display.grid.range=10000.000000
+display.tempo.bpm=141.000000
+display.tempo.beat=4
+display.tempo.offset=0.000000
+[0]
+layer=4
+frame=120,126
+[0.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=74
+Frequency=440
+[0.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[0.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[1]
+layer=5
+frame=111,119
+[1.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=72
+Frequency=440
+[1.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[1.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[2]
+layer=5
+frame=127,133
+[2.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=72
+Frequency=440
+[2.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[2.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[3]
+layer=5
+frame=136,137
+[3.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=72
+Frequency=440
+[3.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[3.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[4]
+layer=5
+frame=293,299
+[4.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=72
+Frequency=440
+[4.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[4.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[5]
+layer=5
+frame=344,350
+[5.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=72
+Frequency=440
+[5.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[5.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[6]
+layer=6
+frame=31,37
+[6.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[6.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[6.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[7]
+layer=6
+frame=85,94
+[7.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[7.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[7.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[8]
+layer=6
+frame=102,110
+[8.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[8.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[8.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[9]
+layer=6
+frame=134,135
+[9.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[9.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[9.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[10]
+layer=6
+frame=138,139
+[10.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[10.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[10.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[11]
+layer=6
+frame=211,212
+[11.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[11.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[11.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[12]
+layer=6
+frame=229,234
+[12.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[12.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[12.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[13]
+layer=6
+frame=255,273
+[13.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[13.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[13.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[14]
+layer=6
+frame=300,305
+[14.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[14.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[14.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[15]
+layer=6
+frame=313,314
+[15.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[15.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[15.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[16]
+layer=6
+frame=317,318
+[16.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[16.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[16.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[17]
+layer=6
+frame=351,356
+[17.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[17.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[17.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[18]
+layer=6
+frame=366,374
+[18.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[18.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[18.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[19]
+layer=6
+frame=415,416
+[19.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[19.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[19.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[20]
+layer=6
+frame=419,420
+[20.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=69
+Frequency=440
+[20.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[20.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[21]
+layer=6
+frame=2617,2627
+[21.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=66
+Frequency=440
+[21.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[21.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[22]
+layer=7
+frame=25,30
+[22.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=67
+Frequency=440
+[22.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[22.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[23]
+layer=7
+frame=38,43
+[23.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=67
+Frequency=440
+[23.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[23.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[24]
+layer=7
+frame=140,146
+[24.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=67
+Frequency=440
+[24.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[24.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[25]
+layer=7
+frame=204,210
+[25.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=67
+Frequency=440
+[25.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[25.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[26]
+layer=7
+frame=213,214
+[26.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=67
+Frequency=440
+[26.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[26.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[27]
+layer=7
+frame=223,228
+[27.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=67
+Frequency=440
+[27.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[27.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[28]
+layer=7
+frame=249,254
+[28.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=67
+Frequency=440
+[28.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[28.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[29]
+layer=7
+frame=306,312
+[29.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=67
+Frequency=440
+[29.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[29.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[30]
+layer=7
+frame=315,316
+[30.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=67
+Frequency=440
+[30.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[30.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[31]
+layer=7
+frame=319,324
+[31.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=67
+Frequency=440
+[31.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[31.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[32]
+layer=7
+frame=357,365
+[32.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=67
+Frequency=440
+[32.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[32.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[33]
+layer=7
+frame=391,400
+[33.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=67
+Frequency=440
+[33.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[33.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[34]
+layer=7
+frame=408,414
+[34.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=67
+Frequency=440
+[34.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[34.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[35]
+layer=7
+frame=417,418
+[35.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=67
+Frequency=440
+[35.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[35.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[36]
+layer=8
+frame=19,24
+[36.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=65
+Frequency=440
+[36.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[36.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[37]
+layer=8
+frame=44,50
+[37.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=65
+Frequency=440
+[37.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[37.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[38]
+layer=8
+frame=95,101
+[38.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=65
+Frequency=440
+[38.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[38.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[39]
+layer=8
+frame=147,152
+[39.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=65
+Frequency=440
+[39.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[39.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[40]
+layer=8
+frame=198,203
+[40.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=65
+Frequency=440
+[40.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[40.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[41]
+layer=8
+frame=215,216
+[41.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=65
+Frequency=440
+[41.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[41.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[42]
+layer=8
+frame=217,222
+[42.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=65
+Frequency=440
+[42.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[42.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[43]
+layer=8
+frame=242,248
+[43.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=65
+Frequency=440
+[43.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[43.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[44]
+layer=8
+frame=274,279
+[44.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=65
+Frequency=440
+[44.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[44.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[45]
+layer=8
+frame=325,330
+[45.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=65
+Frequency=440
+[45.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[45.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[46]
+layer=8
+frame=375,381
+[46.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=65
+Frequency=440
+[46.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[46.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[47]
+layer=9
+frame=401,407
+[47.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=64
+Frequency=440
+[47.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[47.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[48]
+layer=9
+frame=421,427
+[48.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=64
+Frequency=440
+[48.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[48.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[49]
+layer=10
+frame=51,62
+[49.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=62
+Frequency=440
+[49.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[49.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[50]
+layer=10
+frame=76,84
+[50.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=62
+Frequency=440
+[50.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[50.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[51]
+layer=10
+frame=153,164
+[51.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=62
+Frequency=440
+[51.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[51.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[52]
+layer=10
+frame=178,184
+[52.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=62
+Frequency=440
+[52.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[52.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[53]
+layer=10
+frame=191,197
+[53.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=62
+Frequency=440
+[53.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[53.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[54]
+layer=10
+frame=280,292
+[54.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=62
+Frequency=440
+[54.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[54.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[55]
+layer=10
+frame=331,343
+[55.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=62
+Frequency=440
+[55.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[55.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[56]
+layer=10
+frame=382,390
+[56.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=62
+Frequency=440
+[56.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[56.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[57]
+layer=10
+frame=434,440
+[57.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=62
+Frequency=440
+[57.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[57.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[58]
+layer=11
+focus=1
+frame=69,75
+[58.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=60
+Frequency=440
+[58.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[58.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[59]
+layer=11
+frame=172,177
+[59.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=60
+Frequency=440
+[59.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[59.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[60]
+layer=11
+frame=185,190
+[60.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=60
+Frequency=440
+[60.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[60.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[61]
+layer=11
+frame=428,433
+[61.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Square
+Frequency Mode=MIDI Note
+MIDI Note=60
+Frequency=440
+[61.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[61.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[62]
+layer=14
+frame=63,66
+[62.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[62.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[62.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[63]
+layer=14
+frame=89,92
+[63.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[63.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[63.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[64]
+layer=14
+frame=114,117
+[64.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[64.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[64.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[65]
+layer=14
+frame=140,143
+[65.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[65.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[65.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[66]
+layer=14
+frame=165,168
+[66.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[66.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[66.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[67]
+layer=14
+frame=191,194
+[67.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[67.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[67.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[68]
+layer=14
+frame=216,219
+[68.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[68.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[68.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[69]
+layer=14
+frame=242,245
+[69.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[69.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[69.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[70]
+layer=14
+frame=267,270
+[70.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[70.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[70.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[71]
+layer=14
+frame=293,296
+[71.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[71.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[71.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[72]
+layer=14
+frame=318,321
+[72.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[72.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[72.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[73]
+layer=14
+frame=344,347
+[73.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[73.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[73.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[74]
+layer=14
+frame=369,372
+[74.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[74.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[74.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[75]
+layer=14
+frame=395,398
+[75.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[75.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[75.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[76]
+layer=14
+frame=420,423
+[76.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[76.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[76.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[77]
+layer=14
+frame=446,449
+[77.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Noise
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[77.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[77.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010,20,直線移動,0
+[78]
+layer=15
+frame=51,54
+[78.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[78.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[78.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[79]
+layer=15
+frame=63,66
+[79.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[79.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[79.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[80]
+layer=15
+frame=76,79
+[80.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[80.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[80.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[81]
+layer=15
+frame=89,92
+[81.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[81.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[81.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[82]
+layer=15
+frame=102,105
+[82.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[82.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[82.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[83]
+layer=15
+frame=114,117
+[83.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[83.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[83.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[84]
+layer=15
+frame=127,130
+[84.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[84.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[84.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[85]
+layer=15
+frame=140,143
+[85.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[85.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[85.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[86]
+layer=15
+frame=153,156
+[86.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[86.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[86.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[87]
+layer=15
+frame=165,168
+[87.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[87.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[87.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[88]
+layer=15
+frame=178,181
+[88.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[88.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[88.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[89]
+layer=15
+frame=191,194
+[89.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[89.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[89.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[90]
+layer=15
+frame=204,207
+[90.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[90.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[90.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[91]
+layer=15
+frame=216,219
+[91.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[91.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[91.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[92]
+layer=15
+frame=229,232
+[92.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[92.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[92.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[93]
+layer=15
+frame=242,245
+[93.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[93.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[93.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[94]
+layer=15
+frame=255,258
+[94.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[94.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[94.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[95]
+layer=15
+frame=267,270
+[95.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[95.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[95.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[96]
+layer=15
+frame=280,283
+[96.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[96.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[96.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[97]
+layer=15
+frame=293,296
+[97.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[97.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[97.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[98]
+layer=15
+frame=306,309
+[98.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[98.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[98.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[99]
+layer=15
+frame=318,321
+[99.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[99.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[99.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[100]
+layer=15
+frame=331,334
+[100.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[100.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[100.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[101]
+layer=15
+frame=344,347
+[101.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[101.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[101.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[102]
+layer=15
+frame=357,360
+[102.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[102.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[102.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[103]
+layer=15
+frame=369,372
+[103.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[103.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[103.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[104]
+layer=15
+frame=382,385
+[104.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[104.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[104.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[105]
+layer=15
+frame=395,398
+[105.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[105.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[105.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[106]
+layer=15
+frame=408,411
+[106.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[106.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[106.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[107]
+layer=15
+frame=420,423
+[107.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[107.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[107.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[108]
+layer=15
+frame=433,436
+[108.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[108.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[108.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
+[109]
+layer=15
+frame=446,449
+[109.0]
+effect.name=Chiptune Synthesizer Filter
+Volume=0.50
+Wave Type=Triangle
+Frequency Mode=Frequency (Hz)
+MIDI Note=62
+Frequency=190,20,直線移動,0
+[109.1]
+effect.name=音声再生
+音量=50.00
+左右=0.00
+[109.2]
+effect.name=Equalizer Filter
+Wet=1.00
+Bass: Gain=0.0
+Mid: Gain=0.0
+Treble: Gain=0.0
+Bass: Frequency=100
+Mid: Frequency=1000
+Treble: Frequency=10000
+Hi-pass: Enable=0
+Hi-pass: Frequency=20
+Lo-pass: Enable=1
+Lo-pass: Frequency=8010
