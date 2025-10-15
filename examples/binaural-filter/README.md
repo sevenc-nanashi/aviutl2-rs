@@ -1,7 +1,7 @@
 # Rusty Binaural Filter
 
 フィルタプラグインのサンプルです。
-[audionimbus](https://docs.rs/audionimbus)クレートを使用して、バイノーラルな感じの音を実装しています。
+[hrtf](https://docs.rs/hrtf)クレートを使用して、バイノーラルな感じの音を実装しています。
 
 ## インストール
 
