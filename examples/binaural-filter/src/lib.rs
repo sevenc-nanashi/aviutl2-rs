@@ -71,7 +71,7 @@ struct BinauralStates {
     tail_index: usize,
 }
 impl BinauralStates {
-     fn new(frame_size: usize, sample_rate: f64) -> anyhow::Result<Self> {
+    fn new(frame_size: usize, sample_rate: f64) -> anyhow::Result<Self> {
         let frame_44100_size = resample_size(frame_size, sample_rate as usize, 44100);
         let num_blocks = 2_usize.pow(3);
         let block_size = next_pow2(frame_44100_size) / (num_blocks / 2);
@@ -187,6 +187,9 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
         let obj_id = audio.object.id;
 
         let num_samples = audio.audio_object.sample_num as usize;
+        if num_samples == 0 {
+            return Ok(());
+        }
         let mut states = self.states.entry(obj_id).or_try_insert_with(|| {
             BinauralStates::new(num_samples, audio.scene.sample_rate as f64)
         })?;
@@ -204,12 +207,13 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
         audio.get_sample_data(aviutl2::filter::AudioChannel::Right, &mut right_samples);
 
         let cache_start = (states.tail_index as i64) - (states.audio_cache.len() as i64);
+        let expected_start = (audio.audio_object.sample_index as i64) + (num_samples as i64)
+            - (states.requested_sample_count as i64);
 
         if (audio.audio_object.sample_index as i64) <= cache_start
-            || (states.tail_index as i64)
-                < (audio.audio_object.sample_index as i64 + num_samples as i64
-                    - states.requested_sample_count as i64)
+            || (states.tail_index as i64) < expected_start
             || (states.tail_index < audio.audio_object.sample_index as usize)
+            || expected_start < cache_start
         {
             log::info!(
                 "Cache reset: sample_index={}, tail_index={}, cache_length={}",
