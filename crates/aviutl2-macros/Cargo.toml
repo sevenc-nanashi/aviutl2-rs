@@ -16,7 +16,7 @@ decimal-rs = "0.1.43"
 either = "1.15.0"
 proc-macro2 = "1.0.101"
 quote = "1.0.41"
-syn = "2.0.106"
+syn = { version = "2.0.106", features = ["full"] }
 
 [dev-dependencies]
 # https://github.com/rust-lang/cargo/issues/4242 のワークアラウンド。

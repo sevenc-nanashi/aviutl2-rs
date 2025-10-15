@@ -8,7 +8,7 @@
 
 （なし）
 
-## [0.9.1](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.9.1)
+## <s>[0.9.1](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.9.1)</s>
 
 - **Breaking:** MSRVを1.90.0に
 - crates.ioへの公開を同時に行うようにする
