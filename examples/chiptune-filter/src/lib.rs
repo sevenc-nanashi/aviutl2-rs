@@ -45,7 +45,7 @@ struct FilterConfig {
         default = FrequencyMode::MidiNote
     )]
     freq_mode: FrequencyMode,
-    #[track(name = "MIDIノート", range = 0.0..=127.0, step = 1.0, default = 69.0)]
+    #[track(name = "MIDIノート", range = 0..=127, step = 1.0, default = 60)]
     midi_note: f64,
     #[track(name = "周波数（Hz）", range = 20.0..=20000.0, step = 1.0, default = 440.0)]
     frequency: f64,
