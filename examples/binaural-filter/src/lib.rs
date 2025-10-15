@@ -153,13 +153,12 @@ struct BinauralFilter {
 
 impl aviutl2::filter::FilterPlugin for BinauralFilter {
     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
-        let _ = env_logger::Builder::new()
-            .parse_filters("info")
-            .target(aviutl2::utils::debug_logger_target())
-            .try_init();
-        std::panic::set_hook(Box::new(|info| {
-            log::error!("panic: {}", info);
-        }));
+        if cfg!(debug_assertions) {
+            let _ = env_logger::Builder::new()
+                .parse_filters("info")
+                .target(aviutl2::utils::debug_logger_target())
+                .try_init();
+        }
         Ok(Self {
             states: dashmap::DashMap::new(),
         })

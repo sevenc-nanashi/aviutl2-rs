@@ -50,10 +50,12 @@ struct PixelSortFilter;
 
 impl FilterPlugin for PixelSortFilter {
     fn new(_info: AviUtl2Info) -> AnyResult<Self> {
-        let _ = env_logger::Builder::new()
-            .parse_filters("info")
-            .target(aviutl2::utils::debug_logger_target())
-            .try_init();
+        if cfg!(debug_assertions) {
+            let _ = env_logger::Builder::new()
+                .parse_filters("info")
+                .target(aviutl2::utils::debug_logger_target())
+                .try_init();
+        }
         Ok(Self)
     }
 
