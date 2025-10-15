@@ -7,16 +7,16 @@ struct FfmpegOutputConfigContainer {
     value: serde_json::Value,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct FfmpegOutputConfigV1 {
-    pub args: Vec<String>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct FfmpegOutputConfigV2 {
-    pub args: Vec<String>,
-    pub pixel_format: PixelFormat,
-}
+// #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+// pub struct FfmpegOutputConfigV1 {
+//     pub args: Vec<String>,
+// }
+//
+// #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+// pub struct FfmpegOutputConfigV2 {
+//     pub args: Vec<String>,
+//     pub pixel_format: PixelFormat,
+// }
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FfmpegOutputConfigV3 {
     pub args: Vec<String>,
