@@ -212,7 +212,7 @@ impl FromRawVideoFrame for Yuy2VideoFrame {
     const FORMAT: u32 = aviutl2_sys::common::BI_YUY2;
 
     fn check(video: &VideoOutputInfo) -> Result<(), String> {
-        if video.width % 2 != 0 || video.height % 2 != 0 {
+        if !video.width.is_multiple_of(2) || !video.height.is_multiple_of(2) {
             return Err("YUY2 format requires even width and height".to_string());
         }
         Ok(())
