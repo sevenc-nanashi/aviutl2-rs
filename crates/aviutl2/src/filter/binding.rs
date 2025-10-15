@@ -179,12 +179,14 @@ impl FilterProcVideo {
             log::warn!("width or height is 0, perhaps the filter plugin is a custom object");
             return 0;
         }
-        assert!(
-            std::mem::size_of_val(buffer)
-                == (self.video_object.width * self.video_object.height * 4) as usize
+        assert_eq!(
+            std::mem::size_of_val(buffer),
+            (self.video_object.width * self.video_object.height * 4) as usize,
+            "buffer length as bytes does not match width * height * 4"
         );
         assert!(
-            std::mem::align_of::<T>() >= std::mem::align_of::<aviutl2_sys::filter2::PIXEL_RGBA>()
+            std::mem::align_of::<T>() >= std::mem::align_of::<aviutl2_sys::filter2::PIXEL_RGBA>(),
+            "buffer alignment is not sufficient"
         );
         let width = self.video_object.width as usize;
         let height = self.video_object.height as usize;
@@ -210,7 +212,11 @@ impl FilterProcVideo {
         height: u32,
     ) {
         let bytes = &data.as_bytes();
-        assert!(bytes.len() == (width * height * 4) as usize);
+        assert_eq!(
+            bytes.len(),
+            (width * height * 4) as usize,
+            "data length does not match width * height * 4"
+        );
         let inner = unsafe { &*self.inner };
         unsafe {
             (inner.set_image_data)(
@@ -272,7 +278,11 @@ impl FilterProcAudio {
     /// `buffer` の長さが `sample_num` と一致しない場合、パニックします。
     pub fn get_sample_data(&mut self, channel: AudioChannel, buffer: &mut [f32]) -> usize {
         let sample_num = self.audio_object.sample_num as usize;
-        assert!(buffer.len() == sample_num);
+        assert_eq!(
+            buffer.len(),
+            sample_num,
+            "buffer length does not match sample_num"
+        );
         let inner = unsafe { &*self.inner };
         unsafe { (inner.get_sample_data)(buffer.as_mut_ptr(), channel.into()) };
         sample_num
@@ -286,7 +296,11 @@ impl FilterProcAudio {
     /// `data` の長さが `sample_num` と一致しない場合、パニックします。
     pub fn set_sample_data(&mut self, channel: AudioChannel, data: &[f32]) {
         let sample_num = self.audio_object.sample_num as usize;
-        assert!(data.len() == sample_num);
+        assert_eq!(
+            data.len(),
+            sample_num,
+            "data length does not match sample_num"
+        );
         let inner = unsafe { &*self.inner };
         unsafe { (inner.set_sample_data)(data.as_ptr(), channel.into()) };
     }
