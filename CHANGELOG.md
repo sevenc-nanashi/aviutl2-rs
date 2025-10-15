@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### デモプラグイン
+
+## [0.9.2](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.9.2)
+
 - 公開手順を修正
 
 ### デモプラグイン
