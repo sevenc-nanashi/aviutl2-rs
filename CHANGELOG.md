@@ -2,9 +2,14 @@
 
 ## Unreleased
 
+- **Breaking:** MSRVを1.90.0に
+- crates.ioへの公開を同時に行うようにする
+
 ### デモプラグイン
 
-## [0.9.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.9.0)
+（なし）
+
+## <s>[0.9.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.9.0)</s>
 
 - **Breaking:** AviUtl2の最小サポートをbeta14に引き上げ
 - **Breaking:** aviutl2-sysの共通定義をaviutl2_sys::commonに移動
