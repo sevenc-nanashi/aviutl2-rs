@@ -85,10 +85,10 @@ struct EqualizerFilter {
 
 impl aviutl2::filter::FilterPlugin for EqualizerFilter {
     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
-        env_logger::Builder::new()
+        let _ = env_logger::Builder::new()
             .parse_filters("info")
             .target(aviutl2::utils::debug_logger_target())
-            .init();
+            .try_init();
         Ok(Self {
             q_states: std::sync::RwLock::new(std::collections::HashMap::new()),
         })
