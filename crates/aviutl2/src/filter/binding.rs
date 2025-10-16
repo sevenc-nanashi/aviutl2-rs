@@ -28,7 +28,7 @@ pub struct FilterPluginTable {
 }
 /// 動画・画像と音声の入力情報をまとめた構造体。
 /// 入力の種類を表す列挙型。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FilterType {
     /// 動画のみ。
     Video,
@@ -39,13 +39,26 @@ pub enum FilterType {
 }
 
 impl FilterType {
-    pub(crate) fn to_bits(&self) -> i32 {
+    pub(crate) fn to_bits(self) -> i32 {
         match self {
             FilterType::Video => aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_VIDEO,
             FilterType::Audio => aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_AUDIO,
             FilterType::Both => {
                 aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_VIDEO
                     | aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_AUDIO
+            }
+        }
+    }
+    pub(crate) fn from_bits(bits: i32) -> Self {
+        let video = (bits & aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_VIDEO) != 0;
+        let audio = (bits & aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_AUDIO) != 0;
+        match (video, audio) {
+            (true, false) => FilterType::Video,
+            (false, true) => FilterType::Audio,
+            (true, true) => FilterType::Both,
+            (false, false) => {
+                log::warn!("FilterType has neither video nor audio flag, defaulting to Video");
+                FilterType::Video
             }
         }
     }

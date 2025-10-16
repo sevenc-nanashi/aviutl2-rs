@@ -1,4 +1,5 @@
 pub use anyhow::Result as AnyResult;
+use aviutl2_sys::common::LPCWSTR;
 use zerocopy::{Immutable, IntoBytes};
 
 pub use half::{self, f16};
@@ -213,6 +214,42 @@ pub(crate) fn format_file_filters(file_filters: &[FileFilter]) -> String {
     }
 
     file_filter
+}
+
+/// # Safety
+///
+/// `ptr` は有効なLPCWSTRであること。
+pub(crate) unsafe fn parse_file_filters(ptr: LPCWSTR) -> Vec<FileFilter> {
+    if ptr.is_null() {
+        return Vec::new();
+    }
+
+    let mut filters = Vec::new();
+    let mut current = unsafe { std::ptr::read(ptr) };
+    let mut offset = 0;
+    let mut name = String::new();
+    while current != 0 {
+        let mut len = 0;
+        while unsafe { *ptr.add(offset + len) } != 0 {
+            len += 1;
+        }
+        let slice = unsafe { std::slice::from_raw_parts(ptr.add(offset), len) };
+        let s = String::from_utf16_lossy(slice);
+        if name.is_empty() {
+            name = s;
+        } else {
+            let extensions = s
+                .split(';')
+                .map(|ext| ext.trim_start_matches("*.").to_string())
+                .collect();
+            filters.push(FileFilter { name, extensions });
+            name = String::new();
+        }
+        offset += len + 1;
+        current = unsafe { *ptr.add(offset) };
+    }
+
+    filters
 }
 
 pub(crate) enum LeakType {

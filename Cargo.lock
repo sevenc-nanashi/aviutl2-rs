@@ -570,6 +570,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "aviutl2-dummy"
+version = "0.9.5"
+dependencies = [
+ "aviutl2",
+ "aviutl2-sys",
+ "zerocopy",
+]
+
+[[package]]
 name = "aviutl2-macros"
 version = "0.9.5"
 dependencies = [
