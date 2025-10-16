@@ -187,3 +187,89 @@ fn test_video_filter() {
         ]
     );
 }
+
+#[test]
+fn test_audio_filter() {
+    #[derive(Debug, Clone)]
+    struct TestFilter;
+
+    impl aviutl2::filter::FilterPlugin for TestFilter {
+        fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+            Ok(Self)
+        }
+
+        fn plugin_info(&self) -> aviutl2::filter::FilterPluginTable {
+            aviutl2::filter::FilterPluginTable {
+                name: "Test Audio Filter".to_string(),
+                label: None,
+                information: "This is a test audio filter plugin".to_string(),
+                filter_type: aviutl2::filter::FilterType::Audio,
+                as_object: true,
+                config_items: vec![],
+            }
+        }
+
+        fn proc_audio(
+            &self,
+            _config: &[aviutl2::filter::FilterConfigItem],
+            audio: &mut aviutl2::filter::FilterProcAudio,
+        ) -> aviutl2::AnyResult<()> {
+            let sample_num = audio.audio_object.sample_num as usize;
+            let mut left = vec![0.0; sample_num];
+            let mut right = vec![0.0; sample_num];
+            audio.get_sample_data(aviutl2::filter::AudioChannel::Left, &mut left);
+            audio.get_sample_data(aviutl2::filter::AudioChannel::Right, &mut right);
+            for i in 0..sample_num {
+                // Simple volume reduction
+                left[i] *= 0.5;
+                right[i] *= 0.5;
+            }
+            audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &left);
+            audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &right);
+            Ok(())
+        }
+    }
+
+    let filter = aviutl2_dummy::filter::DummyFilterHost::<TestFilter>::new(
+        aviutl2::AviUtl2Version::new(2, 0, 15, 0),
+    )
+    .unwrap();
+    let scene = aviutl2::filter::SceneInfo {
+        width: 0,
+        height: 0,
+        frame_rate: aviutl2::Rational32::new(30, 1),
+        sample_rate: 44100,
+    };
+    let object = aviutl2::filter::ObjectInfo {
+        id: 1,
+        frame: 0,
+        frame_total: 1,
+        time: 0.0,
+        time_total: 0.01,
+    };
+    let audio_object = aviutl2::filter::AudioObjectInfo {
+        sample_num: 4,
+        sample_index: 0,
+        sample_total: 4,
+        channel_num: 2,
+    };
+    let left_frame_data: Vec<f32> = vec![
+        1.0, 0.5, 0.25, 0.125, // Left channel
+    ];
+    let right_frame_data: Vec<f32> = vec![
+        0.0, 0.5, 0.75, 1.0, // Right channel
+    ];
+
+    let (left_data, right_data) = filter
+        .proc_audio(
+            &scene,
+            &object,
+            &audio_object,
+            &left_frame_data,
+            &right_frame_data,
+        )
+        .unwrap();
+
+    assert_eq!(left_data, vec![0.5, 0.25, 0.125, 0.0625]);
+    assert_eq!(right_data, vec![0.0, 0.25, 0.375, 0.5]);
+}

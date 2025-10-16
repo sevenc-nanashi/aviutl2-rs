@@ -49,19 +49,44 @@ impl<T: aviutl2::filter::FilterPlugin> DummyFilterHost<T> {
     /// 音声フィルタ処理を行います。
     ///
     /// # Panics
+    ///
+    /// - フィルタが音声処理をサポートしていない場合にパニックします。
+    /// - チャンネル数が2以外の場合にパニックします。
+    /// - `left_audio` と `right_audio` の長さが異なる場合にパニックします。
+    /// - `left_audio` と `right_audio` の長さが `audio_info.sample_num` と異なる場合にパニックします。
+    ///
+    /// # Errors
+    ///
+    /// フィルタの処理が失敗した場合に `Err(())` を返します。
     #[allow(clippy::result_unit_err)]
     pub fn proc_audio(
         &self,
         scene_info: &aviutl2::filter::SceneInfo,
         object_info: &aviutl2::filter::ObjectInfo,
         audio_info: &aviutl2::filter::AudioObjectInfo,
-        audio: &[f32],
+        left_audio: &[f32],
+        right_audio: &[f32],
     ) -> Result<(Vec<f32>, Vec<f32>), ()> {
         if self.filter_type != aviutl2::filter::FilterType::Audio
             && self.filter_type != aviutl2::filter::FilterType::Both
         {
             panic!("This filter does not support audio processing");
         }
+        assert_eq!(
+            left_audio.len(),
+            right_audio.len(),
+            "Left and right audio buffers must have the same length"
+        );
+        assert_eq!(
+            left_audio.len(),
+            audio_info.sample_num as usize,
+            "Audio buffer size does not match the specified sample_num"
+        );
+        assert_eq!(
+            object_info.channel_num, 2,
+            "This function only supports stereo audio (2 channels)"
+        );
+
         static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
         let _guard = LOCK.lock().unwrap();
 
@@ -74,15 +99,15 @@ impl<T: aviutl2::filter::FilterPlugin> DummyFilterHost<T> {
             let mut audio_buffer = AUDIO_BUFFER.lock().unwrap();
             audio_buffer.0.clear();
             audio_buffer.1.clear();
-            audio_buffer.0.extend_from_slice(audio);
-            audio_buffer.1.extend_from_slice(audio);
+            audio_buffer.0.extend_from_slice(left_audio);
+            audio_buffer.1.extend_from_slice(right_audio);
         }
         {
             let mut return_buffer = RETURN_BUFFER.lock().unwrap();
             return_buffer.0.clear();
             return_buffer.1.clear();
-            return_buffer.0.resize(audio.len(), 0.0);
-            return_buffer.1.resize(audio.len(), 0.0);
+            return_buffer.0.resize(left_audio.len(), 0.0);
+            return_buffer.1.resize(right_audio.len(), 0.0);
         }
 
         let mut audio = aviutl2_sys::filter2::FILTER_PROC_AUDIO {
@@ -124,6 +149,16 @@ impl<T: aviutl2::filter::FilterPlugin> DummyFilterHost<T> {
         }
     }
 
+    /// 画像フィルタ処理を行います。
+    ///
+    /// # Panics
+    ///
+    /// - フィルタが画像処理をサポートしていない場合にパニックします。
+    /// - `image` のバイト列としてのサイズが `video_info.width * video_info.height * 4` と異なる場合にパニックします。
+    ///
+    /// # Errors
+    ///
+    /// フィルタの処理が失敗した場合に `Err(())` を返します。
     #[allow(clippy::result_unit_err)]
     pub fn proc_video<I: zerocopy::IntoBytes + zerocopy::FromBytes + zerocopy::Immutable + Copy>(
         &self,
