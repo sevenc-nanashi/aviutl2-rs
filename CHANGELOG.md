@@ -2,7 +2,11 @@
 
 ## Unreleased
 
+（なし）
+
 ### デモプラグイン
+
+- binaural: 今度こそクラッシュを修正
 
 ## [0.9.4](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.9.4)
 
