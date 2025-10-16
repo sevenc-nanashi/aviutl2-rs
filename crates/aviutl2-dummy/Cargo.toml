@@ -13,3 +13,7 @@ publish.workspace = true
 [dependencies]
 aviutl2.workspace = true
 aviutl2-sys.workspace = true
+zerocopy = "0.8.27"
+
+[dev-dependencies]
+aviutl2.workspace = true

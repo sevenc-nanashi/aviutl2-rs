@@ -9,11 +9,11 @@ use crate::{
 impl FilterPluginTable {
     pub fn from_raw(raw: &aviutl2_sys::filter2::FILTER_PLUGIN_TABLE) -> FilterPluginTable {
         let mut config_items = Vec::new();
-        if !raw.items.is_null() {
-            let mut ptr = raw.items as *const aviutl2_sys::filter2::FILTER_ITEM;
-            unsafe {
-                while !ptr.is_null() {
-                    config_items.push(FilterConfigItem::from_raw(ptr));
+        unsafe {
+            if !(*raw.items).is_null() {
+                let mut ptr = raw.items as *const *const aviutl2_sys::filter2::FILTER_ITEM;
+                while !(*ptr).is_null() {
+                    config_items.push(FilterConfigItem::from_raw(*ptr));
                     ptr = ptr.add(1);
                 }
             }
