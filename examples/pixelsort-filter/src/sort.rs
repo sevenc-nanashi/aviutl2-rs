@@ -127,8 +127,23 @@ fn calc_luminances(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
         .collect()
 }
 
-#[cfg(not(feature = "simd-luminance"))]
-fn calc_luminances(pixels: &[RgbaPixel]) -> Vec<u16> {
+#[cfg(feature = "rayon-luminance")]
+fn calc_luminances(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
+    let mut luminances = Vec::with_capacity(pixels.len());
+    pixels
+        .par_iter()
+        .map(|px| {
+            let r = px.r as u16;
+            let g = px.g as u16;
+            let b = px.b as u16;
+            r * 76 + g * 150 + b * 29
+        })
+        .collect_into_vec(&mut luminances);
+    luminances
+}
+
+#[cfg(not(any(feature = "simd-luminance", feature = "rayon-luminance")))]
+fn calc_luminances(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
     pixels
         .iter()
         .map(|px| {
@@ -153,8 +168,17 @@ fn over_threshold(luminances: &[u16], threshold: u16) -> Vec<bool> {
         })
         .collect()
 }
+#[cfg(feature = "rayon-threshold")]
+fn over_threshold(luminances: &[u16], threshold: u16) -> Vec<bool> {
+    let mut mask = Vec::with_capacity(luminances.len());
+    luminances
+        .par_iter()
+        .map(|&l| l > threshold)
+        .collect_into_vec(&mut mask);
+    mask
+}
 
-#[cfg(not(feature = "simd-threshold"))]
+#[cfg(not(any(feature = "simd-threshold", feature = "rayon-threshold")))]
 fn over_threshold(luminances: &[u16], threshold: u16) -> Vec<bool> {
     luminances.iter().map(|&l| l > threshold).collect()
 }
