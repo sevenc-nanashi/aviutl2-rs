@@ -69,12 +69,25 @@ struct BinauralStates {
     audio_cache: ringbuffer::AllocRingBuffer<f32>,
     requested_sample_count: usize,
     tail_index: usize,
+
+    prev_left_samples: Vec<f32>,
+    prev_right_samples: Vec<f32>,
 }
 impl BinauralStates {
     fn new(frame_size: usize, sample_rate: f64) -> anyhow::Result<Self> {
         let frame_44100_size = resample_size(frame_size, sample_rate as usize, 44100);
-        let num_blocks = 2_usize.pow(3);
-        let block_size = next_pow2(frame_44100_size) / (num_blocks / 2);
+        let mut num_blocks = 2_usize.pow(3);
+        let mut block_size = next_pow2(frame_44100_size) / (num_blocks / 2);
+        if block_size == 0 {
+            block_size = HRIR_SPHERE.len();
+        }
+        while block_size < HRIR_SPHERE.len() {
+            block_size *= 2;
+            num_blocks /= 2;
+        }
+        if num_blocks < 4 {
+            num_blocks = 4;
+        }
         let hrtf = hrtf::HrtfProcessor::new(HRIR_SPHERE.clone(), num_blocks, block_size);
 
         let cache_size = num_blocks * block_size * 16;
@@ -100,6 +113,8 @@ impl BinauralStates {
                 sample_rate as usize,
             ),
             tail_index: 0,
+            prev_left_samples: vec![],
+            prev_right_samples: vec![],
         })
     }
 
@@ -122,16 +137,14 @@ impl BinauralStates {
         let mut source = vec![0.0f32; self.block_size * self.num_blocks];
         linear_resample(audio, &mut source[..]);
         let mut output = vec![(0.0, 0.0); self.block_size * self.num_blocks];
-        let mut prev_left_samples = vec![];
-        let mut prev_right_samples = vec![];
 
         let context = hrtf::HrtfContext {
             source: &source,
             output: &mut output,
             new_sample_vector: hrtf::Vec3 { x, y, z },
             prev_sample_vector: hrtf::Vec3 { x, y, z },
-            prev_left_samples: &mut prev_left_samples,
-            prev_right_samples: &mut prev_right_samples,
+            prev_left_samples: &mut self.prev_left_samples,
+            prev_right_samples: &mut self.prev_right_samples,
             new_distance_gain: gain,
             prev_distance_gain: gain,
         };
@@ -154,7 +167,7 @@ struct BinauralFilter {
 impl aviutl2::filter::FilterPlugin for BinauralFilter {
     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
         env_logger::Builder::new()
-            .parse_filters("info")
+            .parse_filters("debug")
             .target(aviutl2::utils::debug_logger_target())
             .init();
         Ok(Self {
@@ -186,6 +199,7 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
 
         let num_samples = audio.audio_object.sample_num as usize;
         if num_samples == 0 {
+            log::warn!("num_samples is zero");
             return Ok(());
         }
         let mut states = self.states.entry(obj_id).or_try_insert_with(|| {
@@ -214,10 +228,11 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
             || expected_start < cache_start
         {
             log::info!(
-                "Cache reset: sample_index={}, tail_index={}, cache_length={}",
+                "Cache reset: sample_index={}, tail_index={}, cache_start={}, expected_start={}",
                 audio.audio_object.sample_index,
                 states.tail_index,
-                states.audio_cache.len()
+                cache_start,
+                expected_start,
             );
             let cache_length = states.audio_cache.len();
             states.tail_index = audio.audio_object.sample_index as usize;
@@ -262,8 +277,6 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
         )?;
         let new_left = &new_left[(new_left.len() - num_samples)..];
         let new_right = &new_right[(new_right.len() - num_samples)..];
-        assert!(new_left.len() == num_samples);
-        assert!(new_right.len() == num_samples);
         audio.set_sample_data(aviutl2::filter::AudioChannel::Left, new_left);
         audio.set_sample_data(aviutl2::filter::AudioChannel::Right, new_right);
 
