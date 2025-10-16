@@ -37,3 +37,13 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
         }
     }
 }
+#[automatically_derived]
+impl ::std::default::Default for Config {
+    fn default() -> Self {
+        Self {
+            int_color: 16711935u32,
+            str_color: 65280u32,
+            tuple_color: 16711680u32,
+        }
+    }
+}
