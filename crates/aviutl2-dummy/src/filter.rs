@@ -83,7 +83,7 @@ impl<T: aviutl2::filter::FilterPlugin> DummyFilterHost<T> {
             "Audio buffer size does not match the specified sample_num"
         );
         assert_eq!(
-            object_info.channel_num, 2,
+            audio_info.channel_num, 2,
             "This function only supports stereo audio (2 channels)"
         );
 
