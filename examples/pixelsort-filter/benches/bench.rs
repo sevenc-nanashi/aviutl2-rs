@@ -10,6 +10,10 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             continue;
         }
         let img = image::open(&path).unwrap().to_rgba8();
+        let img = image::imageops::resize(&img, 1920, 1080, image::imageops::FilterType::Nearest);
+        let (width, height) = img.dimensions();
+        let width = width as usize;
+        let height = height as usize;
         let img = img
             .pixels()
             .map(|p| aviutl2::filter::RgbaPixel {
@@ -27,8 +31,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     pixelsort(
                         &FilterConfig::default(),
                         std::hint::black_box(img),
-                        100,
-                        100,
+                        width,
+                        height,
                     );
                 })
             },
