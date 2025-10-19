@@ -33,19 +33,19 @@ pub enum SortDirection {
 #[derive(Debug, Clone, PartialEq, FilterConfigItems)]
 pub struct FilterConfig {
     #[track(name = "しきい値", range = 0.0..=1.0, step = 0.001, default = 0.5)]
-    threshold: f64,
+    pub threshold: f64,
     #[select(
         name = "ソート対象",
         items = ThresholdType,
         default = ThresholdType::Above
     )]
-    threshold_type: ThresholdType,
+    pub threshold_type: ThresholdType,
     #[select(
         name = "ソート方向",
         items = SortDirection,
         default = SortDirection::Horizontal
     )]
-    direction: SortDirection,
+    pub direction: SortDirection,
 }
 
 struct PixelSortFilter;

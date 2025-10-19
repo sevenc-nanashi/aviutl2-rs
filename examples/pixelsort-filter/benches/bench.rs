@@ -24,12 +24,35 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             })
             .collect::<Vec<_>>();
         c.bench_function(
-            &format!("pixelsort {}", path.file_name().unwrap().to_str().unwrap()),
+            &format!(
+                "pixelsort file={}, threshold=above",
+                path.file_name().unwrap().to_str().unwrap()
+            ),
             |b| {
                 b.iter(|| {
                     let img = img.clone();
                     pixelsort(
                         &FilterConfig::default(),
+                        std::hint::black_box(img),
+                        width,
+                        height,
+                    );
+                })
+            },
+        );
+        c.bench_function(
+            &format!(
+                "pixelsort file={}, threshold=below",
+                path.file_name().unwrap().to_str().unwrap()
+            ),
+            |b| {
+                b.iter(|| {
+                    let img = img.clone();
+                    pixelsort(
+                        &FilterConfig {
+                            threshold_type: rusty_pixelsort_filter::ThresholdType::Below,
+                            ..Default::default()
+                        },
                         std::hint::black_box(img),
                         width,
                         height,

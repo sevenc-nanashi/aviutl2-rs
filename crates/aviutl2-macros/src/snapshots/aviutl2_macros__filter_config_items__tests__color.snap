@@ -41,9 +41,9 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
 impl ::std::default::Default for Config {
     fn default() -> Self {
         Self {
-            int_color: 16711935u32,
-            str_color: 65280u32,
-            tuple_color: 16711680u32,
+            int_color: 16711935u32.into(),
+            str_color: 65280u32.into(),
+            tuple_color: 16711680u32.into(),
         }
     }
 }

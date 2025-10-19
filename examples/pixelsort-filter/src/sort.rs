@@ -63,7 +63,7 @@ pub fn pixelsort(
         permute_in_place(row, indices);
     });
 
-    let pixels = match config.direction {
+    match config.direction {
         crate::SortDirection::Horizontal => pixels,
         crate::SortDirection::HorizontalInverted => {
             crate::rotate::rotate_image(&pixels, width, height, crate::rotate::Rotate::OneEighty)
@@ -74,9 +74,7 @@ pub fn pixelsort(
         crate::SortDirection::VerticalInverted => {
             crate::rotate::rotate_image(&pixels, width, height, crate::rotate::Rotate::Ninety)
         }
-    };
-
-    pixels
+    }
 }
 
 fn permute_in_place<T>(data: &mut [T], mut perm: Vec<usize>) {
@@ -108,8 +106,25 @@ macro_rules! repeat_32 {
     };
 }
 
-#[cfg(feature = "simd-luminance")]
-fn calc_luminances(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
+fn calc_luminances_rayon_simd(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
+    pixels
+        .par_chunks(32)
+        .flat_map(|p| {
+            let mut red = p.iter().map(|px| px.r as u16);
+            let mut green = p.iter().map(|px| px.g as u16);
+            let mut blue = p.iter().map(|px| px.b as u16);
+            let red = wide::u16x32::new(repeat_32!(red.next().unwrap_or(0)));
+            let green = wide::u16x32::new(repeat_32!(green.next().unwrap_or(0)));
+            let blue = wide::u16x32::new(repeat_32!(blue.next().unwrap_or(0)));
+            let luminance = red * wide::u16x32::splat(76)
+                + green * wide::u16x32::splat(150)
+                + blue * wide::u16x32::splat(29);
+            luminance.to_array()
+        })
+        .collect()
+}
+
+fn calc_luminances_simd(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
     pixels
         .chunks(32)
         .flat_map(|p| {
@@ -126,9 +141,7 @@ fn calc_luminances(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
         })
         .collect()
 }
-
-#[cfg(feature = "rayon-luminance")]
-fn calc_luminances(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
+fn calc_luminances_rayon(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
     let mut luminances = Vec::with_capacity(pixels.len());
     pixels
         .par_iter()
@@ -141,9 +154,7 @@ fn calc_luminances(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
         .collect_into_vec(&mut luminances);
     luminances
 }
-
-#[cfg(not(any(feature = "simd-luminance", feature = "rayon-luminance")))]
-fn calc_luminances(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
+fn calc_luminances_default(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
     pixels
         .iter()
         .map(|px| {
@@ -155,8 +166,33 @@ fn calc_luminances(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
         .collect()
 }
 
-#[cfg(feature = "simd-threshold")]
-fn over_threshold(luminances: &[u16], threshold: u16) -> Vec<bool> {
+#[inline(always)]
+fn calc_luminances(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
+    if cfg!(all(feature = "rayon-luminance", feature = "simd-luminance")) {
+        calc_luminances_rayon_simd(pixels)
+    } else if cfg!(feature = "simd-luminance") {
+        calc_luminances_simd(pixels)
+    } else if cfg!(feature = "rayon-luminance") {
+        calc_luminances_rayon(pixels)
+    } else {
+        calc_luminances_default(pixels)
+    }
+}
+
+fn over_threshold_simd_rayon(luminances: &[u16], threshold: u16) -> Vec<bool> {
+    let threshold = wide::u16x32::splat(threshold);
+    luminances
+        .par_chunks(32)
+        .flat_map(|p| {
+            let mut p = p.iter().copied();
+            let chunk = wide::u16x32::new(repeat_32!(p.next().unwrap_or(0)));
+            let mask = chunk.simd_gt(threshold);
+            mask.to_array().map(|b| b != 0)
+        })
+        .collect()
+}
+
+fn over_threshold_simd(luminances: &[u16], threshold: u16) -> Vec<bool> {
     let threshold = wide::u16x32::splat(threshold);
     luminances
         .chunks(32)
@@ -168,8 +204,8 @@ fn over_threshold(luminances: &[u16], threshold: u16) -> Vec<bool> {
         })
         .collect()
 }
-#[cfg(feature = "rayon-threshold")]
-fn over_threshold(luminances: &[u16], threshold: u16) -> Vec<bool> {
+
+fn over_threshold_rayon(luminances: &[u16], threshold: u16) -> Vec<bool> {
     let mut mask = Vec::with_capacity(luminances.len());
     luminances
         .par_iter()
@@ -178,9 +214,21 @@ fn over_threshold(luminances: &[u16], threshold: u16) -> Vec<bool> {
     mask
 }
 
-#[cfg(not(any(feature = "simd-threshold", feature = "rayon-threshold")))]
-fn over_threshold(luminances: &[u16], threshold: u16) -> Vec<bool> {
+fn over_threshold_default(luminances: &[u16], threshold: u16) -> Vec<bool> {
     luminances.iter().map(|&l| l > threshold).collect()
+}
+
+#[inline(always)]
+fn over_threshold(luminances: &[u16], threshold: u16) -> Vec<bool> {
+    if cfg!(all(feature = "rayon-threshold", feature = "simd-threshold")) {
+        over_threshold_simd_rayon(luminances, threshold)
+    } else if cfg!(feature = "simd-threshold") {
+        over_threshold_simd(luminances, threshold)
+    } else if cfg!(feature = "rayon-threshold") {
+        over_threshold_rayon(luminances, threshold)
+    } else {
+        over_threshold_default(luminances, threshold)
+    }
 }
 
 #[cfg(test)]

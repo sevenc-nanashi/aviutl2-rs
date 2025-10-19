@@ -400,7 +400,7 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
         FilterConfigField::Color { id, default, .. } => {
             let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
             quote::quote! {
-                #id_ident: #default
+                #id_ident: #default.into()
             }
         }
         FilterConfigField::Select { id, default, .. } => {
