@@ -8,9 +8,10 @@ use aviutl2::{
     },
 };
 
-pub use sort::pixelsort;
+pub use sort::{pixelsort, calc_luminances, over_threshold};
+pub use rotate::{rotate_image, Rotate};
 
-#[derive(Debug, Clone, PartialEq, Eq, FilterConfigSelectItems)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FilterConfigSelectItems)]
 pub enum ThresholdType {
     #[item(name = "しきい値以上")]
     Above,

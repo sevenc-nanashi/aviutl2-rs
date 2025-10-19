@@ -25,41 +25,76 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             .collect::<Vec<_>>();
         c.bench_function(
             &format!(
-                "pixelsort file={}, threshold=above",
+                "rotate file={}",
                 path.file_name().unwrap().to_str().unwrap()
             ),
             |b| {
+                let img = img.clone();
                 b.iter(|| {
-                    let img = img.clone();
-                    pixelsort(
-                        &FilterConfig::default(),
-                        std::hint::black_box(img),
+                    rusty_pixelsort_filter::rotate_image(
+                        std::hint::black_box(&img),
                         width,
                         height,
+                        rusty_pixelsort_filter::Rotate::Ninety,
                     );
                 })
             },
         );
         c.bench_function(
             &format!(
-                "pixelsort file={}, threshold=below",
+                "luminances file={}",
                 path.file_name().unwrap().to_str().unwrap()
             ),
             |b| {
+                let img = img.clone();
                 b.iter(|| {
-                    let img = img.clone();
-                    pixelsort(
-                        &FilterConfig {
-                            threshold_type: rusty_pixelsort_filter::ThresholdType::Below,
-                            ..Default::default()
-                        },
-                        std::hint::black_box(img),
-                        width,
-                        height,
+                    rusty_pixelsort_filter::calc_luminances(std::hint::black_box(&img));
+                })
+            },
+        );
+        c.bench_function(
+            &format!(
+                "threshold default file={}",
+                path.file_name().unwrap().to_str().unwrap()
+            ),
+            |b| {
+                let img = img.clone();
+                let luminances =
+                    rusty_pixelsort_filter::calc_luminances(std::hint::black_box(&img));
+                b.iter(|| {
+                    rusty_pixelsort_filter::over_threshold(
+                        std::hint::black_box(&luminances),
+                        32768,
                     );
                 })
             },
         );
+        for (label, threshold) in &[
+            ("above", rusty_pixelsort_filter::ThresholdType::Above),
+            ("below", rusty_pixelsort_filter::ThresholdType::Below),
+        ] {
+            c.bench_function(
+                &format!(
+                    "pixelsort file={}, threshold={}",
+                    path.file_name().unwrap().to_str().unwrap(),
+                    label
+                ),
+                |b| {
+                    b.iter(|| {
+                        let img = img.clone();
+                        pixelsort(
+                            &FilterConfig {
+                                threshold_type: *threshold,
+                                ..Default::default()
+                            },
+                            std::hint::black_box(img),
+                            width,
+                            height,
+                        );
+                    })
+                },
+            );
+        }
     }
 }
 

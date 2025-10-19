@@ -107,21 +107,33 @@ macro_rules! repeat_32 {
 }
 
 fn calc_luminances_rayon_simd(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
+    let mut luminances = Vec::<u16>::with_capacity(pixels.len());
     pixels
         .par_chunks(32)
-        .flat_map(|p| {
-            let mut red = p.iter().map(|px| px.r as u16);
-            let mut green = p.iter().map(|px| px.g as u16);
-            let mut blue = p.iter().map(|px| px.b as u16);
-            let red = wide::u16x32::new(repeat_32!(red.next().unwrap_or(0)));
-            let green = wide::u16x32::new(repeat_32!(green.next().unwrap_or(0)));
-            let blue = wide::u16x32::new(repeat_32!(blue.next().unwrap_or(0)));
+        .zip(luminances.spare_capacity_mut().par_chunks_mut(32))
+        .for_each(|(p, luminances_part)| {
+            let mut red = [0u16; 32];
+            let mut green = [0u16; 32];
+            let mut blue = [0u16; 32];
+            for (i, px) in p.iter().enumerate() {
+                red[i] = px.r as u16;
+                green[i] = px.g as u16;
+                blue[i] = px.b as u16;
+            }
+            let red = wide::u16x32::new(red);
+            let green = wide::u16x32::new(green);
+            let blue = wide::u16x32::new(blue);
             let luminance = red * wide::u16x32::splat(76)
                 + green * wide::u16x32::splat(150)
                 + blue * wide::u16x32::splat(29);
-            luminance.to_array()
-        })
-        .collect()
+            for (i, &l) in luminance.to_array().iter().take(p.len()).enumerate() {
+                luminances_part[i].write(l);
+            }
+        });
+    unsafe {
+        luminances.set_len(pixels.len());
+    }
+    luminances
 }
 
 fn calc_luminances_simd(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
@@ -167,7 +179,7 @@ fn calc_luminances_default(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
 }
 
 #[inline(always)]
-fn calc_luminances(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
+pub fn calc_luminances(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
     if cfg!(all(feature = "rayon-luminance", feature = "simd-luminance")) {
         calc_luminances_rayon_simd(pixels)
     } else if cfg!(feature = "simd-luminance") {
@@ -181,15 +193,23 @@ fn calc_luminances(pixels: &[aviutl2::filter::RgbaPixel]) -> Vec<u16> {
 
 fn over_threshold_simd_rayon(luminances: &[u16], threshold: u16) -> Vec<bool> {
     let threshold = wide::u16x32::splat(threshold);
+    let mut mask = Vec::<bool>::with_capacity(luminances.len());
     luminances
         .par_chunks(32)
-        .flat_map(|p| {
+        .zip(mask.spare_capacity_mut().par_chunks_mut(32))
+        .for_each(|(p, mask_part)| {
+            let p_len = p.len();
             let mut p = p.iter().copied();
             let chunk = wide::u16x32::new(repeat_32!(p.next().unwrap_or(0)));
             let mask = chunk.simd_gt(threshold);
-            mask.to_array().map(|b| b != 0)
-        })
-        .collect()
+            for (i, &b) in mask.to_array().iter().take(p_len).enumerate() {
+                mask_part[i].write(b != 0);
+            }
+        });
+    unsafe {
+        mask.set_len(luminances.len());
+    }
+    mask
 }
 
 fn over_threshold_simd(luminances: &[u16], threshold: u16) -> Vec<bool> {
@@ -219,7 +239,7 @@ fn over_threshold_default(luminances: &[u16], threshold: u16) -> Vec<bool> {
 }
 
 #[inline(always)]
-fn over_threshold(luminances: &[u16], threshold: u16) -> Vec<bool> {
+pub fn over_threshold(luminances: &[u16], threshold: u16) -> Vec<bool> {
     if cfg!(all(feature = "rayon-threshold", feature = "simd-threshold")) {
         over_threshold_simd_rayon(luminances, threshold)
     } else if cfg!(feature = "simd-threshold") {
@@ -241,5 +261,13 @@ mod tests {
         let perm = vec![2, 0, 1, 3];
         permute_in_place(&mut data, perm);
         assert_eq!(data, vec!['c', 'a', 'b', 'd']);
+    }
+
+    #[test]
+    fn test_over_threshold() {
+        let luminances = vec![100u16, 200, 300, 400, 500];
+        let threshold = 300u16;
+        let mask = over_threshold(&luminances, threshold);
+        assert_eq!(mask, vec![false, false, false, true, true]);
     }
 }
