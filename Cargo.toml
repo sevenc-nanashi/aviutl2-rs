@@ -15,3 +15,9 @@ publish = false
 aviutl2 = { path = "./crates/aviutl2", version = "0.9.5" }
 aviutl2-sys = { path = "./crates/aviutl2-sys", version = "0.9.5" }
 aviutl2-macros = { path = "./crates/aviutl2-macros", version = "0.9.5" }
+
+[profile.release]
+lto = true
+
+[profile.bench]
+lto = true

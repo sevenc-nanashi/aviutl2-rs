@@ -21,3 +21,9 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
         }
     }
 }
+#[automatically_derived]
+impl ::std::default::Default for Config {
+    fn default() -> Self {
+        Self { enable: true }
+    }
+}

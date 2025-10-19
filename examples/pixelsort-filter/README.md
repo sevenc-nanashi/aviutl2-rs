@@ -11,9 +11,15 @@
   - `rayon-sort-rows` - ピクセルソートで行ごとにRayonを使います。
   - `rayon-sort-inner` - ピクセルソートの行内のソートにRayonを使います。
   - `rayon-rotate` - ピクセルの回転にRayonを使います。
+  - `rayon-luminance` - 輝度計算にRayonを使います。
+  - `rayon-threshold` - ピクセルの閾値判定にRayonを使います。
 - `simd` - SIMDを使って高速化します。
   - `simd-luminance` - 輝度計算にSIMDを使います。
   - `simd-threshold` - ピクセルの閾値計算にSIMDを使います。
+
+また、以下の組み合わせはどちらも同時に適用できます。（が、何故かパフォーマンスが死ぬほど落ちる...）
+- `rayon-luminance` / `simd-luminance`
+- `rayon-threshold` / `simd-threshold`
 
 挑戦、お待ちしております。
 

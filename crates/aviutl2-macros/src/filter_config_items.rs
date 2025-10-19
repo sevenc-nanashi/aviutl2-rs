@@ -16,6 +16,7 @@ pub fn filter_config_items(
         .into_result()?;
     let to_config_items = impl_to_config_items(&fields);
     let from_config_items = impl_from_filter_config(&fields);
+    let default = impl_default(&fields);
 
     let expanded = quote::quote! {
         #[automatically_derived]
@@ -23,6 +24,13 @@ pub fn filter_config_items(
             #to_config_items
 
             #from_config_items
+        }
+
+        #[automatically_derived]
+        impl ::std::default::Default for #name {
+            fn default() -> Self {
+                #default
+            }
         }
     };
 
@@ -371,6 +379,51 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                     #field_assign
                 ),*
             }
+        }
+    }
+}
+
+fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
+    let field_inits = fields.iter().map(|f| match f {
+        FilterConfigField::Track { id, default, .. } => {
+            let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+            quote::quote! {
+                #id_ident: #default as _
+            }
+        }
+        FilterConfigField::Check { id, default, .. } => {
+            let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+            quote::quote! {
+                #id_ident: #default
+            }
+        }
+        FilterConfigField::Color { id, default, .. } => {
+            let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+            quote::quote! {
+                #id_ident: #default.into()
+            }
+        }
+        FilterConfigField::Select { id, default, .. } => {
+            let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+            match default {
+                either::Either::Left(v) => quote::quote! {
+                    #id_ident: #v as _
+                },
+                either::Either::Right(v) => quote::quote! {
+                    #id_ident: <_ as ::std::convert::From<_>>::from(#v)
+                },
+            }
+        }
+        FilterConfigField::File { id, .. } => {
+            let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+            quote::quote! {
+                #id_ident: None
+            }
+        }
+    });
+    quote::quote! {
+        Self {
+            #(#field_inits),*
         }
     }
 }
