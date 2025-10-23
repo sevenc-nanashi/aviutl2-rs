@@ -8,7 +8,7 @@
 //!
 //! - [`common`][]：共通定義。
 
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod common;
 pub mod filter2;
