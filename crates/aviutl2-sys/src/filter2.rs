@@ -161,11 +161,11 @@ pub struct FILTER_PROC_VIDEO {
     /// オブジェクト情報
     pub object: *const OBJECT_INFO,
 
-    /// 現在の画像のデータを取得する
+    /// 現在の画像のデータを取得する（VRAMからデータを取得します）
     /// buffer: 画像データの格納先へのポインタ
     pub get_image_data: unsafe extern "C" fn(buffer: *mut PIXEL_RGBA),
 
-    /// 現在の画像のデータを設定します
+    /// 現在の画像のデータを設定します（VRAMへデータを書き込みます）
     /// buffer: 画像データへのポインタ
     /// width,height: 画像サイズ
     pub set_image_data: unsafe extern "C" fn(buffer: *const PIXEL_RGBA, width: i32, height: i32),
