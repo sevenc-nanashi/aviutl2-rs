@@ -20,3 +20,9 @@ AviUtl2は現在このプラグインを設計している時点（2025/09/08）
 - `rake install[debug | release]`：AviUtl2のプラグインディレクトリにビルドしたDLLをコピーします。`debug`または`release`を指定します。
 - `rake link[debug | release]`：AviUtl2のプラグインディレクトリにビルドしたDLLへのシンボリックリンクを作成します。`debug`または`release`を指定します。
 - `rake release`：`./release`ディレクトリにビルドしたDLLをコピーし、また`./release/README.md`を生成します。
+
+<!--
+## 個人用メモ
+
+- `gh workflow run build.yml -F "name=1.2.3"`：新しいバージョンをリリース
+-->
