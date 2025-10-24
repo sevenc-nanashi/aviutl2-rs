@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Breaking:** AviUtl2Version::newの引数をu32からu8に変更
+
+### デモプラグイン
+
+（なし）
+
+## [0.9.6](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.9.6)
+
+- ドキュメントのビルドが通らなかったのを修正
+
 ### デモプラグイン
 
 - pixelsort: パフォーマンスを向上

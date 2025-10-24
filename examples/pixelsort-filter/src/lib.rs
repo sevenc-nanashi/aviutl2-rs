@@ -8,8 +8,8 @@ use aviutl2::{
     },
 };
 
-pub use sort::{pixelsort, calc_luminances, over_threshold};
-pub use rotate::{rotate_image, Rotate};
+pub use rotate::{Rotate, rotate_image};
+pub use sort::{calc_luminances, over_threshold, pixelsort};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FilterConfigSelectItems)]
 pub enum ThresholdType {

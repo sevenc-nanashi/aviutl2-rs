@@ -112,6 +112,15 @@ task :release, ["tag"] do |task, args|
     "## Unreleased",
     "## [#{tag}](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/#{tag})"
   )
-  changelog.sub!(/(?<=# 変更履歴\n\n)/, "## Unreleased\n\n### デモプラグイン\n\n")
+  changelog.sub!(/(?<=# 変更履歴\n\n)/, <<~MARKDOWN)
+    ## Unreleased
+
+    （なし）
+
+    ### デモプラグイン
+
+    （なし）
+
+    MARKDOWN
   File.write(File.join(dest_dir, "CHANGELOG.md"), changelog)
 end

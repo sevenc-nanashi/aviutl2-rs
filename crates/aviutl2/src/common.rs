@@ -39,8 +39,20 @@ impl From<AviUtl2Version> for u32 {
 }
 impl AviUtl2Version {
     /// 新しいバージョンを作成します。
-    pub fn new(major: u32, minor: u32, patch: u32, build: u32) -> Self {
-        Self(major * 1000000 + minor * 10000 + patch * 100 + build)
+    ///
+    /// # Panics
+    ///
+    /// `minor`、`patch`、`build`がそれぞれ100以上の場合にパニックします。
+    pub fn new(major: u8, minor: u8, patch: u8, build: u8) -> Self {
+        assert!(minor < 100, "minor version must be less than 100");
+        assert!(patch < 100, "patch version must be less than 100");
+        assert!(build < 100, "build version must be less than 100");
+        Self(
+            (major as u32) * 1_000_000
+                + (minor as u32) * 10_000
+                + (patch as u32) * 100
+                + (build as u32),
+        )
     }
 
     /// メジャーバージョンを取得します。
