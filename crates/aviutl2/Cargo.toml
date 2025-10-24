@@ -15,10 +15,11 @@ targets = []
 all-features = true
 
 [features]
-default = ["input", "output", "filter"]
+default = ["input", "output", "filter", "module"]
 input = []
 output = []
 filter = []
+module = []
 env_logger = ["dep:env_logger"]
 image = ["dep:image"]
 
