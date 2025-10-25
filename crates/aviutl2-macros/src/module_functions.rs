@@ -3,7 +3,7 @@ use quote::ToTokens;
 pub fn module_functions(
     item: proc_macro2::TokenStream,
 ) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
-    let item: syn::ItemImpl = syn::parse2(item).map_err(|e| e.to_compile_error())?;
+    let mut item: syn::ItemImpl = syn::parse2(item).map_err(|e| e.to_compile_error())?;
     if item.trait_.is_some() {
         return Err(syn::Error::new_spanned(
             item,
@@ -32,7 +32,7 @@ pub fn module_functions(
         Vec<proc_macro2::TokenStream>,
     ) = item
         .items
-        .iter()
+        .iter_mut()
         .map(|item| create_bridge(&impl_token, item))
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
@@ -99,7 +99,7 @@ pub fn module_functions(
 
 fn create_bridge(
     impl_token: &proc_macro2::TokenStream,
-    item: &syn::ImplItem,
+    item: &mut syn::ImplItem,
 ) -> Result<(proc_macro2::TokenStream, proc_macro2::TokenStream), proc_macro2::TokenStream> {
     match item {
         syn::ImplItem::Fn(method) => {
@@ -116,11 +116,12 @@ fn create_bridge(
                 });
             };
 
-            let is_direct = method
+            let direct_index = method
                 .attrs
                 .iter()
-                .find(|attr| attr.path().is_ident("direct"));
-            let func_impl = if let Some(_attr) = is_direct {
+                .position(|attr| attr.path().is_ident("direct"));
+            let func_impl = if let Some(direct_index) = direct_index {
+                method.attrs.remove(direct_index);
                 let has_self = method
                     .sig
                     .inputs

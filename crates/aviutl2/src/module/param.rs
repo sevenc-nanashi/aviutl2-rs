@@ -25,6 +25,11 @@ impl ScriptModuleCallHandle {
         self.len() == 0
     }
 
+    /// 引数を取得する。
+    pub fn get_param<'a, T: FromScriptModuleParam<'a>>(&'a self, index: usize) -> Option<T> {
+        T::from_param(self, index)
+    }
+
     /// 引数を整数として取得する。
     ///
     /// # Note
@@ -149,6 +154,11 @@ impl ScriptModuleCallHandle {
         unsafe {
             ((*self.internal).set_error)(c_message.as_ptr());
         }
+    }
+
+    /// 関数の返り値を追加する。
+    pub fn push_result<T: ToScriptModuleReturnValue>(&self, value: &T) {
+        value.push_value(self);
     }
 
     /// 関数の返り値に整数を追加する。
@@ -293,6 +303,7 @@ impl From<*mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM> for ScriptModuleCallHa
 pub trait FromScriptModuleParam<'a>: Sized {
     fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self>;
 }
+pub use aviutl2_macros::FromScriptModuleParam;
 
 impl<'a> FromScriptModuleParam<'a> for i32 {
     fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
@@ -522,6 +533,7 @@ impl<'a, T: FromScriptModuleParamTable<'a>> FromScriptModuleParamTable<'a> for O
 pub trait ToScriptModuleReturnValue {
     fn push_value(&self, param: &ScriptModuleCallHandle);
 }
+pub use aviutl2_macros::ToScriptModuleReturnValue;
 
 impl ToScriptModuleReturnValue for i32 {
     fn push_value(&self, param: &ScriptModuleCallHandle) {
@@ -576,5 +588,82 @@ impl ToScriptModuleReturnValue for Tuple {
         for_tuples!(#(
             Tuple.push_value(param);
         )*);
+    }
+}
+
+impl ToScriptModuleReturnValue for Vec<String> {
+    fn push_value(&self, param: &ScriptModuleCallHandle) {
+        let strings: Vec<&str> = self.iter().map(|s| s.as_str()).collect();
+        param.push_result_array_str(&strings);
+    }
+}
+impl ToScriptModuleReturnValue for Vec<&str> {
+    fn push_value(&self, param: &ScriptModuleCallHandle) {
+        let values: Vec<&str> = self.to_vec();
+        param.push_result_array_str(&values);
+    }
+}
+impl ToScriptModuleReturnValue for Vec<i32> {
+    fn push_value(&self, param: &ScriptModuleCallHandle) {
+        let values: Vec<i32> = self.to_vec();
+        param.push_result_array_int(&values);
+    }
+}
+impl ToScriptModuleReturnValue for Vec<f64> {
+    fn push_value(&self, param: &ScriptModuleCallHandle) {
+        let values: Vec<f64> = self.to_vec();
+        param.push_result_array_float(&values);
+    }
+}
+
+impl ToScriptModuleReturnValue for std::collections::HashMap<String, i32> {
+    fn push_value(&self, param: &ScriptModuleCallHandle) {
+        let table = self.iter().map(|(k, v)| (k.as_str(), *v));
+        param.push_result_table_int(table);
+    }
+}
+impl ToScriptModuleReturnValue for std::collections::HashMap<String, f64> {
+    fn push_value(&self, param: &ScriptModuleCallHandle) {
+        let table = self.iter().map(|(k, v)| (k.as_str(), *v));
+        param.push_result_table_float(table);
+    }
+}
+impl ToScriptModuleReturnValue for std::collections::HashMap<String, String> {
+    fn push_value(&self, param: &ScriptModuleCallHandle) {
+        let table = self.iter().map(|(k, v)| (k.as_str(), v.as_str()));
+        param.push_result_table_str(table);
+    }
+}
+
+#[doc(hidden)]
+pub mod table_converter {
+    pub trait ToOptionalTableEntry {
+        type Value;
+        fn to_optional(&self) -> Option<Self::Value>;
+    }
+
+    impl<T: Clone> ToOptionalTableEntry for Option<T> {
+        type Value = T;
+        fn to_optional(&self) -> Option<Self::Value> {
+            self.clone()
+        }
+    }
+    impl ToOptionalTableEntry for i32 {
+        type Value = i32;
+        fn to_optional(&self) -> Option<Self::Value> {
+            Some(*self)
+        }
+    }
+    impl ToOptionalTableEntry for f64 {
+        type Value = f64;
+        fn to_optional(&self) -> Option<Self::Value> {
+            Some(*self)
+        }
+    }
+    impl ToOptionalTableEntry for String {
+        type Value = String;
+        fn to_optional(&self) -> Option<Self::Value> {
+            Some(self.clone())
+        }
     }
 }

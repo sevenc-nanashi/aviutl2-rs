@@ -3,7 +3,6 @@ source: crates/aviutl2-macros/src/module_functions.rs
 expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
 impl MyModule {
-    #[direct]
     fn my_function(&self) {}
 }
 mod __aviutl2_internal_module_functions {
