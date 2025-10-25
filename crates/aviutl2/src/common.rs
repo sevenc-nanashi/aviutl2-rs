@@ -380,7 +380,11 @@ impl_leak_ptr!(
     aviutl2_sys::output2::BITMAPINFOHEADER,
     aviutl2_sys::filter2::FILTER_ITEM,
 );
-impl_leakable_value!(aviutl2_sys::filter2::FILTER_ITEM_SELECT_ITEM, usize);
+impl_leakable_value!(
+    aviutl2_sys::filter2::FILTER_ITEM_SELECT_ITEM,
+    aviutl2_sys::module2::SCRIPT_MODULE_FUNCTION,
+    usize
+);
 
 impl<T: IntoLeakedPtr> IntoLeakedPtr for Option<T> {
     fn into_leaked_ptr(self) -> (LeakType, usize) {

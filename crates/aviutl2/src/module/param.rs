@@ -312,10 +312,23 @@ impl<'a> FromScriptModuleParam<'a> for f64 {
         }
     }
 }
-impl<'a> FromScriptModuleParam<'a> for Option<String> {
+impl<'a> FromScriptModuleParam<'a> for String {
     fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
         if index < param.len() {
-            Some(param.get_param_str(index))
+            param.get_param_str(index)
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a, T> FromScriptModuleParam<'a> for Option<T>
+where
+    T: FromScriptModuleParam<'a>,
+{
+    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
+        if index < param.len() {
+            Some(T::from_param(param, index))
         } else {
             None
         }

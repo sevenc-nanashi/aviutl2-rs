@@ -254,5 +254,5 @@ pub struct SCRIPT_MODULE_TABLE {
     /// スクリプトモジュールの情報
     pub information: *const u16,
     /// 登録する関数の一覧 (SCRIPT_MODULE_FUNCTIONを列挙して関数名がnullの要素で終端したリストへのポインタ)
-    pub functions: *mut SCRIPT_MODULE_FUNCTION,
+    pub functions: *const SCRIPT_MODULE_FUNCTION,
 }

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 require "bundler/inline"
 
-suffixes = { "_input" => ".aui2", "_output" => ".auo2", "_filter" => ".auf2" }
+suffixes = { "_input" => ".aui2", "_output" => ".auo2", "_filter" => ".auf2" , "_module" => ".mod2" }
 
 def replace_suffix(name, target, suffixes)
   target_suffix = target == "release" ? "" : "_#{target}"
@@ -28,7 +28,9 @@ task :install, %w[target dest] do |task, args|
   end
 
   dest_dir = args.dest || "C:/ProgramData/AviUtl2/Plugin"
+  script_dir = dest_dir + "/../Script"
   Dir.mkdir(dest_dir) unless Dir.exist?(dest_dir)
+  Dir.mkdir(script_dir) unless Dir.exist?(script_dir)
   Dir
     .glob("./examples/*/Cargo.toml")
     .each do |manifest|
@@ -37,7 +39,11 @@ task :install, %w[target dest] do |task, args|
       file = "./target/#{target}/#{name}.dll"
       dest_name = replace_suffix(name, target, suffixes)
       raise "Invalid file name: #{file}" if dest_name == name
-      FileUtils.cp(file, File.join(dest_dir, dest_name), verbose: true)
+      if dest_name.end_with?("mod2")
+        FileUtils.cp(file, File.join(script_dir, dest_name), verbose: true)
+      else
+        FileUtils.cp(file, File.join(dest_dir, dest_name), verbose: true)
+      end
     end
 end
 
@@ -50,7 +56,9 @@ task :link, %w[target dest] do |task, args|
   end
 
   dest_dir = args.dest || "C:/ProgramData/AviUtl2/Plugin"
+  script_dir = dest_dir + "/../Script"
   Dir.mkdir(dest_dir) unless Dir.exist?(dest_dir)
+  Dir.mkdir(script_dir) unless Dir.exist?(script_dir)
   Dir
     .glob("./examples/*/Cargo.toml")
     .each do |manifest|
@@ -60,11 +68,16 @@ task :link, %w[target dest] do |task, args|
       dest_name = replace_suffix(cargo_toml["lib"]["name"], target, suffixes)
       raise "Invalid file name: #{source}" if dest_name == File.basename(source)
       from_path = File.absolute_path(source)
-      if File.exist?(File.join(dest_dir, dest_name))
-        puts "Skip: #{File.join(dest_dir, dest_name)} already exists"
+      dest_path = if dest_name.end_with?("mod2")
+        File.join(script_dir, dest_name)
+      else
+        File.join(dest_dir, dest_name)
+      end
+      if File.exist?(dest_path)
+        puts "Skip: #{dest_path} already exists"
         next
       else
-        FileUtils.ln_s(from_path, File.join(dest_dir, dest_name), verbose: true)
+        FileUtils.ln_s(from_path, dest_path, verbose: true)
       end
     end
 end
@@ -97,6 +110,7 @@ task :release, ["tag"] do |task, args|
     # AviUtl2-rs Demo Plugins
     AviUtl2-rsのデモプラグイン集です。
     `C:/ProgramData/AviUtl2/Plugin`に放り込めば動きます。
+    ただし、`mod2`は`C:/ProgramData/AviUtl2/Script`に放り込んでください。
 
     ## 説明書
     変更履歴：<https://github.com/sevenc-nanashi/aviutl2-rs/blob/#{tag}/CHANGELOG.md>

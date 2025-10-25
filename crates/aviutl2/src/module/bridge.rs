@@ -54,13 +54,37 @@ pub unsafe fn create_table<T: ScriptModule>(
         plugin_info.information.clone()
     };
 
+    let module_functions: Vec<aviutl2_sys::module2::SCRIPT_MODULE_FUNCTION> = plugin_info
+        .functions
+        .iter()
+        .map(|f| aviutl2_sys::module2::SCRIPT_MODULE_FUNCTION {
+            name: plugin_state
+                .global_leak_manager
+                .leak_as_wide_string(&f.name),
+            func: f.func,
+        })
+        .chain(std::iter::once(
+            aviutl2_sys::module2::SCRIPT_MODULE_FUNCTION {
+                name: std::ptr::null(),
+                func: unreachable_function,
+            },
+        ))
+        .collect();
+    let functions_ptr = plugin_state
+        .global_leak_manager
+        .leak_value_vec(module_functions);
+
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
     aviutl2_sys::module2::SCRIPT_MODULE_TABLE {
         information: plugin_state
             .global_leak_manager
             .leak_as_wide_string(&information),
-        functions: std::ptr::null_mut(), // TODO
+        functions: functions_ptr,
     }
+}
+
+extern "C" fn unreachable_function(_: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM) {
+    unreachable!("This function should never be called");
 }
 
 /// スクリプトモジュールプラグインを登録するマクロ。
