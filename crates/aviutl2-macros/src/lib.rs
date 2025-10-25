@@ -211,11 +211,29 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 /// このマクロは`impl`ブロックに対して適用されます。
 /// `impl`ブロック内で定義された関数がスクリプトモジュールの関数として登録されます。
 ///
+/// # Attributes
+///
+/// ### `direct`
+///
+/// 関数の引数を手動で処理する関数として登録します。
+/// 関数のシグネチャは以下のようになります。
+///
+/// ```rust,ignore
+/// fn function_name(params: &aviutl2::module::ScriptModuleCallHandle) { ... }
+/// ```
+///
 /// # Example
 ///
 /// ```rust
-/// struct MyModule;
-///
+/// # struct MyModule;
+/// # impl aviutl2::module::ScriptModule for MyModule {
+/// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn plugin_info(&self) -> aviutl2::module::ScriptModuleTable {
+/// #         unimplemented!()
+/// #     }
+/// # }
 /// #[aviutl2::module::functions]
 /// impl MyModule {
 ///     fn sum(a: i32, b: i32) -> i32 {
@@ -229,6 +247,8 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 ///         params.push_result(&(a + b));
 ///     }
 /// }
+/// # fn main() {}
+/// ```
 #[proc_macro_attribute]
 pub fn module_functions(
     _attr: proc_macro::TokenStream,
