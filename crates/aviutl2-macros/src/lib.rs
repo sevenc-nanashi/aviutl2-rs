@@ -5,6 +5,7 @@
 
 mod filter_config_items;
 mod filter_config_select_items;
+mod module_functions;
 mod utils;
 
 /// `FilterConfigItems` を自動で実装するためのマクロ。
@@ -199,6 +200,19 @@ pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenSt
 #[proc_macro_derive(FilterConfigSelectItems, attributes(item))]
 pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     filter_config_select_items::filter_config_select_items(item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// `ScriptModuleFunctions` を実装するためのマクロ。
+///
+/// TODO：説明を書く
+#[proc_macro_attribute]
+pub fn module_functions(
+    _attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    module_functions::module_functions(item.into())
         .unwrap_or_else(|e| e)
         .into()
 }

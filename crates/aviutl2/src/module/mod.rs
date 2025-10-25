@@ -8,9 +8,11 @@
 //! サンプルは<https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-input>を参照してください。
 
 mod binding;
+mod param;
 
 pub use super::common::*;
 pub use binding::*;
+pub use param::*;
 
 #[doc(hidden)]
 #[path = "bridge.rs"]

@@ -3,7 +3,7 @@ use aviutl2::{AnyResult, module::ScriptModuleFunctions};
 struct UsernameModule;
 
 impl aviutl2::module::ScriptModule for UsernameModule {
-    fn new(info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
+    fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
         Ok(UsernameModule)
     }
 
@@ -15,6 +15,13 @@ impl aviutl2::module::ScriptModule for UsernameModule {
             ),
             functions: Self::functions(),
         }
+    }
+}
+
+#[aviutl2::module::functions]
+impl UsernameModule {
+    fn get_username() -> String {
+        whoami::username()
     }
 }
 

@@ -1,5 +1,4 @@
-use crate::common::{AnyResult, AviUtl2Info, FileFilter, Rational32, Win32WindowHandle, Yc48, f16};
-use zerocopy::IntoBytes;
+use crate::common::{AnyResult, AviUtl2Info};
 
 /// スクリプトモジュールプラグインの情報を表す構造体。
 #[derive(Debug, Clone)]
@@ -18,14 +17,10 @@ pub struct ModuleFunction {
     /// 関数名。
     pub name: String,
     /// 関数の実装。
-    pub func: fn(&crate::module::ScriptModuleParam),
+    pub func: extern "C" fn(*mut crate::sys::module2::SCRIPT_MODULE_PARAM),
 }
 
-/// 関数のパラメータを表す構造体。
-#[derive(Debug, Clone)]
-pub struct ScriptModuleParam {
-    pub(crate) internal: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,
-}
+pub use aviutl2_macros::module_functions as functions;
 
 /// スクリプトモジュールの関数一覧を返すトレイト。
 ///
@@ -48,11 +43,7 @@ pub trait ScriptModuleFunctions: Sized + Send + Sync + 'static {
         Self: ScriptModule;
 
     #[doc(hidden)]
-    fn __internal_get_plugin_handle(
-        handle: &std::sync::Arc<
-            std::sync::RwLock<Option<crate::module::__bridge::InternalScriptModuleState<Self>>>,
-        >,
-    ) -> std::sync::Arc<
+    fn __internal_get_plugin_handle() -> std::sync::Arc<
         std::sync::RwLock<Option<crate::module::__bridge::InternalScriptModuleState<Self>>>,
     >
     where
