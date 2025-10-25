@@ -5,6 +5,9 @@
 
 mod filter_config_items;
 mod filter_config_select_items;
+mod from_script_module_param;
+mod module_functions;
+mod to_script_module_return_value;
 mod utils;
 
 /// `FilterConfigItems` を自動で実装するためのマクロ。
@@ -82,7 +85,7 @@ mod utils;
 /// ```
 ///
 /// ```rust
-/// #[derive(aviutl2_macros::FilterConfigSelectItems)]
+/// #[derive(aviutl2::filter::FilterConfigSelectItems)]
 /// enum MySelectItem {
 ///    #[item(name = "Hoge")]
 ///    Hoge,
@@ -199,6 +202,106 @@ pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenSt
 #[proc_macro_derive(FilterConfigSelectItems, attributes(item))]
 pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     filter_config_select_items::filter_config_select_items(item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// `ScriptModuleFunctions` を実装するためのマクロ。
+///
+/// このマクロは`impl`ブロックに対して適用されます。
+/// `impl`ブロック内で定義された関数がスクリプトモジュールの関数として登録されます。
+///
+/// # Attributes
+///
+/// ### `direct`
+///
+/// 関数の引数を手動で処理する関数として登録します。
+/// 関数のシグネチャは以下のようになります。
+///
+/// ```rust
+/// fn function_name(params: &aviutl2::module::ScriptModuleCallHandle) { /* ... */ }
+/// ```
+///
+/// # Example
+///
+/// ```rust
+/// # struct MyModule;
+/// # impl aviutl2::module::ScriptModule for MyModule {
+/// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn plugin_info(&self) -> aviutl2::module::ScriptModuleTable {
+/// #         unimplemented!()
+/// #     }
+/// # }
+/// #[aviutl2::module::functions]
+/// impl MyModule {
+///     fn sum(a: i32, b: i32) -> i32 {
+///         a + b
+///     }
+///
+///     #[direct]
+///     fn direct_sum(params: &aviutl2::module::ScriptModuleCallHandle) {
+///         let a: i32 = params.get_param(0).unwrap_or(0);
+///         let b: i32 = params.get_param(1).unwrap_or(0);
+///         params.push_result(&(a + b));
+///     }
+/// }
+/// # fn main() {}
+/// ```
+#[proc_macro_attribute]
+pub fn module_functions(
+    _attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    module_functions::module_functions(item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// `FromScriptModuleParam` を自動で実装するためのマクロ。
+///
+/// このマクロを利用するには、構造体の各フィールドが `aviutl2::module::FromScriptModuleParamValue`
+/// トレイトを実装している必要があります。
+///
+/// # Example
+///
+/// ```rust
+/// #[derive(aviutl2::module::FromScriptModuleParam)]
+/// struct MyStruct {
+///     foo: i32,
+///     bar: String,
+/// }
+/// ```
+#[proc_macro_derive(FromScriptModuleParam)]
+pub fn from_script_module_param(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    from_script_module_param::from_script_module_param(item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// `ToScriptModuleReturnValue` を自動で実装するためのマクロ。
+///
+/// このマクロを利用するには、構造体の各フィールドが
+/// `aviutl2::module::ToScriptModuleReturnValueValue` トレイトを実装している、かつすべてのフィールドが
+/// `T` または `Option<T>` 型である必要があります。
+///
+/// # Example
+///
+/// ```rust
+/// #[derive(aviutl2::module::ToScriptModuleReturnValue)]
+/// struct MyStruct {
+///     foo: String,
+///     bar: String,
+/// }
+/// ```
+///
+/// # See Also
+///
+/// - [`FromScriptModuleParam`]
+#[proc_macro_derive(ToScriptModuleReturnValue)]
+pub fn to_script_module_return_value(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    to_script_module_return_value::to_script_module_return_value(item.into())
         .unwrap_or_else(|e| e)
         .into()
 }
