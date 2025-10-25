@@ -1,7 +1,5 @@
-use std::num::NonZeroIsize;
-
 use crate::{
-    common::{AnyResult, LeakManager, alert_error, format_file_filters, load_wide_string},
+    common::{LeakManager, alert_error},
     module::{ScriptModule, ScriptModuleTable},
 };
 
@@ -9,9 +7,8 @@ use crate::{
 pub struct InternalScriptModuleState<T: Send + Sync + ScriptModule> {
     plugin_info: ScriptModuleTable,
     global_leak_manager: LeakManager,
-    leak_manager: LeakManager,
 
-    instance: T,
+    pub instance: T,
 }
 
 impl<T: Send + Sync + ScriptModule> InternalScriptModuleState<T> {
@@ -20,7 +17,6 @@ impl<T: Send + Sync + ScriptModule> InternalScriptModuleState<T> {
         Self {
             plugin_info,
             global_leak_manager: LeakManager::new(),
-            leak_manager: LeakManager::new(),
             instance,
         }
     }

@@ -1,0 +1,80 @@
+---
+source: crates/aviutl2-macros/src/module_functions.rs
+expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
+---
+impl MyModule {
+    fn my_function(hoge: i32) -> i32 {
+        hoge + 1
+    }
+}
+mod __aviutl2_internal_module_functions {
+    use super::*;
+    static HANDLE: ::std::sync::OnceLock<
+        ::std::sync::Arc<
+            ::std::sync::RwLock<
+                Option<::aviutl2::module::__bridge::InternalScriptModuleState<MyModule>>,
+            >,
+        >,
+    > = ::std::sync::OnceLock::new();
+    impl ::aviutl2::module::ScriptModuleFunctions for MyModule {
+        fn functions() -> Vec<::aviutl2::module::ModuleFunction> {
+            let mut functions = Vec::new();
+            functions.push(::aviutl2::module::ModuleFunction {
+                name: "my_function".to_string(),
+                func: <MyModule>::__aviutl2_internal_module_function_my_function,
+            });
+            functions
+        }
+        fn __internal_setup_pluin_handle(
+            handle: ::std::sync::Arc<
+                ::std::sync::RwLock<
+                    Option<::aviutl2::module::__bridge::InternalScriptModuleState<MyModule>>,
+                >,
+            >,
+        ) where
+            Self: ::aviutl2::module::ScriptModule,
+        {
+            match HANDLE.set(handle) {
+                Ok(_) => {}
+                Err(_) => {
+                    panic!(
+                        "Plugin handle has already been set for {}",
+                        stringify!(MyModule)
+                    )
+                }
+            }
+        }
+        fn __internal_get_plugin_handle() -> ::std::sync::Arc<
+            ::std::sync::RwLock<
+                Option<::aviutl2::module::__bridge::InternalScriptModuleState<MyModule>>,
+            >,
+        >
+        where
+            Self: ::aviutl2::module::ScriptModule,
+        {
+            HANDLE.get().unwrap().clone()
+        }
+    }
+    impl MyModule {
+        extern "C" fn __aviutl2_internal_module_function_my_function(
+            smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
+        ) {
+            let params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
+            let hoge: i32 =
+                match <i32 as ::aviutl2::module::FromScriptModuleParam>::from_param(params, 0usize)
+                {
+                    ::std::option::Option::Some(value) => value,
+                    ::std::option::Option::None => {
+                        params.set_error(&format!(
+                            "Failed to convert parameter #{} to {}",
+                            0usize,
+                            stringify!(i32)
+                        ));
+                        return;
+                    }
+                };
+            let result = <MyModule>::my_function(hoge);
+            ::aviutl2::module::ToScriptModuleReturnValue::push_value(&result, &params);
+        }
+    }
+}

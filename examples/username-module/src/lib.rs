@@ -20,7 +20,7 @@ impl aviutl2::module::ScriptModule for UsernameModule {
 
 #[aviutl2::module::functions]
 impl UsernameModule {
-    fn get_username() -> String {
+    fn get_username(&self) -> String {
         whoami::username()
     }
 }

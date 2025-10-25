@@ -135,9 +135,11 @@ fn create_bridge(
                         }
 
                         Ok(quote::quote! {
-                            let this = &<#impl_token as ::aviutl2::module::__bridge::ScriptModuleFunctions>::__internal_get_plugin_handle()
+                            let __internal_self = &<#impl_token as ::aviutl2::module::ScriptModuleFunctions>::__internal_get_plugin_handle();
+                            let __internal_self = __internal_self
                                 .read()
-                                .expect("Plugin handle is not initialized")
+                                .expect("Plugin handle is not initialized");
+                            let __internal_self = &__internal_self
                                 .as_ref()
                                 .expect("Plugin instance is not initialized").instance;
                         })
@@ -154,13 +156,13 @@ fn create_bridge(
                                     ));
                                     return;
                                 }
-                            }
+                            };
                         })
                     }
                 }
             }).collect::<Result<Vec<_>, _>>()?;
             let param_names = params.iter().map(|param| match param {
-                syn::FnArg::Receiver(_) => quote::quote! { this },
+                syn::FnArg::Receiver(_) => quote::quote! { __internal_self },
                 syn::FnArg::Typed(pat_type) => {
                     let pat = &pat_type.pat;
                     quote::quote! { #pat }
@@ -190,9 +192,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_compile() {
+    fn test_no_self() {
         let input: proc_macro2::TokenStream = quote::quote! {
-            #[aviutl2::module::functions]
             impl MyModule {
                 fn my_function(hoge: i32) -> i32 {
                     hoge + 1
@@ -200,7 +201,19 @@ mod tests {
             }
         };
         let output = module_functions(input).unwrap();
-        dbg!(&output);
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
+    fn test_with_self() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            impl MyModule {
+                fn my_function(&self, fuga: f64) -> f64 {
+                    fuga * 2.0
+                }
+            }
+        };
+        let output = module_functions(input).unwrap();
         insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
     }
 }
