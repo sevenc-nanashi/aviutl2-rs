@@ -1,11 +1,11 @@
-//! # aviutl2-rs / input
+//! # aviutl2-rs / module
 //!
-//! AviUtl2の入力プラグインを実装するためのモジュール。
+//! AviUtl2のスクリプトモジュールを実装するためのモジュール。
 //! 大まかな流れ：
-//! 1. [`InputPlugin`]トレイトを実装した構造体を定義する
-//! 2. [`crate::register_input_plugin!`]マクロを使用してプラグインを登録する
+//! 1. [`ScriptModule`]トレイトを実装した構造体を定義する
+//! 2. [`crate::register_script_module!`]マクロを使用してプラグインを登録する
 //!
-//! サンプルは<https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-input>を参照してください。
+//! サンプルは<https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/username-module>を参照してください。
 
 mod binding;
 mod param;

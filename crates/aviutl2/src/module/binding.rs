@@ -26,7 +26,7 @@ pub use aviutl2_macros::module_functions as functions;
 ///
 /// <div class="warning">
 ///
-/// このトレイトは[`aviutl2::module::functions`]マクロで実装してください。
+/// このトレイトは[`functions`]マクロで実装してください。
 /// 手動で実装しないでください。
 ///
 /// </div>
@@ -51,7 +51,7 @@ pub trait ScriptModuleFunctions: Sized + Send + Sync + 'static {
 }
 
 /// スクリプトモジュールプラグインのトレイト。
-/// このトレイトを実装し、[`crate::register_module_plugin!`] マクロを使用してプラグインを登録します。
+/// このトレイトを実装し、[`crate::register_script_module!`] マクロを使用してプラグインを登録します。
 pub trait ScriptModule: Sized + Send + Sync + 'static + ScriptModuleFunctions {
     /// プラグインを初期化する。
     fn new(info: AviUtl2Info) -> AnyResult<Self>;

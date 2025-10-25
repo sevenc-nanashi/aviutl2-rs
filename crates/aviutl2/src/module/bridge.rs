@@ -87,12 +87,12 @@ extern "C" fn unreachable_function(_: *mut aviutl2_sys::module2::SCRIPT_MODULE_P
     unreachable!("This function should never be called");
 }
 
-/// スクリプトモジュールプラグインを登録するマクロ。
+/// スクリプトモジュールを登録するマクロ。
 #[macro_export]
-macro_rules! register_module_plugin {
+macro_rules! register_script_module {
     ($struct:ident) => {
         #[doc(hidden)]
-        mod __au2_register_module_plugin {
+        mod __au2_register_script_module {
             use super::$struct;
             use $crate::module::ScriptModule as _;
 

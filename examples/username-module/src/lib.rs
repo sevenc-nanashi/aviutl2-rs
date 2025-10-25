@@ -25,4 +25,4 @@ impl UsernameModule {
     }
 }
 
-aviutl2::register_module_plugin!(UsernameModule);
+aviutl2::register_script_module!(UsernameModule);

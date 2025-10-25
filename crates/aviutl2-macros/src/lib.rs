@@ -218,8 +218,8 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 /// 関数の引数を手動で処理する関数として登録します。
 /// 関数のシグネチャは以下のようになります。
 ///
-/// ```rust,ignore
-/// fn function_name(params: &aviutl2::module::ScriptModuleCallHandle) { ... }
+/// ```rust
+/// fn function_name(params: &aviutl2::module::ScriptModuleCallHandle) { /* ... */ }
 /// ```
 ///
 /// # Example
