@@ -14,5 +14,5 @@
 pub mod common;
 pub mod filter2;
 pub mod input2;
-pub mod output2;
 pub mod module2;
+pub mod output2;

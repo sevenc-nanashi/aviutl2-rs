@@ -1,8 +1,8 @@
-# Rusty Chiptune Filter
+# Rusty Username Module
 
-フィルタプラグインのサンプルです。
+スクリプトモジュールのサンプルです。
 チップチューンで使われるような音を実装しています。
 
 ## インストール
 
-`C:\ProgramData\aviutl2\Plugin` に `rusty_chiptune.auf2` を配置してください。
+`C:\ProgramData\aviutl2\Script` に `rusty_username.mod2` を配置してください。

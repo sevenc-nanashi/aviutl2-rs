@@ -83,8 +83,7 @@ pub struct SCRIPT_MODULE_PARAM {
     /// # Returns
     ///
     /// 引数の値 (取得出来ない場合は0)
-    pub get_param_table_double:
-        unsafe extern "C" fn(index: c_int, key: *const c_char) -> c_double,
+    pub get_param_table_double: unsafe extern "C" fn(index: c_int, key: *const c_char) -> c_double,
 
     /// 引数の連想配列要素を文字列(UTF-8)で取得する
     ///
