@@ -35,7 +35,12 @@ pub mod output;
 #[cfg(feature = "filter")]
 pub mod filter;
 
+#[doc(hidden)]
+#[path = "internal_base.rs"]
+pub mod __internal_base;
+
 pub mod common;
 pub mod utils;
 pub use anyhow;
 pub use common::*;
+pub use aviutl2_macros::plugin;
