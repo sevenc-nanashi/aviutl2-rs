@@ -35,7 +35,7 @@ pub trait ScriptModuleFunctions: Sized + Send + Sync + 'static {
     fn functions() -> Vec<ModuleFunction>;
 
     #[doc(hidden)]
-    fn __internal_setup_pluin_handle(
+    fn __internal_setup_plugin_handle(
         handle: std::sync::Arc<
             std::sync::RwLock<Option<crate::module::__bridge::InternalScriptModuleState<Self>>>,
         >,

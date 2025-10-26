@@ -59,7 +59,7 @@ pub fn module_functions(
                     functions
                 }
 
-                fn __internal_setup_pluin_handle(
+                fn __internal_setup_plugin_handle(
                     handle: ::std::sync::Arc<
                         ::std::sync::RwLock<
                             Option<

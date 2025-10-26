@@ -37,7 +37,7 @@ pub unsafe fn initialize_plugin<T: ScriptModule>(
             return false;
         }
     };
-    T::__internal_setup_pluin_handle(std::sync::Arc::clone(plugin_state));
+    T::__internal_setup_plugin_handle(std::sync::Arc::clone(plugin_state));
     let plugin = InternalScriptModuleState::new(internal);
     *plugin_state.write().unwrap() = Some(plugin);
 
