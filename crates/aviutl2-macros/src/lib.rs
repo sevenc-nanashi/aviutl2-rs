@@ -240,6 +240,14 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 ///         a + b
 ///     }
 ///
+///     fn return_overload(a: i32) -> impl aviutl2::module::ToScriptModuleReturnValue {
+///         if a % 2 == 0 {
+///             return "Even".to_string().to_values();
+///         } else {
+///             return ("Odd", a).to_values();
+///         }
+///     }
+///
 ///     #[direct]
 ///     fn direct_sum(params: &aviutl2::module::ScriptModuleCallHandle) {
 ///         let a: i32 = params.get_param(0).unwrap_or(0);

@@ -32,10 +32,10 @@ pub fn to_script_module_return_value(
 
     let expanded = quote::quote! {
         impl ::aviutl2::module::ToScriptModuleReturnValue for #ident {
-            fn push_value(&self, param: &::aviutl2::module::ScriptModuleCallHandle) {
+            fn to_return_values(&self) -> Vec<::aviutl2::module::ScriptModuleReturnValue> {
                 let mut map = ::std::collections::HashMap::new();
                 #(#push_fields)*
-                param.push_result(&map);
+                ::aviutl2::module::ToScriptModuleReturnValue::to_return_values(&map)
             }
         }
     };

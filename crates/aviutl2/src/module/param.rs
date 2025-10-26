@@ -524,6 +524,20 @@ impl<'a, T: FromScriptModuleParamTable<'a>> FromScriptModuleParamTable<'a> for O
     }
 }
 
+/// スクリプトモジュールの関数の戻り値の型を表す列挙型。
+#[derive(Debug, Clone)]
+pub enum ScriptModuleReturnValue {
+    Int(i32),
+    Float(f64),
+    String(String),
+    StringArray(Vec<String>),
+    IntArray(Vec<i32>),
+    FloatArray(Vec<f64>),
+    IntTable(std::collections::HashMap<String, i32>),
+    FloatTable(std::collections::HashMap<String, f64>),
+    StringTable(std::collections::HashMap<String, String>),
+}
+
 /// 関数の戻り値として使える型。
 ///
 /// # Note
@@ -531,47 +545,93 @@ impl<'a, T: FromScriptModuleParamTable<'a>> FromScriptModuleParamTable<'a> for O
 /// この関数はDeriveマクロを使用して実装することもできます。
 /// 詳細は[`derive@ToScriptModuleReturnValue`]のドキュメントを参照してください。
 pub trait ToScriptModuleReturnValue {
-    fn push_value(&self, param: &ScriptModuleCallHandle);
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue>;
+    fn push_value(&self, param: &ScriptModuleCallHandle) {
+        for value in self.to_return_values() {
+            match value {
+                ScriptModuleReturnValue::Int(v) => param.push_result_int(v),
+                ScriptModuleReturnValue::Float(v) => param.push_result_float(v),
+                ScriptModuleReturnValue::String(v) => param.push_result_str(&v),
+                ScriptModuleReturnValue::StringArray(v) => {
+                    let strs: Vec<&str> = v.iter().map(|s| s.as_str()).collect();
+                    param.push_result_array_str(&strs)
+                }
+                ScriptModuleReturnValue::IntArray(v) => param.push_result_array_int(&v),
+                ScriptModuleReturnValue::FloatArray(v) => param.push_result_array_float(&v),
+                ScriptModuleReturnValue::IntTable(v) => {
+                    let table = v.iter().map(|(k, v)| (k.as_str(), *v));
+                    param.push_result_table_int(table)
+                }
+                ScriptModuleReturnValue::FloatTable(v) => {
+                    let table = v.iter().map(|(k, v)| (k.as_str(), *v));
+                    param.push_result_table_float(table)
+                }
+                ScriptModuleReturnValue::StringTable(v) => {
+                    let table = v.iter().map(|(k, v)| (k.as_str(), v.as_str()));
+                    param.push_result_table_str(table)
+                }
+            }
+        }
+    }
 }
 pub use aviutl2_macros::ToScriptModuleReturnValue;
 
 impl ToScriptModuleReturnValue for i32 {
-    fn push_value(&self, param: &ScriptModuleCallHandle) {
-        param.push_result_int(*self);
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        vec![ScriptModuleReturnValue::Int(*self)]
     }
 }
 impl ToScriptModuleReturnValue for f64 {
-    fn push_value(&self, param: &ScriptModuleCallHandle) {
-        param.push_result_float(*self);
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        vec![ScriptModuleReturnValue::Float(*self)]
     }
 }
 impl ToScriptModuleReturnValue for &str {
-    fn push_value(&self, param: &ScriptModuleCallHandle) {
-        param.push_result_str(self);
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        vec![ScriptModuleReturnValue::String(self.to_string())]
     }
 }
 impl ToScriptModuleReturnValue for String {
-    fn push_value(&self, param: &ScriptModuleCallHandle) {
-        param.push_result_str(self);
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        vec![ScriptModuleReturnValue::String(self.clone())]
     }
 }
+
+impl ToScriptModuleReturnValue for ScriptModuleReturnValue {
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        vec![self.clone()]
+    }
+}
+
+impl ToScriptModuleReturnValue for Vec<ScriptModuleReturnValue> {
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        self.clone()
+    }
+}
+
 impl<T: ToScriptModuleReturnValue> ToScriptModuleReturnValue for Option<T> {
-    fn push_value(&self, param: &ScriptModuleCallHandle) {
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
         if let Some(value) = self {
-            value.push_value(param);
+            value.to_return_values()
+        } else {
+            Vec::new()
         }
     }
 }
 impl<T: ToScriptModuleReturnValue, const N: usize> ToScriptModuleReturnValue for [T; N] {
-    fn push_value(&self, param: &ScriptModuleCallHandle) {
-        for value in self.iter() {
-            value.push_value(param);
-        }
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        self.iter().flat_map(|v| v.to_return_values()).collect()
     }
 }
 impl<T: ToScriptModuleReturnValue, E: std::error::Error> ToScriptModuleReturnValue
     for Result<T, E>
 {
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        match self {
+            Ok(value) => value.to_return_values(),
+            Err(_) => Vec::new(),
+        }
+    }
     fn push_value(&self, param: &ScriptModuleCallHandle) {
         match self {
             Ok(value) => value.push_value(param),
@@ -584,54 +644,52 @@ impl<T: ToScriptModuleReturnValue, E: std::error::Error> ToScriptModuleReturnVal
 
 #[impl_trait_for_tuples::impl_for_tuples(10)]
 impl ToScriptModuleReturnValue for Tuple {
-    fn push_value(&self, param: &ScriptModuleCallHandle) {
+    #[allow(clippy::let_and_return)]
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        let mut vec = Vec::new();
         for_tuples!(#(
-            Tuple.push_value(param);
+            vec.extend(Tuple.to_return_values());
         )*);
+        vec
     }
 }
 
 impl ToScriptModuleReturnValue for Vec<String> {
-    fn push_value(&self, param: &ScriptModuleCallHandle) {
-        let strings: Vec<&str> = self.iter().map(|s| s.as_str()).collect();
-        param.push_result_array_str(&strings);
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        vec![ScriptModuleReturnValue::StringArray(self.clone())]
     }
 }
 impl ToScriptModuleReturnValue for Vec<&str> {
-    fn push_value(&self, param: &ScriptModuleCallHandle) {
-        let values: Vec<&str> = self.to_vec();
-        param.push_result_array_str(&values);
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        vec![ScriptModuleReturnValue::StringArray(
+            self.iter().map(|s| s.to_string()).collect(),
+        )]
     }
 }
 impl ToScriptModuleReturnValue for Vec<i32> {
-    fn push_value(&self, param: &ScriptModuleCallHandle) {
-        let values: Vec<i32> = self.to_vec();
-        param.push_result_array_int(&values);
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        vec![ScriptModuleReturnValue::IntArray(self.clone())]
     }
 }
 impl ToScriptModuleReturnValue for Vec<f64> {
-    fn push_value(&self, param: &ScriptModuleCallHandle) {
-        let values: Vec<f64> = self.to_vec();
-        param.push_result_array_float(&values);
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        vec![ScriptModuleReturnValue::FloatArray(self.clone())]
     }
 }
 
 impl ToScriptModuleReturnValue for std::collections::HashMap<String, i32> {
-    fn push_value(&self, param: &ScriptModuleCallHandle) {
-        let table = self.iter().map(|(k, v)| (k.as_str(), *v));
-        param.push_result_table_int(table);
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        vec![ScriptModuleReturnValue::IntTable(self.clone())]
     }
 }
 impl ToScriptModuleReturnValue for std::collections::HashMap<String, f64> {
-    fn push_value(&self, param: &ScriptModuleCallHandle) {
-        let table = self.iter().map(|(k, v)| (k.as_str(), *v));
-        param.push_result_table_float(table);
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        vec![ScriptModuleReturnValue::FloatTable(self.clone())]
     }
 }
 impl ToScriptModuleReturnValue for std::collections::HashMap<String, String> {
-    fn push_value(&self, param: &ScriptModuleCallHandle) {
-        let table = self.iter().map(|(k, v)| (k.as_str(), v.as_str()));
-        param.push_result_table_str(table);
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        vec![ScriptModuleReturnValue::StringTable(self.clone())]
     }
 }
 
