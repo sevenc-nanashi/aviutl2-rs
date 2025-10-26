@@ -80,6 +80,15 @@ impl ScriptModuleCallHandle {
         }
     }
 
+    /// 引数をブール値として取得する。
+    ///
+    /// # Note
+    ///
+    /// 引数を取得できない場合は`false`を返します。
+    pub fn get_param_boolean(&self, index: usize) -> bool {
+        unsafe { ((*self.internal).get_param_boolean)(index as i32) }
+    }
+
     /// 引数のテーブルの要素を整数として取得する。
     ///
     /// # Note
@@ -287,6 +296,13 @@ impl ScriptModuleCallHandle {
             );
         }
     }
+
+    /// 関数の返り値にブール値を追加する。
+    pub fn push_result_boolean(&self, value: bool) {
+        unsafe {
+            ((*self.internal).push_result_boolean)(value);
+        }
+    }
 }
 impl From<*mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM> for ScriptModuleCallHandle {
     fn from(ptr: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM) -> Self {
@@ -318,6 +334,15 @@ impl<'a> FromScriptModuleParam<'a> for f64 {
     fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
         if index < param.len() {
             Some(param.get_param_float(index))
+        } else {
+            None
+        }
+    }
+}
+impl<'a> FromScriptModuleParam<'a> for bool {
+    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
+        if index < param.len() {
+            Some(param.get_param_boolean(index))
         } else {
             None
         }
@@ -530,6 +555,7 @@ pub enum ScriptModuleReturnValue {
     Int(i32),
     Float(f64),
     String(String),
+    Boolean(bool),
     StringArray(Vec<String>),
     IntArray(Vec<i32>),
     FloatArray(Vec<f64>),
@@ -552,6 +578,7 @@ pub trait ToScriptModuleReturnValue {
                 ScriptModuleReturnValue::Int(v) => param.push_result_int(v),
                 ScriptModuleReturnValue::Float(v) => param.push_result_float(v),
                 ScriptModuleReturnValue::String(v) => param.push_result_str(&v),
+                ScriptModuleReturnValue::Boolean(v) => param.push_result_boolean(v),
                 ScriptModuleReturnValue::StringArray(v) => {
                     let strs: Vec<&str> = v.iter().map(|s| s.as_str()).collect();
                     param.push_result_array_str(&strs)
@@ -584,6 +611,11 @@ impl ToScriptModuleReturnValue for i32 {
 impl ToScriptModuleReturnValue for f64 {
     fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
         vec![ScriptModuleReturnValue::Float(*self)]
+    }
+}
+impl ToScriptModuleReturnValue for bool {
+    fn to_return_values(&self) -> Vec<ScriptModuleReturnValue> {
+        vec![ScriptModuleReturnValue::Boolean(*self)]
     }
 }
 impl ToScriptModuleReturnValue for &str {

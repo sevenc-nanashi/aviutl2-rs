@@ -234,6 +234,24 @@ pub struct SCRIPT_MODULE_PARAM {
     ///
     /// * `message` - エラーメッセージ(UTF-8)
     pub set_error: unsafe extern "C" fn(message: *const c_char),
+
+    /// 引数をブール値で取得する
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - 引数の位置(0〜)
+    ///
+    /// # Returns
+    ///
+    /// 引数の値 (取得出来ない場合はfalse)
+    pub get_param_boolean: unsafe extern "C" fn(index: c_int) -> bool,
+
+    /// ブール値の戻り値を追加する
+    ///
+    /// # Arguments
+    ///
+    /// * `value` - 戻り値
+    pub push_result_boolean: unsafe extern "C" fn(value: bool),
 }
 
 /// スクリプトモジュール関数定義構造体
