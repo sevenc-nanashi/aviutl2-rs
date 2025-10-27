@@ -52,8 +52,8 @@ pub unsafe fn uninitialize_plugin<T: ScriptModuleSingleton>() {
     *plugin_state.write().unwrap() = None;
 }
 
-pub unsafe fn create_table<T: ScriptModuleSingleton>() -> *mut aviutl2_sys::module2::SCRIPT_MODULE_TABLE
-{
+pub unsafe fn create_table<T: ScriptModuleSingleton>()
+-> *mut aviutl2_sys::module2::SCRIPT_MODULE_TABLE {
     let plugin_state_lock = T::__get_singleton_state();
     let plugin_state = plugin_state_lock.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
