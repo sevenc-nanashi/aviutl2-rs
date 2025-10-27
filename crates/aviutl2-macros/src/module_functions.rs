@@ -192,6 +192,8 @@ fn create_bridge(
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
 
     #[test]
@@ -204,7 +206,7 @@ mod tests {
             }
         };
         let output = module_functions(input).unwrap();
-        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+        insta::assert_snapshot!(format_tokens(output));
     }
 
     #[test]
@@ -217,7 +219,7 @@ mod tests {
             }
         };
         let output = module_functions(input).unwrap();
-        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+        insta::assert_snapshot!(format_tokens(output));
     }
 
     #[test]
@@ -231,7 +233,7 @@ mod tests {
             }
         };
         let output = module_functions(input).unwrap();
-        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+        insta::assert_snapshot!(format_tokens(output));
     }
 
     #[test]
@@ -245,6 +247,18 @@ mod tests {
             }
         };
         let output = module_functions(input).unwrap();
-        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+        insta::assert_snapshot!(format_tokens(output));
+    }
+
+    fn format_tokens(tokens: proc_macro2::TokenStream) -> String {
+        // マクロだと rustfmt がうまく動かないので、フォーマットできるように置換する
+        let replaced = tokens
+            .to_string()
+            .replace(":: aviutl2 :: __internal_module !", "mod __internal_module");
+        let replaced = proc_macro2::TokenStream::from_str(&replaced).unwrap();
+        let formatted = rustfmt_wrapper::rustfmt(replaced).unwrap();
+        // 元に戻す
+        formatted
+            .replace("mod __internal_module", "::aviutl2::__internal_module!")
     }
 }

@@ -1,19 +1,11 @@
 ---
 source: crates/aviutl2-macros/src/module_functions.rs
-expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
+expression: format_tokens(output)
 ---
 impl MyModule {
     fn my_function() {}
 }
-mod __aviutl2_internal_module_functions {
-    use super::*;
-    static HANDLE: ::std::sync::OnceLock<
-        ::std::sync::Arc<
-            ::std::sync::RwLock<
-                Option<::aviutl2::module::__bridge::InternalScriptModuleState<MyModule>>,
-            >,
-        >,
-    > = ::std::sync::OnceLock::new();
+::aviutl2::__internal_module! {
     impl ::aviutl2::module::ScriptModuleFunctions for MyModule {
         fn functions() -> Vec<::aviutl2::module::ModuleFunction> {
             let mut functions = Vec::new();
@@ -22,35 +14,6 @@ mod __aviutl2_internal_module_functions {
                 func: <MyModule>::__aviutl2_internal_module_function_my_function,
             });
             functions
-        }
-        fn __internal_setup_plugin_handle(
-            handle: ::std::sync::Arc<
-                ::std::sync::RwLock<
-                    Option<::aviutl2::module::__bridge::InternalScriptModuleState<MyModule>>,
-                >,
-            >,
-        ) where
-            Self: ::aviutl2::module::ScriptModule,
-        {
-            match HANDLE.set(handle) {
-                Ok(_) => {}
-                Err(_) => {
-                    panic!(
-                        "Plugin handle has already been set for {}",
-                        stringify!(MyModule)
-                    )
-                }
-            }
-        }
-        fn __internal_get_plugin_handle() -> ::std::sync::Arc<
-            ::std::sync::RwLock<
-                Option<::aviutl2::module::__bridge::InternalScriptModuleState<MyModule>>,
-            >,
-        >
-        where
-            Self: ::aviutl2::module::ScriptModule,
-        {
-            HANDLE.get().unwrap().clone()
         }
     }
     impl MyModule {
