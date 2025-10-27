@@ -60,6 +60,7 @@ impl Synthesizer {
     }
 }
 
+#[aviutl2::plugin(FilterPlugin)]
 struct ChiptuneFilter {
     synthesizers: std::sync::RwLock<
         std::collections::HashMap<i64, std::sync::Arc<std::sync::Mutex<Synthesizer>>>,

@@ -119,10 +119,35 @@ impl<T: Send + Sync + FilterPlugin> InternalFilterPluginState<T> {
         }
     }
 }
-pub unsafe fn initialize_plugin<T: FilterPlugin>(
+
+fn update_configs<T: Send + Sync + FilterPlugin>(
     plugin_state: &std::sync::RwLock<Option<InternalFilterPluginState<T>>>,
-    version: u32,
-) -> bool {
+) {
+    // AviUtl2 -> aviutl2-rsの設定の反映は2回行っても特に問題ないはずなので、
+    // read()ロックをアップグレードしてロックが途切れないようにするといった
+    // 高等テクニックは使わない。
+    let plugin_lock = plugin_state.read().unwrap();
+    let plugin = plugin_lock.as_ref().expect("Plugin not initialized");
+    if plugin.should_apply_configs() {
+        drop(plugin_lock);
+        plugin_state
+            .write()
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .apply_configs();
+    }
+}
+
+pub trait FilterSingleton
+where
+    Self: 'static + Send + Sync + FilterPlugin,
+{
+    fn get_singleton_state() -> &'static std::sync::RwLock<Option<InternalFilterPluginState<Self>>>;
+}
+
+pub fn initialize_plugin<T: FilterSingleton>(version: u32) -> bool {
+    let plugin_state = T::get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
     };
@@ -139,12 +164,15 @@ pub unsafe fn initialize_plugin<T: FilterPlugin>(
 
     true
 }
-
-pub unsafe fn create_table<T: FilterPlugin>(
-    plugin_state: &mut InternalFilterPluginState<T>,
-    func_proc_video: extern "C" fn(video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO) -> bool,
-    func_proc_audio: extern "C" fn(audio: *mut aviutl2_sys::filter2::FILTER_PROC_AUDIO) -> bool,
-) -> aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
+pub fn uninitialize_plugin<T: FilterSingleton>() {
+    let plugin_state = T::get_singleton_state();
+    let mut plugin_state = plugin_state.write().unwrap();
+    *plugin_state = None;
+}
+pub fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
+    let plugin_state = T::get_singleton_state();
+    let mut plugin_state = plugin_state.write().unwrap();
+    let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
     let plugin_info = &plugin_state.plugin_info;
 
     let name = if cfg!(debug_assertions) {
@@ -188,7 +216,7 @@ pub unsafe fn create_table<T: FilterPlugin>(
     );
 
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
-    aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
+    let table = aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
         flag,
         name: plugin_state.global_leak_manager.leak_as_wide_string(&name),
         information: plugin_state
@@ -198,14 +226,21 @@ pub unsafe fn create_table<T: FilterPlugin>(
             plugin_state.global_leak_manager.leak_as_wide_string(s)
         }),
         items: config_items as _,
-        func_proc_video: Some(func_proc_video),
-        func_proc_audio: Some(func_proc_audio),
-    }
+        func_proc_video: Some(func_proc_video::<T>),
+        func_proc_audio: Some(func_proc_audio::<T>),
+    };
+    let table = Box::new(table);
+    Box::leak(table)
 }
-pub unsafe fn func_proc_video<T: FilterPlugin>(
-    plugin_state: &InternalFilterPluginState<T>,
+
+extern "C" fn func_proc_video<T: FilterSingleton>(
     video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
 ) -> bool {
+    let plugin_lock = T::get_singleton_state();
+    update_configs::<T>(plugin_lock);
+    let plugin_state = plugin_lock.read().unwrap();
+    let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
+
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let mut video = unsafe { FilterProcVideo::from_raw(video) };
@@ -215,10 +250,13 @@ pub unsafe fn func_proc_video<T: FilterPlugin>(
     }
     true
 }
-pub unsafe fn func_proc_audio<T: FilterPlugin>(
-    plugin_state: &InternalFilterPluginState<T>,
+extern "C" fn func_proc_audio<T: FilterSingleton>(
     audio: *mut aviutl2_sys::filter2::FILTER_PROC_AUDIO,
 ) -> bool {
+    let plugin_lock = T::get_singleton_state();
+    update_configs::<T>(plugin_lock);
+    let plugin_state = plugin_lock.read().unwrap();
+    let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let mut audio = unsafe { FilterProcAudio::from_raw(audio) };
@@ -233,94 +271,21 @@ pub unsafe fn func_proc_audio<T: FilterPlugin>(
 #[macro_export]
 macro_rules! register_filter_plugin {
     ($struct:ident) => {
-        #[doc(hidden)]
-        mod __au2_register_filter_plugin {
-            use super::$struct;
-            use $crate::filter::FilterPlugin;
-
-            static PLUGIN: std::sync::LazyLock<
-                std::sync::RwLock<
-                    Option<$crate::filter::__bridge::InternalFilterPluginState<$struct>>,
-                >,
-            > = std::sync::LazyLock::new(|| std::sync::RwLock::new(None));
-
+        ::aviutl2::internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                unsafe { $crate::filter::__bridge::initialize_plugin(&PLUGIN, version) }
+                $crate::filter::__bridge::initialize_plugin::<$struct>(version)
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                *PLUGIN.write().unwrap() = None;
+                $crate::filter::__bridge::uninitialize_plugin::<$struct>()
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetFilterPluginTable()
             -> *mut aviutl2::sys::filter2::FILTER_PLUGIN_TABLE {
-                let table = unsafe {
-                    $crate::filter::__bridge::create_table::<$struct>(
-                        &mut PLUGIN
-                            .write()
-                            .unwrap()
-                            .as_mut()
-                            .expect("Plugin not initialized"),
-                        func_proc_video,
-                        func_proc_audio,
-                    )
-                };
-                Box::into_raw(Box::new(table))
-            }
-
-            extern "C" fn func_proc_audio(
-                video: *mut aviutl2::sys::filter2::FILTER_PROC_AUDIO,
-            ) -> bool {
-                unsafe {
-                    {
-                        // AviUtl2 -> aviutl2-rsの設定の反映は2回行っても特に問題ないはずなので、
-                        // read()ロックをアップグレードしてロックが途切れないようにするといった
-                        // 高等テクニックは使わない。
-                        let plugin_lock = PLUGIN.read().unwrap();
-                        let plugin = plugin_lock.as_ref().expect("Plugin not initialized");
-                        if plugin.should_apply_configs() {
-                            drop(plugin_lock);
-                            PLUGIN.write().unwrap().as_mut().unwrap().apply_configs();
-                        }
-                    }
-                    $crate::filter::__bridge::func_proc_audio(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        video,
-                    )
-                }
-            }
-
-            extern "C" fn func_proc_video(
-                video: *mut aviutl2::sys::filter2::FILTER_PROC_VIDEO,
-            ) -> bool {
-                unsafe {
-                    {
-                        // AviUtl2 -> aviutl2-rsの設定の反映は2回行っても特に問題ないはずなので、
-                        // read()ロックをアップグレードしてロックが途切れないようにするといった
-                        // 高等テクニックは使わない。
-                        let plugin_lock = PLUGIN.read().unwrap();
-                        let plugin = plugin_lock.as_ref().expect("Plugin not initialized");
-                        if plugin.should_apply_configs() {
-                            drop(plugin_lock);
-                            PLUGIN.write().unwrap().as_mut().unwrap().apply_configs();
-                        }
-                    }
-                    $crate::filter::__bridge::func_proc_video(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        video,
-                    )
-                }
+                $crate::filter::__bridge::create_table::<$struct>()
             }
         }
     };

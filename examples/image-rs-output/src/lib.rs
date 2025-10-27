@@ -1,9 +1,7 @@
 use anyhow::Context;
-use aviutl2::{
-    output::{OutputPlugin, Pa64VideoFrame},
-    register_output_plugin,
-};
+use aviutl2::output::{OutputPlugin, Pa64VideoFrame};
 
+#[aviutl2::plugin(OutputPlugin)]
 struct ImageRsOutputPlugin;
 
 impl ImageRsOutputPlugin {
@@ -102,4 +100,4 @@ impl OutputPlugin for ImageRsOutputPlugin {
     }
 }
 
-register_output_plugin!(ImageRsOutputPlugin);
+aviutl2::register_output_plugin!(ImageRsOutputPlugin);

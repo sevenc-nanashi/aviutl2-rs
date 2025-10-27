@@ -77,6 +77,7 @@ impl EqStates {
     }
 }
 
+#[aviutl2::plugin(FilterPlugin)]
 struct EqualizerFilter {
     q_states: std::sync::RwLock<
         std::collections::HashMap<i64, std::sync::Arc<std::sync::Mutex<EqStates>>>,

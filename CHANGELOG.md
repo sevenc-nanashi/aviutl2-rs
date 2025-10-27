@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Breaking:** AviUtl2Version::newの引数をu32からu8に変更
+- **Breaking:** プラグイン定義に`#[aviutl2::plugin(...)]`属性を必須化
 
 ### デモプラグイン
 

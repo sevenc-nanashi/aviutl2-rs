@@ -2,8 +2,8 @@ use aviutl2::input::{
     AnyResult, ImageReturner, InputInfo, InputPixelFormat, InputPlugin, InputPluginTable,
     VideoInputInfo, f16,
 };
-use aviutl2::register_input_plugin;
 
+#[aviutl2::plugin(InputPlugin)]
 struct PixelFormatTestPlugin;
 
 #[derive(Clone)]
@@ -182,4 +182,4 @@ impl InputPlugin for PixelFormatTestPlugin {
     }
 }
 
-register_input_plugin!(PixelFormatTestPlugin);
+aviutl2::register_input_plugin!(PixelFormatTestPlugin);
