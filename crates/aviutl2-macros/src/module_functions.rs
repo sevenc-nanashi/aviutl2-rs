@@ -152,52 +152,58 @@ fn create_bridge(
                 }
             } else {
                 let params = &method.sig.inputs;
-                let param_bridges = params.iter().enumerate().map(|(i, param)| {
-                match param {
-                    syn::FnArg::Receiver(r) => {
-                        if r.reference.is_none() {
-                            return Err(syn::Error::new_spanned(
-                                r,
-                                "method receiver must be a reference",
-                            )
-                            .to_compile_error());
-                        }
-                        if r.mutability.is_some() {
-                            return Err(syn::Error::new_spanned(
-                                r,
-                                "method receiver must be an immutable reference",
-                            )
-                            .to_compile_error());
-                        }
+                // Separate receiver and non-receiver parameters
+                let mut param_bridges = Vec::new();
+                let mut param_index = 0;
+                for param in params.iter() {
+                    match param {
+                        syn::FnArg::Receiver(r) => {
+                            if r.reference.is_none() {
+                                return Err(syn::Error::new_spanned(
+                                    r,
+                                    "method receiver must be a reference",
+                                )
+                                .to_compile_error());
+                            }
+                            if r.mutability.is_some() {
+                                return Err(syn::Error::new_spanned(
+                                    r,
+                                    "method receiver must be an immutable reference",
+                                )
+                                .to_compile_error());
+                            }
 
-                        Ok(quote::quote! {
-                            let __internal_self = &<#impl_token as ::aviutl2::module::ScriptModuleFunctions>::__internal_get_plugin_handle();
-                            let __internal_self = __internal_self
-                                .read()
-                                .expect("Plugin handle is not initialized");
-                            let __internal_self = &__internal_self
-                                .as_ref()
-                                .expect("Plugin instance is not initialized")
-                                .instance;
-                        })
-                    }
-                    syn::FnArg::Typed(pat_type) => {
-                        let ty = &pat_type.ty;
-                        let pat = &pat_type.pat;
-                        Ok(quote::quote! {
-                            let #pat: #ty = match <#ty as ::aviutl2::module::FromScriptModuleParam>::from_param(&params, #i) {
-                                ::std::option::Option::Some(value) => value,
-                                ::std::option::Option::None => {
-                                    params.set_error(&format!(
-                                        "Failed to convert parameter #{} to {}", #i, stringify!(#ty)
-                                    ));
-                                    return;
-                                }
-                            };
-                        })
+                            param_bridges.push(Ok(quote::quote! {
+                                let __internal_self = &<#impl_token as ::aviutl2::module::ScriptModuleFunctions>::__internal_get_plugin_handle();
+                                let __internal_self = __internal_self
+                                    .read()
+                                    .expect("Plugin handle is not initialized");
+                                let __internal_self = &__internal_self
+                                    .as_ref()
+                                    .expect("Plugin instance is not initialized")
+                                    .instance;
+                            }));
+                        }
+                        syn::FnArg::Typed(pat_type) => {
+                            let ty = &pat_type.ty;
+                            let pat = &pat_type.pat;
+                            let idx = param_index;
+                            param_bridges.push(Ok(quote::quote! {
+                                let #pat: #ty = match <#ty as ::aviutl2::module::FromScriptModuleParam>::from_param(&params, #idx) {
+                                    ::std::option::Option::Some(value) => value,
+                                    ::std::option::Option::None => {
+                                        params.set_error(&format!(
+                                            "Failed to convert parameter #{} to {}", #idx, stringify!(#ty)
+                                        ));
+                                        return;
+                                    }
+                                };
+                            }));
+                            param_index += 1;
+                        }
                     }
                 }
-            }).collect::<Result<Vec<_>, _>>()?;
+                let param_bridges = param_bridges.into_iter().collect::<Result<Vec<_>, _>>()?;
                 let param_names = params.iter().map(|param| match param {
                     syn::FnArg::Receiver(_) => quote::quote! { __internal_self },
                     syn::FnArg::Typed(pat_type) => {
