@@ -10,12 +10,9 @@ use crate::{
     presets::PRESETS,
 };
 use anyhow::Context;
-use aviutl2::{
-    output::{
-        BorrowedRawBgrVideoFrame, BorrowedRawHf64VideoFrame, BorrowedRawPa64VideoFrame,
-        BorrowedRawYuy2VideoFrame, OutputPlugin,
-    },
-    register_output_plugin,
+use aviutl2::output::{
+    BorrowedRawBgrVideoFrame, BorrowedRawHf64VideoFrame, BorrowedRawPa64VideoFrame,
+    BorrowedRawYuy2VideoFrame, OutputPlugin,
 };
 use eframe::egui;
 use std::{
@@ -33,6 +30,7 @@ fn create_send_only_named_pipe(name: &str) -> anyhow::Result<(String, NamedPipe)
     Ok((pipe_name, pipe))
 }
 
+#[aviutl2::plugin(OutputPlugin)]
 struct FfmpegOutputPlugin {
     config: Mutex<FfmpegOutputConfig>,
 }
@@ -555,4 +553,4 @@ fn pipe_thread<F: Read + Send + 'static>(
     Ok(())
 }
 
-register_output_plugin!(FfmpegOutputPlugin);
+aviutl2::register_output_plugin!(FfmpegOutputPlugin);

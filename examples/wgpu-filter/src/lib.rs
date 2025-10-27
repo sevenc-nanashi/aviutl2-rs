@@ -19,6 +19,7 @@ struct FilterConfig {
     height: u32,
 }
 
+#[aviutl2::plugin(FilterPlugin)]
 struct WgpuFilter {
     device: wgpu::Device,
     queue: wgpu::Queue,

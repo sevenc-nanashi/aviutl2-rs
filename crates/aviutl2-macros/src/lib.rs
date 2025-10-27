@@ -5,9 +5,14 @@
 
 mod filter_config_items;
 mod filter_config_select_items;
+<<<<<<< HEAD
 mod from_script_module_param;
 mod module_functions;
 mod to_script_module_return_value;
+||||||| 5cfae63
+=======
+mod plugin;
+>>>>>>> main
 mod utils;
 
 /// `FilterConfigItems` を自動で実装するためのマクロ。
@@ -312,6 +317,47 @@ pub fn from_script_module_param(item: proc_macro::TokenStream) -> proc_macro::To
 #[proc_macro_derive(ToScriptModuleReturnValue)]
 pub fn to_script_module_return_value(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     to_script_module_return_value::to_script_module_return_value(item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// プラグインを定義するためのマクロ。
+///
+/// # Attributes
+///
+/// - 引数には`InputPlugin`、`OutputPlugin`、`FilterPlugin`のいずれかを指定します。
+///
+/// # Example
+///
+/// ```rust
+/// #[aviutl2::plugin(OutputPlugin)]
+/// struct MyOutputPlugin;
+///
+/// impl aviutl2::output::OutputPlugin for MyOutputPlugin {
+///     // ...
+/// #   fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #       todo!()
+/// #   }
+/// #
+/// #   fn plugin_info(&self) -> aviutl2::output::OutputPluginTable {
+/// #       todo!()
+/// #   }
+/// #
+/// #   fn output(&self, info: aviutl2::output::OutputInfo) -> aviutl2::AnyResult<()> {
+/// #       todo!()
+/// #   }
+/// }
+///
+/// aviutl2::register_output_plugin!(MyOutputPlugin);
+///
+/// # fn main() {}
+/// ```
+#[proc_macro_attribute]
+pub fn plugin(
+    attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    plugin::plugin(attr.into(), item.into())
         .unwrap_or_else(|e| e)
         .into()
 }

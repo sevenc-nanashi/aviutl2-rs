@@ -5,7 +5,7 @@ use crate::{
     output::{FromRawAudioSamples, OutputInfo, OutputPlugin},
 };
 
-use aviutl2_sys::common::{LPCWSTR, WAVE_FORMAT_IEEE_FLOAT, WAVE_FORMAT_PCM};
+use aviutl2_sys::common::{WAVE_FORMAT_IEEE_FLOAT, WAVE_FORMAT_PCM};
 
 pub struct InternalOutputPluginState<T: Send + Sync + OutputPlugin> {
     leak_manager: LeakManager,
@@ -51,10 +51,8 @@ impl FromRawAudioSamples for i16 {
     }
 }
 
-pub unsafe fn initialize_plugin<T: OutputPlugin>(
-    plugin_state: &std::sync::RwLock<Option<InternalOutputPluginState<T>>>,
-    version: u32,
-) -> bool {
+pub fn initialize_plugin<T: OutputSingleton>(version: u32) -> bool {
+    let plugin_state = T::get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
     };
@@ -72,12 +70,16 @@ pub unsafe fn initialize_plugin<T: OutputPlugin>(
     true
 }
 
-pub unsafe fn create_table<T: OutputPlugin>(
-    plugin_state: &InternalOutputPluginState<T>,
-    func_output: extern "C" fn(*mut aviutl2_sys::output2::OUTPUT_INFO) -> bool,
-    func_config: extern "C" fn(aviutl2_sys::output2::HWND, aviutl2_sys::output2::HINSTANCE) -> bool,
-    func_get_config_text: extern "C" fn() -> LPCWSTR,
-) -> aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
+pub fn uninitialize_plugin<T: OutputSingleton>() {
+    let plugin_state = T::get_singleton_state();
+    let mut plugin_state = plugin_state.write().unwrap();
+    *plugin_state = None;
+}
+
+pub fn create_table<T: OutputSingleton>() -> *mut aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
+    let plugin_state = T::get_singleton_state();
+    let mut plugin_state = plugin_state.write().unwrap();
+    let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
     log::info!("Creating OUTPUT_PLUGIN_TABLE");
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
@@ -96,7 +98,7 @@ pub unsafe fn create_table<T: OutputPlugin>(
     };
 
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
-    aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
+    let table = aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
         flag: plugin_info.output_type.to_bits(),
         name: plugin_state.global_leak_manager.leak_as_wide_string(&name),
         filefilter: plugin_state
@@ -105,16 +107,18 @@ pub unsafe fn create_table<T: OutputPlugin>(
         information: plugin_state
             .global_leak_manager
             .leak_as_wide_string(&information),
-        func_output: Some(func_output),
-        func_config: plugin_info.can_config.then_some(func_config),
-        func_get_config_text: Some(func_get_config_text),
-    }
+        func_output: Some(func_output::<T>),
+        func_config: plugin_info.can_config.then_some(func_config::<T>),
+        func_get_config_text: Some(func_get_config_text::<T>),
+    };
+    let table = Box::new(table);
+    Box::leak(table)
 }
 
-pub unsafe fn func_output<T: OutputPlugin>(
-    plugin_state: &InternalOutputPluginState<T>,
-    oip: *mut aviutl2_sys::output2::OUTPUT_INFO,
-) -> bool {
+extern "C" fn func_output<T: OutputSingleton>(oip: *mut aviutl2_sys::output2::OUTPUT_INFO) -> bool {
+    let plugin_state = T::get_singleton_state();
+    let plugin_state = plugin_state.read().unwrap();
+    let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let oip = unsafe { &mut *oip };
@@ -129,11 +133,13 @@ pub unsafe fn func_output<T: OutputPlugin>(
     }
 }
 
-pub unsafe fn func_config<T: OutputPlugin>(
-    plugin_state: &InternalOutputPluginState<T>,
+extern "C" fn func_config<T: OutputSingleton>(
     hwnd: aviutl2_sys::output2::HWND,
     dll_hinst: aviutl2_sys::output2::HINSTANCE,
 ) -> bool {
+    let plugin_state = T::get_singleton_state();
+    let plugin_state = plugin_state.read().unwrap();
+    let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let mut handle =
@@ -149,9 +155,10 @@ pub unsafe fn func_config<T: OutputPlugin>(
     }
 }
 
-pub unsafe fn func_get_config_text<T: OutputPlugin>(
-    plugin_state: &InternalOutputPluginState<T>,
-) -> *const u16 {
+extern "C" fn func_get_config_text<T: OutputSingleton>() -> *const u16 {
+    let plugin_state = T::get_singleton_state();
+    let plugin_state = plugin_state.read().unwrap();
+    let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let text = plugin.config_text();
@@ -166,89 +173,32 @@ pub unsafe fn func_get_config_text<T: OutputPlugin>(
     }
 }
 
+pub trait OutputSingleton
+where
+    Self: 'static + Send + Sync + OutputPlugin,
+{
+    fn get_singleton_state() -> &'static std::sync::RwLock<Option<InternalOutputPluginState<Self>>>;
+}
+
 /// 出力プラグインを登録するマクロ。
 #[macro_export]
 macro_rules! register_output_plugin {
     ($struct:ident) => {
-        #[doc(hidden)]
-        mod __au2_register_output_plugin {
-            use super::$struct;
-            use $crate::output::OutputPlugin as _;
-
-            static PLUGIN: std::sync::LazyLock<
-                std::sync::RwLock<
-                    Option<$crate::output::__bridge::InternalOutputPluginState<$struct>>,
-                >,
-            > = std::sync::LazyLock::new(|| std::sync::RwLock::new(None));
-
+        ::aviutl2::internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                unsafe { $crate::output::__bridge::initialize_plugin(&PLUGIN, version) }
+                $crate::output::__bridge::initialize_plugin::<$struct>(version)
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                *PLUGIN.write().unwrap() = None;
+                $crate::output::__bridge::uninitialize_plugin::<$struct>()
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetOutputPluginTable()
             -> *mut aviutl2::sys::output2::OUTPUT_PLUGIN_TABLE {
-                let table = unsafe {
-                    $crate::output::__bridge::create_table::<$struct>(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        func_output,
-                        func_config,
-                        func_get_config_text,
-                    )
-                };
-                Box::into_raw(Box::new(table))
-            }
-
-            extern "C" fn func_output(oip: *mut aviutl2::sys::output2::OUTPUT_INFO) -> bool {
-                unsafe {
-                    $crate::output::__bridge::func_output(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        oip,
-                    )
-                }
-            }
-
-            extern "C" fn func_config(
-                hwnd: aviutl2::sys::output2::HWND,
-                dll_hinst: aviutl2::sys::output2::HINSTANCE,
-            ) -> bool {
-                unsafe {
-                    $crate::output::__bridge::func_config(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        hwnd,
-                        dll_hinst,
-                    )
-                }
-            }
-
-            extern "C" fn func_get_config_text() -> *const u16 {
-                unsafe {
-                    $crate::output::__bridge::func_get_config_text(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                    )
-                }
+                $crate::output::__bridge::create_table::<$struct>()
             }
         }
     };

@@ -2,7 +2,8 @@
 //!
 //! AviUtl2のフィルタプラグインを実装するためのモジュール。
 //! 大まかな流れ：
-//! 1. [`FilterPlugin`]トレイトを実装した構造体を定義する
+//! 1. [`FilterPlugin`]トレイトを実装し、かつ
+//!    [`#[aviutl2::plugin(FilterPlugin)]`][crate::plugin]属性を付与した構造体を定義する
 //! 2. [`crate::register_filter_plugin!`]マクロを使用してプラグインを登録する
 //!
 //! サンプルは<https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples>を参照してください。

@@ -4,6 +4,7 @@ mod track;
 use aviutl2::input::{AudioReturner, InputPlugin};
 use synthesizer::SAMPLE_RATE;
 
+#[aviutl2::plugin(InputPlugin)]
 struct MidiPlayerPlugin {}
 const TAIL_LENGTH: f64 = 1.0; // 1 second tail length
 

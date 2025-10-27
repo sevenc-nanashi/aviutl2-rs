@@ -1,12 +1,12 @@
 mod codecs;
-use aviutl2::{
-    input::{AnyResult, ImageBuffer, ImageReturner, InputPlugin, IntoImage as _, Rational32},
-    register_input_plugin,
+use aviutl2::input::{
+    AnyResult, ImageBuffer, ImageReturner, InputPlugin, IntoImage as _, Rational32,
 };
 use image::{AnimationDecoder, GenericImageView};
 use ordered_float::OrderedFloat;
 use std::io::Seek;
 
+#[aviutl2::plugin(InputPlugin)]
 struct ImageInputPlugin {}
 
 enum ImageReader {
@@ -318,4 +318,4 @@ fn into_frames(
     .try_build()
 }
 
-register_input_plugin!(ImageInputPlugin);
+aviutl2::register_input_plugin!(ImageInputPlugin);
