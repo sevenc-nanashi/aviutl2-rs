@@ -11,8 +11,11 @@ use crate::{
 };
 use anyhow::Context;
 use aviutl2::output::{
-    BorrowedRawBgrVideoFrame, BorrowedRawHf64VideoFrame, BorrowedRawPa64VideoFrame,
-    BorrowedRawYuy2VideoFrame, OutputPlugin,
+    OutputPlugin,
+    video_frame::{
+        BorrowedRawBgrVideoFrame, BorrowedRawHf64VideoFrame, BorrowedRawPa64VideoFrame,
+        BorrowedRawYuy2VideoFrame,
+    },
 };
 use eframe::egui;
 use std::{

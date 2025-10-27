@@ -52,7 +52,7 @@ impl OutputPlugin for StatisticsPlugin {
         let mut time_before = std::time::Instant::now();
 
         for (_i, _frame) in
-            info.get_video_frames_iter::<aviutl2::output::BorrowedRawYuy2VideoFrame>()
+            info.get_video_frames_iter::<aviutl2::output::video_frame::BorrowedRawYuy2VideoFrame>()
         {
             let time_after = std::time::Instant::now();
             elapsed.push(time_after.duration_since(time_before).as_secs_f64() * 1000.0);

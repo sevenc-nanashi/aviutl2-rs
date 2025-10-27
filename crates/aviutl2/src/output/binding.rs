@@ -3,10 +3,10 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use crate::common::{
-    AnyResult, AviUtl2Info, FileFilter, Rational32, Win32WindowHandle, load_wide_string,
+use crate::{
+    common::{AnyResult, AviUtl2Info, FileFilter, Rational32, Win32WindowHandle, load_wide_string},
+    output::video_frame::FromRawVideoFrame,
 };
-use crate::output::FromRawVideoFrame;
 use aviutl2_sys::output2::OUTPUT_INFO;
 
 /// 出力プラグインの情報を表す構造体。

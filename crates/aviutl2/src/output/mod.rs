@@ -9,11 +9,10 @@
 //! サンプルは<https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-output>を参照してください。
 
 mod binding;
-mod video_frame;
+pub mod video_frame;
 
 pub use super::common::*;
 pub use binding::*;
-pub use video_frame::*;
 
 #[doc(hidden)]
 #[path = "bridge.rs"]

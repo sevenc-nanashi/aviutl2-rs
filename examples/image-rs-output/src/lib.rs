@@ -1,5 +1,5 @@
 use anyhow::Context;
-use aviutl2::output::{OutputPlugin, Pa64VideoFrame};
+use aviutl2::output::{OutputPlugin, video_frame::Pa64VideoFrame};
 
 #[aviutl2::plugin(OutputPlugin)]
 struct ImageRsOutputPlugin;
