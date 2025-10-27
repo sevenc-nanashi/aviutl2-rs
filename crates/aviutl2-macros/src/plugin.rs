@@ -17,7 +17,7 @@ pub fn plugin(
                         ::std::sync::RwLock<Option<::aviutl2::__internal_base::state::#attr<#struct_name>>>,
                     >,
                 > = ::std::sync::LazyLock::new(|| ::std::sync::Arc::new(::std::sync::RwLock::new(None)));
-                PLUGIN.clone()
+                ::std::sync::Arc::clone(&PLUGIN)
             }
         }
     })
