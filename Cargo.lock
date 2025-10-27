@@ -585,7 +585,6 @@ dependencies = [
  "insta",
  "proc-macro2",
  "quote",
- "rand 0.9.2",
  "rustfmt-wrapper",
  "syn",
 ]
