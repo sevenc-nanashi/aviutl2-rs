@@ -249,9 +249,11 @@ fn update_configs<T: Send + Sync + FilterPlugin>(
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-pub trait InternalFilterBridge {
-    fn get_singleton_state()
-    -> std::sync::Arc<std::sync::RwLock<Option<InternalFilterPluginState<Self>>>>
+pub trait InternalFilterBridge
+where
+    Self: 'static,
+{
+    fn get_singleton_state() -> &'static std::sync::RwLock<Option<InternalFilterPluginState<Self>>>
     where
         Self: Sized + Send + Sync + FilterPlugin;
 
@@ -260,7 +262,7 @@ pub trait InternalFilterBridge {
         Self: Sized + Send + Sync + FilterPlugin,
     {
         let plugin_state = Self::get_singleton_state();
-        unsafe { initialize_plugin::<Self>(&plugin_state, version) }
+        unsafe { initialize_plugin::<Self>(plugin_state, version) }
     }
     fn uninitialize_plugin()
     where
@@ -287,7 +289,7 @@ pub trait InternalFilterBridge {
         Self: Sized + Send + Sync + FilterPlugin,
     {
         let plugin_lock = Self::get_singleton_state();
-        update_configs::<Self>(&plugin_lock);
+        update_configs::<Self>(plugin_lock);
         let plugin = plugin_lock.read().unwrap();
         let plugin = plugin.as_ref().expect("Plugin not initialized");
         unsafe { func_proc_video::<Self>(plugin, video) }
@@ -297,7 +299,7 @@ pub trait InternalFilterBridge {
         Self: Sized + Send + Sync + FilterPlugin,
     {
         let plugin_lock = Self::get_singleton_state();
-        update_configs::<Self>(&plugin_lock);
+        update_configs::<Self>(plugin_lock);
         let plugin = plugin_lock.read().unwrap();
         let plugin = plugin.as_ref().expect("Plugin not initialized");
         unsafe { func_proc_audio::<Self>(plugin, audio) }

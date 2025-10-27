@@ -523,9 +523,11 @@ pub unsafe fn func_time_to_frame<T: InputPlugin>(
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-pub trait InternalInputBridge {
-    fn get_singleton_state()
-    -> std::sync::Arc<std::sync::RwLock<Option<InternalInputPluginState<Self>>>>
+pub trait InternalInputBridge
+where
+    Self: 'static,
+{
+    fn get_singleton_state() -> &'static std::sync::RwLock<Option<InternalInputPluginState<Self>>>
     where
         Self: Sized + Send + Sync + InputPlugin;
 
@@ -534,7 +536,7 @@ pub trait InternalInputBridge {
         Self: Sized + Send + Sync + InputPlugin,
     {
         let plugin_state = Self::get_singleton_state();
-        unsafe { initialize_plugin::<Self>(&plugin_state, version) }
+        unsafe { initialize_plugin::<Self>(plugin_state, version) }
     }
     fn uninitialize_plugin()
     where

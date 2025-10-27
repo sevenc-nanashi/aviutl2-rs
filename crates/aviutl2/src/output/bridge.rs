@@ -167,9 +167,11 @@ pub unsafe fn func_get_config_text<T: OutputPlugin>(
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-pub trait InternalOutputBridge {
-    fn get_singleton_state()
-    -> std::sync::Arc<std::sync::RwLock<Option<InternalOutputPluginState<Self>>>>
+pub trait InternalOutputBridge
+where
+    Self: 'static,
+{
+    fn get_singleton_state() -> &'static std::sync::RwLock<Option<InternalOutputPluginState<Self>>>
     where
         Self: Sized + Send + Sync + OutputPlugin;
 
@@ -178,7 +180,7 @@ pub trait InternalOutputBridge {
         Self: Sized + Send + Sync + OutputPlugin,
     {
         let plugin_state = Self::get_singleton_state();
-        unsafe { initialize_plugin::<Self>(&plugin_state, version) }
+        unsafe { initialize_plugin::<Self>(plugin_state, version) }
     }
     fn uninitialize_plugin()
     where

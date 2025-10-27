@@ -9,15 +9,12 @@ pub fn plugin(
         #item
 
         impl ::aviutl2::__internal_base::singleton_traits::#attr for #struct_name {
-            fn get_singleton_state() -> ::std::sync::Arc<
-                ::std::sync::RwLock<Option<::aviutl2::__internal_base::state::#attr<#struct_name>>>,
-            > {
-                static PLUGIN: ::std::sync::LazyLock<
-                    ::std::sync::Arc<
-                        ::std::sync::RwLock<Option<::aviutl2::__internal_base::state::#attr<#struct_name>>>,
-                    >,
-                > = ::std::sync::LazyLock::new(|| ::std::sync::Arc::new(::std::sync::RwLock::new(None)));
-                ::std::sync::Arc::clone(&PLUGIN)
+            fn get_singleton_state() -> &'static
+                ::std::sync::RwLock<::std::option::Option<::aviutl2::__internal_base::state::#attr<#struct_name>>>
+            {
+                static PLUGIN: ::std::sync::RwLock<Option<::aviutl2::__internal_base::state::#attr<#struct_name>>> =
+                    ::std::sync::RwLock::new(None);
+                &PLUGIN
             }
         }
     })
