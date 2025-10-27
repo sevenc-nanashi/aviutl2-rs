@@ -6,7 +6,7 @@ pub mod singleton_traits {
     pub use crate::output::__bridge::InternalOutputBridge as OutputPlugin;
 
     #[cfg(feature = "filter")]
-    pub use crate::filter::__bridge::InternalFilterBridge as FilterPlugin;
+    pub use crate::filter::__bridge::FilterSingleton as FilterPlugin;
 }
 
 pub mod state {
