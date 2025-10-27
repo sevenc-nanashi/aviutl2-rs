@@ -141,137 +141,130 @@ fn update_configs<T: Send + Sync + FilterPlugin>(
 
 pub trait FilterSingleton
 where
-    Self: 'static,
+    Self: 'static + Send + Sync + FilterPlugin,
 {
-    fn get_singleton_state() -> &'static std::sync::RwLock<Option<InternalFilterPluginState<Self>>>
-    where
-        Self: Sized + Send + Sync + FilterPlugin;
+    fn get_singleton_state() -> &'static std::sync::RwLock<Option<InternalFilterPluginState<Self>>>;
 }
 
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[easy_ext::ext(FilterBridge)]
-pub impl<T: FilterSingleton + FilterPlugin> T {
-    fn initialize_plugin(version: u32) -> bool {
-        let plugin_state = Self::get_singleton_state();
-        let info = crate::common::AviUtl2Info {
-            version: version.into(),
-        };
-        let internal = match T::new(info) {
-            Ok(plugin) => plugin,
-            Err(e) => {
-                log::error!("Failed to initialize plugin: {}", e);
-                alert_error(&e);
-                return false;
-            }
-        };
-        let plugin = InternalFilterPluginState::new(internal);
-        *plugin_state.write().unwrap() = Some(plugin);
+pub fn initialize_plugin<T: FilterSingleton>(version: u32) -> bool {
+    let plugin_state = T::get_singleton_state();
+    let info = crate::common::AviUtl2Info {
+        version: version.into(),
+    };
+    let internal = match T::new(info) {
+        Ok(plugin) => plugin,
+        Err(e) => {
+            log::error!("Failed to initialize plugin: {}", e);
+            alert_error(&e);
+            return false;
+        }
+    };
+    let plugin = InternalFilterPluginState::new(internal);
+    *plugin_state.write().unwrap() = Some(plugin);
 
-        true
-    }
-    fn uninitialize_plugin() {
-        let plugin_state = Self::get_singleton_state();
-        let mut plugin_state = plugin_state.write().unwrap();
-        *plugin_state = None;
-    }
-    fn create_table() -> *mut aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
-        let plugin_state = Self::get_singleton_state();
-        let mut plugin_state = plugin_state.write().unwrap();
-        let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
-        let plugin_info = &plugin_state.plugin_info;
+    true
+}
+pub fn uninitialize_plugin<T: FilterSingleton>() {
+    let plugin_state = T::get_singleton_state();
+    let mut plugin_state = plugin_state.write().unwrap();
+    *plugin_state = None;
+}
+pub fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
+    let plugin_state = T::get_singleton_state();
+    let mut plugin_state = plugin_state.write().unwrap();
+    let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
+    let plugin_info = &plugin_state.plugin_info;
 
-        let name = if cfg!(debug_assertions) {
-            format!("{} (Debug)", plugin_info.name)
+    let name = if cfg!(debug_assertions) {
+        format!("{} (Debug)", plugin_info.name)
+    } else {
+        plugin_info.name.clone()
+    };
+    let information = if cfg!(debug_assertions) {
+        format!("(Debug Build) {}", plugin_info.information)
+    } else {
+        plugin_info.information.clone()
+    };
+
+    let flag = plugin_info.filter_type.to_bits()
+        | (if plugin_info.as_object {
+            aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_INPUT
         } else {
-            plugin_info.name.clone()
-        };
-        let information = if cfg!(debug_assertions) {
-            format!("(Debug Build) {}", plugin_info.information)
-        } else {
-            plugin_info.information.clone()
-        };
+            0
+        });
 
-        let flag = plugin_info.filter_type.to_bits()
-            | (if plugin_info.as_object {
-                aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_INPUT
-            } else {
-                0
-            });
-
-        let config_items = plugin_info
-            .config_items
-            .iter()
-            .map(|item| {
-                plugin_state
-                    .global_leak_manager
-                    .leak(item.to_raw(&plugin_state.global_leak_manager))
-            })
-            .collect::<Vec<_>>();
-        plugin_state.config_pointers = config_items.to_vec();
-        // null終端
+    let config_items = plugin_info
+        .config_items
+        .iter()
+        .map(|item| {
+            plugin_state
+                .global_leak_manager
+                .leak(item.to_raw(&plugin_state.global_leak_manager))
+        })
+        .collect::<Vec<_>>();
+    plugin_state.config_pointers = config_items.to_vec();
+    // null終端
+    plugin_state
+        .config_pointers
+        .push(std::ptr::null::<aviutl2_sys::filter2::FILTER_ITEM>());
+    let config_items = plugin_state.global_leak_manager.leak_value_vec(
         plugin_state
             .config_pointers
-            .push(std::ptr::null::<aviutl2_sys::filter2::FILTER_ITEM>());
-        let config_items = plugin_state.global_leak_manager.leak_value_vec(
-            plugin_state
-                .config_pointers
-                .iter()
-                .map(|p| *p as usize)
-                .collect(),
-        );
+            .iter()
+            .map(|p| *p as usize)
+            .collect(),
+    );
 
-        // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
-        let table = aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
-            flag,
-            name: plugin_state.global_leak_manager.leak_as_wide_string(&name),
-            information: plugin_state
-                .global_leak_manager
-                .leak_as_wide_string(&information),
-            label: plugin_info.label.as_ref().map_or(std::ptr::null(), |s| {
-                plugin_state.global_leak_manager.leak_as_wide_string(s)
-            }),
-            items: config_items as _,
-            func_proc_video: Some(Self::func_proc_video),
-            func_proc_audio: Some(Self::func_proc_audio),
-        };
-        let table = Box::new(table);
-        Box::leak(table)
-    }
-    extern "C" fn func_proc_video(video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO) -> bool
-    where
-        Self: Sized + Send + Sync + FilterPlugin,
-    {
-        let plugin_lock = Self::get_singleton_state();
-        update_configs::<Self>(plugin_lock);
-        let plugin_state = plugin_lock.read().unwrap();
-        let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
+    // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
+    let table = aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
+        flag,
+        name: plugin_state.global_leak_manager.leak_as_wide_string(&name),
+        information: plugin_state
+            .global_leak_manager
+            .leak_as_wide_string(&information),
+        label: plugin_info.label.as_ref().map_or(std::ptr::null(), |s| {
+            plugin_state.global_leak_manager.leak_as_wide_string(s)
+        }),
+        items: config_items as _,
+        func_proc_video: Some(func_proc_video::<T>),
+        func_proc_audio: Some(func_proc_audio::<T>),
+    };
+    let table = Box::new(table);
+    Box::leak(table)
+}
 
-        plugin_state.leak_manager.free_leaked_memory();
-        let plugin = &plugin_state.instance;
-        let mut video = unsafe { FilterProcVideo::from_raw(video) };
-        if let Err(e) = plugin.proc_video(&plugin_state.config_items, &mut video) {
-            log::error!("Error in proc_video: {}", e);
-            return false;
-        }
-        true
+extern "C" fn func_proc_video<T: FilterSingleton>(
+    video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
+) -> bool {
+    let plugin_lock = T::get_singleton_state();
+    update_configs::<T>(plugin_lock);
+    let plugin_state = plugin_lock.read().unwrap();
+    let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
+
+    plugin_state.leak_manager.free_leaked_memory();
+    let plugin = &plugin_state.instance;
+    let mut video = unsafe { FilterProcVideo::from_raw(video) };
+    if let Err(e) = plugin.proc_video(&plugin_state.config_items, &mut video) {
+        log::error!("Error in proc_video: {}", e);
+        return false;
     }
-    extern "C" fn func_proc_audio(audio: *mut aviutl2_sys::filter2::FILTER_PROC_AUDIO) -> bool
-    where
-        Self: Sized + Send + Sync + FilterPlugin,
-    {
-        let plugin_lock = Self::get_singleton_state();
-        update_configs::<Self>(plugin_lock);
-        let plugin_state = plugin_lock.read().unwrap();
-        let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
-        plugin_state.leak_manager.free_leaked_memory();
-        let plugin = &plugin_state.instance;
-        let mut audio = unsafe { FilterProcAudio::from_raw(audio) };
-        if let Err(e) = plugin.proc_audio(&plugin_state.config_items, &mut audio) {
-            log::error!("Error in proc_audio: {}", e);
-            return false;
-        }
-        true
+    true
+}
+extern "C" fn func_proc_audio<T: FilterSingleton>(
+    audio: *mut aviutl2_sys::filter2::FILTER_PROC_AUDIO,
+) -> bool {
+    let plugin_lock = T::get_singleton_state();
+    update_configs::<T>(plugin_lock);
+    let plugin_state = plugin_lock.read().unwrap();
+    let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
+    plugin_state.leak_manager.free_leaked_memory();
+    let plugin = &plugin_state.instance;
+    let mut audio = unsafe { FilterProcAudio::from_raw(audio) };
+    if let Err(e) = plugin.proc_audio(&plugin_state.config_items, &mut audio) {
+        log::error!("Error in proc_audio: {}", e);
+        return false;
     }
+    true
 }
 
 /// フィルタプラグインを登録するマクロ。
@@ -281,18 +274,18 @@ macro_rules! register_filter_plugin {
         ::aviutl2::internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                <$struct as $crate::filter::__bridge::FilterBridge>::initialize_plugin(version)
+                $crate::filter::__bridge::initialize_plugin::<$struct>(version)
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                <$struct as $crate::filter::__bridge::FilterBridge>::uninitialize_plugin()
+                $crate::filter::__bridge::uninitialize_plugin::<$struct>()
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetFilterPluginTable()
             -> *mut aviutl2::sys::filter2::FILTER_PLUGIN_TABLE {
-                <$struct as $crate::filter::__bridge::FilterBridge>::create_table()
+                $crate::filter::__bridge::create_table::<$struct>()
             }
         }
     };
