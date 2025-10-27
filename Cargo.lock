@@ -563,7 +563,6 @@ dependencies = [
  "aviutl2-macros",
  "aviutl2-sys",
  "duplicate",
- "easy-ext",
  "env_logger",
  "half",
  "image",
@@ -1325,12 +1324,6 @@ dependencies = [
  "proc-macro2",
  "proc-macro2-diagnostics",
 ]
-
-[[package]]
-name = "easy-ext"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc5d6d6a8504f8caedd7de14576464383900cd3840b7033a7a3dce5ac00121ca"
 
 [[package]]
 name = "ecolor"
