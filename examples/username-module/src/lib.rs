@@ -1,5 +1,6 @@
 use aviutl2::{AnyResult, module::ScriptModuleFunctions};
 
+#[aviutl2::plugin(ScriptModule)]
 struct UsernameModule;
 
 impl aviutl2::module::ScriptModule for UsernameModule {

@@ -23,31 +23,10 @@ pub struct ModuleFunction {
 pub use aviutl2_macros::module_functions as functions;
 
 /// スクリプトモジュールの関数一覧を返すトレイト。
-///
-/// <div class="warning">
-///
-/// このトレイトは[`functions`]マクロで実装してください。
-/// 手動で実装しないでください。
-///
-/// </div>
+/// [`macro@functions`]マクロで実装できます。
 pub trait ScriptModuleFunctions: Sized + Send + Sync + 'static {
     /// プラグインが提供する関数の一覧を返す。
     fn functions() -> Vec<ModuleFunction>;
-
-    #[doc(hidden)]
-    fn __internal_setup_plugin_handle(
-        handle: std::sync::Arc<
-            std::sync::RwLock<Option<crate::module::__bridge::InternalScriptModuleState<Self>>>,
-        >,
-    ) where
-        Self: ScriptModule;
-
-    #[doc(hidden)]
-    fn __internal_get_plugin_handle() -> std::sync::Arc<
-        std::sync::RwLock<Option<crate::module::__bridge::InternalScriptModuleState<Self>>>,
-    >
-    where
-        Self: ScriptModule;
 }
 
 /// スクリプトモジュールプラグインのトレイト。

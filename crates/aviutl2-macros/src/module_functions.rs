@@ -41,52 +41,12 @@ pub fn module_functions(
     Ok(quote::quote! {
         #item
 
-        mod __aviutl2_internal_module_functions {
-            use super::*;
-
-            static HANDLE: ::std::sync::OnceLock<
-                ::std::sync::Arc<
-                    ::std::sync::RwLock<
-                        Option<::aviutl2::module::__bridge::InternalScriptModuleState<#impl_token>>,
-                    >,
-                >,
-            > = ::std::sync::OnceLock::new();
-
+        ::aviutl2::internal_module! {
             impl ::aviutl2::module::ScriptModuleFunctions for #impl_token {
                 fn functions() -> Vec<::aviutl2::module::ModuleFunction> {
                     let mut functions = Vec::new();
                     #(#function_tables)*
                     functions
-                }
-
-                fn __internal_setup_plugin_handle(
-                    handle: ::std::sync::Arc<
-                        ::std::sync::RwLock<
-                            Option<
-                                ::aviutl2::module::__bridge::InternalScriptModuleState<#impl_token>,
-                            >,
-                        >,
-                    >,
-                ) where
-                    Self: ::aviutl2::module::ScriptModule,
-                {
-                    match HANDLE.set(handle) {
-                        Ok(_) => {}
-                        Err(_) => {
-                            panic!("Plugin handle has already been set for {}", stringify!(#impl_token))
-                        }
-                    }
-                }
-
-                fn __internal_get_plugin_handle() -> ::std::sync::Arc<
-                    ::std::sync::RwLock<
-                        Option<::aviutl2::module::__bridge::InternalScriptModuleState<#impl_token>>,
-                    >,
-                >
-                where
-                    Self: ::aviutl2::module::ScriptModule,
-                {
-                    HANDLE.get().unwrap().clone()
                 }
             }
 
@@ -131,7 +91,7 @@ fn create_bridge(
                     quote::quote! {
                         extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
                             let params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
-                            let __internal_self = &<#impl_token as ::aviutl2::module::ScriptModuleFunctions>::__internal_get_plugin_handle();
+                            let __internal_self = <#impl_token as ::aviutl2::module::ScriptModuleSingleton>::__get_singleton_state();
                             let __internal_self = __internal_self
                                 .read()
                                 .expect("Plugin handle is not initialized");
@@ -174,7 +134,7 @@ fn create_bridge(
                             }
 
                             param_bridges.push(quote::quote! {
-                                let __internal_self = &<#impl_token as ::aviutl2::module::ScriptModuleFunctions>::__internal_get_plugin_handle();
+                                let __internal_self = <#impl_token as ::aviutl2::module::__bridge::ScriptModuleSingleton>::__get_singleton_state();
                                 let __internal_self = __internal_self
                                     .read()
                                     .expect("Plugin handle is not initialized");
@@ -189,7 +149,7 @@ fn create_bridge(
                             let pat = &pat_type.pat;
                             let idx = param_index;
                             param_bridges.push(quote::quote! {
-                                let #pat: #ty = match <#ty as ::aviutl2::module::FromScriptModuleParam>::from_param(&params, #idx) {
+                                let #pat: #ty = match <#ty as ::aviutl2::module::__bridge::FromScriptModuleParam>::from_param(&params, #idx) {
                                     ::std::option::Option::Some(value) => value,
                                     ::std::option::Option::None => {
                                         params.set_error(&format!(

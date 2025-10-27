@@ -22,10 +22,15 @@ impl<T: Send + Sync + ScriptModule> InternalScriptModuleState<T> {
     }
 }
 
-pub unsafe fn initialize_plugin<T: ScriptModule>(
-    plugin_state: &std::sync::Arc<std::sync::RwLock<Option<InternalScriptModuleState<T>>>>,
-    version: u32,
-) -> bool {
+pub trait ScriptModuleSingleton
+where
+    Self: ScriptModule + Sized + Send + Sync + 'static,
+{
+    fn __get_singleton_state() -> &'static std::sync::RwLock<Option<InternalScriptModuleState<Self>>>;
+}
+
+pub unsafe fn initialize_plugin<T: ScriptModuleSingleton>(version: u32) -> bool {
+    let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
     };
@@ -37,16 +42,21 @@ pub unsafe fn initialize_plugin<T: ScriptModule>(
             return false;
         }
     };
-    T::__internal_setup_plugin_handle(std::sync::Arc::clone(plugin_state));
     let plugin = InternalScriptModuleState::new(internal);
     *plugin_state.write().unwrap() = Some(plugin);
 
     true
 }
+pub unsafe fn uninitialize_plugin<T: ScriptModuleSingleton>() {
+    let plugin_state = T::__get_singleton_state();
+    *plugin_state.write().unwrap() = None;
+}
 
-pub unsafe fn create_table<T: ScriptModule>(
-    plugin_state: &InternalScriptModuleState<T>,
-) -> aviutl2_sys::module2::SCRIPT_MODULE_TABLE {
+pub unsafe fn create_table<T: ScriptModuleSingleton>() -> *mut aviutl2_sys::module2::SCRIPT_MODULE_TABLE
+{
+    let plugin_state_lock = T::__get_singleton_state();
+    let plugin_state = plugin_state_lock.read().unwrap();
+    let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     let plugin_info = &plugin_state.plugin_info;
     let information = if cfg!(debug_assertions) {
         format!("(Debug Build) {}", plugin_info.information)
@@ -75,12 +85,14 @@ pub unsafe fn create_table<T: ScriptModule>(
         .leak_value_vec(module_functions);
 
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
-    aviutl2_sys::module2::SCRIPT_MODULE_TABLE {
+    let table = aviutl2_sys::module2::SCRIPT_MODULE_TABLE {
         information: plugin_state
             .global_leak_manager
             .leak_as_wide_string(&information),
         functions: functions_ptr,
-    }
+    };
+    let table = Box::new(table);
+    Box::leak(table)
 }
 
 extern "C" fn unreachable_function(_: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM) {
@@ -91,44 +103,21 @@ extern "C" fn unreachable_function(_: *mut aviutl2_sys::module2::SCRIPT_MODULE_P
 #[macro_export]
 macro_rules! register_script_module {
     ($struct:ident) => {
-        #[doc(hidden)]
-        mod __au2_register_script_module {
-            use super::$struct;
-            use $crate::module::ScriptModule as _;
-
-            static PLUGIN: ::std::sync::LazyLock<
-                ::std::sync::Arc<
-                    ::std::sync::RwLock<
-                        Option<$crate::module::__bridge::InternalScriptModuleState<$struct>>,
-                    >,
-                >,
-            > = ::std::sync::LazyLock::new(|| {
-                ::std::sync::Arc::new(::std::sync::RwLock::new(None))
-            });
-
+        ::aviutl2::internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                unsafe { $crate::module::__bridge::initialize_plugin(&PLUGIN, version) }
+                unsafe { $crate::module::__bridge::initialize_plugin::<$struct>(version) }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                *PLUGIN.write().unwrap() = None;
+                unsafe { $crate::module::__bridge::uninitialize_plugin::<$struct>() }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetScriptModuleTable()
             -> *mut aviutl2::sys::module2::SCRIPT_MODULE_TABLE {
-                let table = unsafe {
-                    $crate::module::__bridge::create_table::<$struct>(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                    )
-                };
-                Box::into_raw(Box::new(table))
+                unsafe { $crate::module::__bridge::create_table::<$struct>() }
             }
         }
     };

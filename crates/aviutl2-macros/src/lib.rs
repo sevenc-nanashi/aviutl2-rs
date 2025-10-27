@@ -5,14 +5,10 @@
 
 mod filter_config_items;
 mod filter_config_select_items;
-<<<<<<< HEAD
 mod from_script_module_param;
 mod module_functions;
 mod to_script_module_return_value;
-||||||| 5cfae63
-=======
 mod plugin;
->>>>>>> main
 mod utils;
 
 /// `FilterConfigItems` を自動で実装するためのマクロ。
@@ -325,7 +321,7 @@ pub fn to_script_module_return_value(item: proc_macro::TokenStream) -> proc_macr
 ///
 /// # Attributes
 ///
-/// - 引数には`InputPlugin`、`OutputPlugin`、`FilterPlugin`のいずれかを指定します。
+/// - 引数には`InputPlugin`、`OutputPlugin`、`FilterPlugin`、`ScriptModule`のいずれかを指定します。
 ///
 /// # Example
 ///

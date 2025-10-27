@@ -7,6 +7,9 @@ pub mod singleton_traits {
 
     #[cfg(feature = "filter")]
     pub use crate::filter::__bridge::FilterSingleton as FilterPlugin;
+
+    #[cfg(feature = "module")]
+    pub use crate::module::__bridge::ScriptModuleSingleton as ScriptModule;
 }
 
 pub mod state {
@@ -18,4 +21,7 @@ pub mod state {
 
     #[cfg(feature = "filter")]
     pub use crate::filter::__bridge::InternalFilterPluginState as FilterPlugin;
+
+    #[cfg(feature = "module")]
+    pub use crate::module::__bridge::InternalScriptModuleState as ScriptModule;
 }
