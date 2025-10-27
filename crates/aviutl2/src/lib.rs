@@ -42,5 +42,5 @@ pub mod __internal_base;
 pub mod common;
 pub mod utils;
 pub use anyhow;
-pub use common::*;
 pub use aviutl2_macros::plugin;
+pub use common::*;

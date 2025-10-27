@@ -49,6 +49,7 @@ pub struct FilterConfig {
     pub direction: SortDirection,
 }
 
+#[aviutl2::plugin(FilterPlugin)]
 struct PixelSortFilter;
 
 impl FilterPlugin for PixelSortFilter {

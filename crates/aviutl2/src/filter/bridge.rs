@@ -278,11 +278,7 @@ pub trait InternalFilterBridge {
         let mut plugin_state = plugin_state.write().unwrap();
         let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
         let table = unsafe {
-            create_table::<Self>(
-                plugin_state,
-                Self::func_proc_video,
-                Self::func_proc_audio,
-            )
+            create_table::<Self>(plugin_state, Self::func_proc_video, Self::func_proc_audio)
         };
         Box::into_raw(Box::new(table))
     }

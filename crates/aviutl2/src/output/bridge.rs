@@ -166,6 +166,77 @@ pub unsafe fn func_get_config_text<T: OutputPlugin>(
     }
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub trait InternalOutputBridge {
+    fn get_singleton_state()
+    -> std::sync::Arc<std::sync::RwLock<Option<InternalOutputPluginState<Self>>>>
+    where
+        Self: Sized + Send + Sync + OutputPlugin;
+
+    fn initialize_plugin(version: u32) -> bool
+    where
+        Self: Sized + Send + Sync + OutputPlugin,
+    {
+        let plugin_state = Self::get_singleton_state();
+        unsafe { initialize_plugin::<Self>(&plugin_state, version) }
+    }
+    fn uninitialize_plugin()
+    where
+        Self: Sized + Send + Sync + OutputPlugin,
+    {
+        let plugin_state = Self::get_singleton_state();
+        let mut plugin_state = plugin_state.write().unwrap();
+        *plugin_state = None;
+    }
+    fn create_table() -> *mut aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE
+    where
+        Self: Sized + Send + Sync + OutputPlugin,
+    {
+        let plugin_state = Self::get_singleton_state();
+        let plugin_state = plugin_state.read().unwrap();
+        let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
+        let table = unsafe {
+            create_table::<Self>(
+                plugin_state,
+                Self::func_output,
+                Self::func_config,
+                Self::func_get_config_text,
+            )
+        };
+        Box::into_raw(Box::new(table))
+    }
+    extern "C" fn func_output(oip: *mut aviutl2_sys::output2::OUTPUT_INFO) -> bool
+    where
+        Self: Sized + Send + Sync + OutputPlugin,
+    {
+        let plugin_lock = Self::get_singleton_state();
+        let plugin = plugin_lock.read().unwrap();
+        let plugin = plugin.as_ref().expect("Plugin not initialized");
+        unsafe { func_output::<Self>(plugin, oip) }
+    }
+    extern "C" fn func_config(
+        hwnd: aviutl2_sys::output2::HWND,
+        dll_hinst: aviutl2_sys::output2::HINSTANCE,
+    ) -> bool
+    where
+        Self: Sized + Send + Sync + OutputPlugin,
+    {
+        let plugin_lock = Self::get_singleton_state();
+        let plugin = plugin_lock.read().unwrap();
+        let plugin = plugin.as_ref().expect("Plugin not initialized");
+        unsafe { func_config::<Self>(plugin, hwnd, dll_hinst) }
+    }
+    extern "C" fn func_get_config_text() -> *const u16
+    where
+        Self: Sized + Send + Sync + OutputPlugin,
+    {
+        let plugin_lock = Self::get_singleton_state();
+        let plugin = plugin_lock.read().unwrap();
+        let plugin = plugin.as_ref().expect("Plugin not initialized");
+        unsafe { func_get_config_text::<Self>(plugin) }
+    }
+}
+
 /// 出力プラグインを登録するマクロ。
 #[macro_export]
 macro_rules! register_output_plugin {
@@ -173,82 +244,22 @@ macro_rules! register_output_plugin {
         #[doc(hidden)]
         mod __au2_register_output_plugin {
             use super::$struct;
-            use $crate::output::OutputPlugin as _;
-
-            static PLUGIN: std::sync::LazyLock<
-                std::sync::RwLock<
-                    Option<$crate::output::__bridge::InternalOutputPluginState<$struct>>,
-                >,
-            > = std::sync::LazyLock::new(|| std::sync::RwLock::new(None));
+            use $crate::output::__bridge::InternalOutputBridge;
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                unsafe { $crate::output::__bridge::initialize_plugin(&PLUGIN, version) }
+                $struct::initialize_plugin(version)
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                *PLUGIN.write().unwrap() = None;
+                $struct::uninitialize_plugin();
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetOutputPluginTable()
             -> *mut aviutl2::sys::output2::OUTPUT_PLUGIN_TABLE {
-                let table = unsafe {
-                    $crate::output::__bridge::create_table::<$struct>(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        func_output,
-                        func_config,
-                        func_get_config_text,
-                    )
-                };
-                Box::into_raw(Box::new(table))
-            }
-
-            extern "C" fn func_output(oip: *mut aviutl2::sys::output2::OUTPUT_INFO) -> bool {
-                unsafe {
-                    $crate::output::__bridge::func_output(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        oip,
-                    )
-                }
-            }
-
-            extern "C" fn func_config(
-                hwnd: aviutl2::sys::output2::HWND,
-                dll_hinst: aviutl2::sys::output2::HINSTANCE,
-            ) -> bool {
-                unsafe {
-                    $crate::output::__bridge::func_config(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        hwnd,
-                        dll_hinst,
-                    )
-                }
-            }
-
-            extern "C" fn func_get_config_text() -> *const u16 {
-                unsafe {
-                    $crate::output::__bridge::func_get_config_text(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                    )
-                }
+                $struct::create_table()
             }
         }
     };

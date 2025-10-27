@@ -522,6 +522,143 @@ pub unsafe fn func_time_to_frame<T: InputPlugin>(
     }
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub trait InternalInputBridge {
+    fn get_singleton_state()
+    -> std::sync::Arc<std::sync::RwLock<Option<InternalInputPluginState<Self>>>>
+    where
+        Self: Sized + Send + Sync + InputPlugin;
+
+    fn initialize_plugin(version: u32) -> bool
+    where
+        Self: Sized + Send + Sync + InputPlugin,
+    {
+        let plugin_state = Self::get_singleton_state();
+        unsafe { initialize_plugin::<Self>(&plugin_state, version) }
+    }
+    fn uninitialize_plugin()
+    where
+        Self: Sized + Send + Sync + InputPlugin,
+    {
+        let plugin_state = Self::get_singleton_state();
+        let mut plugin_state = plugin_state.write().unwrap();
+        *plugin_state = None;
+    }
+    fn create_table() -> *mut aviutl2_sys::input2::INPUT_PLUGIN_TABLE
+    where
+        Self: Sized + Send + Sync + InputPlugin,
+    {
+        let plugin_state = Self::get_singleton_state();
+        let plugin_state = plugin_state.read().unwrap();
+        let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
+        let table = unsafe {
+            create_table::<Self>(
+                plugin_state,
+                Self::func_open,
+                Self::func_close,
+                Self::func_info_get,
+                Self::func_read_video,
+                Self::func_read_audio,
+                Self::func_config,
+                Self::func_set_track,
+                Self::func_time_to_frame,
+            )
+        };
+        Box::into_raw(Box::new(table))
+    }
+    extern "C" fn func_open(file: aviutl2_sys::common::LPCWSTR) -> aviutl2_sys::input2::INPUT_HANDLE
+    where
+        Self: Sized + Send + Sync + InputPlugin,
+    {
+        let plugin_lock = Self::get_singleton_state();
+        let plugin = plugin_lock.read().unwrap();
+        let plugin = plugin.as_ref().expect("Plugin not initialized");
+        unsafe { func_open::<Self>(plugin, file) }
+    }
+    extern "C" fn func_close(ih: aviutl2_sys::input2::INPUT_HANDLE) -> bool
+    where
+        Self: Sized + Send + Sync + InputPlugin,
+    {
+        let plugin_lock = Self::get_singleton_state();
+        let plugin = plugin_lock.read().unwrap();
+        let plugin = plugin.as_ref().expect("Plugin not initialized");
+        unsafe { func_close::<Self>(plugin, ih) }
+    }
+    extern "C" fn func_info_get(
+        ih: aviutl2_sys::input2::INPUT_HANDLE,
+        iip: *mut aviutl2_sys::input2::INPUT_INFO,
+    ) -> bool
+    where
+        Self: Sized + Send + Sync + InputPlugin,
+    {
+        let plugin_lock = Self::get_singleton_state();
+        let plugin = plugin_lock.read().unwrap();
+        let plugin = plugin.as_ref().expect("Plugin not initialized");
+        unsafe { func_info_get::<Self>(plugin, ih, iip) }
+    }
+    extern "C" fn func_read_video(
+        ih: aviutl2_sys::input2::INPUT_HANDLE,
+        frame: i32,
+        buf: *mut std::ffi::c_void,
+    ) -> i32
+    where
+        Self: Sized + Send + Sync + InputPlugin,
+    {
+        let plugin_lock = Self::get_singleton_state();
+        let plugin = plugin_lock.read().unwrap();
+        let plugin = plugin.as_ref().expect("Plugin not initialized");
+        unsafe { func_read_video::<Self>(plugin, ih, frame, buf) }
+    }
+    extern "C" fn func_read_audio(
+        ih: aviutl2_sys::input2::INPUT_HANDLE,
+        start: i32,
+        length: i32,
+        buf: *mut std::ffi::c_void,
+    ) -> i32
+    where
+        Self: Sized + Send + Sync + InputPlugin,
+    {
+        let plugin_lock = Self::get_singleton_state();
+        let plugin = plugin_lock.read().unwrap();
+        let plugin = plugin.as_ref().expect("Plugin not initialized");
+        unsafe { func_read_audio::<Self>(plugin, ih, start, length, buf) }
+    }
+    extern "C" fn func_config(
+        hwnd: aviutl2_sys::input2::HWND,
+        dll_hinst: aviutl2_sys::input2::HINSTANCE,
+    ) -> bool
+    where
+        Self: Sized + Send + Sync + InputPlugin,
+    {
+        let plugin_lock = Self::get_singleton_state();
+        let plugin = plugin_lock.read().unwrap();
+        let plugin = plugin.as_ref().expect("Plugin not initialized");
+        unsafe { func_config::<Self>(plugin, hwnd, dll_hinst) }
+    }
+    extern "C" fn func_set_track(
+        ih: aviutl2_sys::input2::INPUT_HANDLE,
+        track_type: i32,
+        track: i32,
+    ) -> i32
+    where
+        Self: Sized + Send + Sync + InputPlugin,
+    {
+        let plugin_lock = Self::get_singleton_state();
+        let plugin = plugin_lock.read().unwrap();
+        let plugin = plugin.as_ref().expect("Plugin not initialized");
+        unsafe { func_set_track::<Self>(plugin, ih, track_type, track) }
+    }
+    extern "C" fn func_time_to_frame(ih: aviutl2_sys::input2::INPUT_HANDLE, time: f64) -> i32
+    where
+        Self: Sized + Send + Sync + InputPlugin,
+    {
+        let plugin_lock = Self::get_singleton_state();
+        let plugin = plugin_lock.read().unwrap();
+        let plugin = plugin.as_ref().expect("Plugin not initialized");
+        unsafe { func_time_to_frame::<Self>(plugin, ih, time) }
+    }
+}
+
 /// 入力プラグインを登録するマクロ。
 #[macro_export]
 macro_rules! register_input_plugin {
@@ -529,183 +666,22 @@ macro_rules! register_input_plugin {
         #[doc(hidden)]
         mod __au2_register_input_plugin {
             use super::$struct;
-            use $crate::input::InputPlugin as _;
-
-            static PLUGIN: std::sync::LazyLock<
-                std::sync::RwLock<
-                    Option<$crate::input::__bridge::InternalInputPluginState<$struct>>,
-                >,
-            > = std::sync::LazyLock::new(|| std::sync::RwLock::new(None));
+            use $crate::input::__bridge::InternalInputBridge;
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                unsafe { $crate::input::__bridge::initialize_plugin(&PLUGIN, version) }
+                $struct::initialize_plugin(version)
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                *PLUGIN.write().unwrap() = None;
+                $struct::uninitialize_plugin();
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetInputPluginTable()
             -> *mut aviutl2::sys::input2::INPUT_PLUGIN_TABLE {
-                let table = unsafe {
-                    $crate::input::__bridge::create_table::<$struct>(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        func_open,
-                        func_close,
-                        func_info_get,
-                        func_read_video,
-                        func_read_audio,
-                        func_config,
-                        func_set_track,
-                        func_time_to_frame,
-                    )
-                };
-                Box::into_raw(Box::new(table))
-            }
-
-            extern "C" fn func_open(
-                file: aviutl2::sys::common::LPCWSTR,
-            ) -> aviutl2::sys::input2::INPUT_HANDLE {
-                unsafe {
-                    $crate::input::__bridge::func_open(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        file,
-                    )
-                }
-            }
-
-            extern "C" fn func_close(ih: aviutl2::sys::input2::INPUT_HANDLE) -> bool {
-                unsafe {
-                    $crate::input::__bridge::func_close(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        ih,
-                    )
-                }
-            }
-
-            extern "C" fn func_info_get(
-                ih: aviutl2::sys::input2::INPUT_HANDLE,
-                iip: *mut aviutl2::sys::input2::INPUT_INFO,
-            ) -> bool {
-                unsafe {
-                    $crate::input::__bridge::func_info_get(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        ih,
-                        iip,
-                    )
-                }
-            }
-
-            extern "C" fn func_read_video(
-                ih: aviutl2::sys::input2::INPUT_HANDLE,
-                frame: i32,
-                buf: *mut std::ffi::c_void,
-            ) -> i32 {
-                unsafe {
-                    $crate::input::__bridge::func_read_video(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        ih,
-                        frame,
-                        buf,
-                    )
-                }
-            }
-
-            extern "C" fn func_read_audio(
-                ih: aviutl2::sys::input2::INPUT_HANDLE,
-                start: i32,
-                length: i32,
-                buf: *mut std::ffi::c_void,
-            ) -> i32 {
-                unsafe {
-                    $crate::input::__bridge::func_read_audio(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        ih,
-                        start,
-                        length,
-                        buf,
-                    )
-                }
-            }
-
-            extern "C" fn func_config(
-                hwnd: aviutl2::sys::input2::HWND,
-                dll_hinst: aviutl2::sys::input2::HINSTANCE,
-            ) -> bool {
-                unsafe {
-                    $crate::input::__bridge::func_config(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        hwnd,
-                        dll_hinst,
-                    )
-                }
-            }
-
-            extern "C" fn func_set_track(
-                ih: aviutl2::sys::input2::INPUT_HANDLE,
-                track_type: i32,
-                track: i32,
-            ) -> i32 {
-                unsafe {
-                    $crate::input::__bridge::func_set_track(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        ih,
-                        track_type,
-                        track,
-                    )
-                }
-            }
-
-            extern "C" fn func_time_to_frame(
-                ih: aviutl2::sys::input2::INPUT_HANDLE,
-                time: f64,
-            ) -> i32 {
-                unsafe {
-                    $crate::input::__bridge::func_time_to_frame(
-                        &PLUGIN
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .expect("Plugin not initialized"),
-                        ih,
-                        time,
-                    )
-                }
+                $struct::create_table()
             }
         }
     };

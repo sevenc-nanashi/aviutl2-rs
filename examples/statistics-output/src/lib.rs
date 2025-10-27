@@ -16,6 +16,7 @@ struct RenderData {
     end_time: String,
 }
 
+#[aviutl2::plugin(OutputPlugin)]
 struct StatisticsPlugin {}
 
 impl OutputPlugin for StatisticsPlugin {

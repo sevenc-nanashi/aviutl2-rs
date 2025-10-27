@@ -160,6 +160,7 @@ impl BinauralStates {
     }
 }
 
+#[aviutl2::plugin(FilterPlugin)]
 struct BinauralFilter {
     states: dashmap::DashMap<i64, BinauralStates>,
 }
