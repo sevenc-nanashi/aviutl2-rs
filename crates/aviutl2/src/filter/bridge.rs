@@ -271,7 +271,7 @@ extern "C" fn func_proc_audio<T: FilterSingleton>(
 #[macro_export]
 macro_rules! register_filter_plugin {
     ($struct:ident) => {
-        ::aviutl2::internal_module! {
+        ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
                 $crate::filter::__bridge::initialize_plugin::<$struct>(version)

@@ -53,7 +53,8 @@ pub use anyhow;
 pub use common::*;
 
 #[macro_export]
-macro_rules! internal_module {
+#[doc(hidden)]
+macro_rules! __internal_module {
     ($($item:item)*) => {
         const _: () = {
             $($item)*

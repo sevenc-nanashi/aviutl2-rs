@@ -41,7 +41,7 @@ pub fn module_functions(
     Ok(quote::quote! {
         #item
 
-        ::aviutl2::internal_module! {
+        ::aviutl2::__internal_module! {
             impl ::aviutl2::module::ScriptModuleFunctions for #impl_token {
                 fn functions() -> Vec<::aviutl2::module::ModuleFunction> {
                     let mut functions = Vec::new();

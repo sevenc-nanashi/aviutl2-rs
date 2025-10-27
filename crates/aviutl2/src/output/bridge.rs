@@ -184,7 +184,7 @@ where
 #[macro_export]
 macro_rules! register_output_plugin {
     ($struct:ident) => {
-        ::aviutl2::internal_module! {
+        ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
                 $crate::output::__bridge::initialize_plugin::<$struct>(version)

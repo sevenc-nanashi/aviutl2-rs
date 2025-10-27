@@ -103,7 +103,7 @@ extern "C" fn unreachable_function(_: *mut aviutl2_sys::module2::SCRIPT_MODULE_P
 #[macro_export]
 macro_rules! register_script_module {
     ($struct:ident) => {
-        ::aviutl2::internal_module! {
+        ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
                 unsafe { $crate::module::__bridge::initialize_plugin::<$struct>(version) }
