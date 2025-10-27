@@ -230,6 +230,10 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 /// #       todo!()
 /// #   }
 /// }
+///
+/// aviutl2::register_output_plugin!(MyOutputPlugin);
+///
+/// # fn main() {}
 /// ```
 #[proc_macro_attribute]
 pub fn plugin(

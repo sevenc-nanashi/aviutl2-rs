@@ -26,6 +26,9 @@
 pub use aviutl2_sys as sys;
 pub use log;
 
+#[doc(inline)]
+pub use aviutl2_macros::plugin;
+
 #[cfg(feature = "input")]
 pub mod input;
 
@@ -42,5 +45,4 @@ pub mod __internal_base;
 pub mod common;
 pub mod utils;
 pub use anyhow;
-pub use aviutl2_macros::plugin;
 pub use common::*;
