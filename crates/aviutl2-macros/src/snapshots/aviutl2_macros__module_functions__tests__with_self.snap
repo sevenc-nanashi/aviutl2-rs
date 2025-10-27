@@ -31,20 +31,19 @@ impl MyModule {
                 .as_ref()
                 .expect("Plugin instance is not initialized")
                 .instance;
-            let fuga: f64 =
-                match <f64 as ::aviutl2::module::__bridge::FromScriptModuleParam>::from_param(
-                    &params, 0usize,
-                ) {
-                    ::std::option::Option::Some(value) => value,
-                    ::std::option::Option::None => {
-                        params.set_error(&format!(
-                            "Failed to convert parameter #{} to {}",
-                            0usize,
-                            stringify!(f64)
-                        ));
-                        return;
-                    }
-                };
+            let fuga: f64 = match <f64 as ::aviutl2::module::FromScriptModuleParam>::from_param(
+                &params, 0usize,
+            ) {
+                ::std::option::Option::Some(value) => value,
+                ::std::option::Option::None => {
+                    params.set_error(&format!(
+                        "Failed to convert parameter #{} to {}",
+                        0usize,
+                        stringify!(f64)
+                    ));
+                    return;
+                }
+            };
             let result = <MyModule>::my_function(__internal_self, fuga);
             ::aviutl2::module::ToScriptModuleReturnValue::push_value(&result, &params);
         }

@@ -23,20 +23,19 @@ impl MyModule {
             smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
         ) {
             let params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
-            let hoge: i32 =
-                match <i32 as ::aviutl2::module::__bridge::FromScriptModuleParam>::from_param(
-                    &params, 0usize,
-                ) {
-                    ::std::option::Option::Some(value) => value,
-                    ::std::option::Option::None => {
-                        params.set_error(&format!(
-                            "Failed to convert parameter #{} to {}",
-                            0usize,
-                            stringify!(i32)
-                        ));
-                        return;
-                    }
-                };
+            let hoge: i32 = match <i32 as ::aviutl2::module::FromScriptModuleParam>::from_param(
+                &params, 0usize,
+            ) {
+                ::std::option::Option::Some(value) => value,
+                ::std::option::Option::None => {
+                    params.set_error(&format!(
+                        "Failed to convert parameter #{} to {}",
+                        0usize,
+                        stringify!(i32)
+                    ));
+                    return;
+                }
+            };
             let result = <MyModule>::my_function(hoge);
             ::aviutl2::module::ToScriptModuleReturnValue::push_value(&result, &params);
         }

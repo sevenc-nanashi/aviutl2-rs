@@ -149,7 +149,7 @@ fn create_bridge(
                             let pat = &pat_type.pat;
                             let idx = param_index;
                             param_bridges.push(quote::quote! {
-                                let #pat: #ty = match <#ty as ::aviutl2::module::__bridge::FromScriptModuleParam>::from_param(&params, #idx) {
+                                let #pat: #ty = match <#ty as ::aviutl2::module::FromScriptModuleParam>::from_param(&params, #idx) {
                                     ::std::option::Option::Some(value) => value,
                                     ::std::option::Option::None => {
                                         params.set_error(&format!(
@@ -258,7 +258,6 @@ mod tests {
         let replaced = proc_macro2::TokenStream::from_str(&replaced).unwrap();
         let formatted = rustfmt_wrapper::rustfmt(replaced).unwrap();
         // 元に戻す
-        formatted
-            .replace("mod __internal_module", "::aviutl2::__internal_module!")
+        formatted.replace("mod __internal_module", "::aviutl2::__internal_module!")
     }
 }
