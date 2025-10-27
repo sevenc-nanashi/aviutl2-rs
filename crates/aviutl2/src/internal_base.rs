@@ -1,9 +1,9 @@
 pub mod singleton_traits {
     #[cfg(feature = "input")]
-    pub use crate::input::__bridge::InternalInputBridge as InputPlugin;
+    pub use crate::input::__bridge::InputSingleton as InputPlugin;
 
     #[cfg(feature = "output")]
-    pub use crate::output::__bridge::InternalOutputBridge as OutputPlugin;
+    pub use crate::output::__bridge::OutputSingleton as OutputPlugin;
 
     #[cfg(feature = "filter")]
     pub use crate::filter::__bridge::FilterSingleton as FilterPlugin;
