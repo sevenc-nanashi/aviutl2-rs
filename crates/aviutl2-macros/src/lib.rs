@@ -204,6 +204,33 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
         .into()
 }
 
+/// プラグインを定義するためのマクロ。
+///
+/// # Attributes
+///
+/// - 引数には`InputPlugin`、`OutputPlugin`、`FilterPlugin`のいずれかを指定します。
+///
+/// # Example
+///
+/// ```rust
+/// #[aviutl2::plugin(OutputPlugin)]
+/// struct MyOutputPlugin;
+///
+/// impl aviutl2::output::OutputPlugin for MyOutputPlugin {
+///     // ...
+/// #   fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #       todo!()
+/// #   }
+/// #
+/// #   fn plugin_info(&self) -> aviutl2::output::OutputPluginTable {
+/// #       todo!()
+/// #   }
+/// #
+/// #   fn output(&self, info: aviutl2::output::OutputInfo) -> aviutl2::AnyResult<()> {
+/// #       todo!()
+/// #   }
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn plugin(
     attr: proc_macro::TokenStream,
