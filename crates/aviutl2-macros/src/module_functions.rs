@@ -154,7 +154,7 @@ fn create_bridge(
                 let params = &method.sig.inputs;
                 // Separate receiver and non-receiver parameters
                 let mut param_bridges = Vec::new();
-                let mut param_index = 0;
+                let mut param_index: usize = 0;
                 for param in params.iter() {
                     match param {
                         syn::FnArg::Receiver(r) => {
@@ -173,7 +173,7 @@ fn create_bridge(
                                 .to_compile_error());
                             }
 
-                            param_bridges.push(Ok(quote::quote! {
+                            param_bridges.push(quote::quote! {
                                 let __internal_self = &<#impl_token as ::aviutl2::module::ScriptModuleFunctions>::__internal_get_plugin_handle();
                                 let __internal_self = __internal_self
                                     .read()
@@ -182,13 +182,13 @@ fn create_bridge(
                                     .as_ref()
                                     .expect("Plugin instance is not initialized")
                                     .instance;
-                            }));
+                            });
                         }
                         syn::FnArg::Typed(pat_type) => {
                             let ty = &pat_type.ty;
                             let pat = &pat_type.pat;
                             let idx = param_index;
-                            param_bridges.push(Ok(quote::quote! {
+                            param_bridges.push(quote::quote! {
                                 let #pat: #ty = match <#ty as ::aviutl2::module::FromScriptModuleParam>::from_param(&params, #idx) {
                                     ::std::option::Option::Some(value) => value,
                                     ::std::option::Option::None => {
@@ -198,12 +198,11 @@ fn create_bridge(
                                         return;
                                     }
                                 };
-                            }));
+                            });
                             param_index += 1;
                         }
                     }
                 }
-                let param_bridges = param_bridges.into_iter().collect::<Result<Vec<_>, _>>()?;
                 let param_names = params.iter().map(|param| match param {
                     syn::FnArg::Receiver(_) => quote::quote! { __internal_self },
                     syn::FnArg::Typed(pat_type) => {
