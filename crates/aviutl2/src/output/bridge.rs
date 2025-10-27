@@ -243,8 +243,7 @@ where
 #[macro_export]
 macro_rules! register_output_plugin {
     ($struct:ident) => {
-        #[doc(hidden)]
-        mod __au2_register_output_plugin {
+        ::aviutl2::internal_module! {
             use super::$struct;
             use $crate::output::__bridge::InternalOutputBridge;
 

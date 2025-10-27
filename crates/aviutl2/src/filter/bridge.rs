@@ -310,8 +310,7 @@ where
 #[macro_export]
 macro_rules! register_filter_plugin {
     ($struct:ident) => {
-        #[doc(hidden)]
-        mod __au2_register_filter_plugin {
+        ::aviutl2::internal_module! {
             use super::$struct;
             use $crate::filter::__bridge::InternalFilterBridge;
 

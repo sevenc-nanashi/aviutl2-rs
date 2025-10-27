@@ -5,6 +5,7 @@
 
 mod filter_config_items;
 mod filter_config_select_items;
+mod internal_module;
 mod plugin;
 mod utils;
 
@@ -241,6 +242,28 @@ pub fn plugin(
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     plugin::plugin(attr.into(), item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+#[proc_macro]
+#[doc(hidden)]
+/// 内部モジュールを定義するためのマクロ。
+///
+/// # Example
+///
+/// ```rust
+/// aviutl2_macros::internal_module! {
+///    fn internal_function() {
+///        // ...
+///    }
+///
+///    fn another_internal_function() {
+///        // ...
+///    }
+/// }
+pub fn internal_module(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    internal_module::internal_module(item.into())
         .unwrap_or_else(|e| e)
         .into()
 }

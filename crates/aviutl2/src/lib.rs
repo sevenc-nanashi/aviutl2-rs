@@ -29,6 +29,9 @@ pub use log;
 #[doc(inline)]
 pub use aviutl2_macros::plugin;
 
+#[doc(hidden)]
+pub use aviutl2_macros::internal_module;
+
 #[cfg(feature = "input")]
 pub mod input;
 

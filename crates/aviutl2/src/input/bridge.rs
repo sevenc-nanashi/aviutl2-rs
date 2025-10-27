@@ -665,8 +665,7 @@ where
 #[macro_export]
 macro_rules! register_input_plugin {
     ($struct:ident) => {
-        #[doc(hidden)]
-        mod __au2_register_input_plugin {
+        ::aviutl2::internal_module! {
             use super::$struct;
             use $crate::input::__bridge::InternalInputBridge;
 
