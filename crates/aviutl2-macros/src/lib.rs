@@ -225,6 +225,8 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 /// # Example
 ///
 /// ```rust
+/// use aviutl2::module::ToScriptModuleReturnValue;
+///
 /// # struct MyModule;
 /// # impl aviutl2::module::ScriptModule for MyModule {
 /// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
@@ -242,9 +244,9 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 ///
 ///     fn return_overload(a: i32) -> impl aviutl2::module::ToScriptModuleReturnValue {
 ///         if a % 2 == 0 {
-///             return "Even".to_string().to_values();
+///             return "Even".to_return_values();
 ///         } else {
-///             return ("Odd", a).to_values();
+///             return ("Odd", a).to_return_values();
 ///         }
 ///     }
 ///
