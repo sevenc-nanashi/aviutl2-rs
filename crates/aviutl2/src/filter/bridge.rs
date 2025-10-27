@@ -311,7 +311,6 @@ where
 macro_rules! register_filter_plugin {
     ($struct:ident) => {
         ::aviutl2::internal_module! {
-            use super::$struct;
             use $crate::filter::__bridge::InternalFilterBridge;
 
             #[unsafe(no_mangle)]

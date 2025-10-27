@@ -29,9 +29,6 @@ pub use log;
 #[doc(inline)]
 pub use aviutl2_macros::plugin;
 
-#[doc(hidden)]
-pub use aviutl2_macros::internal_module;
-
 #[cfg(feature = "input")]
 pub mod input;
 
@@ -49,3 +46,12 @@ pub mod common;
 pub mod utils;
 pub use anyhow;
 pub use common::*;
+
+#[macro_export]
+macro_rules! internal_module {
+    ($($item:item)*) => {
+        const _: () = {
+            $($item)*
+        };
+    }
+}

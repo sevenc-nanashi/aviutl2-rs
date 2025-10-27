@@ -244,7 +244,6 @@ where
 macro_rules! register_output_plugin {
     ($struct:ident) => {
         ::aviutl2::internal_module! {
-            use super::$struct;
             use $crate::output::__bridge::InternalOutputBridge;
 
             #[unsafe(no_mangle)]

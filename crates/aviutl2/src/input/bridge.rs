@@ -666,7 +666,6 @@ where
 macro_rules! register_input_plugin {
     ($struct:ident) => {
         ::aviutl2::internal_module! {
-            use super::$struct;
             use $crate::input::__bridge::InternalInputBridge;
 
             #[unsafe(no_mangle)]
