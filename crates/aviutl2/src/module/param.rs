@@ -207,8 +207,8 @@ impl ScriptModuleCallHandle {
         let key_ptrs: Vec<*const std::os::raw::c_char> = keys.iter().map(|k| k.as_ptr()).collect();
         unsafe {
             ((*self.internal).push_result_table_int)(
-                key_ptrs.as_ptr() as *mut *const std::os::raw::c_char,
-                values.as_mut_ptr(),
+                key_ptrs.as_ptr(),
+                values.as_ptr(),
                 key_ptrs.len() as i32,
             );
         }
@@ -229,8 +229,8 @@ impl ScriptModuleCallHandle {
         let key_ptrs: Vec<*const std::os::raw::c_char> = keys.iter().map(|k| k.as_ptr()).collect();
         unsafe {
             ((*self.internal).push_result_table_double)(
-                key_ptrs.as_ptr() as *mut *const std::os::raw::c_char,
-                values.as_mut_ptr(),
+                key_ptrs.as_ptr(),
+                values.as_ptr(),
                 key_ptrs.len() as i32,
             );
         }
@@ -254,8 +254,8 @@ impl ScriptModuleCallHandle {
             values.iter().map(|v| v.as_ptr()).collect();
         unsafe {
             ((*self.internal).push_result_table_string)(
-                key_ptrs.as_ptr() as *mut *const std::os::raw::c_char,
-                value_ptrs.as_ptr() as *mut *const std::os::raw::c_char,
+                key_ptrs.as_ptr(),
+                value_ptrs.as_ptr(),
                 key_ptrs.len() as i32,
             );
         }
@@ -264,20 +264,14 @@ impl ScriptModuleCallHandle {
     /// 関数の返り値に整数の配列を追加する。
     pub fn push_result_array_int(&self, values: &[i32]) {
         unsafe {
-            ((*self.internal).push_result_array_int)(
-                values.as_ptr() as *mut i32,
-                values.len() as i32,
-            );
+            ((*self.internal).push_result_array_int)(values.as_ptr(), values.len() as i32);
         }
     }
 
     /// 関数の返り値に浮動小数点数の配列を追加する。
     pub fn push_result_array_float(&self, values: &[f64]) {
         unsafe {
-            ((*self.internal).push_result_array_double)(
-                values.as_ptr() as *mut f64,
-                values.len() as i32,
-            );
+            ((*self.internal).push_result_array_double)(values.as_ptr(), values.len() as i32);
         }
     }
 
@@ -291,7 +285,7 @@ impl ScriptModuleCallHandle {
             c_values.iter().map(|s| s.as_ptr()).collect();
         unsafe {
             ((*self.internal).push_result_array_string)(
-                c_value_ptrs.as_ptr() as *mut *const std::os::raw::c_char,
+                c_value_ptrs.as_ptr(),
                 c_value_ptrs.len() as i32,
             );
         }

@@ -171,7 +171,7 @@ pub struct SCRIPT_MODULE_PARAM {
     /// # Arguments
     ///
     /// * `value` - 戻り値
-    pub push_result_data: unsafe extern "C" fn(value: *mut c_void),
+    pub push_result_data: unsafe extern "C" fn(value: *const c_void),
 
     /// 整数連想配列の戻り値を追加する
     ///
@@ -181,7 +181,7 @@ pub struct SCRIPT_MODULE_PARAM {
     /// * `value` - 戻り値の配列
     /// * `num` - 配列の要素数
     pub push_result_table_int:
-        unsafe extern "C" fn(key: *mut *const c_char, value: *mut c_int, num: c_int),
+        unsafe extern "C" fn(key: *const *const c_char, value: *const c_int, num: c_int),
 
     /// 浮動小数点連想配列の戻り値を追加する
     ///
@@ -191,7 +191,7 @@ pub struct SCRIPT_MODULE_PARAM {
     /// * `value` - 戻り値の配列
     /// * `num` - 配列の要素数
     pub push_result_table_double:
-        unsafe extern "C" fn(key: *mut *const c_char, value: *mut c_double, num: c_int),
+        unsafe extern "C" fn(key: *const *const c_char, value: *const c_double, num: c_int),
 
     /// 文字列(UTF-8)連想配列の戻り値を追加する
     ///
@@ -201,7 +201,7 @@ pub struct SCRIPT_MODULE_PARAM {
     /// * `value` - 戻り値の配列
     /// * `num` - 配列の要素数
     pub push_result_table_string:
-        unsafe extern "C" fn(key: *mut *const c_char, value: *mut *const c_char, num: c_int),
+        unsafe extern "C" fn(key: *const *const c_char, value: *const *const c_char, num: c_int),
 
     /// 整数配列の戻り値を追加する
     ///
@@ -209,7 +209,7 @@ pub struct SCRIPT_MODULE_PARAM {
     ///
     /// * `value` - 戻り値の配列
     /// * `num` - 配列の要素数
-    pub push_result_array_int: unsafe extern "C" fn(value: *mut c_int, num: c_int),
+    pub push_result_array_int: unsafe extern "C" fn(value: *const c_int, num: c_int),
 
     /// 浮動小数点配列の戻り値を追加する
     ///
@@ -217,7 +217,7 @@ pub struct SCRIPT_MODULE_PARAM {
     ///
     /// * `value` - 戻り値の配列
     /// * `num` - 配列の要素数
-    pub push_result_array_double: unsafe extern "C" fn(value: *mut c_double, num: c_int),
+    pub push_result_array_double: unsafe extern "C" fn(value: *const c_double, num: c_int),
 
     /// 文字列(UTF-8)配列の戻り値を追加する
     ///
@@ -225,7 +225,7 @@ pub struct SCRIPT_MODULE_PARAM {
     ///
     /// * `value` - 戻り値の配列
     /// * `num` - 配列の要素数
-    pub push_result_array_string: unsafe extern "C" fn(value: *mut *const c_char, num: c_int),
+    pub push_result_array_string: unsafe extern "C" fn(value: *const *const c_char, num: c_int),
 
     /// エラーメッセージを設定する
     /// 呼び出された関数をエラー終了する場合に設定します
