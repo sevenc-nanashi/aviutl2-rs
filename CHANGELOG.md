@@ -8,7 +8,7 @@
 
 ### デモプラグイン
 
-（なし）
+- ユーザー名を取得するスクリプトモジュールを追加
 
 ## [0.9.6](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.9.6)
 
