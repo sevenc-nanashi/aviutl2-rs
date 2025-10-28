@@ -37,7 +37,7 @@ impl MyModule {
                 }
             };
             let result = <MyModule>::my_function(hoge);
-            ::aviutl2::module::ToScriptModuleReturnValue::push_value(&result, &params);
+            ::aviutl2::module::IntoScriptModuleReturnValue::push_value(result, &params);
         }
     }
 }

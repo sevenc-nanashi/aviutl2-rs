@@ -1,9 +1,9 @@
 ---
-source: crates/aviutl2-macros/src/to_script_module_return_value.rs
+source: crates/aviutl2-macros/src/into_script_module_return_value.rs
 expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
-impl ::aviutl2::module::ToScriptModuleReturnValue for MyReturnValue {
-    fn to_return_values(&self) -> Vec<::aviutl2::module::ScriptModuleReturnValue> {
+impl ::aviutl2::module::IntoScriptModuleReturnValue for MyReturnValue {
+    fn into_return_values(self) -> Vec<::aviutl2::module::ScriptModuleReturnValue> {
         let mut map = ::std::collections::HashMap::new();
         if let ::std::option::Option::Some(value) =
             ::aviutl2::module::table_converter::ToOptionalTableEntry::to_optional(
@@ -22,6 +22,6 @@ impl ::aviutl2::module::ToScriptModuleReturnValue for MyReturnValue {
                 value,
             );
         }
-        ::aviutl2::module::ToScriptModuleReturnValue::to_return_values(&map)
+        ::aviutl2::module::IntoScriptModuleReturnValue::into_return_values(map)
     }
 }

@@ -175,7 +175,7 @@ fn create_bridge(
                         let params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
                         #(#param_bridges)*
                         let result = <#impl_token>::#method_name(#(#param_names),*);
-                        ::aviutl2::module::ToScriptModuleReturnValue::push_value(&result, &params);
+                        ::aviutl2::module::IntoScriptModuleReturnValue::push_value(result, &params);
                     }
                 }
             };

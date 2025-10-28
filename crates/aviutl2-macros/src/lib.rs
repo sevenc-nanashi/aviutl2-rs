@@ -6,9 +6,9 @@
 mod filter_config_items;
 mod filter_config_select_items;
 mod from_script_module_param;
+mod into_script_module_return_value;
 mod module_functions;
 mod plugin;
-mod to_script_module_return_value;
 mod utils;
 
 /// `FilterConfigItems` を自動で実装するためのマクロ。
@@ -226,7 +226,7 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 /// # Example
 ///
 /// ```rust
-/// use aviutl2::module::ToScriptModuleReturnValue;
+/// use aviutl2::module::IntoScriptModuleReturnValue;
 ///
 /// # struct MyModule;
 /// # impl aviutl2::module::ScriptModule for MyModule {
@@ -243,11 +243,11 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 ///         a + b
 ///     }
 ///
-///     fn return_overload(a: i32) -> impl aviutl2::module::ToScriptModuleReturnValue {
+///     fn return_overload(a: i32) -> impl aviutl2::module::IntoScriptModuleReturnValue {
 ///         if a % 2 == 0 {
-///             return "Even".to_return_values();
+///             return "Even".into_return_values();
 ///         } else {
-///             return ("Odd", a).to_return_values();
+///             return ("Odd", a).into_return_values();
 ///         }
 ///     }
 ///
@@ -255,7 +255,7 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 ///     fn direct_sum(params: &aviutl2::module::ScriptModuleCallHandle) {
 ///         let a: i32 = params.get_param(0).unwrap_or(0);
 ///         let b: i32 = params.get_param(1).unwrap_or(0);
-///         params.push_result(&(a + b));
+///         params.push_result(a + b);
 ///     }
 /// }
 /// # fn main() {}
@@ -291,16 +291,16 @@ pub fn from_script_module_param(item: proc_macro::TokenStream) -> proc_macro::To
         .into()
 }
 
-/// `ToScriptModuleReturnValue` を自動で実装するためのマクロ。
+/// `IntoScriptModuleReturnValue` を自動で実装するためのマクロ。
 ///
 /// このマクロを利用するには、構造体の各フィールドが
-/// `aviutl2::module::ToScriptModuleReturnValueValue` トレイトを実装している、かつすべてのフィールドが
+/// `aviutl2::module::IntoScriptModuleReturnValueValue` トレイトを実装している、かつすべてのフィールドが
 /// `T` または `Option<T>` 型である必要があります。
 ///
 /// # Example
 ///
 /// ```rust
-/// #[derive(aviutl2::module::ToScriptModuleReturnValue)]
+/// #[derive(aviutl2::module::IntoScriptModuleReturnValue)]
 /// struct MyStruct {
 ///     foo: String,
 ///     bar: String,
@@ -310,9 +310,9 @@ pub fn from_script_module_param(item: proc_macro::TokenStream) -> proc_macro::To
 /// # See Also
 ///
 /// - [`FromScriptModuleParam`]
-#[proc_macro_derive(ToScriptModuleReturnValue)]
-pub fn to_script_module_return_value(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    to_script_module_return_value::to_script_module_return_value(item.into())
+#[proc_macro_derive(IntoScriptModuleReturnValue)]
+pub fn into_script_module_return_value(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    into_script_module_return_value::into_script_module_return_value(item.into())
         .unwrap_or_else(|e| e)
         .into()
 }
