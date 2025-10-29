@@ -1,0 +1,13 @@
+pre-push:
+  jobs:
+    - name: Run tests
+      run: |
+        rake test
+
+    - name: Check code formatting
+      run: |
+        rake check_format
+
+    - name: Lint code
+      run: |
+        rake lint

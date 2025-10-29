@@ -1,0 +1,19 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    lefthook (2.0.1)
+    prettier_print (1.2.1)
+    syntax_tree (6.3.0)
+      prettier_print (>= 1.2.0)
+    tomlrb (2.0.3)
+
+PLATFORMS
+  x64-mingw-ucrt
+
+DEPENDENCIES
+  lefthook (~> 2.0)
+  syntax_tree (~> 6.3)
+  tomlrb (~> 2.0, >= 2.0.3)
+
+BUNDLED WITH
+   2.6.2
