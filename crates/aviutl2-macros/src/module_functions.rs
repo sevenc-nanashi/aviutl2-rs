@@ -174,9 +174,9 @@ fn create_bridge(
                     extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
                         let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
                         #(#param_bridges)*
-                        let result = <#impl_token>::#method_name(#(#param_names),*);
-                        let result = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(result, &mut params);
-                        let _ = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(result, &mut params);
+                        let fn_result = <#impl_token>::#method_name(#(#param_names),*);
+                        let push_result = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(fn_result, &mut params);
+                        let _ = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(push_result, &mut params);
                     }
                 }
             };
