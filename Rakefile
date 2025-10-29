@@ -8,7 +8,12 @@ SyntaxTree::Rake::CheckTask.new do |t|
   t.source_files = FileList[%w[./Rakefile]]
 end
 
-suffixes = { "_input" => ".aui2", "_output" => ".auo2", "_filter" => ".auf2" , "_module" => ".mod2" }
+suffixes = {
+  "_input" => ".aui2",
+  "_output" => ".auo2",
+  "_filter" => ".auf2",
+  "_module" => ".mod2"
+}
 
 def replace_suffix(name, target, suffixes)
   target_suffix = target == "release" ? "" : "_#{target}"
@@ -69,11 +74,12 @@ task :link, %w[target dest] do |task, args|
       dest_name = replace_suffix(cargo_toml["lib"]["name"], target, suffixes)
       raise "Invalid file name: #{source}" if dest_name == File.basename(source)
       from_path = File.absolute_path(source)
-      dest_path = if dest_name.end_with?("mod2")
-        File.join(script_dir, dest_name)
-      else
-        File.join(dest_dir, dest_name)
-      end
+      dest_path =
+        if dest_name.end_with?("mod2")
+          File.join(script_dir, dest_name)
+        else
+          File.join(dest_dir, dest_name)
+        end
       if File.exist?(dest_path)
         puts "Skip: #{dest_path} already exists"
         next
