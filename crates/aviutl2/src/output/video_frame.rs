@@ -1,3 +1,5 @@
+//! 動画フレームのフォーマットを表すトレイトと型。
+
 use crate::{
     common::f16,
     output::{VideoOutputInfo, Yc48},
