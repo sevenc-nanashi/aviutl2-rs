@@ -32,7 +32,7 @@ pub fn into_script_module_return_value(
 
     let expanded = quote::quote! {
         impl ::aviutl2::module::IntoScriptModuleReturnValue for #ident {
-            fn into_return_values(self) -> Vec<::aviutl2::module::ScriptModuleReturnValue> {
+            fn into_return_values(self) -> ::aviutl2::AnyResult<Vec<::aviutl2::module::ScriptModuleReturnValue>> {
                 let mut map = ::std::collections::HashMap::new();
                 #(#push_fields)*
                 ::aviutl2::module::IntoScriptModuleReturnValue::into_return_values(map)

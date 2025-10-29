@@ -166,7 +166,10 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値を追加する。
-    pub fn push_result<T: IntoScriptModuleReturnValue>(&mut self, value: T) -> crate::AnyResult<()> {
+    pub fn push_result<T: IntoScriptModuleReturnValue>(
+        &mut self,
+        value: T,
+    ) -> crate::AnyResult<()> {
         value.push_into(self)
     }
 
@@ -588,12 +591,12 @@ pub enum ScriptModuleReturnValue {
 /// この関数はDeriveマクロを使用して実装することもできます。
 /// 詳細は[`derive@IntoScriptModuleReturnValue`]のドキュメントを参照してください。
 pub trait IntoScriptModuleReturnValue {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue>;
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>>;
     fn push_into(self, param: &mut ScriptModuleCallHandle) -> crate::AnyResult<()>
     where
         Self: std::marker::Sized,
     {
-        for value in self.into_return_values() {
+        for value in self.into_return_values()? {
             match value {
                 ScriptModuleReturnValue::Int(v) => {
                     param.push_result_int(v);
@@ -633,67 +636,94 @@ pub trait IntoScriptModuleReturnValue {
 pub use aviutl2_macros::IntoScriptModuleReturnValue;
 
 impl IntoScriptModuleReturnValue for i32 {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        vec![ScriptModuleReturnValue::Int(self)]
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(vec![ScriptModuleReturnValue::Int(self)])
+    }
+}
+#[duplicate::duplicate_item(
+    Integer;
+    [i8];
+    [i16];
+    [i64];
+    [i128];
+    [isize];
+    [u8];
+    [u16];
+    [u32];
+    [u64];
+    [u128];
+    [usize];
+)]
+impl IntoScriptModuleReturnValue for Integer {
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        #[allow(clippy::unnecessary_fallible_conversions)]
+        Ok(vec![ScriptModuleReturnValue::Int(self.try_into()?)])
     }
 }
 impl IntoScriptModuleReturnValue for f64 {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        vec![ScriptModuleReturnValue::Float(self)]
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(vec![ScriptModuleReturnValue::Float(self)])
+    }
+}
+impl IntoScriptModuleReturnValue for f32 {
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(vec![ScriptModuleReturnValue::Float(self as f64)])
     }
 }
 impl IntoScriptModuleReturnValue for bool {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        vec![ScriptModuleReturnValue::Boolean(self)]
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(vec![ScriptModuleReturnValue::Boolean(self)])
     }
 }
 impl IntoScriptModuleReturnValue for &str {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        vec![ScriptModuleReturnValue::String(self.to_string())]
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(vec![ScriptModuleReturnValue::String(self.to_string())])
     }
 }
 impl IntoScriptModuleReturnValue for String {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        vec![ScriptModuleReturnValue::String(self)]
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(vec![ScriptModuleReturnValue::String(self)])
     }
 }
 
 impl IntoScriptModuleReturnValue for ScriptModuleReturnValue {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        vec![self]
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(vec![self])
     }
 }
 
 impl IntoScriptModuleReturnValue for Vec<ScriptModuleReturnValue> {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        self
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(self)
     }
 }
 
 impl<T: IntoScriptModuleReturnValue> IntoScriptModuleReturnValue for Option<T> {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
         if let Some(value) = self {
             value.into_return_values()
         } else {
-            Vec::new()
+            Ok(Vec::new())
         }
     }
 }
 impl<T: IntoScriptModuleReturnValue, const N: usize> IntoScriptModuleReturnValue for [T; N] {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        self.into_iter()
-            .flat_map(|value| value.into_return_values())
-            .collect()
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        let mut out = Vec::new();
+        for value in self.into_iter() {
+            out.extend(value.into_return_values()?);
+        }
+        Ok(out)
     }
 }
 impl<T: IntoScriptModuleReturnValue, E> IntoScriptModuleReturnValue for Result<T, E>
 where
     Box<dyn std::error::Error>: From<E>,
 {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
         match self {
             Ok(value) => value.into_return_values(),
-            Err(_) => Vec::new(),
+            Err(_) => Ok(Vec::new()),
         }
     }
     fn push_into(self, param: &mut ScriptModuleCallHandle) -> crate::AnyResult<()> {
@@ -710,70 +740,70 @@ where
 }
 
 impl IntoScriptModuleReturnValue for () {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        Vec::new()
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(Vec::new())
     }
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(1, 10)]
 impl IntoScriptModuleReturnValue for Tuple {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
         let mut vec = Vec::new();
         for_tuples!(#(
-            vec.extend(Tuple.into_return_values());
+            vec.extend(Tuple.into_return_values()?);
         )*);
-        vec
+        Ok(vec)
     }
 }
 
 impl IntoScriptModuleReturnValue for Vec<String> {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        vec![ScriptModuleReturnValue::StringArray(self)]
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(vec![ScriptModuleReturnValue::StringArray(self)])
     }
 }
 impl IntoScriptModuleReturnValue for Vec<&str> {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        vec![ScriptModuleReturnValue::StringArray(
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(vec![ScriptModuleReturnValue::StringArray(
             self.iter().map(|s| s.to_string()).collect(),
-        )]
+        )])
     }
 }
 impl IntoScriptModuleReturnValue for Vec<i32> {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        vec![ScriptModuleReturnValue::IntArray(self)]
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(vec![ScriptModuleReturnValue::IntArray(self)])
     }
 }
 impl IntoScriptModuleReturnValue for Vec<f64> {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        vec![ScriptModuleReturnValue::FloatArray(self)]
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(vec![ScriptModuleReturnValue::FloatArray(self)])
     }
 }
 impl<T> IntoScriptModuleReturnValue for &[T]
 where
     T: IntoScriptModuleReturnValue + Clone,
 {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
         let mut vec = Vec::new();
         for item in self.iter() {
-            vec.extend(item.clone().into_return_values());
+            vec.extend(item.clone().into_return_values()?);
         }
-        vec
+        Ok(vec)
     }
 }
 
 impl IntoScriptModuleReturnValue for std::collections::HashMap<String, i32> {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        vec![ScriptModuleReturnValue::IntTable(self)]
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(vec![ScriptModuleReturnValue::IntTable(self)])
     }
 }
 impl IntoScriptModuleReturnValue for std::collections::HashMap<String, f64> {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        vec![ScriptModuleReturnValue::FloatTable(self)]
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(vec![ScriptModuleReturnValue::FloatTable(self)])
     }
 }
 impl IntoScriptModuleReturnValue for std::collections::HashMap<String, String> {
-    fn into_return_values(self) -> Vec<ScriptModuleReturnValue> {
-        vec![ScriptModuleReturnValue::StringTable(self)]
+    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+        Ok(vec![ScriptModuleReturnValue::StringTable(self)])
     }
 }
 
