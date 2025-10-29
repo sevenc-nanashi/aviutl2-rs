@@ -63,10 +63,8 @@ fn create_bridge(
         syn::ImplItem::Fn(method) => {
             let method_name = &method.sig.ident;
             let method_name_str = method_name.to_string();
-            let internal_method_name = syn::Ident::new(
-                &format!("bridge_{}", method_name),
-                method_name.span(),
-            );
+            let internal_method_name =
+                syn::Ident::new(&format!("bridge_{}", method_name), method_name.span());
             let func_table = quote::quote! {
                 functions.push(::aviutl2::module::ModuleFunction {
                     name: #method_name_str.to_string(),
