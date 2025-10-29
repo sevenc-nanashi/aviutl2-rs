@@ -220,7 +220,7 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 /// 関数のシグネチャは以下のようになります。
 ///
 /// ```rust
-/// fn function_name(params: &aviutl2::module::ScriptModuleCallHandle) { /* ... */ }
+/// fn function_name(params: &mut aviutl2::module::ScriptModuleCallHandle) { /* ... */ }
 /// ```
 ///
 /// # Example
