@@ -46,12 +46,10 @@ pub fn module_functions(
                 fn functions() -> Vec<::aviutl2::module::ModuleFunction> {
                     let mut functions = Vec::new();
                     #(#function_tables)*
-                    functions
-                }
-            }
+                    return functions;
 
-            impl #impl_token {
-                #(#function_impls)*
+                    #(#function_impls)*
+                }
             }
         }
     })
@@ -66,13 +64,13 @@ fn create_bridge(
             let method_name = &method.sig.ident;
             let method_name_str = method_name.to_string();
             let internal_method_name = syn::Ident::new(
-                &format!("__aviutl2_internal_module_function_{}", method_name_str),
+                &format!("bridge_{}", method_name),
                 method_name.span(),
             );
             let func_table = quote::quote! {
                 functions.push(::aviutl2::module::ModuleFunction {
                     name: #method_name_str.to_string(),
-                    func: <#impl_token>::#internal_method_name,
+                    func: #internal_method_name,
                 });
             };
 
