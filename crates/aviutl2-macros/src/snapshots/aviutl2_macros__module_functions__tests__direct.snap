@@ -20,9 +20,8 @@ impl MyModule {
         extern "C" fn __aviutl2_internal_module_function_my_function(
             smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
         ) {
-            let params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
-            let __internal_self =
-                <MyModule as ::aviutl2::module::ScriptModuleSingleton>::__get_singleton_state();
+            let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
+            let __internal_self = < MyModule as :: aviutl2 :: module :: __bridge :: ScriptModuleSingleton > :: __get_singleton_state () ;
             let __internal_self = __internal_self
                 .read()
                 .expect("Plugin handle is not initialized");
@@ -30,7 +29,7 @@ impl MyModule {
                 .as_ref()
                 .expect("Plugin instance is not initialized")
                 .instance;
-            let () = <MyModule>::my_function(__internal_self, &params);
+            let () = <MyModule>::my_function(__internal_self, &mut params);
         }
     }
 }

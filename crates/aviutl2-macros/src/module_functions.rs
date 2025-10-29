@@ -90,8 +90,8 @@ fn create_bridge(
                 if has_self {
                     quote::quote! {
                         extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                            let params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
-                            let __internal_self = <#impl_token as ::aviutl2::module::ScriptModuleSingleton>::__get_singleton_state();
+                            let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
+                            let __internal_self = <#impl_token as ::aviutl2::module::__bridge::ScriptModuleSingleton>::__get_singleton_state();
                             let __internal_self = __internal_self
                                 .read()
                                 .expect("Plugin handle is not initialized");
@@ -99,14 +99,14 @@ fn create_bridge(
                                 .as_ref()
                                 .expect("Plugin instance is not initialized")
                                 .instance;
-                            let () = <#impl_token>::#method_name(__internal_self, &params);
+                            let () = <#impl_token>::#method_name(__internal_self, &mut params);
                         }
                     }
                 } else {
                     quote::quote! {
                         extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                            let params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
-                            let () = <#impl_token>::#method_name(&params);
+                            let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
+                            let () = <#impl_token>::#method_name(&mut params);
                         }
                     }
                 }
@@ -152,7 +152,7 @@ fn create_bridge(
                                 let #pat: #ty = match <#ty as ::aviutl2::module::FromScriptModuleParam>::from_param(&params, #idx) {
                                     ::std::option::Option::Some(value) => value,
                                     ::std::option::Option::None => {
-                                        params.set_error(&format!(
+                                        let _ = params.set_error(&format!(
                                             "Failed to convert parameter #{} to {}", #idx, stringify!(#ty)
                                         ));
                                         return;
@@ -172,10 +172,11 @@ fn create_bridge(
                 });
                 quote::quote! {
                     extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                        let params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
+                        let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
                         #(#param_bridges)*
                         let result = <#impl_token>::#method_name(#(#param_names),*);
-                        ::aviutl2::module::IntoScriptModuleReturnValue::push_value(result, &params);
+                        let result = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(result, &mut params);
+                        let _ = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(result, &mut params);
                     }
                 }
             };

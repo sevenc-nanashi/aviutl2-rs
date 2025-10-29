@@ -157,49 +157,51 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数のエラーを設定する。
-    pub fn set_error(&self, message: &str) {
-        let c_message = std::ffi::CString::new(message).unwrap();
+    pub fn set_error(&mut self, message: &str) -> crate::AnyResult<()> {
+        let c_message = std::ffi::CString::new(message)?;
         unsafe {
             ((*self.internal).set_error)(c_message.as_ptr());
         }
+        Ok(())
     }
 
     /// 関数の返り値を追加する。
-    pub fn push_result<T: IntoScriptModuleReturnValue>(&self, value: T) {
-        value.push_value(self);
+    pub fn push_result<T: IntoScriptModuleReturnValue>(&mut self, value: T) -> crate::AnyResult<()> {
+        value.push_into(self)
     }
 
     /// 関数の返り値に整数を追加する。
-    pub fn push_result_int(&self, value: i32) {
+    pub fn push_result_int(&mut self, value: i32) {
         unsafe {
             ((*self.internal).push_result_int)(value);
         }
     }
 
     /// 関数の返り値に浮動小数点数を追加する。
-    pub fn push_result_float(&self, value: f64) {
+    pub fn push_result_float(&mut self, value: f64) {
         unsafe {
             ((*self.internal).push_result_double)(value);
         }
     }
 
     /// 関数の返り値に文字列を追加する。
-    pub fn push_result_str(&self, value: &str) {
-        let c_value = std::ffi::CString::new(value).unwrap();
+    pub fn push_result_str(&mut self, value: &str) -> crate::AnyResult<()> {
+        let c_value = std::ffi::CString::new(value)?;
         unsafe {
             ((*self.internal).push_result_string)(c_value.as_ptr());
         }
+        Ok(())
     }
 
     /// 関数の返り値に整数の連想配列を追加する。
-    pub fn push_result_table_int<'a, T>(&self, table: T)
+    pub fn push_result_table_int<'a, T>(&mut self, table: T) -> crate::AnyResult<()>
     where
         T: std::iter::IntoIterator<Item = (&'a str, i32)>,
     {
         let mut keys = Vec::new();
         let mut values = Vec::new();
         for (key, value) in table {
-            let c_key = std::ffi::CString::new(key).unwrap();
+            let c_key = std::ffi::CString::new(key)?;
             keys.push(c_key);
             values.push(value);
         }
@@ -211,17 +213,18 @@ impl ScriptModuleCallHandle {
                 key_ptrs.len() as i32,
             );
         }
+        Ok(())
     }
 
     /// 関数の返り値に浮動小数点数の連想配列を追加する。
-    pub fn push_result_table_float<'a, T>(&self, table: T)
+    pub fn push_result_table_float<'a, T>(&mut self, table: T) -> crate::AnyResult<()>
     where
         T: std::iter::IntoIterator<Item = (&'a str, f64)>,
     {
         let mut keys = Vec::new();
         let mut values = Vec::new();
         for (key, value) in table {
-            let c_key = std::ffi::CString::new(key).unwrap();
+            let c_key = std::ffi::CString::new(key)?;
             keys.push(c_key);
             values.push(value);
         }
@@ -233,21 +236,26 @@ impl ScriptModuleCallHandle {
                 key_ptrs.len() as i32,
             );
         }
+        Ok(())
     }
 
     /// 関数の返り値に文字列の連想配列を追加する。
-    pub fn push_result_table_str<'a, T>(&self, table: T)
+    pub fn push_result_table_str<'a, T>(&mut self, table: T) -> crate::AnyResult<()>
     where
         T: std::iter::IntoIterator<Item = (&'a str, &'a str)>,
     {
         let mut keys = Vec::new();
         let mut values = Vec::new();
         for (key, value) in table {
-            let c_key = std::ffi::CString::new(key).unwrap();
-            let c_value = std::ffi::CString::new(value).unwrap();
+            let c_key = std::ffi::CString::new(key)?;
+            let c_value = std::ffi::CString::new(value)?;
             keys.push(c_key);
             values.push(c_value);
         }
+        anyhow::ensure!(
+            keys.len() <= i32::MAX as usize,
+            "Table size exceeds i32::MAX"
+        );
         let key_ptrs: Vec<*const std::os::raw::c_char> = keys.iter().map(|k| k.as_ptr()).collect();
         let value_ptrs: Vec<*const std::os::raw::c_char> =
             values.iter().map(|v| v.as_ptr()).collect();
@@ -258,28 +266,43 @@ impl ScriptModuleCallHandle {
                 key_ptrs.len() as i32,
             );
         }
+        Ok(())
     }
 
     /// 関数の返り値に整数の配列を追加する。
-    pub fn push_result_array_int(&self, values: &[i32]) {
+    pub fn push_result_array_int(&mut self, values: &[i32]) -> crate::AnyResult<()> {
+        anyhow::ensure!(
+            values.len() <= i32::MAX as usize,
+            "Array length exceeds i32::MAX"
+        );
         unsafe {
             ((*self.internal).push_result_array_int)(values.as_ptr(), values.len() as i32);
         }
+        Ok(())
     }
 
     /// 関数の返り値に浮動小数点数の配列を追加する。
-    pub fn push_result_array_float(&self, values: &[f64]) {
+    pub fn push_result_array_float(&mut self, values: &[f64]) -> crate::AnyResult<()> {
+        anyhow::ensure!(
+            values.len() <= i32::MAX as usize,
+            "Array length exceeds i32::MAX"
+        );
         unsafe {
             ((*self.internal).push_result_array_double)(values.as_ptr(), values.len() as i32);
         }
+        Ok(())
     }
 
     /// 関数の返り値に文字列の配列を追加する。
-    pub fn push_result_array_str(&self, values: &[&str]) {
+    pub fn push_result_array_str(&mut self, values: &[&str]) -> crate::AnyResult<()> {
         let c_values: Vec<std::ffi::CString> = values
             .iter()
-            .map(|s| std::ffi::CString::new(*s).unwrap())
-            .collect();
+            .map(|s| std::ffi::CString::new(*s))
+            .collect::<Result<_, _>>()?;
+        anyhow::ensure!(
+            c_values.len() <= i32::MAX as usize,
+            "Array length exceeds i32::MAX"
+        );
         let c_value_ptrs: Vec<*const std::os::raw::c_char> =
             c_values.iter().map(|s| s.as_ptr()).collect();
         unsafe {
@@ -288,10 +311,11 @@ impl ScriptModuleCallHandle {
                 c_value_ptrs.len() as i32,
             );
         }
+        Ok(())
     }
 
     /// 関数の返り値にブール値を追加する。
-    pub fn push_result_boolean(&self, value: bool) {
+    pub fn push_result_boolean(&mut self, value: bool) {
         unsafe {
             ((*self.internal).push_result_boolean)(value);
         }
@@ -565,33 +589,45 @@ pub enum ScriptModuleReturnValue {
 /// 詳細は[`derive@IntoScriptModuleReturnValue`]のドキュメントを参照してください。
 pub trait IntoScriptModuleReturnValue {
     fn into_return_values(self) -> Vec<ScriptModuleReturnValue>;
-    fn push_value(self, param: &ScriptModuleCallHandle) where Self: std::marker::Sized {
+    fn push_into(self, param: &mut ScriptModuleCallHandle) -> crate::AnyResult<()>
+    where
+        Self: std::marker::Sized,
+    {
         for value in self.into_return_values() {
             match value {
-                ScriptModuleReturnValue::Int(v) => param.push_result_int(v),
-                ScriptModuleReturnValue::Float(v) => param.push_result_float(v),
-                ScriptModuleReturnValue::String(v) => param.push_result_str(&v),
-                ScriptModuleReturnValue::Boolean(v) => param.push_result_boolean(v),
+                ScriptModuleReturnValue::Int(v) => {
+                    param.push_result_int(v);
+                }
+                ScriptModuleReturnValue::Float(v) => {
+                    param.push_result_float(v);
+                }
+                ScriptModuleReturnValue::String(v) => {
+                    param.push_result_str(&v)?;
+                }
+                ScriptModuleReturnValue::Boolean(v) => {
+                    param.push_result_boolean(v);
+                }
                 ScriptModuleReturnValue::StringArray(v) => {
                     let strs: Vec<&str> = v.iter().map(|s| s.as_str()).collect();
-                    param.push_result_array_str(&strs)
+                    param.push_result_array_str(&strs)?
                 }
-                ScriptModuleReturnValue::IntArray(v) => param.push_result_array_int(&v),
-                ScriptModuleReturnValue::FloatArray(v) => param.push_result_array_float(&v),
+                ScriptModuleReturnValue::IntArray(v) => param.push_result_array_int(&v)?,
+                ScriptModuleReturnValue::FloatArray(v) => param.push_result_array_float(&v)?,
                 ScriptModuleReturnValue::IntTable(v) => {
                     let table = v.iter().map(|(k, v)| (k.as_str(), *v));
-                    param.push_result_table_int(table)
+                    param.push_result_table_int(table)?;
                 }
                 ScriptModuleReturnValue::FloatTable(v) => {
                     let table = v.iter().map(|(k, v)| (k.as_str(), *v));
-                    param.push_result_table_float(table)
+                    param.push_result_table_float(table)?;
                 }
                 ScriptModuleReturnValue::StringTable(v) => {
                     let table = v.iter().map(|(k, v)| (k.as_str(), v.as_str()));
-                    param.push_result_table_str(table)
+                    param.push_result_table_str(table)?;
                 }
-            }
+            };
         }
+        Ok(())
     }
 }
 pub use aviutl2_macros::IntoScriptModuleReturnValue;
@@ -660,13 +696,16 @@ where
             Err(_) => Vec::new(),
         }
     }
-    fn push_value(self, param: &ScriptModuleCallHandle) {
+    fn push_into(self, param: &mut ScriptModuleCallHandle) -> crate::AnyResult<()> {
         match self {
-            Ok(value) => value.push_value(param),
+            Ok(value) => {
+                value.push_into(param)?;
+            }
             Err(err) => {
-                param.set_error(&(Box::<dyn std::error::Error>::from(err).to_string()));
+                let _ = param.set_error(&(Box::<dyn std::error::Error>::from(err).to_string()));
             }
         }
+        Ok(())
     }
 }
 

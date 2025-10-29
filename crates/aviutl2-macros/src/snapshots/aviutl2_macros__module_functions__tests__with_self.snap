@@ -22,7 +22,7 @@ impl MyModule {
         extern "C" fn __aviutl2_internal_module_function_my_function(
             smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
         ) {
-            let params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
+            let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
             let __internal_self = < MyModule as :: aviutl2 :: module :: __bridge :: ScriptModuleSingleton > :: __get_singleton_state () ;
             let __internal_self = __internal_self
                 .read()
@@ -36,7 +36,7 @@ impl MyModule {
             ) {
                 ::std::option::Option::Some(value) => value,
                 ::std::option::Option::None => {
-                    params.set_error(&format!(
+                    let _ = params.set_error(&format!(
                         "Failed to convert parameter #{} to {}",
                         0usize,
                         stringify!(f64)
@@ -45,7 +45,9 @@ impl MyModule {
                 }
             };
             let result = <MyModule>::my_function(__internal_self, fuga);
-            ::aviutl2::module::IntoScriptModuleReturnValue::push_value(result, &params);
+            let result =
+                ::aviutl2::module::IntoScriptModuleReturnValue::push_into(result, &mut params);
+            let _ = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(result, &mut params);
         }
     }
 }

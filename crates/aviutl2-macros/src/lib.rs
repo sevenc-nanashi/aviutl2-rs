@@ -228,7 +228,10 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 /// ```rust
 /// use aviutl2::module::IntoScriptModuleReturnValue;
 ///
-/// # struct MyModule;
+/// #[aviutl2::plugin(ScriptModule)]
+/// struct MyModule {
+///     counter: std::sync::atomic::AtomicI32,
+/// }
 /// # impl aviutl2::module::ScriptModule for MyModule {
 /// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
 /// #         unimplemented!()
@@ -251,11 +254,26 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 ///         }
 ///     }
 ///
+///     fn increment_counter(&self) -> i32 {
+///         self.counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1
+///     }
+///
 ///     #[direct]
-///     fn direct_sum(params: &aviutl2::module::ScriptModuleCallHandle) {
+///     fn direct_sum(params: &mut aviutl2::module::ScriptModuleCallHandle) {
 ///         let a: i32 = params.get_param(0).unwrap_or(0);
 ///         let b: i32 = params.get_param(1).unwrap_or(0);
 ///         params.push_result(a + b);
+///     }
+///
+///     #[direct]
+///     fn direct_sum_with_counter(
+///         &self,
+///         params: &mut aviutl2::module::ScriptModuleCallHandle,
+///     ) {
+///         let a: i32 = params.get_param(0).unwrap_or(0);
+///         let b: i32 = params.get_param(1).unwrap_or(0);
+///         let count = self.increment_counter();
+///         params.push_result((a + b, count));
 ///     }
 /// }
 /// # fn main() {}
