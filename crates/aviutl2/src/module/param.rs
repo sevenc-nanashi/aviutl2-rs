@@ -3,7 +3,6 @@
 pub struct ScriptModuleCallHandle {
     pub(crate) internal: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,
 }
-unsafe impl Send for ScriptModuleCallHandle {}
 
 impl ScriptModuleCallHandle {
     /// ポインタから`ScriptModuleParam`を作成する。
