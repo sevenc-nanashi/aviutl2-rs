@@ -1,5 +1,12 @@
 # frozen_string_literal: true
-require "bundler/inline"
+require "syntax_tree/rake_tasks"
+
+SyntaxTree::Rake::WriteTask.new do |t|
+  t.source_files = FileList[%w[./Rakefile]]
+end
+SyntaxTree::Rake::CheckTask.new do |t|
+  t.source_files = FileList[%w[./Rakefile]]
+end
 
 suffixes = { "_input" => ".aui2", "_output" => ".auo2", "_filter" => ".auf2" }
 
@@ -11,12 +18,6 @@ def replace_suffix(name, target, suffixes)
     end
   end
   raise "Invalid file name: #{name}"
-end
-
-gemfile(true) do
-  source "https://rubygems.org"
-  gem "tomlrb", "~> 2.0", ">= 2.0.3"
-  gem "racc", "~> 1.8", ">= 1.8.1"
 end
 
 desc "ビルドしたプラグインをC:/ProgramData/AviUtl2/Pluginまたは指定したディレクトリにインストールします"
@@ -123,4 +124,30 @@ task :release, ["tag"] do |task, args|
 
     MARKDOWN
   File.write(File.join(dest_dir, "CHANGELOG.md"), changelog)
+end
+
+desc "コードをフォーマットします"
+task :format do
+  Rake::Task["stree:write"].invoke
+  sh "cargo fmt"
+end
+
+desc "コードのフォーマットをチェックします"
+task :check_format do
+  Rake::Task["stree:check"].invoke
+  sh "cargo fmt -- --check"
+end
+
+desc "コードをLintします"
+task :lint do
+  sh "cargo clippy --all-targets --all-features -- -D warnings"
+  sh(
+    { "RUSTDOCFLAGS" => "-D warnings" },
+    "cargo doc --no-deps -p aviutl2 -p aviutl2-sys -p aviutl2-macros"
+  )
+end
+
+desc "コードをテストします"
+task :test do
+  sh "cargo test --all-features"
 end

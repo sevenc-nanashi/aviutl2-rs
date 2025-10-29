@@ -12,10 +12,9 @@ AviUtl2は現在このプラグインを設計している時点（2025/09/08）
 
 ## コマンド集
 
-- `cargo fmt`：コードをフォーマットします。
-- `cargo clippy --all-targets --all-features -- -D warnings`：コードのLintを行います。
-- `cargo test`：テストを実行します。
-- `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps -p aviutl2 -p aviutl2-sys`：ドキュメントの生成とリンクなどのチェックを行います。
+- `rake format`：コードをフォーマットします。
+- `rake lint`：コードのLintを行います。
+- `rake test`：テストを実行します。
 
 - `rake install[debug | release]`：AviUtl2のプラグインディレクトリにビルドしたDLLをコピーします。`debug`または`release`を指定します。
 - `rake link[debug | release]`：AviUtl2のプラグインディレクトリにビルドしたDLLへのシンボリックリンクを作成します。`debug`または`release`を指定します。
