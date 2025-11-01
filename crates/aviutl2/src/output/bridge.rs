@@ -52,7 +52,7 @@ impl FromRawAudioSamples for i16 {
 }
 
 pub fn initialize_plugin<T: OutputSingleton>(version: u32) -> bool {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
     };
@@ -71,13 +71,13 @@ pub fn initialize_plugin<T: OutputSingleton>(version: u32) -> bool {
 }
 
 pub fn uninitialize_plugin<T: OutputSingleton>() {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     *plugin_state = None;
 }
 
 pub fn create_table<T: OutputSingleton>() -> *mut aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
     log::info!("Creating OUTPUT_PLUGIN_TABLE");
@@ -116,7 +116,7 @@ pub fn create_table<T: OutputSingleton>() -> *mut aviutl2_sys::output2::OUTPUT_P
 }
 
 extern "C" fn func_output<T: OutputSingleton>(oip: *mut aviutl2_sys::output2::OUTPUT_INFO) -> bool {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let plugin_state = plugin_state.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
@@ -137,7 +137,7 @@ extern "C" fn func_config<T: OutputSingleton>(
     hwnd: aviutl2_sys::output2::HWND,
     dll_hinst: aviutl2_sys::output2::HINSTANCE,
 ) -> bool {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let plugin_state = plugin_state.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
@@ -156,7 +156,7 @@ extern "C" fn func_config<T: OutputSingleton>(
 }
 
 extern "C" fn func_get_config_text<T: OutputSingleton>() -> *const u16 {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let plugin_state = plugin_state.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
@@ -177,14 +177,14 @@ pub trait OutputSingleton
 where
     Self: 'static + Send + Sync + OutputPlugin,
 {
-    fn get_singleton_state() -> &'static std::sync::RwLock<Option<InternalOutputPluginState<Self>>>;
+    fn __get_singleton_state() -> &'static std::sync::RwLock<Option<InternalOutputPluginState<Self>>>;
 }
 
 /// 出力プラグインを登録するマクロ。
 #[macro_export]
 macro_rules! register_output_plugin {
     ($struct:ident) => {
-        ::aviutl2::internal_module! {
+        ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
                 $crate::output::__bridge::initialize_plugin::<$struct>(version)

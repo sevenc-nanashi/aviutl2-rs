@@ -5,6 +5,9 @@
 
 mod filter_config_items;
 mod filter_config_select_items;
+mod from_script_module_param;
+mod into_script_module_return_value;
+mod module_functions;
 mod plugin;
 mod utils;
 
@@ -83,7 +86,7 @@ mod utils;
 /// ```
 ///
 /// ```rust
-/// #[derive(aviutl2_macros::FilterConfigSelectItems)]
+/// #[derive(aviutl2::filter::FilterConfigSelectItems)]
 /// enum MySelectItem {
 ///    #[item(name = "Hoge")]
 ///    Hoge,
@@ -204,11 +207,139 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
         .into()
 }
 
+/// `ScriptModuleFunctions` を実装するためのマクロ。
+///
+/// このマクロは`impl`ブロックに対して適用されます。
+/// `impl`ブロック内で定義された関数がスクリプトモジュールの関数として登録されます。
+///
+/// # Attributes
+///
+/// ### `direct`
+///
+/// 関数の引数を手動で処理する関数として登録します。
+/// 関数のシグネチャは以下のようになります。
+///
+/// ```rust
+/// fn function_name(params: &mut aviutl2::module::ScriptModuleCallHandle) { /* ... */ }
+/// ```
+///
+/// # Example
+///
+/// ```rust
+/// use aviutl2::module::IntoScriptModuleReturnValue;
+///
+/// #[aviutl2::plugin(ScriptModule)]
+/// struct MyModule {
+///     counter: std::sync::atomic::AtomicI32,
+/// }
+/// # impl aviutl2::module::ScriptModule for MyModule {
+/// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn plugin_info(&self) -> aviutl2::module::ScriptModuleTable {
+/// #         unimplemented!()
+/// #     }
+/// # }
+/// #[aviutl2::module::functions]
+/// impl MyModule {
+///     fn sum(a: i32, b: i32) -> i32 {
+///         a + b
+///     }
+///
+///     fn return_overload(a: i32) -> impl aviutl2::module::IntoScriptModuleReturnValue {
+///         if a % 2 == 0 {
+///             return "Even".into_return_values();
+///         } else {
+///             return ("Odd", a).into_return_values();
+///         }
+///     }
+///
+///     fn increment_counter(&self) -> i32 {
+///         self.counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1
+///     }
+///
+///     #[direct]
+///     fn direct_sum(params: &mut aviutl2::module::ScriptModuleCallHandle) {
+///         let a: i32 = params.get_param(0).unwrap_or(0);
+///         let b: i32 = params.get_param(1).unwrap_or(0);
+///         params.push_result(a + b);
+///     }
+///
+///     #[direct]
+///     fn direct_sum_with_counter(
+///         &self,
+///         params: &mut aviutl2::module::ScriptModuleCallHandle,
+///     ) {
+///         let a: i32 = params.get_param(0).unwrap_or(0);
+///         let b: i32 = params.get_param(1).unwrap_or(0);
+///         let count = self.increment_counter();
+///         params.push_result((a + b, count));
+///     }
+/// }
+/// # fn main() {}
+/// ```
+#[proc_macro_attribute]
+pub fn module_functions(
+    _attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    module_functions::module_functions(item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// `FromScriptModuleParam` を自動で実装するためのマクロ。
+///
+/// このマクロを利用するには、構造体の各フィールドが `aviutl2::module::FromScriptModuleParamValue`
+/// トレイトを実装している必要があります。
+///
+/// # Example
+///
+/// ```rust
+/// #[derive(aviutl2::module::FromScriptModuleParam)]
+/// struct MyStruct {
+///     foo: i32,
+///     bar: String,
+/// }
+/// ```
+#[proc_macro_derive(FromScriptModuleParam)]
+pub fn from_script_module_param(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    from_script_module_param::from_script_module_param(item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// `IntoScriptModuleReturnValue` を自動で実装するためのマクロ。
+///
+/// このマクロを利用するには、構造体の各フィールドが
+/// `aviutl2::module::IntoScriptModuleReturnValueValue` トレイトを実装している、かつすべてのフィールドが
+/// `T` または `Option<T>` 型である必要があります。
+///
+/// # Example
+///
+/// ```rust
+/// #[derive(aviutl2::module::IntoScriptModuleReturnValue)]
+/// struct MyStruct {
+///     foo: String,
+///     bar: String,
+/// }
+/// ```
+///
+/// # See Also
+///
+/// - [`FromScriptModuleParam`]
+#[proc_macro_derive(IntoScriptModuleReturnValue)]
+pub fn into_script_module_return_value(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    into_script_module_return_value::into_script_module_return_value(item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
 /// プラグインを定義するためのマクロ。
 ///
 /// # Attributes
 ///
-/// - 引数には`InputPlugin`、`OutputPlugin`、`FilterPlugin`のいずれかを指定します。
+/// - 引数には`InputPlugin`、`OutputPlugin`、`FilterPlugin`、`ScriptModule`のいずれかを指定します。
 ///
 /// # Example
 ///

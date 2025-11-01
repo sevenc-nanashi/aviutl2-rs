@@ -1,0 +1,23 @@
+---
+source: crates/aviutl2-macros/src/from_script_module_param.rs
+expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
+---
+impl<'a> ::aviutl2::module::FromScriptModuleParam<'a> for MyParam {
+    fn from_param(
+        param: &'a ::aviutl2::module::ScriptModuleCallHandle,
+        index: usize,
+    ) -> Option<Self> {
+        let table = ::aviutl2::module::ScriptModuleParamTable::from_param(param, index)?;
+        Some(Self {
+            string_value:
+                <String as ::aviutl2::module::FromScriptModuleParamTable>::from_param_table(
+                    &table,
+                    "string_value",
+                )?,
+            int_value: <i32 as ::aviutl2::module::FromScriptModuleParamTable>::from_param_table(
+                &table,
+                "int_value",
+            )?,
+        })
+    }
+}

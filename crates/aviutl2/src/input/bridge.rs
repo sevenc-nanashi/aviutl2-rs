@@ -111,7 +111,7 @@ struct InternalInputHandle<T: Send + Sync> {
 }
 
 pub fn initialize_plugin<T: InputSingleton>(version: u32) -> bool {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
     };
@@ -130,13 +130,13 @@ pub fn initialize_plugin<T: InputSingleton>(version: u32) -> bool {
 }
 
 pub fn uninitialize_plugin<T: InputSingleton>() {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     *plugin_state = None;
 }
 
 pub fn create_table<T: InputSingleton>() -> *mut aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
     let plugin_info = &plugin_state.plugin_info;
@@ -185,7 +185,7 @@ pub fn create_table<T: InputSingleton>() -> *mut aviutl2_sys::input2::INPUT_PLUG
 extern "C" fn func_open<T: InputSingleton>(
     file: aviutl2_sys::common::LPCWSTR,
 ) -> aviutl2_sys::input2::INPUT_HANDLE {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let plugin_state = plugin_state.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
@@ -211,7 +211,7 @@ extern "C" fn func_open<T: InputSingleton>(
     }
 }
 extern "C" fn func_close<T: InputSingleton>(ih: aviutl2_sys::input2::INPUT_HANDLE) -> bool {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let plugin_state = plugin_state.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
@@ -229,7 +229,7 @@ extern "C" fn func_info_get<T: InputSingleton>(
     ih: aviutl2_sys::input2::INPUT_HANDLE,
     iip: *mut aviutl2_sys::input2::INPUT_INFO,
 ) -> bool {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let plugin_state = plugin_state.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
@@ -299,7 +299,7 @@ extern "C" fn func_read_video<T: InputSingleton>(
     frame: i32,
     buf: *mut std::ffi::c_void,
 ) -> i32 {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let plugin_state = plugin_state.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
@@ -345,7 +345,7 @@ extern "C" fn func_read_audio<T: InputSingleton>(
     length: i32,
     buf: *mut std::ffi::c_void,
 ) -> i32 {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let plugin_state = plugin_state.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
@@ -389,7 +389,7 @@ extern "C" fn func_config<T: InputSingleton>(
     hwnd: aviutl2_sys::input2::HWND,
     dll_hinst: aviutl2_sys::input2::HINSTANCE,
 ) -> bool {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let plugin_state = plugin_state.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
@@ -411,7 +411,7 @@ extern "C" fn func_set_track<T: InputSingleton>(
     track_type: i32,
     track: i32,
 ) -> i32 {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let plugin_state = plugin_state.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
@@ -501,7 +501,7 @@ extern "C" fn func_time_to_frame<T: InputSingleton>(
     ih: aviutl2_sys::input2::INPUT_HANDLE,
     time: f64,
 ) -> i32 {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let plugin_state = plugin_state.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
@@ -526,14 +526,14 @@ pub trait InputSingleton
 where
     Self: 'static + Send + Sync + InputPlugin,
 {
-    fn get_singleton_state() -> &'static std::sync::RwLock<Option<InternalInputPluginState<Self>>>;
+    fn __get_singleton_state() -> &'static std::sync::RwLock<Option<InternalInputPluginState<Self>>>;
 }
 
 /// 入力プラグインを登録するマクロ。
 #[macro_export]
 macro_rules! register_input_plugin {
     ($struct:ident) => {
-        ::aviutl2::internal_module! {
+        ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
                 $crate::input::__bridge::initialize_plugin::<$struct>(version)

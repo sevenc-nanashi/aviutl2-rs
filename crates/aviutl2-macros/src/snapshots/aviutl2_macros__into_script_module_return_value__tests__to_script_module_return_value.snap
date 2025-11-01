@@ -1,0 +1,29 @@
+---
+source: crates/aviutl2-macros/src/into_script_module_return_value.rs
+expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
+---
+impl ::aviutl2::module::IntoScriptModuleReturnValue for MyReturnValue {
+    fn into_return_values(
+        self,
+    ) -> ::aviutl2::AnyResult<Vec<::aviutl2::module::ScriptModuleReturnValue>> {
+        let mut map = ::std::collections::HashMap::new();
+        if let ::std::option::Option::Some(value) =
+            ::aviutl2::module::table_converter::ToOptionalTableEntry::to_optional(
+                &self.string_value,
+            )
+        {
+            map.insert(::std::string::String::from(stringify!(string_value)), value);
+        }
+        if let ::std::option::Option::Some(value) =
+            ::aviutl2::module::table_converter::ToOptionalTableEntry::to_optional(
+                &self.string_option,
+            )
+        {
+            map.insert(
+                ::std::string::String::from(stringify!(string_option)),
+                value,
+            );
+        }
+        ::aviutl2::module::IntoScriptModuleReturnValue::into_return_values(map)
+    }
+}

@@ -1,0 +1,33 @@
+---
+source: crates/aviutl2-macros/src/module_functions.rs
+expression: format_tokens(output)
+---
+impl MyModule {
+    fn my_function(&self) {}
+}
+::aviutl2::__internal_module! {
+    impl ::aviutl2::module::ScriptModuleFunctions for MyModule {
+        fn functions() -> Vec<::aviutl2::module::ModuleFunction> {
+            let mut functions = Vec::new();
+            functions.push(::aviutl2::module::ModuleFunction {
+                name: "my_function".to_string(),
+                func: bridge_my_function,
+            });
+            return functions;
+            extern "C" fn bridge_my_function(
+                smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
+            ) {
+                let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
+                let __internal_self = < MyModule as :: aviutl2 :: module :: __bridge :: ScriptModuleSingleton > :: __get_singleton_state () ;
+                let __internal_self = __internal_self
+                    .read()
+                    .expect("Plugin handle is not initialized");
+                let __internal_self = &__internal_self
+                    .as_ref()
+                    .expect("Plugin instance is not initialized")
+                    .instance;
+                let () = <MyModule>::my_function(__internal_self, &mut params);
+            }
+        }
+    }
+}

@@ -143,11 +143,11 @@ pub trait FilterSingleton
 where
     Self: 'static + Send + Sync + FilterPlugin,
 {
-    fn get_singleton_state() -> &'static std::sync::RwLock<Option<InternalFilterPluginState<Self>>>;
+    fn __get_singleton_state() -> &'static std::sync::RwLock<Option<InternalFilterPluginState<Self>>>;
 }
 
 pub fn initialize_plugin<T: FilterSingleton>(version: u32) -> bool {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
     };
@@ -165,12 +165,12 @@ pub fn initialize_plugin<T: FilterSingleton>(version: u32) -> bool {
     true
 }
 pub fn uninitialize_plugin<T: FilterSingleton>() {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     *plugin_state = None;
 }
 pub fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
-    let plugin_state = T::get_singleton_state();
+    let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
     let plugin_info = &plugin_state.plugin_info;
@@ -236,7 +236,7 @@ pub fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::FILTER_P
 extern "C" fn func_proc_video<T: FilterSingleton>(
     video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
 ) -> bool {
-    let plugin_lock = T::get_singleton_state();
+    let plugin_lock = T::__get_singleton_state();
     update_configs::<T>(plugin_lock);
     let plugin_state = plugin_lock.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
@@ -253,7 +253,7 @@ extern "C" fn func_proc_video<T: FilterSingleton>(
 extern "C" fn func_proc_audio<T: FilterSingleton>(
     audio: *mut aviutl2_sys::filter2::FILTER_PROC_AUDIO,
 ) -> bool {
-    let plugin_lock = T::get_singleton_state();
+    let plugin_lock = T::__get_singleton_state();
     update_configs::<T>(plugin_lock);
     let plugin_state = plugin_lock.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
@@ -271,7 +271,7 @@ extern "C" fn func_proc_audio<T: FilterSingleton>(
 #[macro_export]
 macro_rules! register_filter_plugin {
     ($struct:ident) => {
-        ::aviutl2::internal_module! {
+        ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
                 $crate::filter::__bridge::initialize_plugin::<$struct>(version)

@@ -5,10 +5,11 @@
 - **Breaking:** AviUtl2Version::newの引数をu32からu8に変更
 - **Breaking:** プラグイン定義に`#[aviutl2::plugin(...)]`属性を必須化
 - **Breaking:** VideoFrame系を`aviutl2::output::video_frame`モジュールに移動
+- スクリプトモジュールを追加
 
 ### デモプラグイン
 
-（なし）
+- ユーザー名を取得するスクリプトモジュールを追加
 
 ## [0.9.6](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.9.6)
 
