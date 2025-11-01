@@ -44,7 +44,7 @@ jobs:
       - name: Prepare release
         shell: bash
         run: |
-          rake release[${{ github.event.inputs.name }}]
+          bundle exec rake release[${{ github.event.inputs.name }}]
           cp ./release/CHANGELOG.md ./CHANGELOG.md
 
       - name: Commit version change

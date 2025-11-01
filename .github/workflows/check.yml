@@ -27,13 +27,13 @@ jobs:
 
       - name: Run fmt
         run: |
-          rake fmt
+          bundle exec rake fmt
 
       - name: Run lint
         run: |
-          rake lint
+          bundle exec rake lint
 
       - name: Run test
         run: |
           choco install ffmpeg
-          rake test
+          bundle exec rake test

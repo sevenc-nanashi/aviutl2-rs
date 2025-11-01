@@ -7,3 +7,5 @@ gem "tomlrb", "~> 2.0", ">= 2.0.3"
 gem "lefthook", "~> 2.0"
 gem "syntax_tree", "~> 6.3"
 
+
+gem "rake", "~> 13.3"
