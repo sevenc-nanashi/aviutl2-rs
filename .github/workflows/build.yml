@@ -21,15 +21,8 @@ jobs:
         with:
           submodules: "recursive"
 
-      - name: Cache rust
-        uses: Swatinem/rust-cache@v2
-
-      - name: Set up Rust
-        run: |
-          rustup toolchain install --profile minimal
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
 
       - name: Set up cargo-edit
         uses: taiki-e/install-action@v2

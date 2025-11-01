@@ -19,31 +19,21 @@ jobs:
         with:
           submodules: "recursive"
 
-      - name: Set up Rust
-        run: |
-          rustup toolchain install --profile minimal
-          rustup component add clippy
-          rustup component add rustfmt
-
-      - name: Cache rust
-        uses: Swatinem/rust-cache@v2
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
 
       - name: Build Page
         uses: ./.github/actions/render-statistics-page
 
-      - name: Run clippy
+      - name: Run fmt
         run: |
-          cargo clippy --all-features -- -D warnings
+          rake fmt
+
+      - name: Run lint
+        run: |
+          rake lint
 
       - name: Run test
         run: |
           choco install ffmpeg
-          cargo test --all-features
-
-      - name: Run fmt
-        run: |
-          cargo fmt --check
-
-      - name: Check docs
-        run: |
-          RUSTDOCFLAGS="-D warnings" cargo doc --no-deps -p aviutl2 -p aviutl2-sys -p aviutl2-macros
+          rake test
