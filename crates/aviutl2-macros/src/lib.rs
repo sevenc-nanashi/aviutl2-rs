@@ -339,7 +339,7 @@ pub fn into_script_module_return_value(item: proc_macro::TokenStream) -> proc_ma
 ///
 /// # Attributes
 ///
-/// - 引数には`InputPlugin`、`OutputPlugin`、`FilterPlugin`、`ScriptModule`のいずれかを指定します。
+/// - 引数には`InputPlugin`、`OutputPlugin`、`FilterPlugin`、`ScriptModule`、`GenericPlugin`のいずれかを指定します。
 ///
 /// # Example
 ///

@@ -15,12 +15,12 @@ targets = []
 all-features = true
 
 [features]
-default = ["input", "output", "filter", "module", "host_app"]
+default = ["input", "output", "filter", "module", "generic"]
 input = []
 output = []
 filter = []
 module = []
-host_app = []
+generic = []
 env_logger = ["dep:env_logger"]
 image = ["dep:image"]
 
