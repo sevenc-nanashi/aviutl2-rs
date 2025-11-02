@@ -79,26 +79,25 @@ pub fn generic_menus(
         let attr = method.attrs.remove(kind_idx);
         let mut menu_name: Option<String> = None;
         let mut error_mode = ErrorMode::Alert;
-        attr
-            .parse_nested_meta(|m| {
-                if m.path.is_ident("name") {
-                    let value: syn::LitStr = m.value()?.parse()?;
-                    menu_name = Some(value.value());
-                    Ok(())
-                } else if m.path.is_ident("error") {
-                    let value: syn::LitStr = m.value()?.parse()?;
-                    match value.value().as_str() {
-                        "alert" => error_mode = ErrorMode::Alert,
-                        "log" => error_mode = ErrorMode::Log,
-                        "ignore" => error_mode = ErrorMode::Ignore,
-                        _ => return Err(m.error("expected \"alert\", \"log\", or \"ignore\"")),
-                    }
-                    Ok(())
-                } else {
-                    Err(m.error("expected `name` or `error`"))
+        attr.parse_nested_meta(|m| {
+            if m.path.is_ident("name") {
+                let value: syn::LitStr = m.value()?.parse()?;
+                menu_name = Some(value.value());
+                Ok(())
+            } else if m.path.is_ident("error") {
+                let value: syn::LitStr = m.value()?.parse()?;
+                match value.value().as_str() {
+                    "alert" => error_mode = ErrorMode::Alert,
+                    "log" => error_mode = ErrorMode::Log,
+                    "ignore" => error_mode = ErrorMode::Ignore,
+                    _ => return Err(m.error("expected \"alert\", \"log\", or \"ignore\"")),
                 }
-            })
-            .map_err(|e| e.to_compile_error())?;
+                Ok(())
+            } else {
+                Err(m.error("expected `name` or `error`"))
+            }
+        })
+        .map_err(|e| e.to_compile_error())?;
         let menu_name = menu_name.unwrap_or_else(|| method_ident.to_string());
 
         let mut has_self = false;
