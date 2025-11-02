@@ -1,0 +1,21 @@
+name: Setup Environment
+description: 環境をセットアップする
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Rust
+      shell: bash
+      run: |
+        rustup toolchain install --profile minimal
+        rustup component add clippy
+        rustup component add rustfmt
+
+    - name: Cache rust
+      uses: Swatinem/rust-cache@v2
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: "3.4"
+        bundler-cache: true

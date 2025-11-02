@@ -3,6 +3,7 @@ GEM
   specs:
     lefthook (2.0.1)
     prettier_print (1.2.1)
+    rake (13.3.1)
     syntax_tree (6.3.0)
       prettier_print (>= 1.2.0)
     tomlrb (2.0.3)
@@ -12,8 +13,12 @@ PLATFORMS
 
 DEPENDENCIES
   lefthook (~> 2.0)
+  rake (~> 13.3)
   syntax_tree (~> 6.3)
   tomlrb (~> 2.0, >= 2.0.3)
+
+RUBY VERSION
+   ruby 3.4.2p28
 
 BUNDLED WITH
    2.6.2
