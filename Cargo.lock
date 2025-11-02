@@ -1327,6 +1327,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "easy-ext"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc5d6d6a8504f8caedd7de14576464383900cd3840b7033a7a3dce5ac00121ca"
+
+[[package]]
 name = "ecolor"
 version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1522,6 +1528,15 @@ name = "encode_unicode"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
+
+[[package]]
+name = "encoding_rs"
+version = "0.8.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
+dependencies = [
+ "cfg-if",
+]
 
 [[package]]
 name = "endi"
@@ -1812,6 +1827,9 @@ version = "0.9.6"
 dependencies = [
  "anyhow",
  "aviutl2",
+ "easy-ext",
+ "native-dialog",
+ "srtlib",
 ]
 
 [[package]]
@@ -4658,6 +4676,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eda41003dc44290527a59b13432d4a0379379fa074b70174882adfbdfd917844"
 dependencies = [
  "bitflags 2.9.4",
+]
+
+[[package]]
+name = "srtlib"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf36f30c19e578c5390523c7b676c2297c51012f153d2f9bf76ebf4f51c40ffa"
+dependencies = [
+ "encoding_rs",
 ]
 
 [[package]]

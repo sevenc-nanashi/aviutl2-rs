@@ -28,6 +28,13 @@ pub fn generic_menus(
 
     let impl_token = item.self_ty.to_token_stream();
 
+    #[derive(Clone, Copy)]
+    enum ErrorMode {
+        Ignore,
+        Log,
+        Alert,
+    }
+
     struct Entry {
         is_export: bool,
         menu_name: String,
@@ -35,6 +42,7 @@ pub fn generic_menus(
         wrapper_ident: syn::Ident,
         has_self: bool,
         self_is_mut: bool,
+        error_mode: ErrorMode,
     }
 
     let mut entries: Vec<Entry> = Vec::new();
@@ -67,19 +75,30 @@ pub fn generic_menus(
             }
         };
 
-        // Parse name = "..."
+        // Parse name = "...", error = "alert"|"log"
         let attr = method.attrs.remove(kind_idx);
         let mut menu_name: Option<String> = None;
-        attr.parse_nested_meta(|m| {
-            if m.path.is_ident("name") {
-                let value: syn::LitStr = m.value()?.parse()?;
-                menu_name = Some(value.value());
-                Ok(())
-            } else {
-                Err(m.error("expected `name`"))
-            }
-        })
-        .map_err(|e| e.to_compile_error())?;
+        let mut error_mode = ErrorMode::Alert;
+        attr
+            .parse_nested_meta(|m| {
+                if m.path.is_ident("name") {
+                    let value: syn::LitStr = m.value()?.parse()?;
+                    menu_name = Some(value.value());
+                    Ok(())
+                } else if m.path.is_ident("error") {
+                    let value: syn::LitStr = m.value()?.parse()?;
+                    match value.value().as_str() {
+                        "alert" => error_mode = ErrorMode::Alert,
+                        "log" => error_mode = ErrorMode::Log,
+                        "ignore" => error_mode = ErrorMode::Ignore,
+                        _ => return Err(m.error("expected \"alert\", \"log\", or \"ignore\"")),
+                    }
+                    Ok(())
+                } else {
+                    Err(m.error("expected `name` or `error`"))
+                }
+            })
+            .map_err(|e| e.to_compile_error())?;
         let menu_name = menu_name.unwrap_or_else(|| method_ident.to_string());
 
         let mut has_self = false;
@@ -106,6 +125,7 @@ pub fn generic_menus(
             wrapper_ident,
             has_self,
             self_is_mut,
+            error_mode,
         });
     }
 
@@ -123,6 +143,12 @@ pub fn generic_menus(
         };
         register_lines.push(reg);
 
+        let call_on_error = match e.error_mode {
+            ErrorMode::Ignore => quote::quote! { let _ = ret; },
+            ErrorMode::Log => quote::quote! { edit.__output_log_if_error(ret); },
+            ErrorMode::Alert => quote::quote! { edit.__alert_if_error(ret); },
+        };
+
         let wrapper = if e.has_self {
             if e.self_is_mut {
                 quote::quote! {
@@ -130,7 +156,7 @@ pub fn generic_menus(
                         let mut edit = unsafe { ::aviutl2::generic::EditSection::from_ptr(edit) };
                         <#impl_token as ::aviutl2::generic::GenericPlugin>::with_instance_mut(|__self| {
                             let ret = <#impl_token>::#method_ident(__self, &mut edit);
-                            edit.__output_log_if_error(ret);
+                            #call_on_error
                         });
                     }
                 }
@@ -140,7 +166,7 @@ pub fn generic_menus(
                         let mut edit = unsafe { ::aviutl2::generic::EditSection::from_ptr(edit) };
                         <#impl_token as ::aviutl2::generic::GenericPlugin>::with_instance(|__self| {
                             let ret = <#impl_token>::#method_ident(__self, &mut edit);
-                            edit.__output_log_if_error(ret);
+                            #call_on_error
                         });
                     }
                 }
@@ -150,7 +176,7 @@ pub fn generic_menus(
                 extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
                     let mut edit = unsafe { ::aviutl2::generic::EditSection::from_ptr(edit) };
                     let ret = <#impl_token>::#method_ident(&mut edit);
-                    edit.__output_log_if_error(ret);
+                    #call_on_error
                 }
             }
         };

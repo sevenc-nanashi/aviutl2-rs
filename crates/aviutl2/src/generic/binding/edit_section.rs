@@ -85,10 +85,12 @@ impl EditSection {
     ///
     /// # Arguments
     ///
-    /// - `alias`：オブジェクトエイリアスのデータ。オブジェクトエイリアスと同じフォーマットで指定  
+    /// - `alias`：オブジェクトエイリアスのデータ。オブジェクトエイリアスと同じフォーマットで指定します。
     /// - `layer`：作成するオブジェクトのレイヤー番号（0始まり）。
     /// - `frame`：作成するオブジェクトのフレーム番号（0始まり）。
     /// - `length`：作成するオブジェクトの長さ（フレーム数）。
+    ///
+    /// lengthはエイリアスデータにフレーム情報が無い場合に利用されます。
     ///
     /// # Errors
     ///
@@ -310,6 +312,14 @@ impl EditSection {
         }
     }
 
+    #[doc(hidden)]
+    #[expect(private_bounds)]
+    pub fn __alert_if_error<T: MenuCallbackReturn>(&self, result: T) {
+        if let Some(err_msg) = result.into_optional_error() {
+            crate::common::alert_error(&anyhow::anyhow!(err_msg));
+        }
+    }
+
     /// すべてのレイヤーをイテレータで取得します。
     ///
     /// UI 表示と異なり、レイヤー番号は 0 始まりです。
@@ -332,22 +342,23 @@ impl EditSection {
 /// 操作を簡潔に呼び出せるようにします。
 pub struct EditSectionObjectCaller<'a> {
     edit_section: &'a EditSection,
-    object: &'a ObjectHandle,
+    pub handle: &'a ObjectHandle,
 }
 impl<'a> EditSectionObjectCaller<'a> {
     pub fn new(edit_section: &'a EditSection, object: &'a ObjectHandle) -> Self {
         Self {
             edit_section,
-            object,
+            handle: object,
         }
     }
+
     /// オブジェクトのレイヤーとフレーム情報を取得します。
     pub fn get_layer_frame(&self) -> AnyResult<ObjectLayerFrame> {
-        self.edit_section.get_object_layer_frame(self.object)
+        self.edit_section.get_object_layer_frame(self.handle)
     }
     /// オブジェクトの情報をエイリアスデータとして取得します。
     pub fn get_alias(&self) -> AnyResult<String> {
-        self.edit_section.get_object_alias(self.object)
+        self.edit_section.get_object_alias(self.handle)
     }
     /// オブジェクトの設定項目の値を文字列で取得します。
     ///
@@ -363,7 +374,7 @@ impl<'a> EditSectionObjectCaller<'a> {
         item: &str,
     ) -> AnyResult<String> {
         self.edit_section
-            .get_object_effect_item(self.object, effect_name, effect_index, item)
+            .get_object_effect_item(self.handle, effect_name, effect_index, item)
     }
 
     /// オブジェクトの設定項目の値を文字列で設定します。
@@ -382,7 +393,7 @@ impl<'a> EditSectionObjectCaller<'a> {
         value: &str,
     ) -> AnyResult<()> {
         self.edit_section.set_object_effect_item(
-            self.object,
+            self.handle,
             effect_name,
             effect_index,
             item,
@@ -398,12 +409,12 @@ impl<'a> EditSectionObjectCaller<'a> {
     /// - `new_start_frame`：移動先の開始フレーム番号（0始まり）。
     pub fn move_object(&self, new_layer: usize, new_start_frame: usize) -> AnyResult<()> {
         self.edit_section
-            .move_object(self.object, new_layer, new_start_frame)
+            .move_object(self.handle, new_layer, new_start_frame)
     }
 
     /// オブジェクトを削除します。
     pub fn delete_object(&self) -> AnyResult<()> {
-        self.edit_section.delete_object(self.object)
+        self.edit_section.delete_object(self.handle)
     }
 
     /// オブジェクト設定ウィンドウでこのオブジェクトを選択状態にします。
@@ -412,12 +423,12 @@ impl<'a> EditSectionObjectCaller<'a> {
     ///
     /// コールバック処理の終了時に設定されます。
     pub fn focus_object(&self) -> AnyResult<()> {
-        self.edit_section.focus_object(self.object)
+        self.edit_section.focus_object(self.handle)
     }
 
     /// このオブジェクトが存在するかどうか調べます。
     pub fn exists(&self) -> bool {
-        self.edit_section.object_exists(self.object)
+        self.edit_section.object_exists(self.handle)
     }
 }
 
@@ -426,13 +437,13 @@ impl<'a> EditSectionObjectCaller<'a> {
 /// 操作を簡潔に呼び出せるようにします。
 pub struct EditSectionLayerCaller<'a> {
     edit_section: &'a EditSection,
-    layer: usize,
+    pub index: usize,
 }
 impl<'a> EditSectionLayerCaller<'a> {
     pub fn new(edit_section: &'a EditSection, layer: usize) -> Self {
         Self {
             edit_section,
-            layer,
+            index: layer,
         }
     }
     /// 指定のフレーム番号以降にあるオブジェクトを検索します。
@@ -441,13 +452,13 @@ impl<'a> EditSectionLayerCaller<'a> {
     ///
     /// - `frame`：検索を開始するフレーム番号（0始まり）。
     pub fn find_object_after(&self, frame: usize) -> AnyResult<Option<ObjectHandle>> {
-        self.edit_section.find_object_after(self.layer, frame)
+        self.edit_section.find_object_after(self.index, frame)
     }
 
     /// このレイヤーに存在するすべてのオブジェクトを、
     /// 開始フレームの昇順で走査するイテレータを返します。
     pub fn objects(&self) -> EditSectionLayerObjectsIterator<'a> {
-        EditSectionLayerObjectsIterator::new(self.edit_section, self.layer)
+        EditSectionLayerObjectsIterator::new(self.edit_section, self.index)
     }
 }
 
