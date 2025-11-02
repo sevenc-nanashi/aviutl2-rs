@@ -106,6 +106,28 @@ impl<'a> HostAppHandle<'a> {
         self.assert_not_killed();
         T::register_menus(self);
     }
+
+    /// プロジェクトファイルをロードした直後に呼ばれる関数を登録します。
+    pub fn register_project_load_handler(
+        &mut self,
+        callback: extern "C" fn(*mut aviutl2_sys::plugin2::PROJECT_FILE),
+    ) {
+        self.assert_not_killed();
+        unsafe {
+            ((*self.internal).register_project_load_handler)(callback);
+        }
+    }
+
+    /// プロジェクトファイルを保存する直前に呼ばれる関数を登録します。
+    pub fn register_project_save_handler(
+        &mut self,
+        callback: extern "C" fn(*mut aviutl2_sys::plugin2::PROJECT_FILE),
+    ) {
+        self.assert_not_killed();
+        unsafe {
+            ((*self.internal).register_project_save_handler)(callback);
+        }
+    }
 }
 
 /// 汎用プラグインのメニュー登録用トレイト。

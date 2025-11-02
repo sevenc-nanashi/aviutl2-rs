@@ -1,7 +1,7 @@
 use crate::{
     common::LeakManager,
     generic::{
-        GenericPlugin,
+        GenericPlugin, ProjectFile,
         binding::host_app::{HostAppHandle, PluginRegistry},
     },
 };
@@ -85,7 +85,27 @@ pub unsafe fn register_plugin<T: GenericSingleton>(
             &mut plugin_state.plugin_registry,
         )
     };
-    T::register(&plugin_state.instance, &mut handle);
+    handle.register_project_load_handler(on_project_load::<T>);
+    handle.register_project_save_handler(on_project_save::<T>);
+    T::register(&mut plugin_state.instance, &mut handle);
+
+    extern "C" fn on_project_load<T: GenericSingleton>(
+        project: *mut aviutl2_sys::plugin2::PROJECT_FILE,
+    ) {
+        <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
+            let mut project = ProjectFile::from_raw(project);
+            instance.on_project_load(&mut project);
+        });
+    }
+
+    extern "C" fn on_project_save<T: GenericSingleton>(
+        project: *mut aviutl2_sys::plugin2::PROJECT_FILE,
+    ) {
+        <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
+            let mut project = ProjectFile::from_raw(project);
+            instance.on_project_save(&mut project);
+        });
+    }
 }
 pub unsafe fn uninitialize_plugin<T: GenericSingleton>() {
     let plugin_state = T::__get_singleton_state();

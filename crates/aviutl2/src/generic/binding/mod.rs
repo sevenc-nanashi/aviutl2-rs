@@ -15,7 +15,15 @@ pub trait GenericPlugin: Send + Sync + Sized {
     fn new(info: AviUtl2Info) -> AnyResult<Self>;
 
     /// プラグインをホストに登録する。
-    fn register(&self, registry: &mut self::host_app::HostAppHandle);
+    fn register(&mut self, registry: &mut self::host_app::HostAppHandle);
+
+    /// プロジェクトファイルのロードを処理する。
+    ///
+    /// プロジェクトの初期化時にも呼ばれます。
+    fn on_project_load(&mut self, _project: &mut crate::generic::ProjectFile) {}
+
+    /// プロジェクトファイルをセーブする直前に呼ばれる。
+    fn on_project_save(&mut self, _project: &mut crate::generic::ProjectFile) {}
 
     /// シングルトンインスタンスを参照するためのヘルパーメソッド。
     ///
@@ -42,6 +50,8 @@ pub trait GenericPlugin: Send + Sync + Sized {
     }
 }
 
+pub mod project;
+pub use project::*;
 pub mod edit_section;
 pub use edit_section::*;
 pub mod host_app;
