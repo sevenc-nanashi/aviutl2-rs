@@ -1,12 +1,4 @@
-mod to_plugin_table {
-    pub trait ToPluginTable<T> {
-        fn initialize_plugin(version: u32) -> bool;
-        fn to_plugin_table(&self) -> *mut T;
-        fn uninitialize_plugin();
-    }
-}
-
-use to_plugin_table::ToPluginTable;
+// impl_plugin_registry! マクロおよび ToPluginTable は plugin_store.rs に移動しました。
 
 /// ホストアプリケーションのハンドル。
 /// プラグインの初期化処理で使用します。
@@ -19,15 +11,7 @@ pub struct HostAppHandle<'a> {
     internal: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
     global_leak_manager: &'a mut crate::common::LeakManager,
     kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
-
-    #[cfg(feature = "input")]
-    input_plugins: Vec<Box<dyn std::any::Any + Send + Sync>>,
-    #[cfg(feature = "output")]
-    output_plugins: Vec<Box<dyn std::any::Any + Send + Sync>>,
-    #[cfg(feature = "filter")]
-    filter_plugins: Vec<Box<dyn std::any::Any + Send + Sync>>,
-    #[cfg(feature = "module")]
-    script_modules: Vec<Box<dyn std::any::Any + Send + Sync>>,
+    plugin_registry: &'a mut crate::generic::PluginRegistry,
 }
 
 impl<'a> HostAppHandle<'a> {
@@ -36,20 +20,14 @@ impl<'a> HostAppHandle<'a> {
         internal: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
         global_leak_manager: &'a mut crate::common::LeakManager,
         kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        plugin_registry: &'a mut crate::generic::PluginRegistry,
     ) -> Self {
         Self {
             version,
             internal,
             global_leak_manager,
             kill_switch,
-            #[cfg(feature = "input")]
-            input_plugins: Vec::new(),
-            #[cfg(feature = "output")]
-            output_plugins: Vec::new(),
-            #[cfg(feature = "filter")]
-            filter_plugins: Vec::new(),
-            #[cfg(feature = "module")]
-            script_modules: Vec::new(),
+            plugin_registry,
         }
     }
 
@@ -110,6 +88,21 @@ impl<'a> HostAppHandle<'a> {
         }
     }
 
+    /// ウィンドウクライアントを登録します。
+    pub fn register_window_client(
+        &mut self,
+        name: &str,
+        hwnd: raw_window_handle::Win32WindowHandle,
+    ) {
+        self.assert_not_killed();
+        unsafe {
+            ((*self.internal).register_window_client)(
+                self.global_leak_manager.leak_as_wide_string(name),
+                hwnd.hwnd.get() as _,
+            )
+        }
+    }
+
     /// メニューを一括登録します。
     ///
     /// # See Also
@@ -131,6 +124,42 @@ pub trait GenericPluginMenus {
 // #[aviutl2::generic::menus] で使用するための再エクスポート
 pub use aviutl2_macros::generic_menus as menus;
 
+mod to_plugin_table {
+    pub trait ToPluginTable<T> {
+        fn initialize_plugin(version: u32) -> bool;
+        fn to_plugin_table() -> *mut T;
+        fn uninitialize_plugin();
+    }
+}
+use to_plugin_table::ToPluginTable;
+
+struct DynamicPluginHandle {
+    uninitialize_fn: fn(),
+}
+impl Drop for DynamicPluginHandle {
+    fn drop(&mut self) {
+        (self.uninitialize_fn)();
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct PluginRegistry {
+    #[cfg(feature = "input")]
+    input_plugins: Vec<DynamicPluginHandle>,
+    #[cfg(feature = "output")]
+    output_plugins: Vec<DynamicPluginHandle>,
+    #[cfg(feature = "filter")]
+    filter_plugins: Vec<DynamicPluginHandle>,
+    #[cfg(feature = "module")]
+    script_modules: Vec<DynamicPluginHandle>,
+}
+
+impl PluginRegistry {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+}
+
 macro_rules! impl_plugin_registry {
     (
         $description:literal,
@@ -148,7 +177,7 @@ macro_rules! impl_plugin_registry {
             fn initialize_plugin(version: u32) -> bool {
                 unsafe { crate::$module::__bridge::initialize_plugin::<T>(version) }
             }
-            fn to_plugin_table(&self) -> *mut $table_type {
+            fn to_plugin_table() -> *mut $table_type {
                 unsafe { crate::$module::__bridge::create_table::<T>() }
             }
             fn uninitialize_plugin() {
@@ -159,17 +188,17 @@ macro_rules! impl_plugin_registry {
         #[cfg(feature = $feature)]
         impl<'a> HostAppHandle<'a> {
             #[doc = concat!($description, "を登録します。")]
-            pub fn $register_method<T: $PluginTrait + $SingletonTrait + 'static>(
-                &mut self,
-                plugin: T,
-            ) {
+            pub fn $register_method<T: $PluginTrait + $SingletonTrait + 'static>(&mut self) {
                 self.assert_not_killed();
                 T::initialize_plugin(self.version);
-                let table = plugin.to_plugin_table();
                 unsafe {
-                    ((*self.internal).$register_method)(table);
+                    ((*self.internal).$register_method)(T::to_plugin_table());
                 }
-                self.$getter_field.push(Box::new(plugin));
+                let uninitialize_fn = || {
+                    T::uninitialize_plugin();
+                };
+                let handle = DynamicPluginHandle { uninitialize_fn };
+                self.plugin_registry.$getter_field.push(handle);
             }
         }
     };

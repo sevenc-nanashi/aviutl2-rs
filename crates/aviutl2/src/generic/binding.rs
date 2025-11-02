@@ -31,11 +31,11 @@ pub trait GenericPlugin: Send + Sync + Sized {
 }
 
 /// 編集セクションのハンドル。
-pub struct EditSectionHandle {
+pub struct EditSection {
     pub(crate) internal: *mut aviutl2_sys::plugin2::EDIT_SECTION,
 }
 
-impl EditSectionHandle {
+impl EditSection {
     /// 生ポインタからハンドルを生成します。
     ///
     /// # Safety

@@ -16,12 +16,12 @@ impl aviutl2::generic::GenericPlugin for TxtImportPlugin {
 #[aviutl2::generic::menus]
 impl TxtImportPlugin {
     #[import(name = "テキストファイル（*.txt）")]
-    fn import_menu(edit_section: &mut aviutl2::generic::EditSectionHandle) -> AnyResult<()> {
+    fn import_menu(edit_section: &mut aviutl2::generic::EditSection) -> AnyResult<()> {
         todo!()
     }
 
     #[export(name = "テキストを書き出し（*.txt）")]
-    fn export_menu(edit_section: &mut aviutl2::generic::EditSectionHandle) -> AnyResult<()> {
+    fn export_menu(edit_section: &mut aviutl2::generic::EditSection) -> AnyResult<()> {
         todo!()
     }
 }

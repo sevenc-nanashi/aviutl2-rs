@@ -415,7 +415,7 @@ pub fn plugin(
 /// # #[aviutl2::generic::menus]
 /// # impl MyGenericPlugin {
 /// #     #[import(name = "")]
-/// fn function_name(edit_handle: &mut aviutl2::generic::EditSectionHandle)
+/// fn function_name(edit_handle: &mut aviutl2::generic::EditSection)
 /// #     {}
 /// # }
 /// ```
@@ -451,12 +451,12 @@ pub fn plugin(
 /// #[aviutl2::generic::menus]
 /// impl MyGenericPlugin {
 ///     #[import(name = ".txtファイルをインポート")]
-///     fn import_text(edit_handle: &mut aviutl2::generic::EditSectionHandle) {
+///     fn import_text(edit_handle: &mut aviutl2::generic::EditSection) {
 ///         // ...
 ///     }
 ///
 ///     #[export(name = ".txtファイルをエクスポート")]
-///     fn export_text(edit_handle: &mut aviutl2::generic::EditSectionHandle) {
+///     fn export_text(edit_handle: &mut aviutl2::generic::EditSection) {
 ///         // ...
 ///     }
 /// }

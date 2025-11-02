@@ -1,13 +1,16 @@
 use crate::{
     common::LeakManager,
-    generic::{GenericPlugin, HostAppHandle, HostAppTable, EditSectionHandle},
+    generic::{GenericPlugin, HostAppHandle, HostAppTable, EditSection, PluginRegistry},
 };
 use std::num::NonZeroIsize;
+
 
 
 #[doc(hidden)]
 pub struct InternalGenericPluginState<T: Send + Sync + GenericPlugin> {
     version: u32,
+
+    plugin_registry: PluginRegistry,
 
     kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
     global_leak_manager: LeakManager,
@@ -20,6 +23,7 @@ impl<T: Send + Sync + GenericPlugin> InternalGenericPluginState<T> {
     pub fn new(instance: T, version: u32) -> Self {
         Self {
             version,
+            plugin_registry: PluginRegistry::new(),
             kill_switch: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             global_leak_manager: LeakManager::new(),
             leak_manager: LeakManager::new(),
@@ -68,6 +72,7 @@ pub unsafe fn register_plugin<T: GenericSingleton>(
             host,
             &mut plugin_state.global_leak_manager,
             kill_switch,
+            &mut plugin_state.plugin_registry,
         )
     };
     T::register(&plugin_state.instance, &mut handle);

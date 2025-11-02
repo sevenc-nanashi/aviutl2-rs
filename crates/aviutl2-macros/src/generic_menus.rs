@@ -107,7 +107,7 @@ pub fn generic_menus(
         let wrapper = if e.has_self {
             quote::quote! {
                 extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
-                    let mut edit = unsafe { ::aviutl2::generic::EditSectionHandle::from_ptr(edit) };
+                    let mut edit = unsafe { ::aviutl2::generic::EditSection::from_ptr(edit) };
                     let __state = <#impl_token as ::aviutl2::generic::__bridge::GenericSingleton>::__get_singleton_state();
                     let __state = __state.read().expect("Plugin handle is not initialized");
                     let __self = &__state.as_ref().expect("Plugin instance is not initialized").instance;
@@ -117,7 +117,7 @@ pub fn generic_menus(
         } else {
             quote::quote! {
                 extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
-                    let mut edit = unsafe { ::aviutl2::generic::EditSectionHandle::from_ptr(edit) };
+                    let mut edit = unsafe { ::aviutl2::generic::EditSection::from_ptr(edit) };
                     let _ = <#impl_token>::#method_ident(&mut edit);
                 }
             }
