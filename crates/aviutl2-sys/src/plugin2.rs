@@ -64,7 +64,7 @@ pub struct EDIT_INFO {
 #[repr(C)]
 pub struct EDIT_SECTION {
     /// 編集情報
-    pub info: *mut EDIT_INFO,
+    pub info: *const EDIT_INFO,
 
     /// 指定の位置にオブジェクトエイリアスを作成します
     /// alias : オブジェクトエイリアスデータ(UTF-8)へのポインタ
@@ -102,6 +102,8 @@ pub struct EDIT_SECTION {
     /// オブジェクトの設定項目の値を文字列で取得します
     /// object : オブジェクトのハンドル
     /// effect : 対象のエフェクト名 (エイリアスファイルのeffect.nameの値)
+    ///          同じエフェクトが複数ある場合は":n"のサフィックスでインデックス指定出来ます (nは0からの番号)
+    ///          get_object_item_value(object, L"ぼかし:1", L"範囲"); // 2個目のぼかしを対象とする
     /// item  : 対象の設定項目の名称 (エイリアスファイルのキーの名称)
     /// 戻り値 : 取得した設定値(UTF8)へのポインタ (取得出来ない場合はnullptrを返却)
     ///      エイリアスファイルの設定値と同じフォーマットになります
@@ -112,6 +114,8 @@ pub struct EDIT_SECTION {
     /// オブジェクトの設定項目の値を文字列で設定します
     /// object : オブジェクトのハンドル
     /// effect : 対象のエフェクト名 (エイリアスファイルのeffect.nameの値)
+    ///          同じエフェクトが複数ある場合は":n"のサフィックスでインデックス指定出来ます (nは0からの番号)
+    ///          get_object_item_value(object, L"ぼかし:1", L"範囲"); // 2個目のぼかしを対象とする
     /// item  : 対象の設定項目の名称 (エイリアスファイルのキーの名称)
     /// value : 設定値(UTF8)
     ///      エイリアスファイルの設定値と同じフォーマットになります
@@ -141,6 +145,10 @@ pub struct EDIT_SECTION {
     /// オブジェクト設定ウィンドウで選択するオブジェクトを設定します (コールバック処理の終了時に設定されます)
     /// object : オブジェクトのハンドル
     pub set_focus_object: unsafe extern "C" fn(object: OBJECT_HANDLE),
+
+    /// アプリケーションのログを出力します
+    /// message : ログメッセージ
+    pub output_log: unsafe extern "C" fn(message: LPCWSTR),
 }
 
 /// 編集ハンドル構造体

@@ -400,7 +400,7 @@ pub fn plugin(
 /// このマクロは`impl`ブロックに対して適用されます。
 /// `impl`ブロック内で定義された関数が汎用プラグインのメニューとして登録されます。
 ///
-/// ブロック内の関数はすべて以下のシグネチャを持つ必要があります：
+/// ブロック内の関数はすべて以下のシグネチャのうちいずれかを持つ必要があります：
 /// ```rust
 /// # #[aviutl2::plugin(GenericPlugin)]
 /// # struct MyGenericPlugin;
@@ -412,12 +412,20 @@ pub fn plugin(
 /// #         unimplemented!()
 /// #     }
 /// # }
+/// # type E = aviutl2::anyhow::Error;
 /// # #[aviutl2::generic::menus]
 /// # impl MyGenericPlugin {
 /// #     #[import(name = "")]
-/// fn function_name(edit_handle: &mut aviutl2::generic::EditSection)
+/// fn func1(edit_handle: &mut aviutl2::generic::EditSection) -> ()
 /// #     {}
+/// #     #[export(name = "")]
+/// fn func2(edit_handle: &mut aviutl2::generic::EditSection) -> Result<(), E>
+/// #     { unimplemented!() }
 /// # }
+/// # fn test<E>() -> Result<(), E>
+/// where
+///     Box<dyn std::error::Error>: From<E>,
+/// # { unimplemented!() }
 /// ```
 ///
 /// # Attributes

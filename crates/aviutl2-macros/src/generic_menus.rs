@@ -130,7 +130,8 @@ pub fn generic_menus(
                     extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
                         let mut edit = unsafe { ::aviutl2::generic::EditSection::from_ptr(edit) };
                         <#impl_token as ::aviutl2::generic::GenericPlugin>::with_instance_mut(|__self| {
-                            let _ = <#impl_token>::#method_ident(__self, &mut edit);
+                            let ret = <#impl_token>::#method_ident(__self, &mut edit);
+                            edit.__output_log_if_error(ret);
                         });
                     }
                 }
@@ -139,7 +140,8 @@ pub fn generic_menus(
                     extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
                         let mut edit = unsafe { ::aviutl2::generic::EditSection::from_ptr(edit) };
                         <#impl_token as ::aviutl2::generic::GenericPlugin>::with_instance(|__self| {
-                            let _ = <#impl_token>::#method_ident(__self, &mut edit);
+                            let ret = <#impl_token>::#method_ident(__self, &mut edit);
+                            edit.__output_log_if_error(ret);
                         });
                     }
                 }
@@ -148,7 +150,8 @@ pub fn generic_menus(
             quote::quote! {
                 extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
                     let mut edit = unsafe { ::aviutl2::generic::EditSection::from_ptr(edit) };
-                    let _ = <#impl_token>::#method_ident(&mut edit);
+                    let ret = <#impl_token>::#method_ident(&mut edit);
+                    edit.__output_log_if_error(ret);
                 }
             }
         };
