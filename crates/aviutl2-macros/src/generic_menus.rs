@@ -87,11 +87,10 @@ pub fn generic_menus(
         for p in method.sig.inputs.iter() {
             if let syn::FnArg::Receiver(r) = p {
                 if r.reference.is_none() {
-                    return Err(syn::Error::new_spanned(
-                        r,
-                        "method receiver must be a reference",
-                    )
-                    .to_compile_error());
+                    return Err(
+                        syn::Error::new_spanned(r, "method receiver must be a reference")
+                            .to_compile_error(),
+                    );
                 }
                 has_self = true;
                 self_is_mut = r.mutability.is_some();

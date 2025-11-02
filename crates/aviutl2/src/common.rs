@@ -427,37 +427,26 @@ pub(crate) unsafe fn load_wide_string(ptr: *const u16) -> String {
 /// - `ptr` は有効なLPCWSTRであること。
 /// - `ptr` はNull Terminatedなu16文字列を指していること。
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CWString(String);
+pub struct CWString(Vec<u16>);
 
 impl CWString {
     pub fn new(string: &str) -> AnyResult<Self> {
         if string.contains('\0') {
             anyhow::bail!("String contains null character");
         }
-        Ok(Self(string.to_string()))
+        let mut wide: Vec<u16> = string.encode_utf16().collect();
+        wide.push(0); // Null-terminate the string
+        Ok(Self(wide))
     }
 
     pub fn as_ptr(&self) -> *const u16 {
-        let mut wide: Vec<u16> = self.0.encode_utf16().collect();
-        wide.push(0); // Null-terminate the string
-        wide.as_ptr()
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
+        self.0.as_ptr()
     }
 }
-
-impl std::ops::Deref for CWString {
-    type Target = str;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<CWString> for String {
-    fn from(value: CWString) -> Self {
-        value.0
+impl std::fmt::Display for CWString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = String::from_utf16_lossy(&self.0[..self.0.len() - 1]);
+        write!(f, "{}", s)
     }
 }
 
