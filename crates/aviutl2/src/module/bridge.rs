@@ -27,6 +27,20 @@ where
     Self: ScriptModule + Sized + Send + Sync + 'static,
 {
     fn __get_singleton_state() -> &'static std::sync::RwLock<Option<InternalScriptModuleState<Self>>>;
+
+    fn with_instance<R>(f: impl FnOnce(&Self) -> R) -> R {
+        let lock = Self::__get_singleton_state();
+        let guard = lock.read().unwrap();
+        let state = guard.as_ref().expect("Plugin not initialized");
+        f(&state.instance)
+    }
+
+    fn with_instance_mut<R>(f: impl FnOnce(&mut Self) -> R) -> R {
+        let lock = Self::__get_singleton_state();
+        let mut guard = lock.write().unwrap();
+        let state = guard.as_mut().expect("Plugin not initialized");
+        f(&mut state.instance)
+    }
 }
 
 pub unsafe fn initialize_plugin<T: ScriptModuleSingleton>(version: u32) -> bool {
@@ -52,7 +66,8 @@ pub unsafe fn uninitialize_plugin<T: ScriptModuleSingleton>() {
     *plugin_state.write().unwrap() = None;
 }
 
-pub unsafe fn create_table<T: ScriptModuleSingleton>() -> *mut aviutl2_sys::module2::SCRIPT_MODULE_TABLE {
+pub unsafe fn create_table<T: ScriptModuleSingleton>()
+-> *mut aviutl2_sys::module2::SCRIPT_MODULE_TABLE {
     let plugin_state_lock = T::__get_singleton_state();
     let plugin_state = plugin_state_lock.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");

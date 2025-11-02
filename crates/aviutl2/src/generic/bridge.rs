@@ -1,10 +1,8 @@
 use crate::{
     common::LeakManager,
-    generic::{GenericPlugin, HostAppHandle, HostAppTable, EditSection, PluginRegistry},
+    generic::{EditSection, GenericPlugin, HostAppHandle, HostAppTable, PluginRegistry},
 };
 use std::num::NonZeroIsize;
-
-
 
 #[doc(hidden)]
 pub struct InternalGenericPluginState<T: Send + Sync + GenericPlugin> {
@@ -38,6 +36,18 @@ where
 {
     fn __get_singleton_state()
     -> &'static std::sync::RwLock<Option<InternalGenericPluginState<Self>>>;
+    fn with_instance<R>(f: impl FnOnce(&Self) -> R) -> R {
+        let lock = Self::__get_singleton_state();
+        let guard = lock.read().unwrap();
+        let state = guard.as_ref().expect("Plugin not initialized");
+        f(&state.instance)
+    }
+    fn with_instance_mut<R>(f: impl FnOnce(&mut Self) -> R) -> R {
+        let lock = Self::__get_singleton_state();
+        let mut guard = lock.write().unwrap();
+        let state = guard.as_mut().expect("Plugin not initialized");
+        f(&mut state.instance)
+    }
 }
 
 pub unsafe fn initialize_plugin<T: GenericSingleton>(version: u32) -> bool {

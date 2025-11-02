@@ -13,7 +13,7 @@ suffixes = {
   "_output" => ".auo2",
   "_filter" => ".auf2",
   "_module" => ".mod2",
-  "_plugin" => ".aux2",
+  "_plugin" => ".aux2"
 }
 
 def replace_suffix(name, target, suffixes)

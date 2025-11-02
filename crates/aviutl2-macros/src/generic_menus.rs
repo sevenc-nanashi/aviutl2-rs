@@ -39,13 +39,19 @@ pub fn generic_menus(
     let mut entries: Vec<Entry> = Vec::new();
 
     for it in item.items.iter_mut() {
-        let syn::ImplItem::Fn(method) = it else { continue; };
+        let syn::ImplItem::Fn(method) = it else {
+            continue;
+        };
         let method_ident = method.sig.ident.clone();
         let mut is_import = None::<usize>;
         let mut is_export = None::<usize>;
         for (idx, attr) in method.attrs.iter().enumerate() {
-            if attr.path().is_ident("import") { is_import = Some(idx); }
-            if attr.path().is_ident("export") { is_export = Some(idx); }
+            if attr.path().is_ident("import") {
+                is_import = Some(idx);
+            }
+            if attr.path().is_ident("export") {
+                is_export = Some(idx);
+            }
         }
         let (kind_idx, is_export_flag) = match (is_import, is_export) {
             (Some(i), None) => (i, false),
@@ -71,7 +77,8 @@ pub fn generic_menus(
             } else {
                 Err(m.error("expected `name`"))
             }
-        }).map_err(|e| e.to_compile_error())?;
+        })
+        .map_err(|e| e.to_compile_error())?;
         let menu_name = menu_name.unwrap_or_else(|| method_ident.to_string());
 
         let has_self = method
@@ -79,7 +86,8 @@ pub fn generic_menus(
             .inputs
             .iter()
             .any(|p| matches!(p, syn::FnArg::Receiver(_)));
-        let wrapper_ident = syn::Ident::new(&format!("bridge_{}", method_ident), method_ident.span());
+        let wrapper_ident =
+            syn::Ident::new(&format!("bridge_{}", method_ident), method_ident.span());
 
         entries.push(Entry {
             is_export: is_export_flag,
@@ -108,10 +116,9 @@ pub fn generic_menus(
             quote::quote! {
                 extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
                     let mut edit = unsafe { ::aviutl2::generic::EditSection::from_ptr(edit) };
-                    let __state = <#impl_token as ::aviutl2::generic::__bridge::GenericSingleton>::__get_singleton_state();
-                    let __state = __state.read().expect("Plugin handle is not initialized");
-                    let __self = &__state.as_ref().expect("Plugin instance is not initialized").instance;
-                    let _ = <#impl_token>::#method_ident(__self, &mut edit);
+                    <#impl_token as ::aviutl2::generic::GenericPlugin>::with_instance(|__self| {
+                        let _ = <#impl_token>::#method_ident(__self, &mut edit);
+                    });
                 }
             }
         } else {
@@ -140,4 +147,3 @@ pub fn generic_menus(
         }
     })
 }
-

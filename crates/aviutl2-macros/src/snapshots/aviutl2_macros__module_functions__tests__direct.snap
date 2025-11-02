@@ -19,15 +19,9 @@ impl MyModule {
             ) {
                 let mut params =
                     unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
-                let __internal_self = < MyModule as :: aviutl2 :: module :: __bridge :: ScriptModuleSingleton > :: __get_singleton_state () ;
-                let __internal_self = __internal_self
-                    .read()
-                    .expect("Plugin handle is not initialized");
-                let __internal_self = &__internal_self
-                    .as_ref()
-                    .expect("Plugin instance is not initialized")
-                    .instance;
-                let () = <MyModule>::my_function(__internal_self, &mut params);
+                <MyModule as ::aviutl2::module::ScriptModule>::with_instance(|__internal_self| {
+                    let () = <MyModule>::my_function(__internal_self, &mut params);
+                });
             }
         }
     }
