@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+require "tomlrb"
 require "syntax_tree/rake_tasks"
 
 SyntaxTree::Rake::WriteTask.new do |t|

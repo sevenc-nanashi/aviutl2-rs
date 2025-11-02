@@ -48,6 +48,13 @@ impl<'a> HostAppHandle<'a> {
         }
     }
 
+    /// プロジェクトデータ編集用のハンドルを登録します。
+    pub fn create_edit_handle(&mut self) -> crate::generic::EditHandle {
+        self.assert_not_killed();
+        let raw_handle = unsafe { ((*self.internal).create_edit_handle)() };
+        unsafe { crate::generic::EditHandle::new(raw_handle) }
+    }
+
     /// インポートメニューを登録します。
     ///
     /// # See Also

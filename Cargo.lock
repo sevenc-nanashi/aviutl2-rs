@@ -1807,6 +1807,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "example-srt-file-plugin"
+version = "0.9.6"
+dependencies = [
+ "anyhow",
+ "aviutl2",
+]
+
+[[package]]
 name = "example-statistics-output"
 version = "0.9.6"
 dependencies = [
@@ -1817,14 +1825,6 @@ dependencies = [
  "open",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "example-txt-import-plugin"
-version = "0.9.6"
-dependencies = [
- "anyhow",
- "aviutl2",
 ]
 
 [[package]]
