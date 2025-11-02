@@ -1,7 +1,10 @@
-use crate::common::LeakManager;
-use crate::generic::GenericPlugin;
-use crate::generic::binding::host_app::{HostAppHandle, PluginRegistry};
-use std::num::NonZeroIsize;
+use crate::{
+    common::LeakManager,
+    generic::{
+        GenericPlugin,
+        binding::host_app::{HostAppHandle, PluginRegistry},
+    },
+};
 
 #[doc(hidden)]
 pub struct InternalGenericPluginState<T: Send + Sync + GenericPlugin> {
@@ -11,7 +14,6 @@ pub struct InternalGenericPluginState<T: Send + Sync + GenericPlugin> {
 
     kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
     global_leak_manager: LeakManager,
-    leak_manager: LeakManager,
 
     instance: T,
 }
@@ -23,7 +25,6 @@ impl<T: Send + Sync + GenericPlugin> InternalGenericPluginState<T> {
             plugin_registry: PluginRegistry::new(),
             kill_switch: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             global_leak_manager: LeakManager::new(),
-            leak_manager: LeakManager::new(),
             instance,
         }
     }

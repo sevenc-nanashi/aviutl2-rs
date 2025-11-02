@@ -1,11 +1,5 @@
 use crate::common::{AnyResult, AviUtl2Info};
 
-/// ホストアプリケーション構造体
-#[derive(Debug)]
-pub struct HostAppTable {
-    pub(crate) internal: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
-}
-
 /// 汎用プラグインの情報を表す構造体。
 #[derive(Debug, Clone)]
 pub struct FilterPluginTable {

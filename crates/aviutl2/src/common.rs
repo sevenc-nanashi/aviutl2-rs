@@ -1,5 +1,3 @@
-use std::ops::Index;
-
 pub use anyhow::Result as AnyResult;
 use zerocopy::{Immutable, IntoBytes};
 
