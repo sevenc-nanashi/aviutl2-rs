@@ -25,9 +25,9 @@ jobs:
       - name: Build Page
         uses: ./.github/actions/render-statistics-page
 
-      - name: Run fmt
+      - name: Run format
         run: |
-          bundle exec rake fmt
+          bundle exec rake format
 
       - name: Run lint
         run: |
