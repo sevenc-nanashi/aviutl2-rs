@@ -113,15 +113,56 @@ impl SrtImportPlugin {
         Ok(())
     }
 
-    #[export(name = "SRTを書き出し（*.srt）")]
+    #[export(name = "SRTファイル（*.srt）")]
     fn export_menu(edit_section: &mut aviutl2::generic::EditSection) -> AnyResult<()> {
-        for (i, layer) in edit_section.layers().enumerate() {
-            edit_section.output_log(&format!("Layer {}:", i))?;
-            for (j, obj) in layer.objects() {
-                let alias = edit_section.object(&obj).get_alias()?;
-                edit_section.output_log(&format!("  Object {:?}: {}", j, alias))?;
-            }
+        let focused_object = edit_section.get_focused_object()?;
+        let Some(obj) = focused_object else {
+            anyhow::bail!("オブジェクトが選択されていません。");
+        };
+        let layer = edit_section.object(&obj).get_layer_frame()?.layer;
+        let layer = edit_section.layer(layer);
+        let fps = edit_section.info.fps;
+        let fps = *fps.numer() as f64 / *fps.denom() as f64;
+        let objects = layer.objects();
+        let mut subtitles = Vec::new();
+        let mut num = 0;
+        for (layer_frame, object) in objects {
+            let obj = edit_section.object(&object);
+            let start_frame = layer_frame.start;
+            let end_frame = layer_frame.end;
+            let start_ms = ((start_frame as f64) / fps * 1000.0).round() as u32;
+            let end_ms = ((end_frame as f64) / fps * 1000.0).round() as u32;
+            let Some(text) = obj.get_effect_item("テキスト", 0, "テキスト").ok() else {
+                continue;
+            };
+            num += 1;
+            subtitles.push(srtlib::Subtitle {
+                num,
+                start_time: srtlib::Timestamp::from_milliseconds(start_ms),
+                end_time: srtlib::Timestamp::from_milliseconds(end_ms),
+                text,
+            });
         }
+
+        let save_path = native_dialog::FileDialogBuilder::default()
+            .add_filter("SRTファイル", ["srt"])
+            .set_title("SRTファイルを保存")
+            .set_filename("subtitles.srt")
+            .save_single_file()
+            .show()?;
+        let Some(save_path) = save_path else {
+            return Ok(());
+        };
+        let srt = srtlib::Subtitles::new_from_vec(subtitles);
+        srt.write_to_file(&save_path, None)?;
+
+        native_dialog::MessageDialogBuilder::default()
+            .set_level(native_dialog::MessageLevel::Info)
+            .set_title("SRTファイルの書き出し完了")
+            .set_text("SRTファイルの書き出しが完了しました。")
+            .alert()
+            .show()?;
+
         Ok(())
     }
 }
