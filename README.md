@@ -32,7 +32,7 @@ AviUtl2 SDKのRust版です。
   - スクリプトモジュール：
     - `./examples/username-module`：ユーザー名を取得するスクリプトモジュールのサンプル。
   - 汎用プラグイン：
-    - `./examples/txt-import-plugin`：テキストファイルをインポートする汎用プラグインのサンプル。
+    - `./examples/srt-file-plugin`：SRTファイルをインポート/エクスポートする汎用プラグインのサンプル。
 
 ## ライセンス
 
