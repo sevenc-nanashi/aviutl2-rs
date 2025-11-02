@@ -13,11 +13,9 @@
 //! これは公式SDKの`plugin2.h`に相当します。が、わかりづらいので`generic`と命名しています。
 
 mod binding;
-mod host_app;
 
 pub use super::common::*;
 pub use binding::*;
-pub use host_app::*;
 
 #[doc(hidden)]
 #[path = "bridge.rs"]

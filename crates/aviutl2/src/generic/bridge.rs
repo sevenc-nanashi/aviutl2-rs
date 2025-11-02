@@ -1,7 +1,6 @@
-use crate::{
-    common::LeakManager,
-    generic::{EditSection, GenericPlugin, HostAppHandle, HostAppTable, PluginRegistry},
-};
+use crate::common::LeakManager;
+use crate::generic::GenericPlugin;
+use crate::generic::binding::host_app::{HostAppHandle, PluginRegistry};
 use std::num::NonZeroIsize;
 
 #[doc(hidden)]
