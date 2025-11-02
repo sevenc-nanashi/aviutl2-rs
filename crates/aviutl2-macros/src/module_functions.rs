@@ -86,7 +86,7 @@ fn create_bridge(
                 if has_self {
                     quote::quote! {
                         extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                            let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
+                            let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
                             let __internal_self = <#impl_token as ::aviutl2::module::__bridge::ScriptModuleSingleton>::__get_singleton_state();
                             let __internal_self = __internal_self
                                 .read()
@@ -101,7 +101,7 @@ fn create_bridge(
                 } else {
                     quote::quote! {
                         extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                            let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
+                            let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
                             let () = <#impl_token>::#method_name(&mut params);
                         }
                     }
@@ -168,7 +168,7 @@ fn create_bridge(
                 });
                 quote::quote! {
                     extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                        let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
+                        let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
                         #(#param_bridges)*
                         let fn_result = <#impl_token>::#method_name(#(#param_names),*);
                         let push_result = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(fn_result, &mut params);
