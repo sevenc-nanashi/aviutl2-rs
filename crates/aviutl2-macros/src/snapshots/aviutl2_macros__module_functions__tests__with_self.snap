@@ -19,7 +19,8 @@ impl MyModule {
             extern "C" fn bridge_my_function(
                 smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
             ) {
-                let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
+                let mut params =
+                    unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
                 let __internal_self = < MyModule as :: aviutl2 :: module :: __bridge :: ScriptModuleSingleton > :: __get_singleton_state () ;
                 let __internal_self = __internal_self
                     .read()

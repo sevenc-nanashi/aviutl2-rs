@@ -1,36 +1,15 @@
 use crate::{
     common::LeakManager,
-    generic::{GenericPlugin, HostAppTable},
+    generic::{GenericPlugin, HostAppHandle, HostAppTable, EditSectionHandle},
 };
 use std::num::NonZeroIsize;
 
-mod to_plugin_table {
-    pub trait ToPluginTable<T> {
-        fn initialize_plugin(version: u32) -> bool;
-        fn to_plugin_table(&self) -> *mut T;
-        fn uninitialize_plugin();
-    }
-}
-use to_plugin_table::ToPluginTable;
-impl<T: crate::input::InputPlugin + crate::input::__bridge::InputSingleton>
-    ToPluginTable<aviutl2_sys::input2::INPUT_PLUGIN_TABLE> for T
-{
-    fn initialize_plugin(version: u32) -> bool {
-        crate::input::__bridge::initialize_plugin::<T>(version)
-    }
-    fn to_plugin_table(&self) -> *mut aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
-        crate::input::__bridge::create_table::<T>()
-    }
-    fn uninitialize_plugin() {
-        crate::input::__bridge::uninitialize_plugin::<T>()
-    }
-}
 
 #[doc(hidden)]
 pub struct InternalGenericPluginState<T: Send + Sync + GenericPlugin> {
     version: u32,
-    host: Option<*mut aviutl2_sys::plugin2::HOST_APP_TABLE>,
 
+    kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
     global_leak_manager: LeakManager,
     leak_manager: LeakManager,
 
@@ -41,8 +20,7 @@ impl<T: Send + Sync + GenericPlugin> InternalGenericPluginState<T> {
     pub fn new(instance: T, version: u32) -> Self {
         Self {
             version,
-            host: None,
-            input_plugins: Vec::new(),
+            kill_switch: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             global_leak_manager: LeakManager::new(),
             leak_manager: LeakManager::new(),
             instance,
@@ -58,7 +36,7 @@ where
     -> &'static std::sync::RwLock<Option<InternalGenericPluginState<Self>>>;
 }
 
-pub fn initialize_plugin<T: GenericSingleton>(version: u32) -> bool {
+pub unsafe fn initialize_plugin<T: GenericSingleton>(version: u32) -> bool {
     let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
@@ -76,48 +54,47 @@ pub fn initialize_plugin<T: GenericSingleton>(version: u32) -> bool {
 
     true
 }
-pub fn register_plugin<T: GenericSingleton>(
+pub unsafe fn register_plugin<T: GenericSingleton>(
     host: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
-) -> std::result::Result<(), ()> {
+) {
     let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
-    let plugin_state = plugin_state.as_mut().ok_or(())?;
-    plugin_state.host = Some(host);
+    let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
 
-    let handle = HostAppTable { internal: host };
-    T::register(&plugin_state.instance, handle).map_err(|e| {
-        log::error!("Failed to register plugin: {}", e);
-        crate::common::alert_error(&e);
-    })?;
-
-    Ok(())
+    let kill_switch = plugin_state.kill_switch.clone();
+    let mut handle = unsafe {
+        HostAppHandle::new(
+            plugin_state.version,
+            host,
+            &mut plugin_state.global_leak_manager,
+            kill_switch,
+        )
+    };
+    T::register(&plugin_state.instance, &mut handle);
 }
-pub fn uninitialize_plugin<T: GenericSingleton>() {
+pub unsafe fn uninitialize_plugin<T: GenericSingleton>() {
     let plugin_state = T::__get_singleton_state();
-    if let Some(state) = plugin_state.write().unwrap().as_mut() {
-        state.teardown_input_plugins();
-    }
     *plugin_state.write().unwrap() = None;
 }
 
 /// 汎用プラグインを登録するマクロ。
 #[macro_export]
-macro_rules! register_host_app_plugin {
+macro_rules! register_generic_plugin {
     ($struct:ident) => {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                $crate::input::__bridge::initialize_plugin::<$struct>(version)
+                unsafe { $crate::generic::__bridge::initialize_plugin::<$struct>(version) }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                $crate::input::__bridge::uninitialize_plugin::<$struct>()
+                unsafe { $crate::generic::__bridge::uninitialize_plugin::<$struct>() };
             }
 
             #[unsafe(no_mangle)]
-            unsafe extern "C" fn RegisterPlugin(host: *mut aviutl2::sys::generic::HOST_APP_TABLE) -> void {
-                $crate::generic::__bridge::register_plugin::<$struct>(host)
+            unsafe extern "C" fn RegisterPlugin(host: *mut aviutl2::sys::plugin2::HOST_APP_TABLE) {
+                unsafe { $crate::generic::__bridge::register_plugin::<$struct>(host) };
             }
         }
     };

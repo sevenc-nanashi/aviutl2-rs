@@ -6,6 +6,7 @@
 mod filter_config_items;
 mod filter_config_select_items;
 mod from_script_module_param;
+mod generic_menus;
 mod into_script_module_return_value;
 mod module_functions;
 mod plugin;
@@ -220,7 +221,25 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 /// 関数のシグネチャは以下のようになります。
 ///
 /// ```rust
-/// fn function_name(params: &mut aviutl2::module::ScriptModuleCallHandle) { /* ... */ }
+/// # use aviutl2::module::IntoScriptModuleReturnValue;
+/// # #[aviutl2::plugin(ScriptModule)]
+/// # struct MyModule {
+/// #     counter: std::sync::atomic::AtomicI32,
+/// # }
+/// # impl aviutl2::module::ScriptModule for MyModule {
+/// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn plugin_info(&self) -> aviutl2::module::ScriptModuleTable {
+/// #         unimplemented!()
+/// #     }
+/// # }
+/// # #[aviutl2::module::functions]
+/// # impl MyModule {
+/// #     #[direct]
+/// fn function_name(params: &mut aviutl2::module::ScriptModuleCallHandle) -> ()
+/// #     {}
+/// # }
 /// ```
 ///
 /// # Example
@@ -372,6 +391,81 @@ pub fn plugin(
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     plugin::plugin(attr.into(), item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// 汎用プラグインのメニュー登録実装を生成するマクロ。
+///
+/// このマクロは`impl`ブロックに対して適用されます。
+/// `impl`ブロック内で定義された関数が汎用プラグインのメニューとして登録されます。
+///
+/// ブロック内の関数はすべて以下のシグネチャを持つ必要があります：
+/// ```rust
+/// # #[aviutl2::plugin(GenericPlugin)]
+/// # struct MyGenericPlugin;
+/// # impl aviutl2::generic::GenericPlugin for MyGenericPlugin {
+/// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn register(&self, _handle: &mut aviutl2::generic::HostAppHandle<'_>) {
+/// #         unimplemented!()
+/// #     }
+/// # }
+/// # #[aviutl2::generic::menus]
+/// # impl MyGenericPlugin {
+/// #     #[import(name = "")]
+/// fn function_name(edit_handle: &mut aviutl2::generic::EditSectionHandle)
+/// #     {}
+/// # }
+/// ```
+///
+/// # Attributes
+///
+/// ### `import`
+///
+/// 汎用プラグインのインポートメニューとして登録します。
+///
+/// - `name`: メニューに表示される名前を指定します。
+///
+/// ### `export`
+///
+/// 汎用プラグインのエクスポートメニューとして登録します。
+///
+/// - `name`: メニューに表示される名前を指定します。
+///
+/// # Example
+///
+/// ```rust
+/// #[aviutl2::plugin(GenericPlugin)]
+/// struct MyGenericPlugin;
+/// # impl aviutl2::generic::GenericPlugin for MyGenericPlugin {
+/// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn register(&self, _handle: &mut aviutl2::generic::HostAppHandle<'_>) {
+/// #         unimplemented!()
+/// #     }
+/// # }
+///
+/// #[aviutl2::generic::menus]
+/// impl MyGenericPlugin {
+///     #[import(name = ".txtファイルをインポート")]
+///     fn import_text(edit_handle: &mut aviutl2::generic::EditSectionHandle) {
+///         // ...
+///     }
+///
+///     #[export(name = ".txtファイルをエクスポート")]
+///     fn export_text(edit_handle: &mut aviutl2::generic::EditSectionHandle) {
+///         // ...
+///     }
+/// }
+#[proc_macro_attribute]
+pub fn generic_menus(
+    _attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    generic_menus::generic_menus(item.into())
         .unwrap_or_else(|e| e)
         .into()
 }

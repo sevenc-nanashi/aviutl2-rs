@@ -128,6 +128,9 @@ pub trait GenericPluginMenus {
     fn register_menus(host: &mut HostAppHandle);
 }
 
+// #[aviutl2::generic::menus] で使用するための再エクスポート
+pub use aviutl2_macros::generic_menus as menus;
+
 macro_rules! impl_plugin_registry {
     (
         $description:literal,
@@ -143,13 +146,13 @@ macro_rules! impl_plugin_registry {
         #[cfg(feature = $feature)]
         impl<T: $PluginTrait + $SingletonTrait + 'static> ToPluginTable<$table_type> for T {
             fn initialize_plugin(version: u32) -> bool {
-                crate::$module::__bridge::initialize_plugin::<T>(version)
+                unsafe { crate::$module::__bridge::initialize_plugin::<T>(version) }
             }
             fn to_plugin_table(&self) -> *mut $table_type {
-                crate::$module::__bridge::create_table::<T>()
+                unsafe { crate::$module::__bridge::create_table::<T>() }
             }
             fn uninitialize_plugin() {
-                crate::$module::__bridge::uninitialize_plugin::<T>()
+                unsafe { crate::$module::__bridge::uninitialize_plugin::<T>() }
             }
         }
 

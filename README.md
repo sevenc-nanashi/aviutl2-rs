@@ -31,6 +31,8 @@ AviUtl2 SDKのRust版です。
     - `./examples/wgpu-filter`：wgpuクレートを使用してGPUで画像を生成するフィルタのサンプル。
   - スクリプトモジュール：
     - `./examples/username-module`：ユーザー名を取得するスクリプトモジュールのサンプル。
+  - 汎用プラグイン：
+    - `./examples/txt-import-plugin`：テキストファイルをインポートする汎用プラグインのサンプル。
 
 ## ライセンス
 

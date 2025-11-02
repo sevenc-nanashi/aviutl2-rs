@@ -146,7 +146,7 @@ where
     fn __get_singleton_state() -> &'static std::sync::RwLock<Option<InternalFilterPluginState<Self>>>;
 }
 
-pub fn initialize_plugin<T: FilterSingleton>(version: u32) -> bool {
+pub unsafe fn initialize_plugin<T: FilterSingleton>(version: u32) -> bool {
     let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
@@ -164,12 +164,12 @@ pub fn initialize_plugin<T: FilterSingleton>(version: u32) -> bool {
 
     true
 }
-pub fn uninitialize_plugin<T: FilterSingleton>() {
+pub unsafe fn uninitialize_plugin<T: FilterSingleton>() {
     let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     *plugin_state = None;
 }
-pub fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
+pub unsafe fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
     let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
@@ -274,18 +274,18 @@ macro_rules! register_filter_plugin {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                $crate::filter::__bridge::initialize_plugin::<$struct>(version)
+                unsafe { $crate::filter::__bridge::initialize_plugin::<$struct>(version) }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                $crate::filter::__bridge::uninitialize_plugin::<$struct>()
+                unsafe { $crate::filter::__bridge::uninitialize_plugin::<$struct>() }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetFilterPluginTable()
             -> *mut aviutl2::sys::filter2::FILTER_PLUGIN_TABLE {
-                $crate::filter::__bridge::create_table::<$struct>()
+                unsafe { $crate::filter::__bridge::create_table::<$struct>() }
             }
         }
     };

@@ -21,11 +21,27 @@ pub struct FilterPluginTable {
 }
 
 /// 汎用プラグインのトレイト。
-/// このトレイトを実装し、[`crate::register_host_app_plugin!`] マクロを使用してプラグインを登録します。
+/// このトレイトを実装し、[`crate::register_generic_plugin!`] マクロを使用してプラグインを登録します。
 pub trait GenericPlugin: Send + Sync + Sized {
     /// プラグインを初期化する。
     fn new(info: AviUtl2Info) -> AnyResult<Self>;
 
     /// プラグインをホストに登録する。
-    fn register(&self, registry: &mut HostAppHandle) -> AnyResult<()>;
+    fn register(&self, registry: &mut HostAppHandle);
+}
+
+/// 編集セクションのハンドル。
+pub struct EditSectionHandle {
+    pub(crate) internal: *mut aviutl2_sys::plugin2::EDIT_SECTION,
+}
+
+impl EditSectionHandle {
+    /// 生ポインタからハンドルを生成します。
+    ///
+    /// # Safety
+    ///
+    /// 有効な `EDIT_SECTION` ポインタである必要があります。
+    pub unsafe fn from_ptr(ptr: *mut aviutl2_sys::plugin2::EDIT_SECTION) -> Self {
+        Self { internal: ptr }
+    }
 }

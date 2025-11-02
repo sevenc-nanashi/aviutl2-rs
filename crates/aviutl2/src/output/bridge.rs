@@ -51,7 +51,7 @@ impl FromRawAudioSamples for i16 {
     }
 }
 
-pub fn initialize_plugin<T: OutputSingleton>(version: u32) -> bool {
+pub unsafe fn initialize_plugin<T: OutputSingleton>(version: u32) -> bool {
     let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
@@ -70,13 +70,13 @@ pub fn initialize_plugin<T: OutputSingleton>(version: u32) -> bool {
     true
 }
 
-pub fn uninitialize_plugin<T: OutputSingleton>() {
+pub unsafe fn uninitialize_plugin<T: OutputSingleton>() {
     let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     *plugin_state = None;
 }
 
-pub fn create_table<T: OutputSingleton>() -> *mut aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
+pub unsafe fn create_table<T: OutputSingleton>() -> *mut aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
     let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");

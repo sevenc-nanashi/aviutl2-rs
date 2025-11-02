@@ -1820,6 +1820,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "example-txt-import-plugin"
+version = "0.9.6"
+dependencies = [
+ "anyhow",
+ "aviutl2",
+]
+
+[[package]]
 name = "example-username-module"
 version = "0.9.6"
 dependencies = [
