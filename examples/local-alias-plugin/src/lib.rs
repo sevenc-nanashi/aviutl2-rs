@@ -131,10 +131,7 @@ impl LocalAliasPlugin {
         std::thread::spawn(move || {
             loop {
                 // Wait for a replace signal
-                if replace_flag_rx
-                    .recv_timeout(std::time::Duration::from_millis(100))
-                    .is_err_and(|e| matches!(e, std::sync::mpsc::RecvTimeoutError::Disconnected))
-                {
+                if replace_flag_rx.recv().is_err() {
                     break;
                 }
 

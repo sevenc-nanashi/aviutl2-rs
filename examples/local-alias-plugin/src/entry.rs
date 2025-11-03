@@ -1,6 +1,6 @@
 use aviutl2::{filter::FilterConfigItems, generic::GenericPlugin};
 
-use crate::{CURRENT_ALIAS, LocalAliasPlugin};
+use crate::LocalAliasPlugin;
 
 #[aviutl2::plugin(FilterPlugin)]
 pub struct DummyObject {}
