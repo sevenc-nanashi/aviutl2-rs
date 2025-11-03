@@ -200,7 +200,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 ]
             },
             information: format!(
-                "FFmpeg for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/ffmpeg-output",
+                "FFmpeg for AviUtl2, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/ffmpeg-output",
                 version = env!("CARGO_PKG_VERSION")
             ),
             can_config: true,
