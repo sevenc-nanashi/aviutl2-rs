@@ -133,7 +133,7 @@ impl LocalAliasPlugin {
                 // Wait for a replace signal
                 if replace_flag_rx
                     .recv_timeout(std::time::Duration::from_millis(100))
-                    .is_err_and(|e| matches!(e, std::sync::mpsc::RecvTimeoutError::Timeout))
+                    .is_err_and(|e| matches!(e, std::sync::mpsc::RecvTimeoutError::Disconnected))
                 {
                     break;
                 }
@@ -146,9 +146,9 @@ impl LocalAliasPlugin {
                                 let obj = section.object(&obj);
                                 let res = obj.get_effect_item(
                                     if cfg!(debug_assertions) {
-                                        "Local Alias (Debug)"
+                                        "Rusty Local Alias (Debug)"
                                     } else {
-                                        "Local Alias"
+                                        "Rusty Local Alias"
                                     },
                                     0,
                                     "Marker",

@@ -23,7 +23,7 @@ impl aviutl2::filter::FilterPlugin for DummyObject {
 
     fn plugin_info(&self) -> aviutl2::filter::FilterPluginTable {
         aviutl2::filter::FilterPluginTable {
-            name: "Local Alias".to_string(),
+            name: "Rusty Local Alias".to_string(),
             label: None,
             information: "A dummy filter plugin that does nothing.".to_string(),
             filter_type: aviutl2::filter::FilterType::Video,

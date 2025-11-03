@@ -67,13 +67,16 @@ const moveAlias = (index: number, dir: -1 | 1) => {
 <template>
   <main class="page-root">
     <header class="toolbar">
-      <div class="title">Local Alias Plugin</div>
+      <div class="title">Rusty Local Alias Plugin</div>
       <div class="spacer" />
-      <button class="btn primary" @click="addAlias">エイリアスを登録</button>
-      <button class="btn" @click="showInfo = true">情報</button>
+      <button class="btn primary" @click="addAlias">＋</button>
+      <button class="btn" @click="showInfo = true">？</button>
     </header>
 
     <section class="grid">
+      <p v-if="aliases.length === 0">
+        エイリアスがありません。オブジェクトを選択した後、＋ボタンで追加してください。
+      </p>
       <div
         v-for="(alias, i) in aliases"
         :key="i"
@@ -128,17 +131,26 @@ const moveAlias = (index: number, dir: -1 | 1) => {
 
     <div v-if="showInfo" class="modal-backdrop" @click.self="showInfo = false">
       <div class="modal">
-        <h2>Local Alias Plugin</h2>
+        <h2>Rusty Local Alias Plugin</h2>
         <p>バージョン: {{ version }}</p>
+        <p>
+          プロジェクトローカルなエイリアスを管理するAviUtl2プラグイン。<br />
+          ここでエイリアスを選択した後、カスタムオブジェクト「Rusty Local
+          Alias」を配置してください。
+        </p>
         <ul class="links">
           <li>
-            <a :href="authorUrl" target="_blank" rel="noreferrer">Author</a>
+            Developed by
+            <a :href="authorUrl" target="_blank" rel="noreferrer">Nanashi.</a>
           </li>
           <li>
-            <a :href="repoUrl" target="_blank" rel="noreferrer">Repository</a>
-          </li>
-          <li>
-            <a :href="treeUrl" target="_blank" rel="noreferrer">This Example</a>
+            Source Code:
+            <a :href="repoUrl" target="_blank" rel="noreferrer"
+              >sevenc-nanashi/aviutl2-rs</a
+            >:
+            <a :href="treeUrl" target="_blank" rel="noreferrer"
+              >examples/local-alias-plugin</a
+            >
           </li>
         </ul>
         <div class="modal-actions">
