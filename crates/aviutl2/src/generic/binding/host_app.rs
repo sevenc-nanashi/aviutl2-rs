@@ -307,9 +307,7 @@ impl EditHandle {
                 Box::new(result) as Box<dyn std::any::Any + Send>
             }));
         }
-        let call_result = unsafe {
-            ((*self.internal).call_edit_section)(trampoline)
-        };
+        let call_result = unsafe { ((*self.internal).call_edit_section)(trampoline) };
         if call_result {
             let mut return_guard = CALLBACK_RETURN_VALUE.lock().unwrap();
             if let Some(return_value) = return_guard.take() {
