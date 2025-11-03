@@ -13,6 +13,5 @@ categories = ["data-structures"]
 default = []
 
 [dependencies]
-bitflags = "2.10.0"
 insta = "1.43.2"
 thiserror = "2.0.17"
