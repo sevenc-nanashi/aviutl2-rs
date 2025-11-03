@@ -89,6 +89,8 @@ impl ProjectFile {
     }
 }
 
+static NAMESPACE: &str = "--aviutl2-rs";
+
 #[cfg(feature = "serde")]
 impl ProjectFile {
     /// プロジェクトにデータをシリアライズして保存します。
@@ -103,14 +105,11 @@ impl ProjectFile {
     /// - 圧縮に失敗した場合。
     pub fn serialize<T: serde::Serialize>(&mut self, key: &str, value: &T) -> crate::AnyResult<()> {
         let bytes = rmp_serde::to_vec_named(value)?;
-        let bytes = ruzstd::encoding::compress_to_vec(
-            std::io::Cursor::new(bytes),
-            ruzstd::encoding::CompressionLevel::Default,
-        );
+        let bytes = zstd::encode_all(&bytes[..], 0)?;
         let num_bytes = bytes.len() as u32;
-        self.set_param_string(key, &format!("aviutl2-rs-serde-zstd-v1:{}", num_bytes))?;
+        self.set_param_string(key, &format!("{NAMESPACE}:serde-zstd-v1:{}", num_bytes))?;
         for (i, chunk) in bytes.chunks(4096).enumerate() {
-            let chunk_key = format!("aviutl2-rs-serde-zstd-v1:chunk:{}:{}", key, i);
+            let chunk_key = format!("{NAMESPACE}:serde-zstd-v1:chunk:{}:{}", key, i);
             self.set_param_binary(&chunk_key, chunk)?;
         }
         Ok(())
@@ -121,9 +120,9 @@ impl ProjectFile {
         let header = self
             .get_param_string(key)
             .ok_or_else(|| anyhow::anyhow!("no data found for key {}", key))?;
-        let header_prefix = "aviutl2-rs-serde-zstd-v1:";
+        let header_prefix = format!("{NAMESPACE}:serde-zstd-v1:");
         anyhow::ensure!(
-            header.starts_with(header_prefix),
+            header.starts_with(&header_prefix),
             "invalid header for key {}",
             key
         );
@@ -131,7 +130,7 @@ impl ProjectFile {
         let mut bytes = Vec::with_capacity(num_bytes);
         let mut read_bytes = 0;
         for i in 0.. {
-            let chunk_key = format!("aviutl2-rs-serde-zstd-v1:chunk:{}:{}", key, i);
+            let chunk_key = format!("{NAMESPACE}:serde-zstd-v1:chunk:{}:{}", key, i);
             let mut chunk = vec![0u8; 4096];
             match self.get_param_binary(&chunk_key, &mut chunk) {
                 Ok(()) => {
@@ -145,11 +144,7 @@ impl ProjectFile {
                 Err(_) => break,
             }
         }
-        let mut decompressed_bytes = ruzstd::decoding::FrameDecoder::new();
-        decompressed_bytes.init(std::io::Cursor::new(bytes))?;
-        let Some(decompressed_bytes) = decompressed_bytes.collect() else {
-            anyhow::bail!("failed to decompress data for key {}", key);
-        };
+        let decompressed_bytes = zstd::decode_all(&bytes[..])?;
         let value: T = rmp_serde::from_slice(&decompressed_bytes)?;
         Ok(value)
     }

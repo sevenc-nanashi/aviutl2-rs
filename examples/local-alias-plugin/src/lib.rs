@@ -138,6 +138,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
         self.aliases = project
             .deserialize("alias_entries")
             .unwrap_or_else(|_| Vec::new());
+        self.send_to_webview("update_aliases", &self.aliases);
     }
 
     fn on_project_save(&mut self, project: &mut aviutl2::generic::ProjectFile) {

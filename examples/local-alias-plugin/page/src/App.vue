@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { ipc } from "./lib/ipc.ts";
+import { ipc, type AliasEntry } from "./lib/ipc.ts";
+import { useGlobalStore } from "./lib/store.ts";
 
 const version = ref<string>("(unknown)");
 const authorUrl = "https://sevenc7c.com";
@@ -10,17 +11,20 @@ const treeUrl = computed(
     `https://github.com/sevenc-nanashi/aviutl2-rs/tree/${version.value}/examples/local-alias-plugin`,
 );
 
+const store = useGlobalStore();
+const aliases = computed<readonly AliasEntry[]>(() => store.state.aliases);
 onMounted(() => {
   ipc.getVersion().then((v) => (version.value = v));
 });
-const alert = window.alert.bind(window);
 </script>
 
 <template>
   <main>
+    <button>エイリアスを登録</button>
     <div class="main-container">
-      <p>A</p>
-      <p>B</p>
+      <div v-for="alias in aliases" :key="alias.name">
+        <h3>{{ alias.name }}</h3>
+      </div>
     </div>
   </main>
 </template>
