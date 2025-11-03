@@ -1,18 +1,19 @@
+mod entry;
 mod ws_popup;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use aviutl2::{AnyResult, odbg};
 use tap::Pipe;
 use ws_popup::WsPopup;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-struct AliasEntry {
+pub struct AliasEntry {
     name: String,
     alias: String,
 }
 
 #[aviutl2::plugin(GenericPlugin)]
-struct LocalAliasPlugin {
+pub struct LocalAliasPlugin {
     webview: wry::WebView,
     window: WsPopup,
 
@@ -24,6 +25,8 @@ unsafe impl Send for LocalAliasPlugin {}
 unsafe impl Sync for LocalAliasPlugin {}
 
 static WEB_CONTENT: include_dir::Dir = include_dir::include_dir!("$CARGO_MANIFEST_DIR/page/dist");
+
+pub static CURRENT_ALIAS: Mutex<Option<AliasEntry>> = Mutex::new(None);
 
 impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
@@ -113,6 +116,19 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
                                 }
                             }
                         }
+                        "set_current_alias" => {
+                            if let Ok(entry) =
+                                serde_json::from_value::<AliasEntry>(msg.data.clone())
+                            {
+                                let mut current = CURRENT_ALIAS.lock().unwrap();
+                                *current = Some(entry);
+                            } else {
+                                log::error!(
+                                    "Failed to parse current alias from IPC message data: {:?}",
+                                    msg.data
+                                );
+                            }
+                        }
                         other => {
                             log::warn!("Unknown IPC message type: {}", other);
                         }
@@ -168,6 +184,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
         registry
             .register_window_client("Rusty Local Alias Plugin", &self.window)
             .unwrap();
+        registry.register_filter_plugin::<entry::DummyObject>();
     }
 
     fn on_project_load(&mut self, project: &mut aviutl2::generic::ProjectFile) {
