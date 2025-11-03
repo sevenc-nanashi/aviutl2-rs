@@ -557,7 +557,7 @@ dependencies = [
 
 [[package]]
 name = "aviutl2"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "aviutl2-macros",
@@ -578,7 +578,7 @@ dependencies = [
 
 [[package]]
 name = "aviutl2-macros"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "aviutl2",
  "decimal-rs",
@@ -592,7 +592,7 @@ dependencies = [
 
 [[package]]
 name = "aviutl2-sys"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "windows-sys 0.60.2",
 ]
@@ -1688,7 +1688,7 @@ dependencies = [
 
 [[package]]
 name = "example-binaural-filter"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1705,7 +1705,7 @@ dependencies = [
 
 [[package]]
 name = "example-chiptune-filter"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1715,7 +1715,7 @@ dependencies = [
 
 [[package]]
 name = "example-equalizer-filter"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1726,7 +1726,7 @@ dependencies = [
 
 [[package]]
 name = "example-ffmpeg-output"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1746,7 +1746,7 @@ dependencies = [
 
 [[package]]
 name = "example-image-rs-input"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1761,7 +1761,7 @@ dependencies = [
 
 [[package]]
 name = "example-image-rs-output"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1772,7 +1772,7 @@ dependencies = [
 
 [[package]]
 name = "example-midi-player-input"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1785,7 +1785,7 @@ dependencies = [
 
 [[package]]
 name = "example-pixel-format-test-input"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1793,7 +1793,7 @@ dependencies = [
 
 [[package]]
 name = "example-pixelsort-filter"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "aviutl2",
  "cfg-elif",
@@ -1808,7 +1808,7 @@ dependencies = [
 
 [[package]]
 name = "example-statistics-output"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1821,7 +1821,7 @@ dependencies = [
 
 [[package]]
 name = "example-username-module"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1830,7 +1830,7 @@ dependencies = [
 
 [[package]]
 name = "example-wgpu-filter"
-version = "0.9.6"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "aviutl2",

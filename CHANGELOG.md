@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.10.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.10.0)
+
 - **Breaking:** AviUtl2Version::newの引数をu32からu8に変更
 - **Breaking:** プラグイン定義に`#[aviutl2::plugin(...)]`属性を必須化
 - **Breaking:** VideoFrame系を`aviutl2::output::video_frame`モジュールに移動
