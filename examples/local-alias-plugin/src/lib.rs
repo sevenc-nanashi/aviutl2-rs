@@ -31,6 +31,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
             .parse_filters("debug")
             .target(aviutl2::utils::debug_logger_target())
             .init();
+        log::info!("Initializing Rusty Local Alias Plugin...");
         let edit_handle = Arc::new(OnceLock::new());
 
         let window = WsPopup::new("Rusty Local Alias Plugin", (800, 600))?;
@@ -39,25 +40,6 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
             .join("rusty-local-alias-plugin");
         let mut web_context = wry::WebContext::new(Some(cache_dir));
         let webview = wry::WebViewBuilder::new_with_web_context(&mut web_context)
-            // JS 側に簡単なIPCラッパを生やす
-            .with_initialization_script(
-                r#"
-                (function(){
-                  if (!window.bridge) {
-                    const listeners = [];
-                    window.bridge = {
-                      send: (name, data) => {
-                        try { window.ipc.postMessage(JSON.stringify({ type: name, data: data })); }
-                        catch(e) { console.error(e); }
-                      },
-                      onMessage: (cb) => { if (typeof cb === 'function') listeners.push(cb); },
-                      _emit: (msg) => { for (const cb of listeners) try { cb(msg); } catch(e) { console.error(e); } }
-                    };
-                    console.debug('[bridge] IPC bridge initialized');
-                  }
-                })();
-                "#,
-            )
             // JS -> Rust 受信
             .with_ipc_handler(|payload| {
                 #[derive(serde::Deserialize)]
@@ -91,7 +73,10 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
                                     instance.aliases = new_aliases;
                                 });
                             } else {
-                                log::error!("Failed to parse aliases from IPC message data: {:?}", msg.data);
+                                log::error!(
+                                    "Failed to parse aliases from IPC message data: {:?}",
+                                    msg.data
+                                );
                             }
                         }
                         other => {
@@ -162,12 +147,19 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
 
 impl LocalAliasPlugin {
     fn send_to_webview<T: serde::Serialize>(&self, name: &str, data: &T) {
-        if let Ok(json) = serde_json::to_value(data) {
-            let json = serde_json::json!({ "type": name, "data": json }).to_string();
-            let script = format!(
-                "try {{ window.bridge && window.bridge._emit({json}); }} catch(e) {{ console.error(e); }}"
-            );
-            let _ = self.webview.evaluate_script(&script);
+        log::debug!("Sending to webview: {}", name);
+        match serde_json::to_value(data) {
+            Ok(json) => {
+                let json = serde_json::json!({ "type": name, "data": json }).to_string();
+                let script = format!(
+                    "try {{ window.bridge && window.bridge._emit({json}); }} catch(e) {{ console.error(e); }}"
+                );
+                let _ = self.webview.evaluate_script(&script);
+                log::debug!("Sent to webview: {}", name);
+            }
+            Err(e) => {
+                log::error!("Failed to serialize data for webview: {}", e);
+            }
         }
     }
 }
