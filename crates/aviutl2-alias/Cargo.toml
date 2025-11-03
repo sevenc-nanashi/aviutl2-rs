@@ -13,5 +13,8 @@ categories = ["data-structures"]
 default = []
 
 [dependencies]
-insta = "1.43.2"
 thiserror = "2.0.17"
+
+[dev-dependencies]
+insta = "1.43.2"
+rstest = "0.26.1"

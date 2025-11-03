@@ -37,12 +37,16 @@ impl TrackStep {
         let maybe_negative = value.starts_with('-');
         let abs_value_str = if maybe_negative { &value[1..] } else { value };
         let v: f64 = abs_value_str.parse()?;
-        let step = match abs_value_str.len() {
-            1 => TrackStep::One,
-            3 => TrackStep::PointOne,
-            4 => TrackStep::PointZeroOne,
-            5 => TrackStep::PointZeroZeroOne,
-            _ => return Err(TrackStepParseError::InvalidPrecision),
+        let step = if !abs_value_str.contains('.') {
+            TrackStep::One
+        } else if abs_value_str.get(abs_value_str.len() - 2..abs_value_str.len() - 1) == Some(".") {
+            TrackStep::PointOne
+        } else if abs_value_str.get(abs_value_str.len() - 3..abs_value_str.len() - 2) == Some(".") {
+            TrackStep::PointZeroOne
+        } else if abs_value_str.get(abs_value_str.len() - 4..abs_value_str.len() - 3) == Some(".") {
+            TrackStep::PointZeroZeroOne
+        } else {
+            return Err(TrackStepParseError::InvalidPrecision);
         };
         let final_value = if maybe_negative { -v } else { v };
         Ok((step, final_value))
@@ -101,7 +105,7 @@ impl std::fmt::Display for TrackStep {
 }
 impl std::fmt::Debug for TrackStep {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "TrackStep::{}", f64::from(*self))
+        write!(f, "TrackStep({})", f64::from(*self))
     }
 }
 
@@ -447,6 +451,7 @@ impl std::str::FromStr for AnimatedTrackItem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
     #[test]
     fn test_time_curve_from_str() {
@@ -532,12 +537,20 @@ mod tests {
         assert_eq!(animated_item.to_string(), item_str);
     }
 
-    #[test]
-    fn test_track_item_parse_static() {
-        let item_str = "0.01";
-        let static_item: StaticTrackItem = item_str.parse().unwrap();
-        assert_eq!(static_item.step, TrackStep::PointZeroOne);
-        assert_eq!(static_item.value, 0.01);
+    #[rstest]
+    #[case("1", TrackStep::One, 1.0)]
+    #[case("0.1", TrackStep::PointOne, 0.1)]
+    #[case("0.01", TrackStep::PointZeroOne, 0.01)]
+    #[case("0.001", TrackStep::PointZeroZeroOne, 0.001)]
+    #[case("-2.34", TrackStep::PointZeroOne, -2.34)]
+    fn test_track_step_parse_and_get(
+        #[case] input: &str,
+        #[case] expected_step: TrackStep,
+        #[case] expected_value: f64,
+    ) {
+        let (step, value) = TrackStep::parse_and_get(input).unwrap();
+        assert_eq!(step, expected_step);
+        assert_eq!(value, expected_value);
     }
 
     #[test]
