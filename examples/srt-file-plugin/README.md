@@ -1,8 +1,8 @@
-# Rusty Username Module
+# Rusty SRT File Plugin
 
-スクリプトモジュールのサンプルです。
-ユーザー名を取得する機能を実装しています。
+汎用プラグインのサンプルです。
+SRTファイルのインポート/エクスポートを行います。
 
 ## インストール
 
-`C:\ProgramData\aviutl2\Script` に `rusty_username.mod2` を配置してください。
+`C:\ProgramData\aviutl2\Script` に `rusty_srt_file.aux2` を配置してください。

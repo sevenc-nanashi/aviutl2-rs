@@ -16,7 +16,7 @@ impl aviutl2::generic::GenericPlugin for SrtImportPlugin {
         Ok(SrtImportPlugin {})
     }
 
-    fn register(&self, registry: &mut aviutl2::generic::HostAppHandle) {
+    fn register(&mut self, registry: &mut aviutl2::generic::HostAppHandle) {
         registry.register_menus::<SrtImportPlugin>();
     }
 }

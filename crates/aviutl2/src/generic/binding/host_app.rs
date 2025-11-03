@@ -42,9 +42,14 @@ impl<'a> HostAppHandle<'a> {
     /// 「プラグイン情報」ダイアログで表示されます。
     pub fn set_plugin_information(&mut self, information: &str) {
         self.assert_not_killed();
+        let information = if cfg!(debug_assertions) {
+            format!("{information} (Debug Build)")
+        } else {
+            information.to_string()
+        };
         unsafe {
             ((*self.internal).set_plugin_information)(
-                self.global_leak_manager.leak_as_wide_string(information),
+                self.global_leak_manager.leak_as_wide_string(&information),
             )
         }
     }
@@ -87,18 +92,28 @@ impl<'a> HostAppHandle<'a> {
     }
 
     /// ウィンドウクライアントを登録します。
-    pub fn register_window_client(
+    ///
+    /// # Panics
+    ///
+    /// Win32のウィンドウハンドル以外が渡された場合はPanicします。
+    pub fn register_window_client<T: raw_window_handle::HasWindowHandle>(
         &mut self,
         name: &str,
-        hwnd: raw_window_handle::Win32WindowHandle,
-    ) {
+        instance: &T,
+    ) -> Result<(), raw_window_handle::HandleError> {
         self.assert_not_killed();
+        let raw_handle = instance.window_handle()?;
+        let hwnd = match raw_handle.as_raw() {
+            raw_window_handle::RawWindowHandle::Win32(handle) => handle.hwnd,
+            _ => panic!("Only Win32WindowHandle is supported"),
+        };
         unsafe {
             ((*self.internal).register_window_client)(
                 self.global_leak_manager.leak_as_wide_string(name),
-                hwnd.hwnd.get() as _,
-            )
+                hwnd.get() as *mut std::ffi::c_void,
+            );
         }
+        Ok(())
     }
 
     /// メニューを一括登録します。

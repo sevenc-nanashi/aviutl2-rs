@@ -1,0 +1,26 @@
+[package]
+name = "example-local-alias-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "rusty_local_alias_plugin"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.98"
+aviutl2.workspace = true
+dirs = "6.0.0"
+raw-window-handle = "0.6.2"
+tao = "0.34.5"
+wry = "0.53.5"
+windows = { version = "0.58.0", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_LibraryLoader",
+    "Win32_Graphics_Gdi",
+] }
