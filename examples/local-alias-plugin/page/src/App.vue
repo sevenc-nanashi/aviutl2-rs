@@ -16,11 +16,15 @@ const aliases = computed<readonly AliasEntry[]>(() => store.state.aliases);
 onMounted(() => {
   ipc.getVersion().then((v) => (version.value = v));
 });
+
+const addAlias = () => {
+  ipc.addAlias();
+};
 </script>
 
 <template>
   <main>
-    <button>エイリアスを登録</button>
+    <button @click="addAlias">エイリアスを登録</button>
     <div class="main-container">
       <div v-for="alias in aliases" :key="alias.name">
         <h3>{{ alias.name }}</h3>

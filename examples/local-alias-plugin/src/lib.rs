@@ -79,6 +79,40 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
                                 );
                             }
                         }
+                        "add_alias" => {
+                            let new_alias = LocalAliasPlugin::with_instance(|instance| {
+                                let handle = instance.edit_handle.get().unwrap();
+                                handle.call_edit_section(|section| {
+                                    let alias = section
+                                        .get_focused_object()?
+                                        .map(|obj| section.get_object_alias(&obj))
+                                        .transpose()?;
+                                    let entry = alias.map(|alias| AliasEntry {
+                                        name: "New Alias".to_string(),
+                                        alias,
+                                    });
+                                    anyhow::Ok(entry)
+                                })
+                            })
+                            .flatten();
+                            match new_alias {
+                                Ok(Some(entry)) => {
+                                    LocalAliasPlugin::with_instance_mut(|instance| {
+                                        instance.aliases.push(entry.clone());
+                                        instance
+                                            .send_to_webview("update_aliases", &instance.aliases);
+                                    });
+                                }
+                                Ok(None) => {
+                                    log::warn!(
+                                        "No focused object to create alias from in add_alias"
+                                    );
+                                }
+                                Err(e) => {
+                                    log::error!("Failed to add alias: {}", e);
+                                }
+                            }
+                        }
                         other => {
                             log::warn!("Unknown IPC message type: {}", other);
                         }
@@ -129,6 +163,8 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
             "Project Local Alias for AviUtl2, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/local-alias-plugin",
             version = env!("CARGO_PKG_VERSION")
         ));
+        let handle = registry.create_edit_handle();
+        let _ = self.edit_handle.set(handle);
         registry
             .register_window_client("Rusty Local Alias Plugin", &self.window)
             .unwrap();
