@@ -1,0 +1,18 @@
+[package]
+name = "aviutl2-alias"
+description = "AviUtl2のエイリアスデータを操作するためのライブラリ"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = true
+categories = ["data-structures"]
+
+[features]
+default = []
+
+[dependencies]
+bitflags = "2.10.0"
+insta = "1.43.2"
+thiserror = "2.0.17"
