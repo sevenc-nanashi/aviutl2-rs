@@ -136,7 +136,7 @@ const moveAlias = (index: number, dir: -1 | 1) => {
         <p>
           プロジェクトローカルなエイリアスを管理するAviUtl2プラグイン。<br />
           ここでエイリアスを選択した後、カスタムオブジェクト「Rusty Local
-          Alias」を配置してください。
+          Alias」を配置し、その位置にシークバーを移動させてください。
         </p>
         <ul class="links">
           <li>
