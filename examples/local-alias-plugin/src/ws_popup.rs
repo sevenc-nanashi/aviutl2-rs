@@ -48,10 +48,6 @@ impl WsPopup {
 
         Ok(Self { hwnd })
     }
-
-    pub fn hwnd(&self) -> HWND {
-        self.hwnd
-    }
 }
 
 impl Drop for WsPopup {

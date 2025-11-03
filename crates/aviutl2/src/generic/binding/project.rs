@@ -89,6 +89,7 @@ impl ProjectFile {
     }
 }
 
+#[cfg(feature = "serde")]
 static NAMESPACE: &str = "--aviutl2-rs";
 
 #[cfg(feature = "serde")]

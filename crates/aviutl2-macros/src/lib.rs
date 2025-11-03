@@ -408,7 +408,7 @@ pub fn plugin(
 /// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
 /// #         unimplemented!()
 /// #     }
-/// #     fn register(&self, _handle: &mut aviutl2::generic::HostAppHandle<'_>) {
+/// #     fn register(&mut self, _handle: &mut aviutl2::generic::HostAppHandle<'_>) {
 /// #         unimplemented!()
 /// #     }
 /// # }
@@ -457,7 +457,7 @@ pub fn plugin(
 /// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
 /// #         unimplemented!()
 /// #     }
-/// #     fn register(&self, _handle: &mut aviutl2::generic::HostAppHandle<'_>) {
+/// #     fn register(&mut self, _handle: &mut aviutl2::generic::HostAppHandle<'_>) {
 /// #         unimplemented!()
 /// #     }
 /// # }

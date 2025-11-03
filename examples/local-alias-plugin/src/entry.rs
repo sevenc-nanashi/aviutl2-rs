@@ -24,11 +24,11 @@ impl aviutl2::filter::FilterPlugin for DummyObject {
     fn proc_video(
         &self,
         _config: &[aviutl2::filter::FilterConfigItem],
-        video: &mut aviutl2::filter::FilterProcVideo,
+        _video: &mut aviutl2::filter::FilterProcVideo,
     ) -> anyhow::Result<()> {
         LocalAliasPlugin::with_instance(|plugin| {
             let current_alias = CURRENT_ALIAS.lock().unwrap().clone();
-            if let Some(alias) = current_alias {
+            if let Some(_alias) = current_alias {
                 plugin
                     .edit_handle
                     .get()
