@@ -19,18 +19,20 @@ impl ProjectFile {
     ///
     /// # Errors
     ///
-    /// 文字列が見つからなかった場合はNoneを返します。
-    pub fn get_param_string(&self, key: &str) -> Option<String> {
+    /// - `key`にヌル文字が含まれている場合、失敗します。
+    /// - 文字列が見つからなかった場合はNoneを返します。
+    pub fn get_param_string(&self, key: &str) -> AnyResult<Option<String>> {
+        let key = std::ffi::CString::new(key)?;
         unsafe {
             let raw_str = ((*self.internal).get_param_string)(key.as_ptr() as _);
             if raw_str.is_null() {
-                return None;
+                return Ok(None);
             }
-            Some(
+            Ok(Some(
                 std::ffi::CStr::from_ptr(raw_str)
                     .to_string_lossy()
                     .to_string(),
-            )
+            ))
         }
     }
 
@@ -38,10 +40,12 @@ impl ProjectFile {
     ///
     /// # Errors
     ///
+    /// - `key`にヌル文字が含まれている場合、失敗します。
     /// - `data` の長さが保存されているデータの長さと一致しない場合、失敗します。
     /// - 指定されたキーに対応するデータが存在しない場合、失敗します。
     pub fn get_param_binary(&self, key: &str, data: &mut [u8]) -> AnyResult<()> {
         let success = unsafe {
+            let key = std::ffi::CString::new(key)?;
             ((*self.internal).get_param_binary)(
                 key.as_ptr() as _,
                 data.as_mut_ptr() as _,
@@ -70,10 +74,12 @@ impl ProjectFile {
     ///
     /// # Errors
     ///
-    /// `data` の長さが4096バイトを超える場合、失敗します。
+    /// - `data` の長さが4096バイトを超える場合、失敗します。
+    /// - `key`にヌル文字が含まれている場合、失敗します。
     pub fn set_param_binary(&mut self, key: &str, data: &[u8]) -> AnyResult<()> {
         anyhow::ensure!(data.len() <= 4096, "data length exceeds 4096 bytes");
         unsafe {
+            let key = std::ffi::CString::new(key)?;
             ((*self.internal).set_param_binary)(
                 key.as_ptr() as _,
                 data.as_ptr() as _,
@@ -107,7 +113,7 @@ impl ProjectFile {
     pub fn serialize<T: serde::Serialize>(&mut self, key: &str, value: &T) -> crate::AnyResult<()> {
         let bytes = rmp_serde::to_vec_named(value)?;
         let bytes = zstd::encode_all(&bytes[..], 0)?;
-        let num_bytes = bytes.len() as u32;
+        let num_bytes = bytes.len();
         self.set_param_string(key, &format!("{NAMESPACE}:serde-zstd-v1:{}", num_bytes))?;
         for (i, chunk) in bytes.chunks(4096).enumerate() {
             let chunk_key = format!("{NAMESPACE}:serde-zstd-v1:chunk:{}:{}", key, i);
@@ -119,24 +125,26 @@ impl ProjectFile {
     /// プロジェクトからデータをデシリアライズして取得します。
     pub fn deserialize<T: serde::de::DeserializeOwned>(&self, key: &str) -> crate::AnyResult<T> {
         let header = self
-            .get_param_string(key)
+            .get_param_string(key)?
             .ok_or_else(|| anyhow::anyhow!("no data found for key {}", key))?;
         let header_prefix = format!("{NAMESPACE}:serde-zstd-v1:");
-        anyhow::ensure!(
-            header.starts_with(&header_prefix),
-            "invalid header for key {}",
-            key
-        );
-        let num_bytes: usize = header[header_prefix.len()..].parse()?;
+        let num_bytes = header
+            .strip_prefix(&header_prefix)
+            .ok_or_else(|| anyhow::anyhow!("invalid header for key {}", key))?;
+        let num_bytes: usize = num_bytes.parse()?;
         let mut bytes = Vec::with_capacity(num_bytes);
         let mut read_bytes = 0;
         for i in 0.. {
             let chunk_key = format!("{NAMESPACE}:serde-zstd-v1:chunk:{}:{}", key, i);
             let mut chunk = vec![0u8; 4096];
+            let to_read = std::cmp::min(4096, num_bytes - read_bytes);
+            if to_read == 0 {
+                break;
+            }
+            chunk.resize(to_read, 0);
             match self.get_param_binary(&chunk_key, &mut chunk) {
                 Ok(()) => {
-                    let to_read = std::cmp::min(4096, num_bytes - read_bytes);
-                    bytes.extend_from_slice(&chunk[..to_read]);
+                    bytes.extend_from_slice(&chunk);
                     read_bytes += to_read;
                     if read_bytes >= num_bytes {
                         break;
@@ -145,6 +153,13 @@ impl ProjectFile {
                 Err(_) => break,
             }
         }
+        anyhow::ensure!(
+            read_bytes == num_bytes,
+            "incomplete data for key {}, expected {} bytes, got {} bytes",
+            key,
+            num_bytes,
+            read_bytes
+        );
         let decompressed_bytes = zstd::decode_all(&bytes[..])?;
         let value: T = rmp_serde::from_slice(&decompressed_bytes)?;
         Ok(value)

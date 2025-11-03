@@ -1,9 +1,20 @@
-use aviutl2::generic::GenericPlugin;
+use aviutl2::{filter::FilterConfigItems, generic::GenericPlugin};
 
 use crate::{CURRENT_ALIAS, LocalAliasPlugin};
 
 #[aviutl2::plugin(FilterPlugin)]
 pub struct DummyObject {}
+
+#[derive(aviutl2::filter::FilterConfigItems)]
+struct DummyConfig {
+    #[track(
+        name = "Marker",
+        default = 0,
+        range = 0..=1,
+        step = 1.0,
+    )]
+    _marker: u32,
+}
 
 impl aviutl2::filter::FilterPlugin for DummyObject {
     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
@@ -15,9 +26,9 @@ impl aviutl2::filter::FilterPlugin for DummyObject {
             name: "Local Alias".to_string(),
             label: None,
             information: "A dummy filter plugin that does nothing.".to_string(),
-            filter_type: aviutl2::filter::FilterType::Both,
+            filter_type: aviutl2::filter::FilterType::Video,
             as_object: true,
-            config_items: vec![],
+            config_items: DummyConfig::to_config_items(),
         }
     }
 
@@ -27,26 +38,8 @@ impl aviutl2::filter::FilterPlugin for DummyObject {
         _video: &mut aviutl2::filter::FilterProcVideo,
     ) -> anyhow::Result<()> {
         LocalAliasPlugin::with_instance(|plugin| {
-            let current_alias = CURRENT_ALIAS.lock().unwrap().clone();
-            if let Some(_alias) = current_alias {
-                plugin
-                    .edit_handle
-                    .get()
-                    .unwrap()
-                    .call_edit_section(|section| {
-                        for layer in section.layers() {
-                            for (_, _obj) in layer.objects() {
-                                todo!()
-                            }
-                        }
-
-                        anyhow::Ok(())
-                    })
-                    .flatten()
-            } else {
-                Ok(())
-            }
-        })?;
+            let _ = plugin.replace_flag.send(());
+        });
         Ok(())
     }
 }

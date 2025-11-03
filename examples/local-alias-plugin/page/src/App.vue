@@ -20,6 +20,9 @@ onMounted(() => {
 const addAlias = () => {
   ipc.addAlias();
 };
+const setCurrentAlias = (alias: AliasEntry) => {
+  ipc.setCurrentAlias(alias);
+};
 </script>
 
 <template>
@@ -27,7 +30,7 @@ const addAlias = () => {
     <button @click="addAlias">エイリアスを登録</button>
     <div class="main-container">
       <div v-for="alias in aliases" :key="alias.name">
-        <h3>{{ alias.name }}</h3>
+        <button @click="setCurrentAlias(alias)">{{ alias.name }}</button>
       </div>
     </div>
   </main>

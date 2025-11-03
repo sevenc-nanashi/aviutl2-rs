@@ -18,6 +18,8 @@ pub struct LocalAliasPlugin {
     window: WsPopup,
 
     edit_handle: Arc<OnceLock<aviutl2::generic::EditHandle>>,
+    _replace_thread: std::thread::JoinHandle<()>,
+    replace_flag: std::sync::mpsc::Sender<()>,
 
     aliases: Vec<AliasEntry>,
 }
@@ -35,7 +37,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
             .target(aviutl2::utils::debug_logger_target())
             .init();
         log::info!("Initializing Rusty Local Alias Plugin...");
-        let edit_handle = Arc::new(OnceLock::new());
+        let edit_handle = Arc::new(OnceLock::<aviutl2::generic::EditHandle>::new());
 
         let window = WsPopup::new("Rusty Local Alias Plugin", (800, 600))?;
         let cache_dir = dirs::cache_dir()
@@ -165,10 +167,59 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
             })
             .build(&window)?;
 
+        let (replace_flag_tx, replace_flag_rx) = std::sync::mpsc::channel();
+        let replace_thread = std::thread::spawn({
+            let edit_handle = Arc::clone(&edit_handle);
+            move || {
+                loop {
+                    // Wait for a replace signal
+                    if replace_flag_rx.recv().is_err() {
+                        break;
+                    }
+
+                    let current_alias = CURRENT_ALIAS.lock().unwrap().clone();
+                    if let Some(alias) = current_alias {
+                        let _ = edit_handle.wait().call_edit_section(move |section| {
+                            for layer in section.layers() {
+                                for (_, obj) in layer.objects() {
+                                    let obj = section.object(&obj);
+                                    let res = obj.get_effect_item(
+                                        if cfg!(debug_assertions) {
+                                            "Local Alias (Debug)"
+                                        } else {
+                                            "Local Alias"
+                                        },
+                                        0,
+                                        "Marker",
+                                    );
+                                    if res.is_ok() {
+                                        let position = obj.get_layer_frame()?;
+                                        obj.delete_object()?;
+
+                                        section.create_object_from_alias(
+                                            &alias.alias,
+                                            position.layer,
+                                            position.start,
+                                            position.end - position.start + 1,
+                                        )?;
+                                    }
+                                }
+                            }
+
+                            anyhow::Ok(())
+                        });
+                    }
+                }
+            }
+        });
+
         Ok(LocalAliasPlugin {
             webview,
             window,
             edit_handle,
+
+            _replace_thread: replace_thread,
+            replace_flag: replace_flag_tx,
 
             aliases: Vec::new(),
         })
@@ -190,7 +241,10 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
     fn on_project_load(&mut self, project: &mut aviutl2::generic::ProjectFile) {
         self.aliases = project
             .deserialize("alias_entries")
-            .unwrap_or_else(|_| Vec::new());
+            .unwrap_or_else(|e| {
+                log::warn!("Failed to load alias entries from project: {}", e);
+                Vec::new()
+            });
         self.send_to_webview("update_aliases", &self.aliases);
     }
 

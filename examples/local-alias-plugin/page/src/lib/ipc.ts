@@ -62,6 +62,10 @@ export const ipc = {
     bridge.send("add_alias", {});
   },
 
+  setCurrentAlias(alias: AliasEntry): void {
+    bridge.send("set_current_alias", alias);
+  },
+
   on(type: string, cb: (data: unknown) => void): void {
     const list = subscribers.get(type) ?? [];
     list.push(cb);

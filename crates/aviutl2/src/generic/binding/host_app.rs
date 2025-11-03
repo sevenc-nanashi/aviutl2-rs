@@ -299,6 +299,7 @@ impl EditHandle {
 
         static CALLBACK_RETURN_VALUE: std::sync::Mutex<Option<Box<dyn std::any::Any + Send>>> =
             std::sync::Mutex::new(None);
+
         {
             let mut guard = NEXT_CALLBACK.lock().unwrap();
             *guard = Some(Box::new(move |section: &mut EditSection| {
@@ -306,7 +307,9 @@ impl EditHandle {
                 Box::new(result) as Box<dyn std::any::Any + Send>
             }));
         }
-        let call_result = unsafe { ((*self.internal).call_edit_section)(trampoline) };
+        let call_result = unsafe {
+            ((*self.internal).call_edit_section)(trampoline)
+        };
         if call_result {
             let mut return_guard = CALLBACK_RETURN_VALUE.lock().unwrap();
             if let Some(return_value) = return_guard.take() {
