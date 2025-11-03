@@ -35,7 +35,7 @@ jobs:
           cargo update --workspace
 
       - name: Build Page
-        uses: ./.github/actions/render-statistics-page
+        uses: ./.github/actions/prepare-resources
 
       - name: Build project
         run: |
