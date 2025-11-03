@@ -2,7 +2,7 @@ mod entry;
 mod ws_popup;
 use std::sync::{Arc, Mutex, OnceLock};
 
-use aviutl2::{AnyResult, odbg};
+use aviutl2::{AnyResult, generic::GenericPlugin, odbg};
 use tap::Pipe;
 use ws_popup::WsPopup;
 
@@ -32,10 +32,7 @@ pub static CURRENT_ALIAS: Mutex<Option<AliasEntry>> = Mutex::new(None);
 
 impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
-        env_logger::Builder::new()
-            .parse_filters("debug")
-            .target(aviutl2::utils::debug_logger_target())
-            .init();
+        Self::init_logging();
         log::info!("Initializing Rusty Local Alias Plugin...");
         let edit_handle = Arc::new(OnceLock::<aviutl2::generic::EditHandle>::new());
 
@@ -47,97 +44,8 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
         let webview = wry::WebViewBuilder::new_with_web_context(&mut web_context)
             // JS -> Rust 受信
             .with_ipc_handler(|payload| {
-                #[derive(serde::Deserialize)]
-                struct IpcMessage {
-                    r#type: String,
-                    data: serde_json::Value,
-                }
-
                 let message_str = payload.into_body();
-                if let Ok(msg) = serde_json::from_str::<IpcMessage>(&message_str) {
-                    log::debug!("IPC message received: {:?}", msg.r#type);
-                    match msg.r#type.as_str() {
-                        "get_version" => {
-                            let version = env!("CARGO_PKG_VERSION");
-                            let response = serde_json::json!({ "version": version });
-                            LocalAliasPlugin::with_instance(|instance| {
-                                instance.send_to_webview("version_response", &response);
-                            });
-                        }
-                        "get_aliases" => {
-                            LocalAliasPlugin::with_instance(|instance| {
-                                let aliases = instance.aliases.clone();
-                                instance.send_to_webview("aliases_response", &aliases);
-                            });
-                        }
-                        "set_aliases" => {
-                            if let Ok(new_aliases) =
-                                serde_json::from_value::<Vec<AliasEntry>>(msg.data.clone())
-                            {
-                                LocalAliasPlugin::with_instance_mut(|instance| {
-                                    instance.aliases = new_aliases;
-                                });
-                            } else {
-                                log::error!(
-                                    "Failed to parse aliases from IPC message data: {:?}",
-                                    msg.data
-                                );
-                            }
-                        }
-                        "add_alias" => {
-                            let new_alias = LocalAliasPlugin::with_instance(|instance| {
-                                let handle = instance.edit_handle.get().unwrap();
-                                handle.call_edit_section(|section| {
-                                    let alias = section
-                                        .get_focused_object()?
-                                        .map(|obj| section.get_object_alias(&obj))
-                                        .transpose()?;
-                                    let entry = alias.map(|alias| AliasEntry {
-                                        name: "New Alias".to_string(),
-                                        alias,
-                                    });
-                                    anyhow::Ok(entry)
-                                })
-                            })
-                            .flatten();
-                            match new_alias {
-                                Ok(Some(entry)) => {
-                                    LocalAliasPlugin::with_instance_mut(|instance| {
-                                        instance.aliases.push(entry.clone());
-                                        instance
-                                            .send_to_webview("update_aliases", &instance.aliases);
-                                    });
-                                }
-                                Ok(None) => {
-                                    log::warn!(
-                                        "No focused object to create alias from in add_alias"
-                                    );
-                                }
-                                Err(e) => {
-                                    log::error!("Failed to add alias: {}", e);
-                                }
-                            }
-                        }
-                        "set_current_alias" => {
-                            if let Ok(entry) =
-                                serde_json::from_value::<AliasEntry>(msg.data.clone())
-                            {
-                                let mut current = CURRENT_ALIAS.lock().unwrap();
-                                *current = Some(entry);
-                            } else {
-                                log::error!(
-                                    "Failed to parse current alias from IPC message data: {:?}",
-                                    msg.data
-                                );
-                            }
-                        }
-                        other => {
-                            log::warn!("Unknown IPC message type: {}", other);
-                        }
-                    }
-                } else {
-                    log::error!("Failed to parse IPC message: {message_str:?}");
-                }
+                LocalAliasPlugin::ipc_handler(message_str);
             })
             .pipe(|builder| {
                 if cfg!(debug_assertions) {
@@ -168,50 +76,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
             .build(&window)?;
 
         let (replace_flag_tx, replace_flag_rx) = std::sync::mpsc::channel();
-        let replace_thread = std::thread::spawn({
-            let edit_handle = Arc::clone(&edit_handle);
-            move || {
-                loop {
-                    // Wait for a replace signal
-                    if replace_flag_rx.recv().is_err() {
-                        break;
-                    }
-
-                    let current_alias = CURRENT_ALIAS.lock().unwrap().clone();
-                    if let Some(alias) = current_alias {
-                        let _ = edit_handle.wait().call_edit_section(move |section| {
-                            for layer in section.layers() {
-                                for (_, obj) in layer.objects() {
-                                    let obj = section.object(&obj);
-                                    let res = obj.get_effect_item(
-                                        if cfg!(debug_assertions) {
-                                            "Local Alias (Debug)"
-                                        } else {
-                                            "Local Alias"
-                                        },
-                                        0,
-                                        "Marker",
-                                    );
-                                    if res.is_ok() {
-                                        let position = obj.get_layer_frame()?;
-                                        obj.delete_object()?;
-
-                                        section.create_object_from_alias(
-                                            &alias.alias,
-                                            position.layer,
-                                            position.start,
-                                            position.end - position.start + 1,
-                                        )?;
-                                    }
-                                }
-                            }
-
-                            anyhow::Ok(())
-                        });
-                    }
-                }
-            }
-        });
+        let replace_thread = Self::spawn_replace_thread(Arc::clone(&edit_handle), replace_flag_rx);
 
         Ok(LocalAliasPlugin {
             webview,
@@ -239,12 +104,10 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
     }
 
     fn on_project_load(&mut self, project: &mut aviutl2::generic::ProjectFile) {
-        self.aliases = project
-            .deserialize("alias_entries")
-            .unwrap_or_else(|e| {
-                log::warn!("Failed to load alias entries from project: {}", e);
-                Vec::new()
-            });
+        self.aliases = project.deserialize("alias_entries").unwrap_or_else(|e| {
+            log::warn!("Failed to load alias entries from project: {}", e);
+            Vec::new()
+        });
         self.send_to_webview("update_aliases", &self.aliases);
     }
 
@@ -254,6 +117,63 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
 }
 
 impl LocalAliasPlugin {
+    fn init_logging() {
+        let _ = env_logger::Builder::new()
+            .parse_filters("debug")
+            .target(aviutl2::utils::debug_logger_target())
+            .try_init();
+    }
+
+    fn spawn_replace_thread(
+        edit_handle: Arc<OnceLock<aviutl2::generic::EditHandle>>,
+        replace_flag_rx: std::sync::mpsc::Receiver<()>,
+    ) -> std::thread::JoinHandle<()> {
+        std::thread::spawn(move || {
+            loop {
+                // Wait for a replace signal
+                if replace_flag_rx
+                    .recv_timeout(std::time::Duration::from_millis(100))
+                    .is_err_and(|e| matches!(e, std::sync::mpsc::RecvTimeoutError::Timeout))
+                {
+                    break;
+                }
+
+                let current_alias = CURRENT_ALIAS.lock().unwrap().clone();
+                if let Some(alias) = current_alias {
+                    let _ = edit_handle.wait().call_edit_section(move |section| {
+                        for layer in section.layers() {
+                            for (_, obj) in layer.objects() {
+                                let obj = section.object(&obj);
+                                let res = obj.get_effect_item(
+                                    if cfg!(debug_assertions) {
+                                        "Local Alias (Debug)"
+                                    } else {
+                                        "Local Alias"
+                                    },
+                                    0,
+                                    "Marker",
+                                );
+                                if res.is_ok() {
+                                    let position = obj.get_layer_frame()?;
+                                    obj.delete_object()?;
+
+                                    section.create_object_from_alias(
+                                        &alias.alias,
+                                        position.layer,
+                                        position.start,
+                                        position.end - position.start + 1,
+                                    )?;
+                                }
+                            }
+                        }
+
+                        anyhow::Ok(())
+                    });
+                }
+            }
+        })
+    }
+
     fn send_to_webview<T: serde::Serialize>(&self, name: &str, data: &T) {
         log::debug!("Sending to webview: {}", name);
         match serde_json::to_value(data) {
@@ -268,6 +188,95 @@ impl LocalAliasPlugin {
             Err(e) => {
                 log::error!("Failed to serialize data for webview: {}", e);
             }
+        }
+    }
+
+    fn ipc_handler(message_str: String) {
+        #[derive(serde::Deserialize)]
+        struct IpcMessage {
+            r#type: String,
+            data: serde_json::Value,
+        }
+
+        if let Ok(msg) = serde_json::from_str::<IpcMessage>(&message_str) {
+            log::debug!("IPC message received: {:?}", msg.r#type);
+            match msg.r#type.as_str() {
+                "get_version" => {
+                    let version = env!("CARGO_PKG_VERSION");
+                    let response = serde_json::json!({ "version": version });
+                    LocalAliasPlugin::with_instance(|instance| {
+                        instance.send_to_webview("version_response", &response);
+                    });
+                }
+                "get_aliases" => {
+                    LocalAliasPlugin::with_instance(|instance| {
+                        let aliases = instance.aliases.clone();
+                        instance.send_to_webview("aliases_response", &aliases);
+                    });
+                }
+                "set_aliases" => {
+                    if let Ok(new_aliases) =
+                        serde_json::from_value::<Vec<AliasEntry>>(msg.data.clone())
+                    {
+                        LocalAliasPlugin::with_instance_mut(|instance| {
+                            instance.aliases = new_aliases;
+                            instance.send_to_webview("update_aliases", &instance.aliases);
+                        });
+                    } else {
+                        log::error!(
+                            "Failed to parse aliases from IPC message data: {:?}",
+                            msg.data
+                        );
+                    }
+                }
+                "add_alias" => {
+                    let new_alias = LocalAliasPlugin::with_instance(|instance| {
+                        let handle = instance.edit_handle.get().unwrap();
+                        handle.call_edit_section(|section| {
+                            let alias = section
+                                .get_focused_object()?
+                                .map(|obj| section.get_object_alias(&obj))
+                                .transpose()?;
+                            let entry = alias.map(|alias| AliasEntry {
+                                name: "New Alias".to_string(),
+                                alias,
+                            });
+                            anyhow::Ok(entry)
+                        })
+                    })
+                    .flatten();
+                    match new_alias {
+                        Ok(Some(entry)) => {
+                            LocalAliasPlugin::with_instance_mut(|instance| {
+                                instance.aliases.push(entry.clone());
+                                instance.send_to_webview("update_aliases", &instance.aliases);
+                            });
+                        }
+                        Ok(None) => {
+                            log::warn!("No focused object to create alias from in add_alias");
+                        }
+                        Err(e) => {
+                            log::error!("Failed to add alias: {}", e);
+                        }
+                    }
+                }
+                "set_current_alias" => {
+                    if let Ok(entry) = serde_json::from_value::<AliasEntry>(msg.data.clone()) {
+                        let mut current = CURRENT_ALIAS.lock().unwrap();
+                        *current = Some(entry);
+                    } else {
+                        log::error!(
+                            "Failed to parse current alias from IPC message data: {:?}",
+                            msg.data
+                        );
+                    }
+                }
+                other => {
+                    log::warn!("Unknown IPC message type: {}", other);
+                }
+            }
+        } else {
+            log::error!("Failed to parse IPC message: {message_str:?}");
         }
     }
 }
