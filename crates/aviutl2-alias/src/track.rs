@@ -553,11 +553,17 @@ mod tests {
         assert_eq!(value, expected_value);
     }
 
-    #[test]
-    fn test_track_step_round_to_string() {
-        let step = TrackStep::PointOne;
-        let value = 2.34;
-        let rounded_str = step.round_to_string(value);
-        assert_eq!(rounded_str, "2.3");
+    #[rstest]
+    #[case(TrackStep::One, 2.34, "2")]
+    #[case(TrackStep::PointOne, 2.34, "2.3")]
+    #[case(TrackStep::PointZeroOne, 2.345, "2.35")]
+    #[case(TrackStep::PointZeroZeroOne, 2.3456, "2.346")]
+    fn test_track_step_round_to_string(
+        #[case] step: TrackStep,
+        #[case] value: f64,
+        #[case] expected_str: &str,
+    ) {
+        let result_str = step.round_to_string(value);
+        assert_eq!(result_str, expected_str);
     }
 }
