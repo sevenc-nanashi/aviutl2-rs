@@ -233,7 +233,16 @@ impl std::str::FromStr for Table {
 }
 impl std::fmt::Debug for Table {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Table").field("items", &self.items).finish()
+        f.debug_struct("Table")
+            .field(
+                "values",
+                &self.values_iter().collect::<indexmap::IndexMap<_, _>>(),
+            )
+            .field(
+                "subtables",
+                &self.subtables_iter().collect::<indexmap::IndexMap<_, _>>(),
+            )
+            .finish()
     }
 }
 
@@ -281,5 +290,7 @@ mod tests {
                 .get_value("effect.name"),
             Some(&"標準描画".to_string())
         );
+
+        insta::assert_debug_snapshot!(table);
     }
 }
