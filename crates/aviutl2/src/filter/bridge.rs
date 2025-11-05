@@ -1,5 +1,5 @@
 use crate::{
-    common::{LeakManager, alert_error},
+    common::{alert_error, AnyResult, LeakManager},
     filter::{
         AudioObjectInfo, FilterConfigItem, FilterPlugin, FilterPluginTable, FilterProcAudio,
         FilterProcVideo, ObjectInfo, SceneInfo, VideoObjectInfo,
@@ -158,23 +158,27 @@ where
     }
 }
 
-pub unsafe fn initialize_plugin<T: FilterSingleton>(version: u32) -> bool {
+pub unsafe fn initialize_plugin_c<T: FilterSingleton>(version: u32) -> bool {
+    match initialize_plugin::<T>(version) {
+        Ok(_) => true,
+        Err(e) => {
+            log::error!("Failed to initialize plugin: {}", e);
+            alert_error(&e);
+            false
+        }
+    }
+}
+
+pub(crate) fn initialize_plugin<T: FilterSingleton>(version: u32) -> AnyResult<()> {
     let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
     };
-    let internal = match T::new(info) {
-        Ok(plugin) => plugin,
-        Err(e) => {
-            log::error!("Failed to initialize plugin: {}", e);
-            alert_error(&e);
-            return false;
-        }
-    };
+    let internal = T::new(info)?;
     let plugin = InternalFilterPluginState::new(internal);
     *plugin_state.write().unwrap() = Some(plugin);
 
-    true
+    Ok(())
 }
 pub unsafe fn uninitialize_plugin<T: FilterSingleton>() {
     let plugin_state = T::__get_singleton_state();
@@ -286,7 +290,7 @@ macro_rules! register_filter_plugin {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                unsafe { $crate::filter::__bridge::initialize_plugin::<$struct>(version) }
+                unsafe { $crate::filter::__bridge::initialize_plugin_c::<$struct>(version) }
             }
 
             #[unsafe(no_mangle)]

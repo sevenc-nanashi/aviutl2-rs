@@ -1,8 +1,8 @@
 use crate::{
-    common::LeakManager,
+    common::{alert_error, AnyResult, LeakManager},
     generic::{
-        GenericPlugin, ProjectFile,
         binding::host_app::{HostAppHandle, PluginRegistry},
+        GenericPlugin, ProjectFile,
     },
 };
 
@@ -34,8 +34,8 @@ pub trait GenericSingleton
 where
     Self: 'static + Send + Sync + GenericPlugin,
 {
-    fn __get_singleton_state()
-    -> &'static std::sync::RwLock<Option<InternalGenericPluginState<Self>>>;
+    fn __get_singleton_state(
+    ) -> &'static std::sync::RwLock<Option<InternalGenericPluginState<Self>>>;
     fn with_instance<R>(f: impl FnOnce(&Self) -> R) -> R {
         let lock = Self::__get_singleton_state();
         let guard = lock.read().unwrap();
@@ -50,23 +50,27 @@ where
     }
 }
 
-pub unsafe fn initialize_plugin<T: GenericSingleton>(version: u32) -> bool {
+pub unsafe fn initialize_plugin_c<T: GenericSingleton>(version: u32) -> bool {
+    match initialize_plugin::<T>(version) {
+        Ok(_) => true,
+        Err(e) => {
+            log::error!("Failed to initialize plugin: {}", e);
+            alert_error(&e);
+            false
+        }
+    }
+}
+
+pub(crate) fn initialize_plugin<T: GenericSingleton>(version: u32) -> AnyResult<()> {
     let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
     };
-    let internal = match T::new(info) {
-        Ok(plugin) => plugin,
-        Err(e) => {
-            log::error!("Failed to initialize plugin: {}", e);
-            crate::common::alert_error(&e);
-            return false;
-        }
-    };
+    let internal = T::new(info)?;
     let plugin = InternalGenericPluginState::new(internal, version);
     *plugin_state.write().unwrap() = Some(plugin);
 
-    true
+    Ok(())
 }
 pub unsafe fn register_plugin<T: GenericSingleton>(
     host: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
@@ -119,7 +123,7 @@ macro_rules! register_generic_plugin {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                unsafe { $crate::generic::__bridge::initialize_plugin::<$struct>(version) }
+                unsafe { $crate::generic::__bridge::initialize_plugin_c::<$struct>(version) }
             }
 
             #[unsafe(no_mangle)]

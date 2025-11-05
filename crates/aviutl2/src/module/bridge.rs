@@ -1,5 +1,5 @@
 use crate::{
-    common::{LeakManager, alert_error},
+    common::{alert_error, AnyResult, LeakManager},
     module::{ScriptModule, ScriptModuleTable},
 };
 
@@ -43,31 +43,35 @@ where
     }
 }
 
-pub unsafe fn initialize_plugin<T: ScriptModuleSingleton>(version: u32) -> bool {
+pub unsafe fn initialize_plugin_c<T: ScriptModuleSingleton>(version: u32) -> bool {
+    match initialize_plugin::<T>(version) {
+        Ok(_) => true,
+        Err(e) => {
+            log::error!("Failed to initialize plugin: {}", e);
+            alert_error(&e);
+            false
+        }
+    }
+}
+
+pub(crate) fn initialize_plugin<T: ScriptModuleSingleton>(version: u32) -> AnyResult<()> {
     let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
     };
-    let internal = match T::new(info) {
-        Ok(plugin) => plugin,
-        Err(e) => {
-            log::error!("Failed to initialize plugin: {}", e);
-            alert_error(&e);
-            return false;
-        }
-    };
+    let internal = T::new(info)?;
     let plugin = InternalScriptModuleState::new(internal);
     *plugin_state.write().unwrap() = Some(plugin);
 
-    true
+    Ok(())
 }
 pub unsafe fn uninitialize_plugin<T: ScriptModuleSingleton>() {
     let plugin_state = T::__get_singleton_state();
     *plugin_state.write().unwrap() = None;
 }
 
-pub unsafe fn create_table<T: ScriptModuleSingleton>()
--> *mut aviutl2_sys::module2::SCRIPT_MODULE_TABLE {
+pub unsafe fn create_table<T: ScriptModuleSingleton>(
+) -> *mut aviutl2_sys::module2::SCRIPT_MODULE_TABLE {
     let plugin_state_lock = T::__get_singleton_state();
     let plugin_state = plugin_state_lock.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
@@ -120,7 +124,7 @@ macro_rules! register_script_module {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                unsafe { $crate::module::__bridge::initialize_plugin::<$struct>(version) }
+                unsafe { $crate::module::__bridge::initialize_plugin_c::<$struct>(version) }
             }
 
             #[unsafe(no_mangle)]

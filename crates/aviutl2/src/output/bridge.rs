@@ -1,7 +1,7 @@
 use std::num::NonZeroIsize;
 
 use crate::{
-    common::{LeakManager, alert_error, format_file_filters},
+    common::{alert_error, format_file_filters, AnyResult, LeakManager},
     output::{FromRawAudioSamples, OutputInfo, OutputPlugin},
 };
 
@@ -51,23 +51,27 @@ impl FromRawAudioSamples for i16 {
     }
 }
 
-pub unsafe fn initialize_plugin<T: OutputSingleton>(version: u32) -> bool {
+pub unsafe fn initialize_plugin_c<T: OutputSingleton>(version: u32) -> bool {
+    match initialize_plugin::<T>(version) {
+        Ok(_) => true,
+        Err(e) => {
+            log::error!("Failed to initialize plugin: {}", e);
+            alert_error(&e);
+            false
+        }
+    }
+}
+
+pub(crate) fn initialize_plugin<T: OutputSingleton>(version: u32) -> AnyResult<()> {
     let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
     };
-    let internal = match T::new(info) {
-        Ok(plugin) => plugin,
-        Err(e) => {
-            log::error!("Failed to initialize plugin: {}", e);
-            alert_error(&e);
-            return false;
-        }
-    };
+    let internal = T::new(info)?;
     let plugin = InternalOutputPluginState::new(internal);
     *plugin_state.write().unwrap() = Some(plugin);
 
-    true
+    Ok(())
 }
 
 pub unsafe fn uninitialize_plugin<T: OutputSingleton>() {
@@ -199,7 +203,7 @@ macro_rules! register_output_plugin {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                $crate::output::__bridge::initialize_plugin::<$struct>(version)
+                $crate::output::__bridge::initialize_plugin_c::<$struct>(version)
             }
 
             #[unsafe(no_mangle)]
