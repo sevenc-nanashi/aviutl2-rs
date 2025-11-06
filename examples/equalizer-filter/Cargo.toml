@@ -15,5 +15,6 @@ crate-type = ["cdylib"]
 anyhow = "1.0.98"
 aviutl2 = { workspace = true, features = ["env_logger"] }
 biquad = "0.5.0"
+dashmap = "6.1.0"
 env_logger = "0.11.8"
 itertools = "0.14.0"

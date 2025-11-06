@@ -196,7 +196,7 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
         audio: &mut aviutl2::filter::FilterProcAudio,
     ) -> anyhow::Result<()> {
         let config: FilterConfig = config.to_struct();
-        let obj_id = audio.object.id;
+        let obj_id = audio.object.effect_id;
 
         let num_samples = audio.audio_object.sample_num as usize;
         if num_samples == 0 {
