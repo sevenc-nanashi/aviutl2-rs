@@ -54,6 +54,9 @@ impl Table {
     pub fn get_value(&self, key: &str) -> Option<&String> {
         self.items.get(key).and_then(|item| item.value.as_ref())
     }
+    pub fn parse_value<T: std::str::FromStr>(&self, key: &str) -> Option<Result<T, T::Err>> {
+        self.get_value(key).map(|value_str| value_str.parse::<T>())
+    }
     pub fn get_value_mut(&mut self, key: &str) -> Option<&mut String> {
         self.items.get_mut(key).and_then(|item| item.value.as_mut())
     }
@@ -86,12 +89,39 @@ impl Table {
         }
     }
 
-    pub fn values_iter<'a>(&'a self) -> TableValuesIterator<'a> {
+    pub fn values<'a>(&'a self) -> TableValuesIterator<'a> {
         TableValuesIterator::new(self)
     }
 
-    pub fn subtables_iter<'a>(&'a self) -> SubTablesIterator<'a> {
+    pub fn is_values_empty(&self) -> bool {
+        self.items.values().all(|item| item.value.is_none())
+    }
+
+    pub fn subtables<'a>(&'a self) -> SubTablesIterator<'a> {
         SubTablesIterator::new(self)
+    }
+
+    pub fn is_subtables_empty(&self) -> bool {
+        self.items.values().all(|item| item.table.is_none())
+    }
+
+    pub fn write_table(
+        &self,
+        f: &mut impl std::fmt::Write,
+        prefix: Option<&str>,
+    ) -> std::fmt::Result {
+        for (key, item) in self.values() {
+            write!(f, "{}={}\r\n", key, item)?;
+        }
+        let prefix = prefix.map_or("".to_string(), |p| format!("{}.", p));
+        for (key, sub_table) in self.subtables() {
+            let subtable_name = format!("{}{}", prefix, key);
+            if !sub_table.is_values_empty() {
+                write!(f, "[{}]\r\n", subtable_name)?;
+            }
+            sub_table.write_table(f, Some(&subtable_name))?;
+        }
+        Ok(())
     }
 }
 
@@ -236,13 +266,18 @@ impl std::fmt::Debug for Table {
         f.debug_struct("Table")
             .field(
                 "values",
-                &self.values_iter().collect::<indexmap::IndexMap<_, _>>(),
+                &self.values().collect::<indexmap::IndexMap<_, _>>(),
             )
             .field(
                 "subtables",
-                &self.subtables_iter().collect::<indexmap::IndexMap<_, _>>(),
+                &self.subtables().collect::<indexmap::IndexMap<_, _>>(),
             )
             .finish()
+    }
+}
+impl std::fmt::Display for Table {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.write_table(f, None)
     }
 }
 
@@ -265,7 +300,7 @@ mod tests {
         let input = include_str!("../test_assets/tracks.aup2");
         let table: Table = input.parse().unwrap();
 
-        let (project_table_name, project_table) = table.subtables_iter().next().unwrap();
+        let (project_table_name, project_table) = table.subtables().next().unwrap();
         assert_eq!(project_table_name, "project");
         assert_eq!(
             project_table.get_value("version"),
@@ -292,5 +327,6 @@ mod tests {
         );
 
         insta::assert_debug_snapshot!(table);
+        assert_eq!(table.to_string(), input);
     }
 }
