@@ -1,9 +1,74 @@
 use quote::ToTokens;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ErrorMode {
+    Ignore,
+    Log,
+    Alert,
+}
+
+struct Entry {
+    is_export: bool,
+    menu_name: String,
+    method_ident: syn::Ident,
+    wrapper_ident: syn::Ident,
+    has_self: bool,
+    self_is_mut: bool,
+    error_mode: ErrorMode,
+}
+
+fn parse_menu_attr(
+    attr: syn::Attribute,
+    default_name: &str,
+) -> Result<(String, ErrorMode), proc_macro2::TokenStream> {
+    let mut name: Option<String> = None;
+    let mut error_mode = ErrorMode::Alert;
+    attr.parse_nested_meta(|m| {
+        if m.path.is_ident("name") {
+            let value: syn::LitStr = m.value()?.parse()?;
+            name = Some(value.value());
+            Ok(())
+        } else if m.path.is_ident("error") {
+            let value: syn::LitStr = m.value()?.parse()?;
+            match value.value().as_str() {
+                "alert" => error_mode = ErrorMode::Alert,
+                "log" => error_mode = ErrorMode::Log,
+                "ignore" => error_mode = ErrorMode::Ignore,
+                _ => return Err(m.error("expected \"alert\", \"log\", or \"ignore\"")),
+            }
+            Ok(())
+        } else {
+            Err(m.error("expected `name` or `error`"))
+        }
+    })
+    .map_err(|e| e.to_compile_error())?;
+    Ok((name.unwrap_or_else(|| default_name.to_string()), error_mode))
+}
+
+fn analyze_receiver(sig: &syn::Signature) -> Result<(bool, bool), proc_macro2::TokenStream> {
+    let mut has_self = false;
+    let mut self_is_mut = false;
+    for p in sig.inputs.iter() {
+        if let syn::FnArg::Receiver(r) = p {
+            if r.reference.is_none() {
+                return Err(
+                    syn::Error::new_spanned(r, "method receiver must be a reference")
+                        .to_compile_error(),
+                );
+            }
+            has_self = true;
+            self_is_mut = r.mutability.is_some();
+        }
+    }
+    Ok((has_self, self_is_mut))
+}
+
 pub fn generic_menus(
     item: proc_macro2::TokenStream,
 ) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
     let mut item: syn::ItemImpl = syn::parse2(item).map_err(|e| e.to_compile_error())?;
+
+    // Validate impl target
     if item.trait_.is_some() {
         return Err(syn::Error::new_spanned(
             &item,
@@ -13,14 +78,14 @@ pub fn generic_menus(
     }
     if !item.generics.params.is_empty() {
         return Err(syn::Error::new_spanned(
-            &item,
+            &item.generics,
             "`generic_menus` macro does not support generic impl blocks",
         )
         .to_compile_error());
     }
-    if item.self_ty.to_token_stream().to_string().contains('<') {
+    if has_generic_args_in_type(&item.self_ty) {
         return Err(syn::Error::new_spanned(
-            &item,
+            &item.self_ty,
             "`generic_menus` macro does not support generic types",
         )
         .to_compile_error());
@@ -28,92 +93,31 @@ pub fn generic_menus(
 
     let impl_token = item.self_ty.to_token_stream();
 
-    #[derive(Clone, Copy)]
-    enum ErrorMode {
-        Ignore,
-        Log,
-        Alert,
-    }
-
-    struct Entry {
-        is_export: bool,
-        menu_name: String,
-        method_ident: syn::Ident,
-        wrapper_ident: syn::Ident,
-        has_self: bool,
-        self_is_mut: bool,
-        error_mode: ErrorMode,
-    }
-
     let mut entries: Vec<Entry> = Vec::new();
-
     for it in item.items.iter_mut() {
         let syn::ImplItem::Fn(method) = it else {
             continue;
         };
+
         let method_ident = method.sig.ident.clone();
-        let mut is_import = None::<usize>;
-        let mut is_export = None::<usize>;
-        for (idx, attr) in method.attrs.iter().enumerate() {
-            if attr.path().is_ident("import") {
-                is_import = Some(idx);
-            }
-            if attr.path().is_ident("export") {
-                is_export = Some(idx);
-            }
-        }
-        let (kind_idx, is_export_flag) = match (is_import, is_export) {
-            (Some(i), None) => (i, false),
-            (None, Some(i)) => (i, true),
-            (None, None) => continue,
-            _ => {
+        let (attr_idx, is_export_flag) = match find_menu_attr(&method.attrs) {
+            Ok(Some(v)) => v,
+            Ok(None) => {
                 return Err(syn::Error::new_spanned(
                     &method.sig.ident,
-                    "method cannot have both #[import] and #[export]",
+                    "method must have either #[import] or #[export]",
                 )
                 .to_compile_error());
             }
+            Err(e) => return Err(e),
         };
 
-        // Parse name = "...", error = "alert"|"log"
-        let attr = method.attrs.remove(kind_idx);
-        let mut menu_name: Option<String> = None;
-        let mut error_mode = ErrorMode::Alert;
-        attr.parse_nested_meta(|m| {
-            if m.path.is_ident("name") {
-                let value: syn::LitStr = m.value()?.parse()?;
-                menu_name = Some(value.value());
-                Ok(())
-            } else if m.path.is_ident("error") {
-                let value: syn::LitStr = m.value()?.parse()?;
-                match value.value().as_str() {
-                    "alert" => error_mode = ErrorMode::Alert,
-                    "log" => error_mode = ErrorMode::Log,
-                    "ignore" => error_mode = ErrorMode::Ignore,
-                    _ => return Err(m.error("expected \"alert\", \"log\", or \"ignore\"")),
-                }
-                Ok(())
-            } else {
-                Err(m.error("expected `name` or `error`"))
-            }
-        })
-        .map_err(|e| e.to_compile_error())?;
-        let menu_name = menu_name.unwrap_or_else(|| method_ident.to_string());
+        // Take and parse attribute
+        let attr = method.attrs.remove(attr_idx);
+        let (menu_name, error_mode) = parse_menu_attr(attr, &method_ident.to_string())?;
 
-        let mut has_self = false;
-        let mut self_is_mut = false;
-        for p in method.sig.inputs.iter() {
-            if let syn::FnArg::Receiver(r) = p {
-                if r.reference.is_none() {
-                    return Err(
-                        syn::Error::new_spanned(r, "method receiver must be a reference")
-                            .to_compile_error(),
-                    );
-                }
-                has_self = true;
-                self_is_mut = r.mutability.is_some();
-            }
-        }
+        // Analyze receiver
+        let (has_self, self_is_mut) = analyze_receiver(&method.sig)?;
         let wrapper_ident =
             syn::Ident::new(&format!("bridge_{}", method_ident), method_ident.span());
 
@@ -135,6 +139,7 @@ pub fn generic_menus(
         let name_str = &e.menu_name;
         let method_ident = &e.method_ident;
         let wrapper_ident = &e.wrapper_ident;
+
         let reg = if e.is_export {
             quote::quote! { host.register_export_menu(#name_str, #wrapper_ident); }
         } else {
@@ -149,25 +154,18 @@ pub fn generic_menus(
         };
 
         let wrapper = if e.has_self {
-            if e.self_is_mut {
-                quote::quote! {
-                    extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
-                        let mut edit = unsafe { ::aviutl2::generic::EditSection::from_ptr(edit) };
-                        <#impl_token as ::aviutl2::generic::GenericPlugin>::with_instance_mut(|__self| {
-                            let ret = <#impl_token>::#method_ident(__self, &mut edit);
-                            #call_on_error
-                        });
-                    }
-                }
+            let with_fn = if e.self_is_mut {
+                quote::quote!(with_instance_mut)
             } else {
-                quote::quote! {
-                    extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
-                        let mut edit = unsafe { ::aviutl2::generic::EditSection::from_ptr(edit) };
-                        <#impl_token as ::aviutl2::generic::GenericPlugin>::with_instance(|__self| {
-                            let ret = <#impl_token>::#method_ident(__self, &mut edit);
-                            #call_on_error
-                        });
-                    }
+                quote::quote!(with_instance)
+            };
+            quote::quote! {
+                extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
+                    let mut edit = unsafe { ::aviutl2::generic::EditSection::from_ptr(edit) };
+                    <#impl_token as ::aviutl2::generic::GenericPlugin>::#with_fn(|__self| {
+                        let ret = <#impl_token>::#method_ident(__self, &mut edit);
+                        #call_on_error
+                    });
                 }
             }
         } else {
@@ -196,4 +194,43 @@ pub fn generic_menus(
             }
         }
     })
+}
+
+fn has_generic_args_in_type(ty: &syn::Type) -> bool {
+    use syn::{PathArguments, Type};
+    match ty {
+        Type::Path(p) => p
+            .path
+            .segments
+            .iter()
+            .any(|seg| !matches!(seg.arguments, PathArguments::None)),
+        Type::Reference(r) => has_generic_args_in_type(&r.elem),
+        Type::Ptr(p) => has_generic_args_in_type(&p.elem),
+        _ => false,
+    }
+}
+
+fn find_menu_attr(
+    attrs: &[syn::Attribute],
+) -> Result<Option<(usize, bool)>, proc_macro2::TokenStream> {
+    let mut import: Option<usize> = None;
+    let mut export: Option<usize> = None;
+    for (idx, attr) in attrs.iter().enumerate() {
+        if attr.path().is_ident("import") {
+            import = Some(idx);
+        }
+        if attr.path().is_ident("export") {
+            export = Some(idx);
+        }
+    }
+    match (import, export) {
+        (Some(i), None) => Ok(Some((i, false))),
+        (None, Some(i)) => Ok(Some((i, true))),
+        (None, None) => Ok(None),
+        (Some(_), Some(_)) => Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "method cannot have both #[import] and #[export]",
+        )
+        .to_compile_error()),
+    }
 }
