@@ -6,7 +6,7 @@
 //!    [`#[aviutl2::plugin(GenericPlugin)]`][crate::plugin]属性を付与した構造体を定義する
 //! 2. [`crate::register_generic_plugin!`]マクロを使用してプラグインを登録する
 //!
-//! サンプルは<https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/todo>を参照してください。
+//! サンプルは<https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/srt-file-plugin>を参照してください。
 //!
 //! ## Note
 //!
