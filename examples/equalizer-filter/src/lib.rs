@@ -119,7 +119,7 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
         audio.get_sample_data(aviutl2::filter::AudioChannel::Left, &mut left_samples);
         audio.get_sample_data(aviutl2::filter::AudioChannel::Right, &mut right_samples);
         let sample_rate = audio.scene.sample_rate as f64;
-        let obj_id = audio.object.id;
+        let obj_id = audio.object.effect_id;
 
         let mut q_state = self.q_states.entry(obj_id).or_insert_with(|| {
             log::info!("Creating new EQ state for object ID {}", obj_id);
