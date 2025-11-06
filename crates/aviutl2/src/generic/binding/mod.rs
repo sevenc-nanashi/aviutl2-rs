@@ -50,9 +50,9 @@ pub trait GenericPlugin: Send + Sync + Sized {
     }
 }
 
-pub mod project;
+mod project;
 pub use project::*;
-pub mod edit_section;
+mod edit_section;
 pub use edit_section::*;
-pub mod host_app;
+mod host_app;
 pub use host_app::*;

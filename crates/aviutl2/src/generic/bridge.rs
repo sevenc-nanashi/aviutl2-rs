@@ -2,7 +2,7 @@ use crate::{
     common::{AnyResult, LeakManager, alert_error},
     generic::{
         GenericPlugin, ProjectFile,
-        binding::host_app::{HostAppHandle, PluginRegistry},
+        binding::{HostAppHandle, PluginRegistry},
     },
 };
 

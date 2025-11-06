@@ -1,4 +1,4 @@
-use crate::{AviUtl2Info, common::AnyResult, generic::edit_section::EditSection};
+use crate::{AviUtl2Info, common::AnyResult, generic::EditSection};
 use pastey::paste;
 
 /// ホストアプリケーションのハンドル。
@@ -217,6 +217,7 @@ macro_rules! impl_plugin_registry {
     ) => {
         paste! {
             impl<T> SubPlugin<T> {
+                #[cfg(feature = $feature)]
                 #[doc = concat!($description, "の新しいインスタンスを作成します。")]
                 pub fn [<new_ $name>](info: AviUtl2Info) -> crate::AnyResult<Self>
                 where
