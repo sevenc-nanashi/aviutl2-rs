@@ -76,7 +76,7 @@ impl<'a> HostAppHandle<'a> {
     ///
     /// # See Also
     ///
-    /// - [`aviutl2::generic::menus`]
+    /// - [`crate::generic::menus`]
     pub fn register_import_menu(
         &mut self,
         name: &str,
@@ -95,7 +95,7 @@ impl<'a> HostAppHandle<'a> {
     ///
     /// # See Also
     ///
-    /// - [`aviutl2::generic::menus`]
+    /// - [`crate::generic::menus`]
     pub fn register_export_menu(
         &mut self,
         name: &str,
@@ -139,7 +139,7 @@ impl<'a> HostAppHandle<'a> {
     ///
     /// # See Also
     ///
-    /// - [`aviutl2::generic::menus`]
+    /// - [`crate::generic::menus`]
     pub fn register_menus<T: GenericPluginMenus>(&mut self) {
         self.assert_not_killed();
         T::register_menus(self);
@@ -150,7 +150,7 @@ impl<'a> HostAppHandle<'a> {
     ///
     /// # Note
     ///
-    /// [`aviutl2::generic::GenericPlugin::on_project_load`] が自動的に登録されるため、
+    /// [`crate::generic::GenericPlugin::on_project_load`] が自動的に登録されるため、
     /// 通常はこの関数を直接使用する必要はありません。
     pub fn register_project_load_handler(
         &mut self,
@@ -166,7 +166,7 @@ impl<'a> HostAppHandle<'a> {
     ///
     /// # Note
     ///
-    /// [`aviutl2::generic::GenericPlugin::on_project_save`] が自動的に登録されるため、
+    /// [`crate::generic::GenericPlugin::on_project_save`] が自動的に登録されるため、
     /// 通常はこの関数を直接使用する必要はありません。
     pub fn register_project_save_handler(
         &mut self,
@@ -184,7 +184,7 @@ pub trait GenericPluginMenus {
     fn register_menus(host: &mut HostAppHandle);
 }
 
-// #[aviutl2::generic::menus] で使用するための再エクスポート
+#[doc(inline)]
 pub use aviutl2_macros::generic_menus as menus;
 
 #[derive(Default)]
