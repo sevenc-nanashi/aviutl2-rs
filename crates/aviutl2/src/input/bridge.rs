@@ -110,23 +110,27 @@ struct InternalInputHandle<T: Send + Sync> {
     handle: T,
 }
 
-pub unsafe fn initialize_plugin<T: InputSingleton>(version: u32) -> bool {
+pub unsafe fn initialize_plugin_c<T: InputSingleton>(version: u32) -> bool {
+    match initialize_plugin::<T>(version) {
+        Ok(_) => true,
+        Err(e) => {
+            log::error!("Failed to initialize plugin: {}", e);
+            alert_error(&e);
+            false
+        }
+    }
+}
+
+pub(crate) fn initialize_plugin<T: InputSingleton>(version: u32) -> AnyResult<()> {
     let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
     };
-    let internal = match T::new(info) {
-        Ok(plugin) => plugin,
-        Err(e) => {
-            log::error!("Failed to initialize plugin: {}", e);
-            alert_error(&e);
-            return false;
-        }
-    };
+    let internal = T::new(info)?;
     let plugin = InternalInputPluginState::new(internal);
     *plugin_state.write().unwrap() = Some(plugin);
 
-    true
+    Ok(())
 }
 
 pub unsafe fn uninitialize_plugin<T: InputSingleton>() {
@@ -548,7 +552,7 @@ macro_rules! register_input_plugin {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                unsafe { $crate::input::__bridge::initialize_plugin::<$struct>(version) }
+                unsafe { $crate::input::__bridge::initialize_plugin_c::<$struct>(version) }
             }
 
             #[unsafe(no_mangle)]

@@ -1,15 +1,13 @@
 use crate::{
-    common::{alert_error, AnyResult, LeakManager},
+    common::{AnyResult, LeakManager, alert_error},
     generic::{
-        binding::host_app::{HostAppHandle, PluginRegistry},
         GenericPlugin, ProjectFile,
+        binding::host_app::{HostAppHandle, PluginRegistry},
     },
 };
 
 #[doc(hidden)]
 pub struct InternalGenericPluginState<T: Send + Sync + GenericPlugin> {
-    version: u32,
-
     plugin_registry: PluginRegistry,
 
     kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
@@ -19,9 +17,8 @@ pub struct InternalGenericPluginState<T: Send + Sync + GenericPlugin> {
 }
 
 impl<T: Send + Sync + GenericPlugin> InternalGenericPluginState<T> {
-    pub fn new(instance: T, version: u32) -> Self {
+    pub fn new(instance: T) -> Self {
         Self {
-            version,
             plugin_registry: PluginRegistry::new(),
             kill_switch: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             global_leak_manager: LeakManager::new(),
@@ -34,8 +31,8 @@ pub trait GenericSingleton
 where
     Self: 'static + Send + Sync + GenericPlugin,
 {
-    fn __get_singleton_state(
-    ) -> &'static std::sync::RwLock<Option<InternalGenericPluginState<Self>>>;
+    fn __get_singleton_state()
+    -> &'static std::sync::RwLock<Option<InternalGenericPluginState<Self>>>;
     fn with_instance<R>(f: impl FnOnce(&Self) -> R) -> R {
         let lock = Self::__get_singleton_state();
         let guard = lock.read().unwrap();
@@ -67,7 +64,7 @@ pub(crate) fn initialize_plugin<T: GenericSingleton>(version: u32) -> AnyResult<
         version: version.into(),
     };
     let internal = T::new(info)?;
-    let plugin = InternalGenericPluginState::new(internal, version);
+    let plugin = InternalGenericPluginState::new(internal);
     *plugin_state.write().unwrap() = Some(plugin);
 
     Ok(())
@@ -82,7 +79,6 @@ pub unsafe fn register_plugin<T: GenericSingleton>(
     let kill_switch = plugin_state.kill_switch.clone();
     let mut handle = unsafe {
         HostAppHandle::new(
-            plugin_state.version,
             host,
             &mut plugin_state.global_leak_manager,
             kill_switch,

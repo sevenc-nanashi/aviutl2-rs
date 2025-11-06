@@ -1,5 +1,5 @@
-use crate::common::AnyResult;
-use crate::generic::edit_section::EditSection;
+use crate::{AviUtl2Info, common::AnyResult, generic::edit_section::EditSection};
+use pastey::paste;
 
 /// ホストアプリケーションのハンドル。
 /// プラグインの初期化処理で使用します。
@@ -8,23 +8,34 @@ use crate::generic::edit_section::EditSection;
 ///
 /// この方がプラグインの初期化処理の外で使用された場合はPanicします。
 pub struct HostAppHandle<'a> {
-    version: u32,
     internal: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
     global_leak_manager: &'a mut crate::common::LeakManager,
     kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
     plugin_registry: &'a mut crate::generic::PluginRegistry,
 }
 
+/// プラグインの初期化状態を管理するためのハンドル。
+pub struct SubPlugin<T> {
+    plugin: std::marker::PhantomData<T>,
+    internal: std::sync::Arc<InternalReferenceHandle>,
+}
+struct InternalReferenceHandle {
+    uninitialize_fn: fn(),
+}
+impl Drop for InternalReferenceHandle {
+    fn drop(&mut self) {
+        (self.uninitialize_fn)();
+    }
+}
+
 impl<'a> HostAppHandle<'a> {
     pub(crate) unsafe fn new(
-        version: u32,
         internal: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
         global_leak_manager: &'a mut crate::common::LeakManager,
         kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
         plugin_registry: &'a mut crate::generic::PluginRegistry,
     ) -> Self {
         Self {
-            version,
             internal,
             global_leak_manager,
             kill_switch,
@@ -62,6 +73,10 @@ impl<'a> HostAppHandle<'a> {
     }
 
     /// インポートメニューを登録します。
+    ///
+    /// # See Also
+    ///
+    /// - [`aviutl2::generic::menus`]
     pub fn register_import_menu(
         &mut self,
         name: &str,
@@ -77,6 +92,10 @@ impl<'a> HostAppHandle<'a> {
     }
 
     /// エクスポートメニューを登録します。
+    ///
+    /// # See Also
+    ///
+    /// - [`aviutl2::generic::menus`]
     pub fn register_export_menu(
         &mut self,
         name: &str,
@@ -117,12 +136,22 @@ impl<'a> HostAppHandle<'a> {
     }
 
     /// メニューを一括登録します。
+    ///
+    /// # See Also
+    ///
+    /// - [`aviutl2::generic::menus`]
     pub fn register_menus<T: GenericPluginMenus>(&mut self) {
         self.assert_not_killed();
         T::register_menus(self);
     }
 
     /// プロジェクトファイルをロードした直後に呼ばれる関数を登録します。
+    /// また、プロジェクトの初期化時にも呼ばれます。
+    ///
+    /// # Note
+    ///
+    /// [`aviutl2::generic::GenericPlugin::on_project_load`] が自動的に登録されるため、
+    /// 通常はこの関数を直接使用する必要はありません。
     pub fn register_project_load_handler(
         &mut self,
         callback: extern "C" fn(*mut aviutl2_sys::plugin2::PROJECT_FILE),
@@ -134,6 +163,11 @@ impl<'a> HostAppHandle<'a> {
     }
 
     /// プロジェクトファイルを保存する直前に呼ばれる関数を登録します。
+    ///
+    /// # Note
+    ///
+    /// [`aviutl2::generic::GenericPlugin::on_project_save`] が自動的に登録されるため、
+    /// 通常はこの関数を直接使用する必要はありません。
     pub fn register_project_save_handler(
         &mut self,
         callback: extern "C" fn(*mut aviutl2_sys::plugin2::PROJECT_FILE),
@@ -153,34 +187,16 @@ pub trait GenericPluginMenus {
 // #[aviutl2::generic::menus] で使用するための再エクスポート
 pub use aviutl2_macros::generic_menus as menus;
 
-mod to_plugin_table {
-    pub trait ToPluginTable<T> {
-        fn initialize_plugin(version: u32) -> bool;
-        fn to_plugin_table() -> *mut T;
-        fn uninitialize_plugin();
-    }
-}
-use to_plugin_table::ToPluginTable;
-
-struct DynamicPluginHandle {
-    uninitialize_fn: fn(),
-}
-impl Drop for DynamicPluginHandle {
-    fn drop(&mut self) {
-        (self.uninitialize_fn)();
-    }
-}
-
 #[derive(Default)]
 pub(crate) struct PluginRegistry {
     #[cfg(feature = "input")]
-    input_plugins: Vec<DynamicPluginHandle>,
+    input_plugins: Vec<std::sync::Arc<InternalReferenceHandle>>,
     #[cfg(feature = "output")]
-    output_plugins: Vec<DynamicPluginHandle>,
+    output_plugins: Vec<std::sync::Arc<InternalReferenceHandle>>,
     #[cfg(feature = "filter")]
-    filter_plugins: Vec<DynamicPluginHandle>,
+    filter_plugins: Vec<std::sync::Arc<InternalReferenceHandle>>,
     #[cfg(feature = "module")]
-    script_modules: Vec<DynamicPluginHandle>,
+    script_modules: Vec<std::sync::Arc<InternalReferenceHandle>>,
 }
 impl PluginRegistry {
     pub(crate) fn new() -> Self {
@@ -193,35 +209,46 @@ macro_rules! impl_plugin_registry {
         $description:literal,
         $feature:literal,
         $module:ident,
-        $getter_field:ident,
+        $name:ident,
         $register_method:ident,
-        $getter_method:ident,
         $PluginTrait:path,
         $SingletonTrait:path,
-        $table_type:ty
+        $TableType:ty
     ) => {
-        #[cfg(feature = $feature)]
-        impl<T: $PluginTrait + $SingletonTrait + 'static> ToPluginTable<$table_type> for T {
-            fn initialize_plugin(version: u32) -> bool {
-                unsafe { crate::$module::__bridge::initialize_plugin::<T>(version) }
+        paste! {
+            impl<T> SubPlugin<T> {
+                #[doc = concat!($description, "の新しいインスタンスを作成します。")]
+                pub fn [<new_ $name>](info: AviUtl2Info) -> crate::AnyResult<Self>
+                where
+                    T: $PluginTrait + $SingletonTrait + 'static
+                {
+                    crate::$module::__bridge::initialize_plugin::<T>(info.version.into())?;
+                    let internal = std::sync::Arc::new(InternalReferenceHandle {
+                        uninitialize_fn: || {
+                            unsafe {
+                                crate::$module::__bridge::uninitialize_plugin::<T>();
+                            }
+                        },
+                    });
+                    Ok(Self {
+                        plugin: std::marker::PhantomData,
+                        internal,
+                    })
+                }
             }
-            fn to_plugin_table() -> *mut $table_type {
-                unsafe { crate::$module::__bridge::create_table::<T>() }
-            }
-            fn uninitialize_plugin() {
-                unsafe { crate::$module::__bridge::uninitialize_plugin::<T>() }
-            }
-        }
-        #[cfg(feature = $feature)]
-        impl<'a> HostAppHandle<'a> {
-            #[doc = concat!($description, "を登録します。")]
-            pub fn $register_method<T: $PluginTrait + $SingletonTrait + 'static>(&mut self) {
-                self.assert_not_killed();
-                T::initialize_plugin(self.version);
-                unsafe { ((*self.internal).$register_method)(T::to_plugin_table()) };
-                let uninitialize_fn = || T::uninitialize_plugin();
-                let handle = DynamicPluginHandle { uninitialize_fn };
-                self.plugin_registry.$getter_field.push(handle);
+            #[cfg(feature = $feature)]
+            impl<'a> HostAppHandle<'a> {
+                #[doc = concat!($description, "を登録します。")]
+                pub fn [<register_ $name>]<T: $PluginTrait + $SingletonTrait + 'static>(
+                    &mut self,
+                    handle: &SubPlugin<T>,
+                ) {
+                    self.assert_not_killed();
+                    unsafe { ((*self.internal).$register_method)(crate::$module::__bridge::create_table::<T>()) };
+                    self.plugin_registry
+                        .[<$name s>]
+                        .push(std::sync::Arc::clone(&handle.internal));
+                }
             }
         }
     };
@@ -231,9 +258,8 @@ impl_plugin_registry!(
     "入力プラグイン",
     "input",
     input,
-    input_plugins,
+    input_plugin,
     register_input_plugin,
-    get_input_plugins,
     crate::input::InputPlugin,
     crate::input::__bridge::InputSingleton,
     aviutl2_sys::input2::INPUT_PLUGIN_TABLE
@@ -242,9 +268,8 @@ impl_plugin_registry!(
     "出力プラグイン",
     "output",
     output,
-    output_plugins,
+    output_plugin,
     register_output_plugin,
-    get_output_plugins,
     crate::output::OutputPlugin,
     crate::output::__bridge::OutputSingleton,
     aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE
@@ -253,9 +278,8 @@ impl_plugin_registry!(
     "フィルタープラグイン",
     "filter",
     filter,
-    filter_plugins,
+    filter_plugin,
     register_filter_plugin,
-    get_filter_plugins,
     crate::filter::FilterPlugin,
     crate::filter::__bridge::FilterSingleton,
     aviutl2_sys::filter2::FILTER_PLUGIN_TABLE
@@ -264,9 +288,8 @@ impl_plugin_registry!(
     "スクリプトモジュール",
     "module",
     module,
-    script_modules,
+    script_module,
     register_script_module,
-    get_script_modules,
     crate::module::ScriptModule,
     crate::module::__bridge::ScriptModuleSingleton,
     aviutl2_sys::module2::SCRIPT_MODULE_TABLE

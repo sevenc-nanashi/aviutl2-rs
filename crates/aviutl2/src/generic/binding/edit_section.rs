@@ -15,6 +15,8 @@ impl From<ObjectHandle> for aviutl2_sys::plugin2::OBJECT_HANDLE {
         value.internal
     }
 }
+
+// 動いたし、このObjectHandleをグローバルに持っておくことも想定されてそうなので多分大丈夫なはず
 unsafe impl Send for ObjectHandle {}
 unsafe impl Sync for ObjectHandle {}
 
@@ -37,6 +39,8 @@ pub struct EditInfo {
 
 impl EditInfo {
     /// # Safety
+    ///
+    /// `ptr`は有効な`EDIT_INFO`ポインタである必要があります。
     pub unsafe fn from_ptr(ptr: *const aviutl2_sys::plugin2::EDIT_INFO) -> Self {
         let raw = unsafe { &*ptr };
         Self {
@@ -321,8 +325,6 @@ impl EditSection {
     }
 
     /// すべてのレイヤーをイテレータで取得します。
-    ///
-    /// UI 表示と異なり、レイヤー番号は 0 始まりです。
     pub fn layers(&self) -> EditSectionLayersIterator<'_> {
         EditSectionLayersIterator::new(self)
     }

@@ -1,8 +1,13 @@
 mod entry;
 mod ws_popup;
-use std::sync::{Arc, Mutex, OnceLock};
 
-use aviutl2::{AnyResult, generic::GenericPlugin, odbg};
+use crate::entry::DummyObject;
+use aviutl2::{
+    AnyResult,
+    generic::{GenericPlugin, SubPlugin},
+    odbg,
+};
+use std::sync::{Arc, Mutex, OnceLock};
 use tap::Pipe;
 use ws_popup::WsPopup;
 
@@ -16,6 +21,8 @@ pub struct AliasEntry {
 pub struct LocalAliasPlugin {
     webview: wry::WebView,
     window: WsPopup,
+
+    dummy: SubPlugin<DummyObject>,
 
     edit_handle: Arc<OnceLock<aviutl2::generic::EditHandle>>,
     _replace_thread: std::thread::JoinHandle<()>,
@@ -31,7 +38,7 @@ static WEB_CONTENT: include_dir::Dir = include_dir::include_dir!("$CARGO_MANIFES
 pub static CURRENT_ALIAS: Mutex<Option<AliasEntry>> = Mutex::new(None);
 
 impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
-    fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
+    fn new(info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
         Self::init_logging();
         log::info!("Initializing Rusty Local Alias Plugin...");
         let edit_handle = Arc::new(OnceLock::<aviutl2::generic::EditHandle>::new());
@@ -83,6 +90,8 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
             window,
             edit_handle,
 
+            dummy: SubPlugin::new_filter_plugin(info)?,
+
             _replace_thread: replace_thread,
             replace_flag: replace_flag_tx,
 
@@ -100,7 +109,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
         registry
             .register_window_client("Rusty Local Alias Plugin", &self.window)
             .unwrap();
-        registry.register_filter_plugin::<entry::DummyObject>();
+        registry.register_filter_plugin(&self.dummy);
     }
 
     fn on_project_load(&mut self, project: &mut aviutl2::generic::ProjectFile) {

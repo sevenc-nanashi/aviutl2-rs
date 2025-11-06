@@ -1,7 +1,7 @@
 use std::num::NonZeroIsize;
 
 use crate::{
-    common::{alert_error, format_file_filters, AnyResult, LeakManager},
+    common::{AnyResult, LeakManager, alert_error, format_file_filters},
     output::{FromRawAudioSamples, OutputInfo, OutputPlugin},
 };
 
