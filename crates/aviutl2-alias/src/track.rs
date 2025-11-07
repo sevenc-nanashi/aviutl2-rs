@@ -38,16 +38,15 @@ impl TrackStep {
         let maybe_negative = value.starts_with('-');
         let abs_value_str = if maybe_negative { &value[1..] } else { value };
         let v: f64 = abs_value_str.parse()?;
-        let step = if !abs_value_str.contains('.') {
-            TrackStep::One
-        } else if abs_value_str.get(abs_value_str.len() - 2..abs_value_str.len() - 1) == Some(".") {
-            TrackStep::PointOne
-        } else if abs_value_str.get(abs_value_str.len() - 3..abs_value_str.len() - 2) == Some(".") {
-            TrackStep::PointZeroOne
-        } else if abs_value_str.get(abs_value_str.len() - 4..abs_value_str.len() - 3) == Some(".") {
-            TrackStep::PointZeroZeroOne
-        } else {
-            return Err(TrackStepParseError::InvalidPrecision);
+        let dot_index = abs_value_str.find('.');
+        let step = match dot_index {
+            None => TrackStep::One,
+            Some(idx) => match abs_value_str.len() - idx - 1 {
+                1 => TrackStep::PointOne,
+                2 => TrackStep::PointZeroOne,
+                3 => TrackStep::PointZeroZeroOne,
+                _ => return Err(TrackStepParseError::InvalidPrecision),
+            },
         };
         let final_value = if maybe_negative { -v } else { v };
         Ok((step, final_value))
