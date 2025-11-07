@@ -580,6 +580,7 @@ dependencies = [
 name = "aviutl2-alias"
 version = "0.9.6"
 dependencies = [
+ "duplicate",
  "indexmap",
  "insta",
  "rstest",
@@ -1327,9 +1328,9 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
 name = "duplicate"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97af9b5f014e228b33e77d75ee0e6e87960124f0f4b16337b586a6bec91867b1"
+checksum = "8e92f10a49176cbffacaedabfaa11d51db1ea0f80a83c26e1873b43cd1742c24"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",

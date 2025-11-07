@@ -1,3 +1,5 @@
+use crate::FromTableValue;
+
 /// エイリアスファイルで使用されるテーブル構造を定義します。
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct Table {
@@ -54,8 +56,9 @@ impl Table {
     pub fn get_value(&self, key: &str) -> Option<&String> {
         self.items.get(key).and_then(|item| item.value.as_ref())
     }
-    pub fn parse_value<T: std::str::FromStr>(&self, key: &str) -> Option<Result<T, T::Err>> {
-        self.get_value(key).map(|value_str| value_str.parse::<T>())
+    pub fn parse_value<T: FromTableValue>(&self, key: &str) -> Option<Result<T, T::Err>> {
+        self.get_value(key)
+            .map(|value_str| T::from_table_value(value_str))
     }
     pub fn get_value_mut(&mut self, key: &str) -> Option<&mut String> {
         self.items.get_mut(key).and_then(|item| item.value.as_mut())
@@ -103,6 +106,10 @@ impl Table {
 
     pub fn is_subtables_empty(&self) -> bool {
         self.items.values().all(|item| item.table.is_none())
+    }
+
+    pub fn iter_subtables_as_array<'a>(&'a self) -> ArraySubTablesIterator<'a> {
+        ArraySubTablesIterator::new(self)
     }
 
     pub fn write_table(
@@ -170,6 +177,30 @@ impl<'a> Iterator for SubTablesIterator<'a> {
             }
         }
         None
+    }
+}
+
+pub struct ArraySubTablesIterator<'a> {
+    table: &'a Table,
+    index: usize,
+}
+impl<'a> ArraySubTablesIterator<'a> {
+    pub fn new(table: &'a Table) -> Self {
+        Self { table, index: 0 }
+    }
+}
+impl<'a> Iterator for ArraySubTablesIterator<'a> {
+    type Item = &'a Table;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let key = self.index.to_string();
+            self.index += 1;
+            if let Some(sub_table) = self.table.get_table(&key) {
+                return Some(sub_table);
+            } else {
+                return None;
+            }
+        }
     }
 }
 
@@ -325,6 +356,12 @@ mod tests {
                 .get_value("effect.name"),
             Some(&"標準描画".to_string())
         );
+
+        let layers = table
+            .iter_subtables_as_array()
+            .map(|t| t.parse_value::<usize>("layer").unwrap().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(layers, vec![0, 1, 2]);
 
         insta::assert_debug_snapshot!(table);
         assert_eq!(table.to_string(), input);
