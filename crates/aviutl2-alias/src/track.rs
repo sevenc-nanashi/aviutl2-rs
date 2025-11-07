@@ -22,6 +22,7 @@ pub enum TrackStep {
     PointZeroZeroOne,
 }
 
+/// トラックバーの移動単位のパースエラー。
 #[derive(Debug, Clone, thiserror::Error)]
 #[non_exhaustive]
 pub enum TrackStepParseError {
@@ -184,6 +185,7 @@ impl Default for TimeCurve {
     }
 }
 
+/// 時間制御カーブのパースエラー。
 #[derive(Debug, Clone, thiserror::Error)]
 #[non_exhaustive]
 pub enum TimeCurveParseError {
@@ -259,10 +261,12 @@ impl std::str::FromStr for TimeCurve {
     }
 }
 
-/// トラックバー項目。
+/// `.aup2`に保存されるトラックバー項目を表します。
 #[derive(Debug, Clone, PartialEq)]
 pub enum TrackItem {
+    /// スクリプトを伴わない単一値トラック。
     Static(StaticTrackItem),
+    /// スクリプトや時間制御を含んだトラックバー項目。
     Animated(AnimatedTrackItem),
 }
 
@@ -289,7 +293,7 @@ impl std::str::FromStr for TrackItem {
     }
 }
 
-/// スクリプトのないトラックバー項目。
+/// スクリプトを伴わない単一値トラックを表します。
 #[derive(Debug, Clone, PartialEq)]
 pub struct StaticTrackItem {
     /// 移動単位。
@@ -315,7 +319,7 @@ impl std::str::FromStr for StaticTrackItem {
     }
 }
 
-/// スクリプトのあるトラックバー項目。
+/// スクリプトや時間制御を含んだトラックバー項目です。
 #[derive(Debug, Clone, PartialEq)]
 pub struct AnimatedTrackItem {
     /// 移動単位。
@@ -333,6 +337,7 @@ pub struct AnimatedTrackItem {
     pub time_curve: Option<TimeCurve>,
 }
 
+/// トラックバー項目のパースエラー。
 #[derive(Debug, Clone, thiserror::Error)]
 #[non_exhaustive]
 pub enum TrackItemParseError {

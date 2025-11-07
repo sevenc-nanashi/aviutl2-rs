@@ -1,24 +1,26 @@
 use crate::FromTableValue;
 
-/// エイリアスファイルで使用されるテーブル構造を定義します。
+/// テーブル構造を定義します。
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct Table {
     items: indexmap::IndexMap<String, TableItem>,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct TableItem {
+struct TableItem {
     value: Option<String>,
     table: Option<Table>,
 }
 
 impl Table {
+    /// 空のテーブルを作成します。
     pub fn new() -> Self {
         Self {
             items: indexmap::IndexMap::new(),
         }
     }
 
+    /// 指定したキーに値を挿入します。
     pub fn insert_value<T: std::fmt::Display>(&mut self, key: &str, value: T) {
         self.items
             .entry(key.to_string())
@@ -28,6 +30,7 @@ impl Table {
             })
             .value = Some(value.to_string());
     }
+    /// 指定したキーにサブテーブルを挿入します。
     pub fn insert_table(&mut self, key: &str, table: Table) {
         self.items
             .entry(key.to_string())
@@ -37,6 +40,7 @@ impl Table {
             })
             .table = Some(table);
     }
+    /// 指定したキーの値を削除します。
     pub fn remove_value(&mut self, key: &str) {
         if let Some(item) = self.items.get_mut(key) {
             item.value = None;
@@ -45,6 +49,7 @@ impl Table {
             }
         }
     }
+    /// 指定したキーのサブテーブルを削除します。
     pub fn remove_table(&mut self, key: &str) {
         if let Some(item) = self.items.get_mut(key) {
             item.table = None;
@@ -53,23 +58,30 @@ impl Table {
             }
         }
     }
+    /// 指定したキーの値を文字列として読み取ります。
     pub fn get_value(&self, key: &str) -> Option<&String> {
         self.items.get(key).and_then(|item| item.value.as_ref())
     }
+
+    /// 指定したキーの値をパースして読み取ります。
     pub fn parse_value<T: FromTableValue>(&self, key: &str) -> Option<Result<T, T::Err>> {
         self.get_value(key)
             .map(|value_str| T::from_table_value(value_str))
     }
+    /// 指定したキーの値への可変参照を取得します。
     pub fn get_value_mut(&mut self, key: &str) -> Option<&mut String> {
         self.items.get_mut(key).and_then(|item| item.value.as_mut())
     }
+    /// 指定したキーのサブテーブルを取得します。
     pub fn get_table(&self, key: &str) -> Option<&Table> {
         self.items.get(key).and_then(|item| item.table.as_ref())
     }
+    /// 指定したキーのサブテーブルへの可変参照を取得します。
     pub fn get_table_mut(&mut self, key: &str) -> Option<&mut Table> {
         self.items.get_mut(key).and_then(|item| item.table.as_mut())
     }
 
+    /// 別のテーブルをマージします。
     pub fn merge(&mut self, other: &Table) {
         for (key, other_item) in &other.items {
             match self.items.get_mut(key) {
@@ -92,30 +104,37 @@ impl Table {
         }
     }
 
+    /// 値を列挙するイテレーターを返します。
     pub fn values<'a>(&'a self) -> TableValuesIterator<'a> {
         TableValuesIterator::new(self)
     }
 
+    /// 可変参照で値を列挙します。
     pub fn values_mut<'a>(&'a mut self) -> TableValuesIteratorMut<'a> {
         TableValuesIteratorMut::new(self)
     }
 
+    /// 値が空かどうかを返します。
     pub fn is_values_empty(&self) -> bool {
         self.items.values().all(|item| item.value.is_none())
     }
 
+    /// 子テーブルを列挙するイテレーターを返します。
     pub fn subtables<'a>(&'a self) -> SubTablesIterator<'a> {
         SubTablesIterator::new(self)
     }
 
+    /// 子テーブルを可変参照で列挙します。
     pub fn subtables_mut<'a>(&'a mut self) -> SubTablesIteratorMut<'a> {
         SubTablesIteratorMut::new(self)
     }
 
+    /// 子テーブルが空かどうかを返します。
     pub fn is_subtables_empty(&self) -> bool {
         self.items.values().all(|item| item.table.is_none())
     }
 
+    /// `0`、`1`、`2`...のキーを持つ子テーブルを配列として列挙するイテレーターを返します。
     pub fn iter_subtables_as_array<'a>(&'a self) -> ArraySubTablesIterator<'a> {
         ArraySubTablesIterator::new(self)
     }
@@ -124,6 +143,10 @@ impl Table {
     //     ArraySubTablesIteratorMut::new(self)
     // }
 
+    /// テーブルを文字列として書き出します。
+    ///
+    /// `prefix`はサブテーブルの名前の接頭辞として使用されます。
+    /// 具体的には、`${prefix}.${key}`の形式でサブテーブルの名前が生成されます。
     pub fn write_table(
         &self,
         f: &mut impl std::fmt::Write,
@@ -144,6 +167,7 @@ impl Table {
     }
 }
 
+/// [`Table::values`]で使われるイテレーター。
 #[derive(Debug)]
 pub struct TableValuesIterator<'a> {
     table: &'a Table,
@@ -167,8 +191,14 @@ impl<'a> Iterator for TableValuesIterator<'a> {
         }
         None
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.table.items.len().saturating_sub(self.index);
+        (0, Some(remaining))
+    }
 }
 
+/// [`Table::values_mut`]で使われるイテレーター。
 pub struct TableValuesIteratorMut<'a> {
     inner: indexmap::map::IterMut<'a, String, TableItem>,
 }
@@ -190,8 +220,13 @@ impl<'a> Iterator for TableValuesIteratorMut<'a> {
         }
         None
     }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.inner.len();
+        (0, Some(remaining))
+    }
 }
 
+/// [`Table::subtables`]で使われるイテレーター。
 pub struct SubTablesIterator<'a> {
     table: &'a Table,
     index: usize,
@@ -213,8 +248,13 @@ impl<'a> Iterator for SubTablesIterator<'a> {
         }
         None
     }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.table.items.len().saturating_sub(self.index);
+        (0, Some(remaining))
+    }
 }
 
+/// [`Table::subtables_mut`]で使われるイテレーター。
 pub struct SubTablesIteratorMut<'a> {
     inner: indexmap::map::IterMut<'a, String, TableItem>,
 }
@@ -235,8 +275,13 @@ impl<'a> Iterator for SubTablesIteratorMut<'a> {
         }
         None
     }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.inner.len();
+        (0, Some(remaining))
+    }
 }
 
+/// [`Table::iter_subtables_as_array`]で使われるイテレーター。
 pub struct ArraySubTablesIterator<'a> {
     table: &'a Table,
     index: usize,
@@ -256,6 +301,10 @@ impl<'a> Iterator for ArraySubTablesIterator<'a> {
         } else {
             None
         }
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.table.items.len().saturating_sub(self.index);
+        (0, Some(remaining))
     }
 }
 
@@ -289,6 +338,7 @@ impl<'a> Iterator for ArraySubTablesIterator<'a> {
 //     }
 // }
 
+/// テーブルのパースエラー。
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum TableParseError {
     #[error("Invalid line: {0}")]

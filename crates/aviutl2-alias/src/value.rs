@@ -1,3 +1,4 @@
+/// 色項目。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ColorItem {
     Transparent,
@@ -13,6 +14,7 @@ impl std::fmt::Display for ColorItem {
     }
 }
 
+/// 色のパースエラー。
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ColorParseError {
     #[error("invalid length")]
@@ -38,6 +40,9 @@ impl std::str::FromStr for ColorItem {
     }
 }
 
+/// `Table::parse_value`から呼び出される変換トレイト。
+///
+/// 任意の型に実装することで、`Table`から直接その型として値を取得できます。
 pub trait FromTableValue: Sized {
     type Err;
     fn from_table_value(value: &str) -> Result<Self, Self::Err>;
