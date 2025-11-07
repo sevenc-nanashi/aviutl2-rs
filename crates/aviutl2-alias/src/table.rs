@@ -120,6 +120,10 @@ impl Table {
         ArraySubTablesIterator::new(self)
     }
 
+    // pub fn iter_subtables_as_array_mut<'a>(&'a mut self) -> ArraySubTablesIteratorMut<'a> {
+    //     ArraySubTablesIteratorMut::new(self)
+    // }
+
     pub fn write_table(
         &self,
         f: &mut impl std::fmt::Write,
@@ -179,7 +183,7 @@ impl<'a> Iterator for TableValuesIteratorMut<'a> {
     type Item = (&'a String, &'a mut String);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((key, item)) = self.inner.next() {
+        for (key, item) in self.inner.by_ref() {
             if let Some(value) = item.value.as_mut() {
                 return Some((key, value));
             }
@@ -224,7 +228,7 @@ impl<'a> SubTablesIteratorMut<'a> {
 impl<'a> Iterator for SubTablesIteratorMut<'a> {
     type Item = (&'a String, &'a mut Table);
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((key, item)) = self.inner.next() {
+        for (key, item) in self.inner.by_ref() {
             if let Some(sub_table) = item.table.as_mut() {
                 return Some((key, sub_table));
             }
@@ -254,6 +258,36 @@ impl<'a> Iterator for ArraySubTablesIterator<'a> {
         }
     }
 }
+
+// TODO: コメントを解除する（有識者求む）
+// pub struct ArraySubTablesIteratorMut<'a> {
+//     index: usize,
+//     table: &'a mut Table,
+// }
+// impl<'a> ArraySubTablesIteratorMut<'a> {
+//     pub fn new(table: &'a mut Table) -> Self {
+//         Self {
+//             index: 0,
+//             table,
+//         }
+//     }
+// }
+// impl<'a> Iterator for ArraySubTablesIteratorMut<'a> {
+//     type Item = &'a mut Table;
+//     fn next(&mut self) -> Option<Self::Item> {
+//         let raw: *mut Table = self.table;
+//         let key = self.index.to_string();
+//         self.index += 1;
+//
+//         // Safety: &mut self.tableは他に存在しないはず
+//         unsafe {
+//             match (&mut *raw).get_table_mut(&key) {
+//                 Some(sub) => Some(sub),
+//                 None => None,
+//             }
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum TableParseError {
