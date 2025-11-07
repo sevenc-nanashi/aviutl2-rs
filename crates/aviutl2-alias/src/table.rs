@@ -96,12 +96,20 @@ impl Table {
         TableValuesIterator::new(self)
     }
 
+    pub fn values_mut<'a>(&'a mut self) -> TableValuesIteratorMut<'a> {
+        TableValuesIteratorMut::new(self)
+    }
+
     pub fn is_values_empty(&self) -> bool {
         self.items.values().all(|item| item.value.is_none())
     }
 
     pub fn subtables<'a>(&'a self) -> SubTablesIterator<'a> {
         SubTablesIterator::new(self)
+    }
+
+    pub fn subtables_mut<'a>(&'a mut self) -> SubTablesIteratorMut<'a> {
+        SubTablesIteratorMut::new(self)
     }
 
     pub fn is_subtables_empty(&self) -> bool {
@@ -157,6 +165,29 @@ impl<'a> Iterator for TableValuesIterator<'a> {
     }
 }
 
+pub struct TableValuesIteratorMut<'a> {
+    inner: indexmap::map::IterMut<'a, String, TableItem>,
+}
+impl<'a> TableValuesIteratorMut<'a> {
+    pub fn new(table: &'a mut Table) -> Self {
+        Self {
+            inner: table.items.iter_mut(),
+        }
+    }
+}
+impl<'a> Iterator for TableValuesIteratorMut<'a> {
+    type Item = (&'a String, &'a mut String);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some((key, item)) = self.inner.next() {
+            if let Some(value) = item.value.as_mut() {
+                return Some((key, value));
+            }
+        }
+        None
+    }
+}
+
 pub struct SubTablesIterator<'a> {
     table: &'a Table,
     index: usize,
@@ -180,6 +211,28 @@ impl<'a> Iterator for SubTablesIterator<'a> {
     }
 }
 
+pub struct SubTablesIteratorMut<'a> {
+    inner: indexmap::map::IterMut<'a, String, TableItem>,
+}
+impl<'a> SubTablesIteratorMut<'a> {
+    pub fn new(table: &'a mut Table) -> Self {
+        Self {
+            inner: table.items.iter_mut(),
+        }
+    }
+}
+impl<'a> Iterator for SubTablesIteratorMut<'a> {
+    type Item = (&'a String, &'a mut Table);
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some((key, item)) = self.inner.next() {
+            if let Some(sub_table) = item.table.as_mut() {
+                return Some((key, sub_table));
+            }
+        }
+        None
+    }
+}
+
 pub struct ArraySubTablesIterator<'a> {
     table: &'a Table,
     index: usize,
@@ -192,14 +245,12 @@ impl<'a> ArraySubTablesIterator<'a> {
 impl<'a> Iterator for ArraySubTablesIterator<'a> {
     type Item = &'a Table;
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let key = self.index.to_string();
-            self.index += 1;
-            if let Some(sub_table) = self.table.get_table(&key) {
-                return Some(sub_table);
-            } else {
-                return None;
-            }
+        let key = self.index.to_string();
+        self.index += 1;
+        if let Some(sub_table) = self.table.get_table(&key) {
+            Some(sub_table)
+        } else {
+            None
         }
     }
 }
@@ -365,5 +416,36 @@ mod tests {
 
         insta::assert_debug_snapshot!(table);
         assert_eq!(table.to_string(), input);
+    }
+
+    #[test]
+    fn test_values_mut_iterator() {
+        let mut table = Table::new();
+        table.insert_value("key1", "value1");
+        table.insert_value("key2", "value2");
+
+        for (_key, value) in table.values_mut() {
+            value.push_str("_mutated");
+        }
+
+        assert_eq!(table.get_value("key1"), Some(&"value1_mutated".to_string()));
+        assert_eq!(table.get_value("key2"), Some(&"value2_mutated".to_string()));
+    }
+
+    #[test]
+    fn test_subtables_mut_iterator() {
+        let mut table = Table::new();
+        let mut sub = Table::new();
+        sub.insert_value("inner", "value");
+        table.insert_table("sub1", sub);
+
+        for (_key, sub_table) in table.subtables_mut() {
+            sub_table.insert_value("updated", "true");
+        }
+
+        assert_eq!(
+            table.get_table("sub1").unwrap().get_value("updated"),
+            Some(&"true".to_string())
+        );
     }
 }
