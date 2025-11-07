@@ -96,7 +96,11 @@ pub struct SceneInfo {
 #[derive(Debug, Clone, Copy)]
 pub struct ObjectInfo {
     /// ID。
+    /// アプリ起動ごとの固有IDです。
     pub id: i64,
+    /// オブジェクトの内の対象エフェクトのID。
+    /// アプリ起動ごとの固有IDです。
+    pub effect_id: i64,
     /// オブジェクトの現在のフレーム番号。
     pub frame: u32,
     /// オブジェクトの総フレーム数。

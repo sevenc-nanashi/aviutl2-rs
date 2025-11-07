@@ -79,9 +79,7 @@ impl EqStates {
 
 #[aviutl2::plugin(FilterPlugin)]
 struct EqualizerFilter {
-    q_states: std::sync::RwLock<
-        std::collections::HashMap<i64, std::sync::Arc<std::sync::Mutex<EqStates>>>,
-    >,
+    q_states: dashmap::DashMap<i64, EqStates>,
 }
 
 impl aviutl2::filter::FilterPlugin for EqualizerFilter {
@@ -91,7 +89,7 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
             .target(aviutl2::utils::debug_logger_target())
             .init();
         Ok(Self {
-            q_states: std::sync::RwLock::new(std::collections::HashMap::new()),
+            q_states: dashmap::DashMap::new(),
         })
     }
 
@@ -121,85 +119,72 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
         audio.get_sample_data(aviutl2::filter::AudioChannel::Left, &mut left_samples);
         audio.get_sample_data(aviutl2::filter::AudioChannel::Right, &mut right_samples);
         let sample_rate = audio.scene.sample_rate as f64;
-        let obj_id = audio.object.id;
+        let obj_id = audio.object.effect_id;
 
-        let q_state = {
-            let q_states = self.q_states.read().unwrap();
-            q_states.get(&obj_id).cloned()
-        };
-        let q_state = if let Some(q_state) = q_state {
-            q_state
-        } else {
+        let mut q_state = self.q_states.entry(obj_id).or_insert_with(|| {
             log::info!("Creating new EQ state for object ID {}", obj_id);
-            let new_state =
-                std::sync::Arc::new(std::sync::Mutex::new(EqStates::new(sample_rate, &config)));
-            let mut q_states = self.q_states.write().unwrap();
-            q_states.insert(obj_id, new_state.clone());
-            new_state
-        };
 
-        {
-            let mut q_state = q_state.lock().unwrap();
-            for cache in &mut q_state.caches {
-                if cache.sample_index == audio.audio_object.sample_index
-                    && cache.config == config
-                    && cache.left.len() == left_samples.len()
-                    && cache.right.len() == right_samples.len()
-                {
-                    log::debug!(
-                        "Using cached EQ result for object ID {} at sample_index {}",
-                        obj_id,
-                        audio.audio_object.sample_index
-                    );
-                    audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &cache.left);
-                    audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &cache.right);
-                    return Ok(());
-                }
-            }
-            if q_state.expected_next_index != audio.audio_object.sample_index {
+            EqStates::new(sample_rate, &config)
+        });
+
+        for cache in &mut q_state.caches {
+            if cache.sample_index == audio.audio_object.sample_index
+                && cache.config == config
+                && cache.left.len() == left_samples.len()
+                && cache.right.len() == right_samples.len()
+            {
                 log::debug!(
-                    "Audio discontinuity detected for object ID {}: expected {}, got {}",
+                    "Using cached EQ result for object ID {} at sample_index {}",
                     obj_id,
-                    q_state.expected_next_index,
                     audio.audio_object.sample_index
                 );
-                q_state.reset();
+                audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &cache.left);
+                audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &cache.right);
+                return Ok(());
             }
-            log::debug!(
-                "Processing audio for object ID {}: sample_index {}, num_samples {}",
-                obj_id,
-                audio.audio_object.sample_index,
-                left_samples.len()
-            );
-            q_state.expected_next_index =
-                audio.audio_object.sample_index + left_samples.len() as u64;
-
-            q_state.update_params(sample_rate, &config);
-
-            let mut left_samples = left_samples
-                .into_iter()
-                .map(|s| s as f64)
-                .collect::<Vec<_>>();
-            let mut right_samples = right_samples
-                .into_iter()
-                .map(|s| s as f64)
-                .collect::<Vec<_>>();
-            q_state.process(&mut left_samples, &mut right_samples);
-            let next_cache_index = q_state.next_cache_index;
-            let left_samples = left_samples.iter().map(|&s| s as f32).collect::<Vec<_>>();
-            let right_samples = right_samples.iter().map(|&s| s as f32).collect::<Vec<_>>();
-            audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &left_samples);
-            audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &right_samples);
-
-            let cache = &mut q_state.caches[next_cache_index];
-            cache.sample_index = audio.audio_object.sample_index;
-            cache.config = config.clone();
-            cache.left.clear();
-            cache.left.extend_from_slice(&left_samples);
-            cache.right.clear();
-            cache.right.extend_from_slice(&right_samples);
-            q_state.next_cache_index = (q_state.next_cache_index + 1) % NUM_CACHES;
         }
+        if q_state.expected_next_index != audio.audio_object.sample_index {
+            log::debug!(
+                "Audio discontinuity detected for object ID {}: expected {}, got {}",
+                obj_id,
+                q_state.expected_next_index,
+                audio.audio_object.sample_index
+            );
+            q_state.reset();
+        }
+        log::debug!(
+            "Processing audio for object ID {}: sample_index {}, num_samples {}",
+            obj_id,
+            audio.audio_object.sample_index,
+            left_samples.len()
+        );
+        q_state.expected_next_index = audio.audio_object.sample_index + left_samples.len() as u64;
+
+        q_state.update_params(sample_rate, &config);
+
+        let mut left_samples = left_samples
+            .into_iter()
+            .map(|s| s as f64)
+            .collect::<Vec<_>>();
+        let mut right_samples = right_samples
+            .into_iter()
+            .map(|s| s as f64)
+            .collect::<Vec<_>>();
+        q_state.process(&mut left_samples, &mut right_samples);
+        let next_cache_index = q_state.next_cache_index;
+        let left_samples = left_samples.iter().map(|&s| s as f32).collect::<Vec<_>>();
+        let right_samples = right_samples.iter().map(|&s| s as f32).collect::<Vec<_>>();
+        audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &left_samples);
+        audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &right_samples);
+
+        let cache = &mut q_state.caches[next_cache_index];
+        cache.sample_index = audio.audio_object.sample_index;
+        cache.config = config.clone();
+        cache.left.clear();
+        cache.left.extend_from_slice(&left_samples);
+        cache.right.clear();
+        cache.right.extend_from_slice(&right_samples);
+        q_state.next_cache_index = (q_state.next_cache_index + 1) % NUM_CACHES;
 
         Ok(())
     }
