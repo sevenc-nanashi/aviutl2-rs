@@ -405,7 +405,7 @@ impl std::str::FromStr for AnimatedTrackItem {
         };
         let (parameter, time_curve) = match segments.len() {
             1 => (None, None),
-            2 if segments[2].contains(',') => {
+            2 if segments[1].contains(',') => {
                 let time_curve: TimeCurve = segments[1]
                     .parse()
                     .map_err(TrackItemParseError::TimeCurveParseError)?;
@@ -539,6 +539,28 @@ mod tests {
             }
         );
         assert_eq!(animated_item.to_string(), item_str);
+    }
+    #[test]
+    fn test_track_item_parse_segments() {
+        let item_str = "0.1,0.2,MyScript,3|1.5|0.25,0.25,0.25,0.25";
+        let animated_item: AnimatedTrackItem = item_str.parse().unwrap();
+        assert_eq!(animated_item.parameter, Some(1.5));
+        assert!(animated_item.time_curve.is_some());
+
+        let item_str_no_curve = "0.1,0.2,MyScript,3|1.5";
+        let animated_item_no_curve: AnimatedTrackItem = item_str_no_curve.parse().unwrap();
+        assert_eq!(animated_item_no_curve.parameter, Some(1.5));
+        assert!(animated_item_no_curve.time_curve.is_none());
+
+        let item_str_no_param = "0.1,0.2,MyScript,3|0.25,0.25,0.25,0.25";
+        let animated_item_no_param: AnimatedTrackItem = item_str_no_param.parse().unwrap();
+        assert!(animated_item_no_param.parameter.is_none());
+        assert!(animated_item_no_param.time_curve.is_some());
+
+        let item_str_only_values = "0.1,0.2,MyScript,3";
+        let animated_item_only_values: AnimatedTrackItem = item_str_only_values.parse().unwrap();
+        assert!(animated_item_only_values.parameter.is_none());
+        assert!(animated_item_only_values.time_curve.is_none());
     }
 
     #[rstest]
