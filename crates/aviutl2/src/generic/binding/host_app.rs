@@ -110,6 +110,46 @@ impl<'a> HostAppHandle<'a> {
         }
     }
 
+    /// レイヤーメニューを登録します。
+    /// レイヤー編集でオブジェクト未選択時の右クリックメニューに追加されます。
+    ///
+    /// # See Also
+    ///
+    /// - [`crate::generic::menus`]
+    pub fn register_layer_menu(
+        &mut self,
+        name: &str,
+        callback: extern "C" fn(*mut aviutl2_sys::plugin2::EDIT_SECTION),
+    ) {
+        self.assert_not_killed();
+        unsafe {
+            ((*self.internal).register_layer_menu)(
+                self.global_leak_manager.leak_as_wide_string(name),
+                callback,
+            )
+        }
+    }
+
+    /// オブジェクトメニューを登録します。
+    /// レイヤー編集でオブジェクト選択時の右クリックメニューに追加されます。
+    ///
+    /// # See Also
+    ///
+    /// - [`crate::generic::menus`]
+    pub fn register_object_menu(
+        &mut self,
+        name: &str,
+        callback: extern "C" fn(*mut aviutl2_sys::plugin2::EDIT_SECTION),
+    ) {
+        self.assert_not_killed();
+        unsafe {
+            ((*self.internal).register_object_menu)(
+                self.global_leak_manager.leak_as_wide_string(name),
+                callback,
+            )
+        }
+    }
+
     /// ウィンドウクライアントを登録します。
     ///
     /// # Panics

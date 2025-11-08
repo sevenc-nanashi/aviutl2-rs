@@ -95,6 +95,7 @@ impl SrtImportPlugin {
             if start_frame < next_frame {
                 start_frame = next_frame;
             }
+            #[expect(deprecated)]
             edit_section.output_log(&format!(
                 "Adding subtitle: {} --> {} (frames {} to {})",
                 subtitle.start_time, subtitle.end_time, start_frame, end_frame

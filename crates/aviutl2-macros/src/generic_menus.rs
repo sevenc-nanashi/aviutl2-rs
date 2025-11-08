@@ -7,8 +7,16 @@ enum ErrorMode {
     Alert,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EntryType {
+    Import,
+    Export,
+    Layer,
+    Object,
+}
+
 struct Entry {
-    is_export: bool,
+    entry_type: EntryType,
     menu_name: String,
     method_ident: syn::Ident,
     wrapper_ident: syn::Ident,
@@ -100,12 +108,12 @@ pub fn generic_menus(
         };
 
         let method_ident = method.sig.ident.clone();
-        let (attr_idx, is_export_flag) = match find_menu_attr(&method.attrs) {
+        let (attr_idx, entry_type) = match find_menu_attr(&method.attrs) {
             Ok(Some(v)) => v,
             Ok(None) => {
                 return Err(syn::Error::new_spanned(
                     &method.sig.ident,
-                    "method must have either #[import] or #[export]",
+                    "method must have one of #[import], #[export], #[layer], or #[object]"
                 )
                 .to_compile_error());
             }
@@ -122,7 +130,7 @@ pub fn generic_menus(
             syn::Ident::new(&format!("bridge_{}", method_ident), method_ident.span());
 
         entries.push(Entry {
-            is_export: is_export_flag,
+            entry_type,
             menu_name,
             method_ident,
             wrapper_ident,
@@ -140,10 +148,19 @@ pub fn generic_menus(
         let method_ident = &e.method_ident;
         let wrapper_ident = &e.wrapper_ident;
 
-        let reg = if e.is_export {
-            quote::quote! { host.register_export_menu(#name_str, #wrapper_ident); }
-        } else {
-            quote::quote! { host.register_import_menu(#name_str, #wrapper_ident); }
+        let reg = match e.entry_type {
+            EntryType::Export => {
+                quote::quote! { host.register_export_menu(#name_str, #wrapper_ident); }
+            }
+            EntryType::Import => {
+                quote::quote! { host.register_import_menu(#name_str, #wrapper_ident); }
+            }
+            EntryType::Layer => {
+                quote::quote! { host.register_layer_menu(#name_str, #wrapper_ident); }
+            }
+            EntryType::Object => {
+                quote::quote! { host.register_object_menu(#name_str, #wrapper_ident); }
+            }
         };
         register_lines.push(reg);
 
@@ -212,9 +229,11 @@ fn has_generic_args_in_type(ty: &syn::Type) -> bool {
 
 fn find_menu_attr(
     attrs: &[syn::Attribute],
-) -> Result<Option<(usize, bool)>, proc_macro2::TokenStream> {
+) -> Result<Option<(usize, EntryType)>, proc_macro2::TokenStream> {
     let mut import: Option<usize> = None;
     let mut export: Option<usize> = None;
+    let mut layer: Option<usize> = None;
+    let mut object: Option<usize> = None;
     for (idx, attr) in attrs.iter().enumerate() {
         if attr.path().is_ident("import") {
             import = Some(idx);
@@ -222,14 +241,22 @@ fn find_menu_attr(
         if attr.path().is_ident("export") {
             export = Some(idx);
         }
+        if attr.path().is_ident("layer") {
+            layer = Some(idx);
+        }
+        if attr.path().is_ident("object") {
+            object = Some(idx);
+        }
     }
-    match (import, export) {
-        (Some(i), None) => Ok(Some((i, false))),
-        (None, Some(i)) => Ok(Some((i, true))),
-        (None, None) => Ok(None),
-        (Some(_), Some(_)) => Err(syn::Error::new(
-            proc_macro2::Span::call_site(),
-            "method cannot have both #[import] and #[export]",
+    match (import, export, layer, object) {
+        (Some(i), None, None, None) => Ok(Some((i, EntryType::Import))),
+        (None, Some(e), None, None) => Ok(Some((e, EntryType::Export))),
+        (None, None, Some(l), None) => Ok(Some((l, EntryType::Layer))),
+        (None, None, None, Some(o)) => Ok(Some((o, EntryType::Object))),
+        (None, None, None, None) => Ok(None),
+        _ => Err(syn::Error::new_spanned(
+            &attrs[0],
+            "method can have only one of #[import], #[export], #[layer], or #[object]",
         )
         .to_compile_error()),
     }

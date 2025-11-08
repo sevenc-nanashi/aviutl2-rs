@@ -444,9 +444,17 @@ pub fn plugin(
 /// ### `export`
 ///
 /// 汎用プラグインのエクスポートメニューとして登録します。
+/// パラメーターは`import`属性と同様です。
 ///
-/// - `name`: メニューに表示される名前を指定します。
-/// - `error`: エラー発生時のハンドリング方法を指定します。設定は`import`属性と同様です。
+/// ### `layer`
+///
+/// 汎用プラグインのレイヤーメニューとして登録します。
+/// パラメーターは`import`属性と同様です。
+///
+/// ### `object`
+///
+/// 汎用プラグインのオブジェクトメニューとして登録します。
+/// パラメーターは`import`属性と同様です。
 ///
 /// # Example
 ///
@@ -465,13 +473,27 @@ pub fn plugin(
 /// #[aviutl2::generic::menus]
 /// impl MyGenericPlugin {
 ///     #[import(name = ".txtファイルをインポート")]
-///     fn import_text(edit_handle: &mut aviutl2::generic::EditSection) {
+///     fn import_text(edit_handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()> {
 ///         // ...
+/// #       Ok(())
 ///     }
 ///
 ///     #[export(name = ".txtファイルをエクスポート")]
-///     fn export_text(edit_handle: &mut aviutl2::generic::EditSection) {
+///     fn export_text(edit_handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()> {
 ///         // ...
+/// #       Ok(())
+///     }
+///
+///     #[layer(name = "レイヤーを複製")]
+///     fn duplicate_layer(edit_handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()> {
+///         // ...
+/// #       Ok(())
+///     }
+///
+///     #[object(name = "オブジェクトを削除")]
+///     fn delete_object(edit_handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()> {
+///         // ...
+/// #       Ok(())
 ///     }
 /// }
 #[proc_macro_attribute]

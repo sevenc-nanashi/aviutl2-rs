@@ -64,7 +64,7 @@ pub struct EDIT_INFO {
 #[repr(C)]
 pub struct EDIT_SECTION {
     /// 編集情報
-    pub info: *const EDIT_INFO,
+    pub info: *mut EDIT_INFO,
 
     /// 指定の位置にオブジェクトエイリアスを作成します
     /// alias : オブジェクトエイリアスデータ(UTF-8)へのポインタ
@@ -146,9 +146,17 @@ pub struct EDIT_SECTION {
     /// object : オブジェクトのハンドル
     pub set_focus_object: unsafe extern "C" fn(object: OBJECT_HANDLE),
 
-    /// アプリケーションのログを出力します
-    /// message : ログメッセージ
-    pub output_log: unsafe extern "C" fn(message: LPCWSTR),
+    /// 冗長なので後で廃止します
+    pub deprecated_output_log: unsafe extern "C" fn(message: LPCWSTR),
+
+    /// 選択中オブジェクトのハンドルを取得します
+    /// index : 選択中オブジェクトのインデックス(0〜)
+    /// 戻り値 : 指定インデックスのオブジェクトのハンドル (インデックスが範囲外の場合はnullptrを返却)
+    pub get_selected_object: unsafe extern "C" fn(index: i32) -> OBJECT_HANDLE,
+
+    /// 選択中オブジェクトの数を取得します
+    /// 戻り値 : 選択中オブジェクトの数
+    pub get_selected_object_num: unsafe extern "C" fn() -> i32,
 }
 
 /// 編集ハンドル構造体
@@ -246,4 +254,20 @@ pub struct HOST_APP_TABLE {
     /// func_project_save : プロジェクトファイルのセーブ時のコールバック関数
     pub register_project_save_handler:
         unsafe extern "C" fn(func_project_save: unsafe extern "C" fn(*mut PROJECT_FILE)),
+
+    /// レイヤーメニューを登録する (レイヤー編集でオブジェクト未選択時の右クリックメニューに追加されます)
+    /// name : レイヤーメニューの名称
+    /// func_proc_layer_menu : レイヤーメニュー選択時のコールバック関数
+    pub register_layer_menu: unsafe extern "C" fn(
+        name: LPCWSTR,
+        func_proc_layer_menu: unsafe extern "C" fn(*mut EDIT_SECTION),
+    ),
+
+    /// オブジェクトメニューを登録する (レイヤー編集でオブジェクト選択時の右クリックメニューに追加されます)
+    /// name : オブジェクトメニューの名称
+    /// func_proc_object_menu : オブジェクトメニュー選択時のコールバック関数
+    pub register_object_menu: unsafe extern "C" fn(
+        name: LPCWSTR,
+        func_proc_object_menu: unsafe extern "C" fn(*mut EDIT_SECTION),
+    ),
 }
