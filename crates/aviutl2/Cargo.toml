@@ -20,7 +20,6 @@ input = []
 output = []
 filter = []
 module = []
-env_logger = ["dep:env_logger"]
 image = ["dep:image"]
 aviutl2-alias = ["dep:aviutl2-alias"]
 
@@ -30,7 +29,7 @@ aviutl2-alias = { workspace = true, optional = true }
 aviutl2-macros.workspace = true
 aviutl2-sys.workspace = true
 duplicate = "2.0.0"
-env_logger = { version = "0.11.8", optional = true }
+env_filter = "0.1.4"
 half = { version = "2.6.0", features = ["zerocopy"] }
 image = { version = "0.25.6", optional = true }
 impl-trait-for-tuples = "0.2.3"

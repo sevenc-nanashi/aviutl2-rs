@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Breaking:** `odbg!`、`oprintln!`を削除
+- `log`クレートで本体のログに出力できるように
 - aviutl2-aliasを追加
 - filter: effect_idを追加
 
