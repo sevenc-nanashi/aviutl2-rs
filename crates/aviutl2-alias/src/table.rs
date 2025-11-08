@@ -358,74 +358,42 @@ impl std::str::FromStr for Table {
     type Err = TableParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut current_table_keys = vec![];
-        let mut current_table = Table::new();
-        let mut tables = vec![];
-        let mut appeared_index = indexmap::IndexSet::new();
+        let mut root = Table::new();
+        let mut current_path: Vec<String> = Vec::new();
+
         for line in s.lines() {
-            if line.starts_with("[") && line.ends_with("]") {
-                let table_name = &line[1..line.len() - 1];
-                let new_table_keys: Vec<&str> = table_name.split('.').collect();
-                for (i, key) in new_table_keys.iter().enumerate() {
-                    appeared_index.insert((i, *key));
-                }
-                tables.push((current_table_keys, current_table));
-                current_table = Table::new();
-                current_table_keys = new_table_keys;
-            } else if let Some((key, value)) = line.split_once('=') {
-                current_table.insert_value(key, value);
-            } else if line.trim().is_empty() {
+            if line.trim().is_empty() {
                 continue;
+            } else if line.starts_with('[') && line.ends_with(']') {
+                let section = &line[1..line.len() - 1];
+                current_path.clear();
+                if !section.is_empty() {
+                    current_path.extend(section.split('.').map(|part| part.to_string()));
+                }
+            } else if let Some((key, value)) = line.split_once('=') {
+                let target = ensure_path(&mut root, &current_path);
+                target.insert_value(key, value);
             } else {
                 return Err(TableParseError::InvalidLine(line.to_string()));
             }
         }
-        tables.push((current_table_keys, current_table));
-        tables.sort_by_key(|a| {
-            a.0.iter()
-                .enumerate()
-                .map(|(i, key)| {
-                    appeared_index
-                        .get_index_of(&(i, *key))
-                        .unwrap_or(usize::MAX)
-                })
-                .collect::<Vec<usize>>()
-        });
-        let root_table = tables.remove(0);
-        let mut table_tree = vec![("<root>".to_string(), root_table.1)];
-        for (keys, table) in tables {
-            let last_common_key_index = table_tree
-                .iter()
-                .enumerate()
-                .position(|(i, (name, _))| {
-                    if i >= keys.len() {
-                        return true;
-                    }
-                    if i == 0 {
-                        return false;
-                    }
-                    name != keys[i - 1]
-                })
-                .unwrap_or(keys.len())
-                - 1;
-            for _ in (last_common_key_index + 1)..table_tree.len() {
-                let (name, tbl) = table_tree.pop().unwrap();
-                let parent = &mut table_tree.last_mut().unwrap();
-                let parent_table = &mut parent.1;
-                parent_table.insert_table(&name, tbl);
-            }
-            for key in &keys[last_common_key_index..(keys.len() - 1)] {
-                table_tree.push((key.to_string(), Table::new()));
-            }
-            table_tree.push((keys.last().unwrap().to_string(), table));
-        }
-        while table_tree.len() > 1 {
-            let (name, tbl) = table_tree.pop().unwrap();
-            let parent_table = &mut table_tree.last_mut().unwrap().1;
-            parent_table.insert_table(&name, tbl);
-        }
-        Ok(table_tree.pop().unwrap().1)
+
+        Ok(root)
     }
+}
+
+fn ensure_path<'a>(mut table: &'a mut Table, path: &[String]) -> &'a mut Table {
+    for segment in path {
+        let entry = table
+            .items
+            .entry(segment.clone())
+            .or_insert_with(|| TableItem {
+                value: None,
+                table: Some(Table::new()),
+            });
+        table = entry.table.get_or_insert_with(Table::new);
+    }
+    table
 }
 impl std::fmt::Debug for Table {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
