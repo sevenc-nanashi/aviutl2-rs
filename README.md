@@ -8,10 +8,11 @@ AviUtl2 SDKのRust版です。
 
 ## 構成
 
-- `./crates/`：AviUtl2 SDKのRustクレート。
-  - `./crates/aviutl2-sys`：AviUtl2 SDKのRustバインディング。ほぼ1:1の対応です。
+- `./crates/`：ライブラリとして提供するクレート群。
   - `./crates/aviutl2`：AviUtl2 SDKのRustラッパー。`aviutl2-sys`を使用して、よりRustらしいAPIを提供します。
+  - `./crates/aviutl2-sys`：AviUtl2 SDKのRustバインディング。ほぼ1:1の対応です。
   - `./crates/aviutl2-macros`：`aviutl2`で使用するマクロを提供します。
+  - `./crates/aviutl2-alias`：プロジェクトファイル（`*.aup2`）とエイリアスファイル（`*.object`、`*.effect`）で使われているデータ構造を読み書きするクレート。
 
 - `./examples/`：AviUtl2 SDKを使用したサンプルコード。
   - 入力プラグイン：
