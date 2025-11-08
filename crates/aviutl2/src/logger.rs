@@ -48,7 +48,7 @@ impl LogBuilder {
 
     /// ロガーを初期化します。
     ///
-    /// [`try_init`]と異なり、エラーが発生した場合にパニックします。
+    /// [`LogBuilder::try_init`]と異なり、エラーが発生した場合にパニックします。
     pub fn init(self) {
         self.try_init().expect("Failed to initialize logger")
     }
