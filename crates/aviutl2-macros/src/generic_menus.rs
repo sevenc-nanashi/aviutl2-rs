@@ -113,7 +113,7 @@ pub fn generic_menus(
             Ok(None) => {
                 return Err(syn::Error::new_spanned(
                     &method.sig.ident,
-                    "method must have one of #[import], #[export], #[layer], or #[object]"
+                    "method must have one of #[import], #[export], #[layer], or #[object]",
                 )
                 .to_compile_error());
             }

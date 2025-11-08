@@ -198,91 +198,108 @@ impl LocalAliasPlugin {
     }
 
     fn ipc_handler(message_str: String) {
-        #[derive(serde::Deserialize)]
-        struct IpcMessage {
-            r#type: String,
-            data: serde_json::Value,
+        #[derive(serde::Deserialize, Debug)]
+        #[serde(tag = "type", content = "data")]
+        enum IpcMessage {
+            #[serde(rename = "get_version")]
+            GetVersion,
+            #[serde(rename = "get_aliases")]
+            GetAliases,
+            #[serde(rename = "set_aliases")]
+            SetAliases(Vec<AliasEntry>),
+            #[serde(rename = "add_alias")]
+            AddAlias,
+            #[serde(rename = "set_current_alias")]
+            SetCurrentAlias(AliasEntry),
         }
 
-        if let Ok(msg) = serde_json::from_str::<IpcMessage>(&message_str) {
-            log::debug!("IPC message received: {:?}", msg.r#type);
-            match msg.r#type.as_str() {
-                "get_version" => {
-                    let version = env!("CARGO_PKG_VERSION");
-                    let response = serde_json::json!({ "version": version });
-                    LocalAliasPlugin::with_instance(|instance| {
-                        instance.send_to_webview("version_response", &response);
-                    });
-                }
-                "get_aliases" => {
-                    LocalAliasPlugin::with_instance(|instance| {
-                        let aliases = instance.aliases.clone();
-                        instance.send_to_webview("aliases_response", &aliases);
-                    });
-                }
-                "set_aliases" => {
-                    if let Ok(new_aliases) =
-                        serde_json::from_value::<Vec<AliasEntry>>(msg.data.clone())
-                    {
+        match serde_json::from_str::<IpcMessage>(&message_str) {
+            Ok(msg) => {
+                log::debug!("IPC message received: {:?}", msg);
+                match msg {
+                    IpcMessage::GetVersion => {
+                        let version = env!("CARGO_PKG_VERSION");
+                        let response = serde_json::json!({ "version": version });
+                        LocalAliasPlugin::with_instance(|instance| {
+                            instance.send_to_webview("version_response", &response);
+                        });
+                    }
+                    IpcMessage::GetAliases => {
+                        LocalAliasPlugin::with_instance(|instance| {
+                            let aliases = instance.aliases.clone();
+                            instance.send_to_webview("aliases_response", &aliases);
+                        });
+                    }
+                    IpcMessage::SetAliases(new_aliases) => {
                         LocalAliasPlugin::with_instance_mut(|instance| {
                             instance.aliases = new_aliases;
                             instance.send_to_webview("update_aliases", &instance.aliases);
                         });
-                    } else {
-                        log::error!(
-                            "Failed to parse aliases from IPC message data: {:?}",
-                            msg.data
-                        );
                     }
-                }
-                "add_alias" => {
-                    let new_alias = LocalAliasPlugin::with_instance(|instance| {
-                        let handle = instance.edit_handle.get().unwrap();
-                        handle.call_edit_section(|section| {
-                            let alias = section
-                                .get_focused_object()?
-                                .map(|obj| section.get_object_alias(&obj))
-                                .transpose()?;
-                            let entry = alias.map(|alias| AliasEntry {
-                                name: "New Alias".to_string(),
-                                alias,
-                            });
-                            anyhow::Ok(entry)
+                    IpcMessage::AddAlias => {
+                        let new_alias = LocalAliasPlugin::with_instance(|instance| {
+                            let handle = instance.edit_handle.get().unwrap();
+                            handle.call_edit_section(|section| {
+                                let alias = section
+                                    .get_focused_object()?
+                                    .map(|obj| section.get_object_alias(&obj))
+                                    .transpose()?;
+                                let entry = alias.map(|alias| AliasEntry {
+                                    name: "New Alias".to_string(),
+                                    alias,
+                                });
+                                anyhow::Ok(entry)
+                            })
                         })
-                    })
-                    .flatten();
-                    match new_alias {
-                        Ok(Some(entry)) => {
-                            LocalAliasPlugin::with_instance_mut(|instance| {
-                                instance.aliases.push(entry.clone());
-                                instance.send_to_webview("update_aliases", &instance.aliases);
-                            });
-                        }
-                        Ok(None) => {
-                            log::warn!("No focused object to create alias from in add_alias");
-                        }
-                        Err(e) => {
-                            log::error!("Failed to add alias: {}", e);
+                        .flatten();
+                        match new_alias {
+                            Ok(Some(entry)) => {
+                                LocalAliasPlugin::with_instance_mut(|instance| {
+                                    instance.aliases.push(entry.clone());
+                                    instance.send_to_webview("update_aliases", &instance.aliases);
+                                });
+                            }
+                            Ok(None) => {
+                                log::warn!("No focused object to create alias from in add_alias");
+                            }
+                            Err(e) => {
+                                log::error!("Failed to add alias: {}", e);
+                            }
                         }
                     }
-                }
-                "set_current_alias" => {
-                    if let Ok(entry) = serde_json::from_value::<AliasEntry>(msg.data.clone()) {
+                    IpcMessage::SetCurrentAlias(entry) => {
                         let mut current = CURRENT_ALIAS.lock().unwrap();
                         *current = Some(entry);
-                    } else {
-                        log::error!(
-                            "Failed to parse current alias from IPC message data: {:?}",
-                            msg.data
-                        );
                     }
                 }
-                other => {
-                    log::warn!("Unknown IPC message type: {}", other);
+            }
+            Err(error) => {
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(&message_str) {
+                    if let Some(ty) = value.get("type").and_then(|v| v.as_str()) {
+                        match ty {
+                            "set_aliases" => {
+                                log::error!(
+                                    "Failed to parse aliases from IPC message data: {:?}",
+                                    value.get("data")
+                                );
+                            }
+                            "set_current_alias" => {
+                                log::error!(
+                                    "Failed to parse current alias from IPC message data: {:?}",
+                                    value.get("data")
+                                );
+                            }
+                            other => {
+                                log::warn!("Unknown IPC message type: {}", other);
+                            }
+                        }
+                    } else {
+                        log::error!("Failed to parse IPC message: {}", error);
+                    }
+                } else {
+                    log::error!("Failed to parse IPC message: {}", error);
                 }
             }
-        } else {
-            log::error!("Failed to parse IPC message: {message_str:?}");
         }
     }
 }
