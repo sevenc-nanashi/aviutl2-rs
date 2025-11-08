@@ -1,5 +1,8 @@
 //! [`log`](https://crates.io/crates/log) クレートを使用したロギング機能を提供します。
 
+// NOTE:
+// InitializeLoggerは可能な限り早く実行されるらしいので、まぁ捨てられるログはないとしていいはず...
+
 /// フォーマッター。
 pub type Formatter = dyn Fn(&log::Record) -> String + Send + Sync + 'static;
 
