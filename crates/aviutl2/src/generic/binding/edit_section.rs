@@ -530,12 +530,11 @@ impl<'a> Iterator for EditSectionLayerObjectsIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         // 検索・取得でエラーが出た場合は None を返して終了する。
-        let handle = match self
+        let Ok(Some(handle)) = self
             .edit_section
             .find_object_after(self.layer, self.next_frame)
-        {
-            Ok(Some(h)) => h,
-            _ => return None,
+        else {
+            return None;
         };
 
         let lf = match self.edit_section.get_object_layer_frame(&handle) {
