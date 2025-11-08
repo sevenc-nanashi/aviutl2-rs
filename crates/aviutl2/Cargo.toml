@@ -15,7 +15,7 @@ targets = []
 all-features = true
 
 [features]
-default = ["input", "output", "filter", "module", "generic"]
+default = ["input", "output", "filter", "module", "generic", "aviutl2-alias"]
 input = []
 output = []
 filter = []
@@ -24,11 +24,13 @@ generic = []
 env_logger = ["dep:env_logger"]
 image = ["dep:image"]
 serde = ["dep:serde", "dep:rmp-serde", "dep:zstd"]
+aviutl2-alias = ["dep:aviutl2-alias"]
 
 [dependencies]
 anyhow = "1.0.98"
 aviutl2-macros.workspace = true
 aviutl2-sys.workspace = true
+aviutl2-alias = { workspace = true, optional = true }
 duplicate = "2.0.0"
 env_logger = { version = "0.11.8", optional = true }
 half = { version = "2.6.0", features = ["zerocopy"] }

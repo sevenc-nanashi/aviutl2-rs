@@ -362,6 +362,15 @@ impl<'a> EditSectionObjectCaller<'a> {
     pub fn get_alias(&self) -> AnyResult<String> {
         self.edit_section.get_object_alias(self.handle)
     }
+    /// オブジェクトの情報をエイリアスデータとして取得し、パースします。
+    #[cfg(feature = "aviutl2-alias")]
+    pub fn get_alias_parsed(&self) -> AnyResult<aviutl2_alias::Table> {
+        self.edit_section
+            .get_object_alias(self.handle)?
+            .parse()
+            .map_err(Into::into)
+    }
+
     /// オブジェクトの設定項目の値を文字列で取得します。
     ///
     /// # Arguments

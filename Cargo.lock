@@ -583,6 +583,7 @@ name = "aviutl2"
 version = "0.10.0"
 dependencies = [
  "anyhow",
+ "aviutl2-alias",
  "aviutl2-macros",
  "aviutl2-sys",
  "duplicate",

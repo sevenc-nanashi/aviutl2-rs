@@ -37,6 +37,9 @@
 pub use aviutl2_sys as sys;
 pub use log;
 
+#[cfg(feature = "aviutl2-alias")]
+pub use aviutl2_alias as alias;
+
 #[doc(inline)]
 pub use aviutl2_macros::plugin;
 

@@ -75,6 +75,15 @@ impl AviUtl2Version {
         self.0 % 100
     }
 }
+#[cfg(feature = "aviutl2-alias")]
+impl aviutl2_alias::FromTableValue for AviUtl2Version {
+    type Err = std::num::ParseIntError;
+
+    fn from_table_value(value: &str) -> Result<Self, Self::Err> {
+        let v: u32 = value.parse()?;
+        Ok(Self::from(v))
+    }
+}
 
 /// ファイル選択ダイアログのフィルタを表す構造体。
 #[derive(Debug, Clone, PartialEq, Eq)]
