@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- aviutl2-aliasを追加
 - filter: effect_idを追加
 
 ### デモプラグイン
