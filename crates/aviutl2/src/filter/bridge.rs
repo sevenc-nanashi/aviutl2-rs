@@ -45,6 +45,7 @@ impl ObjectInfo {
         let raw = unsafe { &*raw };
         ObjectInfo {
             id: raw.id,
+            effect_id: raw.effect_id,
             frame: raw.frame as u32,
             frame_total: raw.frame_total as u32,
             time: raw.time,

@@ -15,6 +15,7 @@ suffixes = {
   "_module" => ".mod2",
   "_plugin" => ".aux2"
 }
+main_crates = %w[aviutl2 aviutl2-sys aviutl2-macros aviutl2-alias]
 
 def replace_suffix(name, target, suffixes)
   target_suffix = target == "release" ? "" : "_#{target}"
@@ -164,7 +165,7 @@ task :lint do
   sh "cargo clippy --all-targets --all-features -- -D warnings"
   sh(
     { "RUSTDOCFLAGS" => "-D warnings" },
-    "cargo doc --no-deps -p aviutl2 -p aviutl2-sys -p aviutl2-macros"
+    "cargo doc --no-deps #{main_crates.map { |c| "--package #{c}" }.join(" ")}"
   )
 end
 

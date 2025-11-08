@@ -2,11 +2,13 @@
 
 ## Unreleased
 
-（なし）
+- 汎用プラグインを追加
+- aviutl2-aliasを追加
+- filter: effect_idを追加
 
 ### デモプラグイン
 
-（なし）
+- binaural、equalizer: effect_idに対応
 
 ## [0.10.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.10.0)
 
