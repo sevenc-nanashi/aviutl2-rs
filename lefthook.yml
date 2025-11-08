@@ -1,7 +1,7 @@
 pre-push:
   parallel: true
   only:
-    - main
+    - ref: main
   jobs:
     - name: Run tests
       run: |
