@@ -31,7 +31,7 @@ impl ProjectFile {
             Ok(Some(
                 std::ffi::CStr::from_ptr(raw_str)
                     .to_string_lossy()
-                    .to_string(),
+                    .into_owned(),
             ))
         }
     }
