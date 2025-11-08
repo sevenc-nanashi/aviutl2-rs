@@ -79,16 +79,6 @@ impl Default for LogBuilder {
     }
 }
 
-/// 各クレートのログ設定を表す構造体。
-pub struct CrateLogConfig {
-    /// クレート名。
-    ///
-    /// env_loggerと同じような仕様で判定されます。
-    pub crate_name: String,
-    /// ログレベル。
-    pub level: log::LevelFilter,
-}
-
 pub use log::LevelFilter;
 
 struct InternalLogger {
