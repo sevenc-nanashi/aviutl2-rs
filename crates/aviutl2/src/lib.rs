@@ -34,6 +34,8 @@
 //! マクロなどを通じて利用されることを意図しており、直接使用した場合の互換性は保証されません。
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+#[cfg(feature = "aviutl2-alias")]
+pub use aviutl2_alias as alias;
 pub use aviutl2_sys as sys;
 pub use log;
 
