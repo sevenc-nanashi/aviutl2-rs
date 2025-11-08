@@ -1,8 +1,5 @@
 //! [`log`](https://crates.io/crates/log) クレートを使用したロギング機能を提供します。
 
-use std::sync::{OnceLock, mpsc};
-use std::thread;
-
 /// フォーマッター。
 pub type Formatter = dyn Fn(&log::Record) -> String + Send + Sync + 'static;
 
@@ -91,23 +88,12 @@ pub struct CrateLogConfig {
 
 pub use log::LevelFilter;
 
-enum LogCommand {
-    Record {
-        level: log::Level,
-        message: Vec<u16>,
-    },
-    Plugin {
-        message: Vec<u16>,
-    },
-}
-
 struct InternalLogger {
     formatter: Box<Formatter>,
 }
 
 impl InternalLogger {
     fn new(formatter: Box<Formatter>) -> Self {
-        ensure_logger_dispatcher();
         InternalLogger { formatter }
     }
 }
@@ -120,14 +106,7 @@ impl log::Log for InternalLogger {
 
     fn log(&self, record: &log::Record) {
         let message = (self.formatter)(record);
-        let leak_manager = message
-            .encode_utf16()
-            .chain(std::iter::once(0)) // null terminator
-            .collect::<Vec<u16>>();
-        let _ = logger_sender().send(LogCommand::Record {
-            level: record.level(),
-            message: leak_manager,
-        });
+        send_record(record.level(), message);
     }
 
     fn flush(&self) {
@@ -142,7 +121,7 @@ impl log::Log for InternalLogger {
 #[macro_export]
 macro_rules! ldbg {
     () => {
-        $crate::oprintln!("[{}:{}:{}]", ::std::file!(), ::std::line!(), ::std::column!());
+        $crate::lprintln!("[{}:{}:{}]", ::std::file!(), ::std::line!(), ::std::column!());
     };
     ($val:expr $(,)?) => {
         match $val {
@@ -159,7 +138,7 @@ macro_rules! ldbg {
         }
     };
     ($($val:expr),+ $(,)?) => {
-        ($($crate::odbg!($val)),+,)
+        ($($crate::ldbg!($val)),+,)
     };
 }
 
@@ -168,7 +147,7 @@ macro_rules! ldbg {
 macro_rules! lprintln {
     ($($arg:tt)*) => {
         let message = format!($($arg)*);
-        $crate::log::write_plugin_log(&message);
+        $crate::logger::write_plugin_log(&message);
     };
 }
 
@@ -183,10 +162,9 @@ macro_rules! lprintln {
 /// - [`ldbg!`]
 /// - [`lprintln!`]
 pub fn write_plugin_log(message: &str) {
-    let mut leak_manager = message.encode_utf16().collect::<Vec<u16>>();
-    leak_manager.push(0); // null terminator
-    let _ = logger_sender().send(LogCommand::Plugin {
-        message: leak_manager,
+    let wide_message = encode_utf16_with_nul(message);
+    with_logger_handle(|handle| unsafe {
+        ((*handle).log)(handle, wide_message.as_ptr());
     });
 }
 
@@ -195,7 +173,6 @@ unsafe impl Send for InternalLoggerHandle {}
 
 static LOGGER_HANDLE: std::sync::OnceLock<std::sync::Mutex<InternalLoggerHandle>> =
     std::sync::OnceLock::new();
-static LOGGER_DISPATCHER: OnceLock<mpsc::Sender<LogCommand>> = OnceLock::new();
 
 #[doc(hidden)]
 pub fn __initialize_logger(handle: *mut aviutl2_sys::logger2::LOG_HANDLE) {
@@ -207,57 +184,49 @@ pub fn __initialize_logger(handle: *mut aviutl2_sys::logger2::LOG_HANDLE) {
         });
 }
 
-fn ensure_logger_dispatcher() {
-    LOGGER_DISPATCHER.get_or_init(spawn_logger_dispatcher);
+impl InternalLoggerHandle {
+    fn ptr(&self) -> *mut aviutl2_sys::logger2::LOG_HANDLE {
+        self.0
+    }
 }
 
-fn logger_sender() -> &'static mpsc::Sender<LogCommand> {
-    ensure_logger_dispatcher();
-    LOGGER_DISPATCHER
-        .get()
-        .expect("logger dispatcher should be initialized")
+fn encode_utf16_with_nul(message: &str) -> Vec<u16> {
+    message.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
-fn spawn_logger_dispatcher() -> mpsc::Sender<LogCommand> {
-    let (tx, rx) = mpsc::channel();
-    thread::Builder::new()
-        .name("aviutl2-logger".into())
-        .spawn(move || {
-            let internal_handle = LOGGER_HANDLE
-                .get()
-                .expect("logger handle should be initialized")
-                .lock()
-                .unwrap();
-            while let Ok(command) = rx.recv() {
-                match command {
-                    LogCommand::Record { level, message } => {
-                        let wide_message = message.as_ptr();
-                        unsafe {
-                            match level {
-                                log::Level::Error => {
-                                    ((*internal_handle.0).error)(internal_handle.0, wide_message)
-                                }
-                                log::Level::Warn => {
-                                    ((*internal_handle.0).warn)(internal_handle.0, wide_message)
-                                }
-                                log::Level::Info => {
-                                    ((*internal_handle.0).info)(internal_handle.0, wide_message)
-                                }
-                                log::Level::Debug | log::Level::Trace => {
-                                    ((*internal_handle.0).verbose)(internal_handle.0, wide_message)
-                                }
-                            }
-                        }
-                    }
-                    LogCommand::Plugin { message } => {
-                        let wide_message = message.as_ptr();
-                        unsafe {
-                            ((*internal_handle.0).log)(internal_handle.0, wide_message);
-                        }
-                    }
-                }
+fn with_logger_handle<F>(f: F)
+where
+    F: FnOnce(*mut aviutl2_sys::logger2::LOG_HANDLE),
+{
+    let Some(handle) = LOGGER_HANDLE.get() else {
+        return;
+    };
+    let handle = handle.lock().unwrap();
+    let handle_ptr = handle.ptr();
+    f(handle_ptr);
+}
+
+fn send_record(level: log::Level, message: String) {
+    let wide_message = encode_utf16_with_nul(&message);
+    with_logger_handle(|handle| unsafe {
+        match level {
+            log::Level::Error => ((*handle).error)(handle, wide_message.as_ptr()),
+            log::Level::Warn => ((*handle).warn)(handle, wide_message.as_ptr()),
+            log::Level::Info => ((*handle).info)(handle, wide_message.as_ptr()),
+            log::Level::Debug | log::Level::Trace => {
+                ((*handle).verbose)(handle, wide_message.as_ptr())
             }
-        })
-        .expect("failed to spawn aviutl2 logger dispatcher");
-    tx
+        }
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_can_compile_ldbg() {
+        let x = 42;
+        ldbg!();
+        ldbg!(x);
+        ldbg!(x + 1, x * 2);
+    }
 }
