@@ -134,9 +134,9 @@ impl ProjectFile {
         let num_bytes: usize = num_bytes.parse()?;
         let mut bytes = Vec::with_capacity(num_bytes);
         let mut read_bytes = 0;
+        let mut chunk = vec![0u8; 4096];
         for i in 0.. {
             let chunk_key = format!("{NAMESPACE}:serde-zstd-v1:chunk:{}:{}", key, i);
-            let mut chunk = vec![0u8; 4096];
             let to_read = std::cmp::min(4096, num_bytes - read_bytes);
             if to_read == 0 {
                 break;
