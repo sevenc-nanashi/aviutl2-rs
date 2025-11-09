@@ -4,6 +4,21 @@ pub struct ScriptModuleCallHandle {
     pub(crate) internal: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,
 }
 
+/// [`ScriptModuleCallHandle`]関連のエラー。
+#[derive(thiserror::Error, Debug)]
+pub enum ScriptModuleCallHandleError {
+    #[error("key contains null byte")]
+    KeyContainsNullByte(#[from] std::ffi::NulError),
+
+    #[error("value contains null byte")]
+    ValueContainsNullByte(std::ffi::NulError),
+
+    #[error("too many elements")]
+    TooManyElements,
+}
+
+pub type ScriptModuleCallHandleResult<T> = std::result::Result<T, ScriptModuleCallHandleError>;
+
 impl ScriptModuleCallHandle {
     /// ポインタから`ScriptModuleParam`を作成する。
     ///
@@ -93,9 +108,13 @@ impl ScriptModuleCallHandle {
     /// # Note
     ///
     /// 引数を取得できない場合は0を返します。
-    pub fn get_param_table_int(&self, index: usize, key: &str) -> i32 {
-        let c_key = std::ffi::CString::new(key).unwrap();
-        unsafe { ((*self.internal).get_param_table_int)(index as i32, c_key.as_ptr()) }
+    pub fn get_param_table_int(
+        &self,
+        index: usize,
+        key: &str,
+    ) -> ScriptModuleCallHandleResult<i32> {
+        let c_key = std::ffi::CString::new(key)?;
+        Ok(unsafe { ((*self.internal).get_param_table_int)(index as i32, c_key.as_ptr()) })
     }
 
     /// 引数のテーブルの要素を浮動小数点数として取得する。
@@ -103,17 +122,25 @@ impl ScriptModuleCallHandle {
     /// # Note
     ///
     /// 引数を取得できない場合は0.0を返します。
-    pub fn get_param_table_float(&self, index: usize, key: &str) -> f64 {
-        let c_key = std::ffi::CString::new(key).unwrap();
-        unsafe { ((*self.internal).get_param_table_double)(index as i32, c_key.as_ptr()) }
+    pub fn get_param_table_float(
+        &self,
+        index: usize,
+        key: &str,
+    ) -> ScriptModuleCallHandleResult<f64> {
+        let c_key = std::ffi::CString::new(key)?;
+        Ok(unsafe { ((*self.internal).get_param_table_double)(index as i32, c_key.as_ptr()) })
     }
 
     /// 引数のテーブルの要素を文字列として取得する。
-    pub fn get_param_table_str(&self, index: usize, key: &str) -> Option<String> {
-        let c_key = std::ffi::CString::new(key).unwrap();
+    pub fn get_param_table_str(
+        &self,
+        index: usize,
+        key: &str,
+    ) -> ScriptModuleCallHandleResult<Option<String>> {
+        let c_key = std::ffi::CString::new(key)?;
         unsafe {
             let c_str = ((*self.internal).get_param_table_string)(index as i32, c_key.as_ptr());
-            if c_str.is_null() {
+            Ok(if c_str.is_null() {
                 None
             } else {
                 Some(
@@ -121,7 +148,7 @@ impl ScriptModuleCallHandle {
                         .to_string_lossy()
                         .into_owned(),
                 )
-            }
+            })
         }
     }
 
@@ -188,7 +215,7 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値に文字列を追加する。
-    pub fn push_result_str(&mut self, value: &str) -> crate::AnyResult<()> {
+    pub fn push_result_str(&mut self, value: &str) -> ScriptModuleCallHandleResult<()> {
         let c_value = std::ffi::CString::new(value)?;
         unsafe {
             ((*self.internal).push_result_string)(c_value.as_ptr());
@@ -197,7 +224,7 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値に整数の連想配列を追加する。
-    pub fn push_result_table_int<'a, T>(&mut self, table: T) -> crate::AnyResult<()>
+    pub fn push_result_table_int<'a, T>(&mut self, table: T) -> ScriptModuleCallHandleResult<()>
     where
         T: std::iter::IntoIterator<Item = (&'a str, i32)>,
     {
@@ -220,7 +247,7 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値に浮動小数点数の連想配列を追加する。
-    pub fn push_result_table_float<'a, T>(&mut self, table: T) -> crate::AnyResult<()>
+    pub fn push_result_table_float<'a, T>(&mut self, table: T) -> ScriptModuleCallHandleResult<()>
     where
         T: std::iter::IntoIterator<Item = (&'a str, f64)>,
     {
@@ -243,7 +270,7 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値に文字列の連想配列を追加する。
-    pub fn push_result_table_str<'a, T>(&mut self, table: T) -> crate::AnyResult<()>
+    pub fn push_result_table_str<'a, T>(&mut self, table: T) -> ScriptModuleCallHandleResult<()>
     where
         T: std::iter::IntoIterator<Item = (&'a str, &'a str)>,
     {
@@ -251,14 +278,14 @@ impl ScriptModuleCallHandle {
         let mut values = Vec::new();
         for (key, value) in table {
             let c_key = std::ffi::CString::new(key)?;
-            let c_value = std::ffi::CString::new(value)?;
+            let c_value = std::ffi::CString::new(value)
+                .map_err(ScriptModuleCallHandleError::ValueContainsNullByte)?;
             keys.push(c_key);
             values.push(c_value);
         }
-        anyhow::ensure!(
-            keys.len() <= i32::MAX as usize,
-            "Table size exceeds i32::MAX"
-        );
+        if keys.len() > i32::MAX as usize {
+            return Err(ScriptModuleCallHandleError::TooManyElements);
+        }
         let key_ptrs: Vec<*const std::os::raw::c_char> = keys.iter().map(|k| k.as_ptr()).collect();
         let value_ptrs: Vec<*const std::os::raw::c_char> =
             values.iter().map(|v| v.as_ptr()).collect();
@@ -273,11 +300,10 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値に整数の配列を追加する。
-    pub fn push_result_array_int(&mut self, values: &[i32]) -> crate::AnyResult<()> {
-        anyhow::ensure!(
-            values.len() <= i32::MAX as usize,
-            "Array length exceeds i32::MAX"
-        );
+    pub fn push_result_array_int(&mut self, values: &[i32]) -> ScriptModuleCallHandleResult<()> {
+        if values.len() > i32::MAX as usize {
+            return Err(ScriptModuleCallHandleError::TooManyElements);
+        }
         unsafe {
             ((*self.internal).push_result_array_int)(values.as_ptr(), values.len() as i32);
         }
@@ -285,11 +311,10 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値に浮動小数点数の配列を追加する。
-    pub fn push_result_array_float(&mut self, values: &[f64]) -> crate::AnyResult<()> {
-        anyhow::ensure!(
-            values.len() <= i32::MAX as usize,
-            "Array length exceeds i32::MAX"
-        );
+    pub fn push_result_array_float(&mut self, values: &[f64]) -> ScriptModuleCallHandleResult<()> {
+        if values.len() > i32::MAX as usize {
+            return Err(ScriptModuleCallHandleError::TooManyElements);
+        }
         unsafe {
             ((*self.internal).push_result_array_double)(values.as_ptr(), values.len() as i32);
         }
@@ -297,15 +322,14 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値に文字列の配列を追加する。
-    pub fn push_result_array_str(&mut self, values: &[&str]) -> crate::AnyResult<()> {
+    pub fn push_result_array_str(&mut self, values: &[&str]) -> ScriptModuleCallHandleResult<()> {
         let c_values: Vec<std::ffi::CString> = values
             .iter()
             .map(|s| std::ffi::CString::new(*s))
             .collect::<Result<_, _>>()?;
-        anyhow::ensure!(
-            c_values.len() <= i32::MAX as usize,
-            "Array length exceeds i32::MAX"
-        );
+        if c_values.len() > i32::MAX as usize {
+            return Err(ScriptModuleCallHandleError::TooManyElements);
+        }
         let c_value_ptrs: Vec<*const std::os::raw::c_char> =
             c_values.iter().map(|s| s.as_ptr()).collect();
         unsafe {
