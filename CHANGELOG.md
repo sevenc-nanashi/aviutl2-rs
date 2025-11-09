@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking:** APIからのResultはanyhow::Resultを使わないように変更
 - aviutl2-aliasを追加
 - filter: effect_idを追加
 
