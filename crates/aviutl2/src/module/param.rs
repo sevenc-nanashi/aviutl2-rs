@@ -157,7 +157,7 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数のエラーを設定する。
-    pub fn set_error(&mut self, message: &str) -> crate::AnyResult<()> {
+    pub fn set_error(&mut self, message: &str) -> Result<(), std::ffi::NulError> {
         let c_message = std::ffi::CString::new(message)?;
         unsafe {
             ((*self.internal).set_error)(c_message.as_ptr());
