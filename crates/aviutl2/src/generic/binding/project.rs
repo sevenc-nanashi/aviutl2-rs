@@ -1,8 +1,19 @@
-use crate::AnyResult;
-
 /// プロジェクトファイルにデータを保存・取得するための構造体。
 pub struct ProjectFile {
     pub(crate) internal: *mut aviutl2_sys::plugin2::PROJECT_FILE,
+}
+
+/// プロジェクトファイルのデータ取得・保存に関するエラー。
+#[derive(thiserror::Error, Debug)]
+pub enum ProjectFileError {
+    #[error("key contains null byte: {0}")]
+    KeyContainsNull(std::ffi::NulError),
+    #[error("data retrieval failed for key {0}")]
+    RetrievalFailed(String),
+    #[error("data length exceeds 4096 bytes, got {0} bytes")]
+    DataTooLarge(usize),
+    #[error("value contains null byte: {0}")]
+    ValueContainsNull(std::ffi::NulError),
 }
 
 impl ProjectFile {
@@ -20,19 +31,17 @@ impl ProjectFile {
     /// # Errors
     ///
     /// - `key`にヌル文字が含まれている場合、失敗します。
-    /// - 文字列が見つからなかった場合はNoneを返します。
-    pub fn get_param_string(&self, key: &str) -> AnyResult<Option<String>> {
-        let key = std::ffi::CString::new(key)?;
+    /// - 文字列が見つからなかった場合は失敗します。
+    pub fn get_param_string(&self, key: &str) -> Result<String, ProjectFileError> {
+        let c_key = std::ffi::CString::new(key).map_err(ProjectFileError::KeyContainsNull)?;
         unsafe {
-            let raw_str = ((*self.internal).get_param_string)(key.as_ptr() as _);
+            let raw_str = ((*self.internal).get_param_string)(c_key.as_ptr() as _);
             if raw_str.is_null() {
-                return Ok(None);
+                return Err(ProjectFileError::RetrievalFailed(key.to_string()));
             }
-            Ok(Some(
-                std::ffi::CStr::from_ptr(raw_str)
-                    .to_string_lossy()
-                    .into_owned(),
-            ))
+            Ok(std::ffi::CStr::from_ptr(raw_str)
+                .to_string_lossy()
+                .into_owned())
         }
     }
 
@@ -43,16 +52,18 @@ impl ProjectFile {
     /// - `key`にヌル文字が含まれている場合、失敗します。
     /// - `data` の長さが保存されているデータの長さと一致しない場合、失敗します。
     /// - 指定されたキーに対応するデータが存在しない場合、失敗します。
-    pub fn get_param_binary(&self, key: &str, data: &mut [u8]) -> AnyResult<()> {
+    pub fn get_param_binary(&self, key: &str, data: &mut [u8]) -> Result<(), ProjectFileError> {
         let success = unsafe {
-            let key = std::ffi::CString::new(key)?;
+            let key = std::ffi::CString::new(key).map_err(ProjectFileError::KeyContainsNull)?;
             ((*self.internal).get_param_binary)(
                 key.as_ptr() as _,
                 data.as_mut_ptr() as _,
                 data.len() as _,
             )
         };
-        anyhow::ensure!(success, "failed to get binary data for key {}", key);
+        if !success {
+            return Err(ProjectFileError::RetrievalFailed(key.to_string()));
+        }
         Ok(())
     }
 
@@ -61,9 +72,10 @@ impl ProjectFile {
     /// # Errors
     ///
     /// key、valueにヌル文字が含まれている場合、失敗します。
-    pub fn set_param_string(&mut self, key: &str, value: &str) -> AnyResult<()> {
-        let key_cstr = std::ffi::CString::new(key)?;
-        let value_cstr = std::ffi::CString::new(value)?;
+    pub fn set_param_string(&mut self, key: &str, value: &str) -> Result<(), ProjectFileError> {
+        let key_cstr = std::ffi::CString::new(key).map_err(ProjectFileError::KeyContainsNull)?;
+        let value_cstr =
+            std::ffi::CString::new(value).map_err(ProjectFileError::ValueContainsNull)?;
         unsafe {
             ((*self.internal).set_param_string)(key_cstr.as_ptr() as _, value_cstr.as_ptr() as _);
         }
@@ -76,10 +88,12 @@ impl ProjectFile {
     ///
     /// - `data` の長さが4096バイトを超える場合、失敗します。
     /// - `key`にヌル文字が含まれている場合、失敗します。
-    pub fn set_param_binary(&mut self, key: &str, data: &[u8]) -> AnyResult<()> {
-        anyhow::ensure!(data.len() <= 4096, "data length exceeds 4096 bytes");
+    pub fn set_param_binary(&mut self, key: &str, data: &[u8]) -> Result<(), ProjectFileError> {
+        if data.len() > 4096 {
+            return Err(ProjectFileError::DataTooLarge(data.len()));
+        }
         unsafe {
-            let key = std::ffi::CString::new(key)?;
+            let key = std::ffi::CString::new(key).map_err(ProjectFileError::KeyContainsNull)?;
             ((*self.internal).set_param_binary)(
                 key.as_ptr() as _,
                 data.as_ptr() as _,

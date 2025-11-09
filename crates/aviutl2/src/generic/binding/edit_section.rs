@@ -1,4 +1,4 @@
-use crate::common::{AnyResult, Rational32};
+use crate::common::Rational32;
 
 /// オブジェクトへのハンドル。
 #[derive(Debug, Clone, Copy)]
@@ -27,13 +27,21 @@ unsafe impl Sync for ObjectHandle {}
 /// UI表示と異なり、フレーム番号・レイヤー番号は0始まりです。
 #[derive(Debug, Clone, Copy)]
 pub struct EditInfo {
+    /// シーンの幅。
     pub width: usize,
+    /// シーンの高さ。
     pub height: usize,
+    /// フレームレート。
     pub fps: Rational32,
+    /// サンプルレート。
     pub sample_rate: usize,
+    /// 現在のカーソルのフレーム番号。
     pub frame: usize,
+    /// 現在の選択レイヤー番号。
     pub layer: usize,
+    /// オブジェクトが存在する最大のフレーム番号。
     pub frame_max: usize,
+    /// オブジェクトが存在する最大のレイヤー番号。
     pub layer_max: usize,
 }
 
@@ -64,9 +72,33 @@ pub struct ObjectLayerFrame {
     pub end: usize,
 }
 
+/// [`EditSection`] 関連のエラー。
+#[derive(thiserror::Error, Debug)]
+pub enum EditSectionError {
+    #[error("api call failed")]
+    ApiCallFailed,
+    #[error("object does not exist")]
+    ObjectDoesNotExist,
+    #[error("input utf-8 string contains null byte")]
+    InputCstrContainsNull(#[from] std::ffi::NulError),
+    #[error("input utf-16 string contains null byte")]
+    InputCwstrContainsNull(#[from] crate::common::NullByteError),
+    #[error("value is out of range")]
+    ValueOutOfRange(#[from] std::num::TryFromIntError),
+    #[error("api returned non-utf8 data")]
+    NonUtf8Data(#[from] std::str::Utf8Error),
+
+    #[cfg(feature = "aviutl2-alias")]
+    #[error("alias parse error: {0}")]
+    ParseFailed(#[from] aviutl2_alias::TableParseError),
+}
+
+pub type EditSectionResult<T> = Result<T, EditSectionError>;
+
 /// 編集セクションのハンドル。
 #[derive(Debug)]
 pub struct EditSection {
+    /// 編集情報。
     pub info: EditInfo,
 
     pub(crate) internal: *mut aviutl2_sys::plugin2::EDIT_SECTION,
@@ -101,12 +133,12 @@ impl EditSection {
     /// エイリアスの変換に失敗した場合、またはオブジェクトが既存のオブジェクトに重なる場合にエラー
     ///
     pub fn create_object_from_alias(
-        &self,
+        &mut self,
         alias: &str,
         layer: usize,
         frame: usize,
         length: usize,
-    ) -> AnyResult<ObjectHandle> {
+    ) -> EditSectionResult<ObjectHandle> {
         let c_alias = std::ffi::CString::new(alias)?;
         let object_handle = unsafe {
             ((*self.internal).create_object_from_alias)(
@@ -117,7 +149,7 @@ impl EditSection {
             )
         };
         if object_handle.is_null() {
-            anyhow::bail!("Failed to create object from alias");
+            return Err(EditSectionError::ApiCallFailed);
         }
         Ok(ObjectHandle {
             internal: object_handle,
@@ -130,7 +162,11 @@ impl EditSection {
     ///
     /// - `layer`：検索するレイヤー番号（0始まり）。
     /// - `frame`：検索を開始するフレーム番号（0始まり）。
-    pub fn find_object_after(&self, layer: usize, frame: usize) -> AnyResult<Option<ObjectHandle>> {
+    pub fn find_object_after(
+        &self,
+        layer: usize,
+        frame: usize,
+    ) -> EditSectionResult<Option<ObjectHandle>> {
         let object_handle =
             unsafe { ((*self.internal).find_object)(layer.try_into()?, frame.try_into()?) };
         if object_handle.is_null() {
@@ -143,7 +179,10 @@ impl EditSection {
     }
 
     /// 指定のオブジェクトのレイヤーとフレーム情報を取得します。
-    pub fn get_object_layer_frame(&self, object: &ObjectHandle) -> AnyResult<ObjectLayerFrame> {
+    pub fn get_object_layer_frame(
+        &self,
+        object: &ObjectHandle,
+    ) -> EditSectionResult<ObjectLayerFrame> {
         self.ensure_object_exists(object)?;
         let object = unsafe { ((*self.internal).get_object_layer_frame)(object.internal) };
         Ok(ObjectLayerFrame {
@@ -154,11 +193,11 @@ impl EditSection {
     }
 
     /// オブジェクトの情報をエイリアスデータとして取得します。
-    pub fn get_object_alias(&self, object: &ObjectHandle) -> AnyResult<String> {
+    pub fn get_object_alias(&self, object: &ObjectHandle) -> EditSectionResult<String> {
         self.ensure_object_exists(object)?;
         let alias_ptr = unsafe { ((*self.internal).get_object_alias)(object.internal) };
         if alias_ptr.is_null() {
-            anyhow::bail!("Failed to get object alias");
+            return Err(EditSectionError::ApiCallFailed);
         }
         let c_str = unsafe { std::ffi::CStr::from_ptr(alias_ptr) };
         let alias = c_str.to_str()?.to_owned();
@@ -179,7 +218,7 @@ impl EditSection {
         effect_name: &str,
         effect_index: usize,
         item: &str,
-    ) -> AnyResult<String> {
+    ) -> EditSectionResult<String> {
         self.ensure_object_exists(object)?;
         let c_effect_name = crate::common::CWString::new(&format!("{effect_name}:{effect_index}"))?;
         let c_item = crate::common::CWString::new(item)?;
@@ -191,7 +230,7 @@ impl EditSection {
             )
         };
         if value_ptr.is_null() {
-            anyhow::bail!("Failed to get object effect item");
+            return Err(EditSectionError::ApiCallFailed);
         }
         let c_str = unsafe { std::ffi::CStr::from_ptr(value_ptr) };
         let value = c_str.to_str()?.to_owned();
@@ -208,13 +247,13 @@ impl EditSection {
     /// - `item`：設定項目の名前。（エイリアスファイルのキーの名前）
     /// - `value`：設定する値。
     pub fn set_object_effect_item(
-        &self,
-        object: &ObjectHandle,
+        &mut self,
+        object: &mut ObjectHandle,
         effect_name: &str,
         effect_index: usize,
         item: &str,
         value: &str,
-    ) -> AnyResult<()> {
+    ) -> EditSectionResult<()> {
         self.ensure_object_exists(object)?;
         let c_effect_name = crate::common::CWString::new(&format!("{effect_name}:{effect_index}"))?;
         let c_item = crate::common::CWString::new(item)?;
@@ -228,18 +267,18 @@ impl EditSection {
             )
         };
         if !success {
-            anyhow::bail!("Failed to set object effect item");
+            return Err(EditSectionError::ApiCallFailed);
         }
         Ok(())
     }
 
     /// オブジェクトを移動します。
     pub fn move_object(
-        &self,
+        &mut self,
         object: &ObjectHandle,
         new_layer: usize,
         new_start_frame: usize,
-    ) -> AnyResult<()> {
+    ) -> EditSectionResult<()> {
         self.ensure_object_exists(object)?;
         let success = unsafe {
             ((*self.internal).move_object)(
@@ -249,20 +288,20 @@ impl EditSection {
             )
         };
         if !success {
-            anyhow::bail!("Failed to move object");
+            return Err(EditSectionError::ApiCallFailed);
         }
         Ok(())
     }
 
     /// オブジェクトを削除します。
-    pub fn delete_object(&self, object: &ObjectHandle) -> AnyResult<()> {
+    pub fn delete_object(&mut self, object: &mut ObjectHandle) -> EditSectionResult<()> {
         self.ensure_object_exists(object)?;
         unsafe { ((*self.internal).delete_object)(object.internal) };
         Ok(())
     }
 
     /// 現在、オブジェクト設定ウィンドウで選択されているオブジェクトを取得します。
-    pub fn get_focused_object(&self) -> AnyResult<Option<ObjectHandle>> {
+    pub fn get_focused_object(&self) -> EditSectionResult<Option<ObjectHandle>> {
         let object_handle = unsafe { ((*self.internal).get_focus_object)() };
         if object_handle.is_null() {
             Ok(None)
@@ -278,7 +317,7 @@ impl EditSection {
     /// # Note
     ///
     /// コールバック処理の終了時に設定されます。
-    pub fn focus_object(&self, object: &ObjectHandle) -> AnyResult<()> {
+    pub fn focus_object(&mut self, object: &mut ObjectHandle) -> EditSectionResult<()> {
         self.ensure_object_exists(object)?;
         unsafe { ((*self.internal).set_focus_object)(object.internal) };
         Ok(())
@@ -286,7 +325,7 @@ impl EditSection {
 
     /// ログにメッセージを出力します。
     #[deprecated = "TODO: ロガーのPRがマージされたらメソッドごと消す"]
-    pub fn output_log(&self, message: &str) -> AnyResult<()> {
+    pub fn output_log(&self, message: &str) -> EditSectionResult<()> {
         let wide = crate::common::CWString::new(message)?;
         unsafe { ((*self.internal).deprecated_output_log)(wide.as_ptr()) };
         Ok(())
@@ -302,9 +341,9 @@ impl EditSection {
         object.layer != -1
     }
 
-    fn ensure_object_exists(&self, object: &ObjectHandle) -> AnyResult<()> {
+    fn ensure_object_exists(&self, object: &ObjectHandle) -> EditSectionResult<()> {
         if !self.object_exists(object) {
-            anyhow::bail!("Object does not exist in the current edit section");
+            return Err(EditSectionError::ObjectDoesNotExist);
         }
         Ok(())
     }
@@ -336,7 +375,7 @@ impl EditSection {
         EditSectionLayerCaller::new(self, layer)
     }
     /// [EditSectionObjectCaller] を作成します。
-    pub fn object<'a>(&'a self, object: &'a ObjectHandle) -> EditSectionObjectCaller<'a> {
+    pub fn object<'a>(&'a mut self, object: &'a mut ObjectHandle) -> EditSectionObjectCaller<'a> {
         EditSectionObjectCaller::new(self, object)
     }
 }
@@ -345,11 +384,11 @@ impl EditSection {
 /// EditSection と ObjectHandle の組をまとめ、対象オブジェクトに対する
 /// 操作を簡潔に呼び出せるようにします。
 pub struct EditSectionObjectCaller<'a> {
-    edit_section: &'a EditSection,
-    pub handle: &'a ObjectHandle,
+    edit_section: &'a mut EditSection,
+    pub handle: &'a mut ObjectHandle,
 }
 impl<'a> EditSectionObjectCaller<'a> {
-    pub fn new(edit_section: &'a EditSection, object: &'a ObjectHandle) -> Self {
+    pub fn new(edit_section: &'a mut EditSection, object: &'a mut ObjectHandle) -> Self {
         Self {
             edit_section,
             handle: object,
@@ -357,16 +396,16 @@ impl<'a> EditSectionObjectCaller<'a> {
     }
 
     /// オブジェクトのレイヤーとフレーム情報を取得します。
-    pub fn get_layer_frame(&self) -> AnyResult<ObjectLayerFrame> {
+    pub fn get_layer_frame(&self) -> EditSectionResult<ObjectLayerFrame> {
         self.edit_section.get_object_layer_frame(self.handle)
     }
     /// オブジェクトの情報をエイリアスデータとして取得します。
-    pub fn get_alias(&self) -> AnyResult<String> {
+    pub fn get_alias(&self) -> EditSectionResult<String> {
         self.edit_section.get_object_alias(self.handle)
     }
     /// オブジェクトの情報をエイリアスデータとして取得し、パースします。
     #[cfg(feature = "aviutl2-alias")]
-    pub fn get_alias_parsed(&self) -> AnyResult<aviutl2_alias::Table> {
+    pub fn get_alias_parsed(&self) -> EditSectionResult<aviutl2_alias::Table> {
         self.edit_section
             .get_object_alias(self.handle)?
             .parse()
@@ -385,7 +424,7 @@ impl<'a> EditSectionObjectCaller<'a> {
         effect_name: &str,
         effect_index: usize,
         item: &str,
-    ) -> AnyResult<String> {
+    ) -> EditSectionResult<String> {
         self.edit_section
             .get_object_effect_item(self.handle, effect_name, effect_index, item)
     }
@@ -399,12 +438,12 @@ impl<'a> EditSectionObjectCaller<'a> {
     /// - `item`：設定項目の名前。（エイリアスファイルのキーの名前）
     /// - `value`：設定する値。
     pub fn set_effect_item(
-        &self,
+        &mut self,
         effect_name: &str,
         effect_index: usize,
         item: &str,
         value: &str,
-    ) -> AnyResult<()> {
+    ) -> EditSectionResult<()> {
         self.edit_section.set_object_effect_item(
             self.handle,
             effect_name,
@@ -420,13 +459,17 @@ impl<'a> EditSectionObjectCaller<'a> {
     ///
     /// - `new_layer`：移動先のレイヤー番号（0始まり）。
     /// - `new_start_frame`：移動先の開始フレーム番号（0始まり）。
-    pub fn move_object(&self, new_layer: usize, new_start_frame: usize) -> AnyResult<()> {
+    pub fn move_object(
+        &mut self,
+        new_layer: usize,
+        new_start_frame: usize,
+    ) -> EditSectionResult<()> {
         self.edit_section
             .move_object(self.handle, new_layer, new_start_frame)
     }
 
     /// オブジェクトを削除します。
-    pub fn delete_object(&self) -> AnyResult<()> {
+    pub fn delete_object(&mut self) -> EditSectionResult<()> {
         self.edit_section.delete_object(self.handle)
     }
 
@@ -435,7 +478,7 @@ impl<'a> EditSectionObjectCaller<'a> {
     /// # Note
     ///
     /// コールバック処理の終了時に設定されます。
-    pub fn focus_object(&self) -> AnyResult<()> {
+    pub fn focus_object(&mut self) -> EditSectionResult<()> {
         self.edit_section.focus_object(self.handle)
     }
 
@@ -464,7 +507,7 @@ impl<'a> EditSectionLayerCaller<'a> {
     /// # Arguments
     ///
     /// - `frame`：検索を開始するフレーム番号（0始まり）。
-    pub fn find_object_after(&self, frame: usize) -> AnyResult<Option<ObjectHandle>> {
+    pub fn find_object_after(&self, frame: usize) -> EditSectionResult<Option<ObjectHandle>> {
         self.edit_section.find_object_after(self.index, frame)
     }
 

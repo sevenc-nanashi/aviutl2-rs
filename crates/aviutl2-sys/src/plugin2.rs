@@ -50,7 +50,7 @@ pub struct EDIT_INFO {
     pub sample_rate: i32,
     /// 現在のカーソルのフレーム番号
     pub frame: i32,
-    /// 現在のレイヤーの表示開始番号
+    /// 現在の選択レイヤー番号
     pub layer: i32,
     /// オブジェクトが存在する最大のフレーム番号
     pub frame_max: i32,

@@ -436,12 +436,32 @@ pub(crate) unsafe fn load_wide_string(ptr: *const u16) -> String {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CWString(Vec<u16>);
 
+/// ヌルバイトを含む文字列を作成しようとした際のエラー。
+#[derive(thiserror::Error, Debug)]
+#[error("String contains null byte")]
+pub struct NullByteError {
+    position: usize,
+    u16_seq: Vec<u16>,
+}
+impl NullByteError {
+    pub fn nul_position(&self) -> usize {
+        self.position
+    }
+
+    pub fn into_vec(self) -> Vec<u16> {
+        self.u16_seq
+    }
+}
+
 impl CWString {
-    pub fn new(string: &str) -> AnyResult<Self> {
-        if string.contains('\0') {
-            anyhow::bail!("String contains null character");
-        }
+    pub fn new(string: &str) -> Result<Self, NullByteError> {
         let mut wide: Vec<u16> = string.encode_utf16().collect();
+        if let Some((pos, _)) = wide.iter().enumerate().find(|&(_, &c)| c == 0) {
+            return Err(NullByteError {
+                position: pos,
+                u16_seq: wide,
+            });
+        }
         wide.push(0); // Null-terminate the string
         Ok(Self(wide))
     }

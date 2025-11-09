@@ -1,4 +1,4 @@
-use crate::{AviUtl2Info, common::AnyResult, generic::EditSection};
+use crate::{AviUtl2Info, generic::EditSection};
 use pastey::paste;
 
 /// ホストアプリケーションのハンドル。
@@ -345,13 +345,20 @@ pub struct EditHandle {
 unsafe impl Send for EditHandle {}
 unsafe impl Sync for EditHandle {}
 
+/// [`EditHandle`] 関連のエラー。
+#[derive(thiserror::Error, Debug)]
+pub enum EditHandleError {
+    #[error("api call failed")]
+    ApiCallFailed,
+}
+
 impl EditHandle {
     pub(crate) unsafe fn new(internal: *mut aviutl2_sys::plugin2::EDIT_HANDLE) -> Self {
         Self { internal }
     }
 
     /// プロジェクトデータの編集を開始します。
-    pub fn call_edit_section<T, F>(&self, callback: F) -> AnyResult<T>
+    pub fn call_edit_section<T, F>(&self, callback: F) -> Result<T, EditHandleError>
     where
         T: Send + 'static,
         F: FnOnce(&mut EditSection) -> T + Send + 'static,
@@ -384,7 +391,7 @@ impl EditHandle {
                 unreachable!("No return value from EditSection callback")
             }
         } else {
-            anyhow::bail!("call_edit_section failed")
+            return Err(EditHandleError::ApiCallFailed);
         }
 
         extern "C" fn trampoline(edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION) {
