@@ -608,19 +608,43 @@ pub enum ScriptModuleReturnValue {
     StringTable(std::collections::HashMap<String, String>),
 }
 
+/// [`IntoScriptModuleReturnValue::push_into`]で使われるエラー。
+#[derive(thiserror::Error, Debug)]
+pub enum IntoScriptModuleReturnValueError<T>
+where
+    Box<dyn std::error::Error>: From<T>,
+{
+    #[error("failed to convert value: {0}")]
+    ConversionFailed(T),
+    #[error("failed to push return value: {0}")]
+    PushFailed(#[from] ScriptModuleCallHandleError),
+}
+
 /// 関数の戻り値として使える型。
 ///
 /// # Note
 ///
 /// この関数はDeriveマクロを使用して実装することもできます。
 /// 詳細は[`derive@IntoScriptModuleReturnValue`]のドキュメントを参照してください。
-pub trait IntoScriptModuleReturnValue {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>>;
-    fn push_into(self, param: &mut ScriptModuleCallHandle) -> crate::AnyResult<()>
+pub trait IntoScriptModuleReturnValue
+where
+    Box<dyn std::error::Error>: From<Self::Err>,
+    Self::Err: Send + Sync + 'static,
+{
+    type Err;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err>;
+    fn push_into(
+        self,
+        param: &mut ScriptModuleCallHandle,
+    ) -> Result<(), IntoScriptModuleReturnValueError<Self::Err>>
     where
         Self: std::marker::Sized,
     {
-        for value in self.into_return_values()? {
+        for value in self
+            .into_return_values()
+            .map_err(IntoScriptModuleReturnValueError::ConversionFailed)?
+        {
             match value {
                 ScriptModuleReturnValue::Int(v) => {
                     param.push_result_int(v);
@@ -660,7 +684,9 @@ pub trait IntoScriptModuleReturnValue {
 pub use aviutl2_macros::IntoScriptModuleReturnValue;
 
 impl IntoScriptModuleReturnValue for i32 {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::Int(self)])
     }
 }
@@ -668,62 +694,82 @@ impl IntoScriptModuleReturnValue for i32 {
     Integer;
     [i8];
     [i16];
+    [u8];
+    [u16];
+)]
+impl IntoScriptModuleReturnValue for Integer {
+    type Err = std::convert::Infallible;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        Ok(vec![ScriptModuleReturnValue::Int(self as i32)])
+    }
+}
+#[duplicate::duplicate_item(
+    Integer;
     [i64];
     [i128];
     [isize];
-    [u8];
-    [u16];
     [u32];
     [u64];
     [u128];
     [usize];
 )]
 impl IntoScriptModuleReturnValue for Integer {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
-        #[allow(clippy::unnecessary_fallible_conversions)]
+    type Err = std::num::TryFromIntError;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::Int(self.try_into()?)])
     }
 }
 impl IntoScriptModuleReturnValue for f64 {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::Float(self)])
     }
 }
 impl IntoScriptModuleReturnValue for f32 {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::Float(self as f64)])
     }
 }
 impl IntoScriptModuleReturnValue for bool {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::Boolean(self)])
     }
 }
 impl IntoScriptModuleReturnValue for &str {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::String(self.to_string())])
     }
 }
 impl IntoScriptModuleReturnValue for String {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::String(self)])
     }
 }
 
 impl IntoScriptModuleReturnValue for ScriptModuleReturnValue {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![self])
     }
 }
 
 impl IntoScriptModuleReturnValue for Vec<ScriptModuleReturnValue> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(self)
     }
 }
 
 impl<T: IntoScriptModuleReturnValue> IntoScriptModuleReturnValue for Option<T> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = T::Err;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         if let Some(value) = self {
             value.into_return_values()
         } else {
@@ -731,87 +777,118 @@ impl<T: IntoScriptModuleReturnValue> IntoScriptModuleReturnValue for Option<T> {
         }
     }
 }
-impl<T: IntoScriptModuleReturnValue, const N: usize> IntoScriptModuleReturnValue for [T; N] {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
-        let mut out = Vec::new();
-        for value in self.into_iter() {
-            out.extend(value.into_return_values()?);
-        }
-        Ok(out)
+impl<T, const N: usize> IntoScriptModuleReturnValue for [T; N]
+where
+    Vec<T>: IntoScriptModuleReturnValue,
+{
+    type Err = <Vec<T> as IntoScriptModuleReturnValue>::Err;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        let vec: Vec<T> = self.into();
+        vec.into_return_values()
     }
 }
 impl<T: IntoScriptModuleReturnValue, E> IntoScriptModuleReturnValue for Result<T, E>
 where
     Box<dyn std::error::Error>: From<E>,
+    <T as IntoScriptModuleReturnValue>::Err: std::error::Error + 'static,
 {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = T::Err;
+
+    fn into_return_values(
+        self,
+    ) -> Result<
+        Vec<ScriptModuleReturnValue>,
+        <std::result::Result<T, E> as IntoScriptModuleReturnValue>::Err,
+    > {
         match self {
             Ok(value) => value.into_return_values(),
             Err(_) => Ok(Vec::new()),
         }
     }
-    fn push_into(self, param: &mut ScriptModuleCallHandle) -> crate::AnyResult<()> {
+    fn push_into(
+        self,
+        param: &mut ScriptModuleCallHandle,
+    ) -> Result<
+        (),
+        IntoScriptModuleReturnValueError<
+            <std::result::Result<T, E> as IntoScriptModuleReturnValue>::Err,
+        >,
+    > {
         match self {
-            Ok(value) => {
-                value.push_into(param)?;
-            }
-            Err(err) => {
-                let _ = param.set_error(&(Box::<dyn std::error::Error>::from(err).to_string()));
-            }
+            Ok(value) => value.push_into(param)?,
+            Err(err) => param.set_error(&(Box::<dyn std::error::Error>::from(err).to_string()))?,
         }
         Ok(())
     }
 }
 
 impl IntoScriptModuleReturnValue for () {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(Vec::new())
     }
 }
 
-#[impl_trait_for_tuples::impl_for_tuples(1, 10)]
-impl IntoScriptModuleReturnValue for Tuple {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
-        let mut vec = Vec::new();
-        for_tuples!(#(
-            vec.extend(Tuple.into_return_values()?);
-        )*);
-        Ok(vec)
-    }
+macro_rules! impl_into_script_module_return_value_for_tuple {
+    ($($name:ident),+) => {
+        impl<$($name),+> IntoScriptModuleReturnValue for ($($name,)+)
+        where
+            $($name: IntoScriptModuleReturnValue),+,
+            $(<$name as IntoScriptModuleReturnValue>::Err: std::error::Error + 'static),+
+        {
+            type Err = anyhow::Error;
+
+            fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+                let mut vec = Vec::new();
+                #[allow(non_snake_case)]
+                let ($($name,)+) = self;
+                $(
+                    vec.extend($name.into_return_values().map_err(|e| anyhow::Error::from(e))?);
+                )+
+                Ok(vec)
+            }
+        }
+    };
 }
+impl_into_script_module_return_value_for_tuple!(T1);
+impl_into_script_module_return_value_for_tuple!(T1, T2);
 
 impl IntoScriptModuleReturnValue for Vec<String> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::StringArray(self)])
     }
 }
 impl IntoScriptModuleReturnValue for Vec<&str> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::StringArray(
             self.iter().map(|s| s.to_string()).collect(),
         )])
     }
 }
 impl IntoScriptModuleReturnValue for Vec<i32> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::IntArray(self)])
     }
 }
 impl IntoScriptModuleReturnValue for Vec<f64> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::FloatArray(self)])
     }
 }
 impl<T> IntoScriptModuleReturnValue for &[T]
 where
-    T: IntoScriptModuleReturnValue + Clone,
+    Vec<T>: IntoScriptModuleReturnValue,
+    T: Clone,
 {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
-        let mut vec = Vec::new();
-        for item in self.iter() {
-            vec.extend(item.clone().into_return_values()?);
-        }
-        Ok(vec)
+    type Err = <Vec<T> as IntoScriptModuleReturnValue>::Err;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        let vec: Vec<T> = self.to_vec();
+        vec.into_return_values()
     }
 }
 
