@@ -196,7 +196,7 @@ impl ScriptModuleCallHandle {
     pub fn push_result<T: IntoScriptModuleReturnValue>(
         &mut self,
         value: T,
-    ) -> crate::AnyResult<()> {
+    ) -> Result<(), IntoScriptModuleReturnValueError<T::Err>> {
         value.push_into(self)
     }
 
@@ -610,10 +610,7 @@ pub enum ScriptModuleReturnValue {
 
 /// [`IntoScriptModuleReturnValue::push_into`]で使われるエラー。
 #[derive(thiserror::Error, Debug)]
-pub enum IntoScriptModuleReturnValueError<T>
-where
-    Box<dyn std::error::Error>: From<T>,
-{
+pub enum IntoScriptModuleReturnValueError<T> {
     #[error("failed to convert value: {0}")]
     ConversionFailed(T),
     #[error("failed to push return value: {0}")]
@@ -628,7 +625,7 @@ where
 /// 詳細は[`derive@IntoScriptModuleReturnValue`]のドキュメントを参照してください。
 pub trait IntoScriptModuleReturnValue
 where
-    Box<dyn std::error::Error>: From<Self::Err>,
+    Self: Sized,
     Self::Err: Send + Sync + 'static,
 {
     type Err;
@@ -637,10 +634,7 @@ where
     fn push_into(
         self,
         param: &mut ScriptModuleCallHandle,
-    ) -> Result<(), IntoScriptModuleReturnValueError<Self::Err>>
-    where
-        Self: std::marker::Sized,
-    {
+    ) -> Result<(), IntoScriptModuleReturnValueError<Self::Err>> {
         for value in self
             .into_return_values()
             .map_err(IntoScriptModuleReturnValueError::ConversionFailed)?
@@ -834,7 +828,7 @@ macro_rules! impl_into_script_module_return_value_for_tuple {
     ($($name:ident),+) => {
         impl<$($name),+> IntoScriptModuleReturnValue for ($($name,)+)
         where
-            $($name: IntoScriptModuleReturnValue),+,
+            $($name: IntoScriptModuleReturnValue,)+
             $(<$name as IntoScriptModuleReturnValue>::Err: std::error::Error + 'static),+
         {
             type Err = anyhow::Error;
@@ -853,6 +847,14 @@ macro_rules! impl_into_script_module_return_value_for_tuple {
 }
 impl_into_script_module_return_value_for_tuple!(T1);
 impl_into_script_module_return_value_for_tuple!(T1, T2);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3, T4);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3, T4, T5);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3, T4, T5, T6);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3, T4, T5, T6, T7);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3, T4, T5, T6, T7, T8);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
 
 impl IntoScriptModuleReturnValue for Vec<String> {
     type Err = std::convert::Infallible;
@@ -893,17 +895,20 @@ where
 }
 
 impl IntoScriptModuleReturnValue for std::collections::HashMap<String, i32> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::IntTable(self)])
     }
 }
 impl IntoScriptModuleReturnValue for std::collections::HashMap<String, f64> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::FloatTable(self)])
     }
 }
 impl IntoScriptModuleReturnValue for std::collections::HashMap<String, String> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::StringTable(self)])
     }
 }
