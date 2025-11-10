@@ -808,7 +808,7 @@ impl IntoScriptModuleReturnValue for std::collections::HashMap<String, String> {
 }
 
 #[doc(hidden)]
-pub mod table_converter {
+pub mod __table_converter {
     pub trait ToOptionalTableEntry {
         type Value;
         fn to_optional(&self) -> Option<Self::Value>;

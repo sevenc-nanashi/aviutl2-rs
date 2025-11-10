@@ -8,14 +8,14 @@ impl ::aviutl2::module::IntoScriptModuleReturnValue for MyReturnValue {
     ) -> ::aviutl2::AnyResult<Vec<::aviutl2::module::ScriptModuleReturnValue>> {
         let mut map = ::std::collections::HashMap::new();
         if let ::std::option::Option::Some(value) =
-            ::aviutl2::module::table_converter::ToOptionalTableEntry::to_optional(
+            ::aviutl2::module::__table_converter::ToOptionalTableEntry::to_optional(
                 &self.string_value,
             )
         {
             map.insert(::std::string::String::from(stringify!(string_value)), value);
         }
         if let ::std::option::Option::Some(value) =
-            ::aviutl2::module::table_converter::ToOptionalTableEntry::to_optional(
+            ::aviutl2::module::__table_converter::ToOptionalTableEntry::to_optional(
                 &self.string_option,
             )
         {
