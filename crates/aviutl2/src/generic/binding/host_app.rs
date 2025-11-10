@@ -448,7 +448,12 @@ impl<T> KillablePointer<T> {
     }
 
     pub fn cast<U>(self) -> KillablePointer<U> {
-        KillablePointer::new(unsafe { std::ptr::read(self.inner as *mut U) })
+        KillablePointer {
+            kill_switch: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
+                self.kill_switch.load(std::sync::atomic::Ordering::SeqCst),
+            )),
+            inner: self.inner as *mut U,
+        }
     }
 }
 
