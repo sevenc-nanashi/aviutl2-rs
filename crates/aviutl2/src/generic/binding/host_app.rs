@@ -371,24 +371,22 @@ impl EditHandle {
         static CALLBACK_RETURN_VALUE: std::sync::Mutex<Option<Box<dyn std::any::Any + Send>>> =
             std::sync::Mutex::new(None);
 
-        let kill_switch = KillSwitch::new();
-
-        // Safety: `'static`だけど、実際は`'a`として扱うので大丈夫のはず（KillSwitchでチェックしてるので大丈夫のはず）
-        let leaked_callback = Box::into_raw(Box::new(Some(callback)));
+        let callback = KillablePointer::new(Some(callback))
+            .cast::<Option<Box<dyn FnOnce(&mut EditSection) -> T + Send>>>();
 
         {
             let mut guard = NEXT_CALLBACK.lock().unwrap();
             *guard = Some(Box::new({
-                let kill_switch = kill_switch.clone();
+                let mut callback_ref = callback.create_child();
                 move |section: &mut EditSection| {
-                    if kill_switch.is_killed() {
+                    if callback_ref.is_killed() {
                         panic!(
                             "EditHandle has been dropped while EditSection callback is pending."
                         );
                     }
-                    let callback = (&mut *leaked_callback)
+                    let callback = unsafe { callback_ref.as_mut() }
                         .take()
-                        .expect("EditSection callback has already been called");
+                        .expect("EditSection callback has already been called.");
                     let result = callback(section);
                     Box::new(result) as Box<dyn std::any::Any + Send>
                 }
@@ -422,30 +420,53 @@ impl EditHandle {
     }
 }
 
-struct KillSwitch {
+struct KillablePointer<T> {
     kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    inner: *mut T,
 }
-impl Drop for KillSwitch {
+unsafe impl<T> Send for KillablePointer<T> {}
+unsafe impl<T> Sync for KillablePointer<T> {}
+impl<T> Drop for KillablePointer<T> {
     fn drop(&mut self) {
         self.kill_switch
             .store(true, std::sync::atomic::Ordering::SeqCst);
     }
 }
-impl Clone for KillSwitch {
-    fn clone(&self) -> Self {
-        Self {
-            kill_switch: std::sync::Arc::clone(&self.kill_switch),
-        }
-    }
-}
-impl KillSwitch {
-    pub fn new() -> Self {
+impl<T> KillablePointer<T> {
+    pub fn new(inner: T) -> Self {
         Self {
             kill_switch: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            inner: Box::into_raw(Box::new(inner)),
         }
     }
 
+    pub fn create_child(&self) -> ChildKillablePointer<T> {
+        ChildKillablePointer {
+            kill_switch: std::sync::Arc::clone(&self.kill_switch),
+            inner: self.inner,
+        }
+    }
+
+    pub fn cast<U>(self) -> KillablePointer<U> {
+        KillablePointer::new(unsafe { std::ptr::read(self.inner as *mut U) })
+    }
+}
+
+struct ChildKillablePointer<T> {
+    kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    inner: *mut T,
+}
+unsafe impl<T> Send for ChildKillablePointer<T> {}
+unsafe impl<T> Sync for ChildKillablePointer<T> {}
+impl<T> ChildKillablePointer<T> {
     pub fn is_killed(&self) -> bool {
         self.kill_switch.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    pub unsafe fn as_mut(&mut self) -> &mut T {
+        if self.is_killed() {
+            panic!("Parent KillablePointer has been dropped.");
+        }
+        unsafe { &mut *self.inner }
     }
 }
