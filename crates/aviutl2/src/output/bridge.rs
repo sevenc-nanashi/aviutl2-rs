@@ -27,12 +27,9 @@ impl<T: Send + Sync + OutputPlugin> InternalOutputPluginState<T> {
 impl FromRawAudioSamples for f32 {
     const FORMAT: u32 = WAVE_FORMAT_IEEE_FLOAT;
 
-    unsafe fn from_raw(length: i32, num_channels: u32, frame_data_ptr: *const u8) -> Vec<Self> {
+    unsafe fn from_raw(length: usize, num_channels: usize, frame_data_ptr: *const u8) -> Vec<Self> {
         let frame_data_slice = unsafe {
-            std::slice::from_raw_parts(
-                frame_data_ptr as *const f32,
-                length as usize * num_channels as usize,
-            )
+            std::slice::from_raw_parts(frame_data_ptr as *const f32, length * num_channels)
         };
         frame_data_slice.to_vec()
     }
@@ -40,12 +37,9 @@ impl FromRawAudioSamples for f32 {
 impl FromRawAudioSamples for i16 {
     const FORMAT: u32 = WAVE_FORMAT_PCM;
 
-    unsafe fn from_raw(length: i32, num_channels: u32, frame_data_ptr: *const u8) -> Vec<Self> {
+    unsafe fn from_raw(length: usize, num_channels: usize, frame_data_ptr: *const u8) -> Vec<Self> {
         let frame_data_slice = unsafe {
-            std::slice::from_raw_parts(
-                frame_data_ptr as *const i16,
-                length as usize * num_channels as usize,
-            )
+            std::slice::from_raw_parts(frame_data_ptr as *const i16, length * num_channels)
         };
         frame_data_slice.to_vec()
     }

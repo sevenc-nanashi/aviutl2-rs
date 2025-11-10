@@ -69,24 +69,24 @@ unsafe impl Sync for OutputInfo {}
 #[derive(Debug, Clone)]
 pub struct VideoOutputInfo {
     /// 動画の幅（ピクセル単位）。
-    pub width: u32,
+    pub width: usize,
     /// 動画の高さ（ピクセル単位）。
-    pub height: u32,
+    pub height: usize,
     /// 動画のフレームレート（分数形式）。
     pub fps: Rational32,
     /// 動画のフレーム数。
-    pub num_frames: u32,
+    pub num_frames: usize,
 }
 
 /// 音声の出力情報を表す構造体。
 #[derive(Debug, Clone)]
 pub struct AudioOutputInfo {
     /// 音声のサンプルレート（Hz単位）。
-    pub sample_rate: u32,
+    pub sample_rate: usize,
     /// 音声のサンプル数。
-    pub num_samples: u32,
+    pub num_samples: usize,
     /// 音声のチャンネル数。
-    pub num_channels: u32,
+    pub num_channels: usize,
 }
 
 /// 出力プラグインのトレイト。
@@ -123,7 +123,7 @@ pub trait FromRawAudioSamples: Sized + Send + Sync + Copy {
     ///
     /// # Safety
     /// func_get_audioの戻り値のポインタのみが許容される。
-    unsafe fn from_raw(length: i32, num_channels: u32, audio_data_ptr: *const u8) -> Vec<Self>;
+    unsafe fn from_raw(length: usize, num_channels: usize, audio_data_ptr: *const u8) -> Vec<Self>;
 }
 
 impl OutputInfo {
@@ -133,19 +133,19 @@ impl OutputInfo {
         Self {
             video: if raw.flag & aviutl2_sys::output2::OUTPUT_INFO::FLAG_VIDEO != 0 {
                 Some(VideoOutputInfo {
-                    width: raw.w as u32,
-                    height: raw.h as u32,
+                    width: raw.w as usize,
+                    height: raw.h as usize,
                     fps: Rational32::new(raw.rate, raw.scale),
-                    num_frames: raw.n as u32,
+                    num_frames: raw.n as usize,
                 })
             } else {
                 None
             },
             audio: if raw.flag & aviutl2_sys::output2::OUTPUT_INFO::FLAG_AUDIO != 0 {
                 Some(AudioOutputInfo {
-                    sample_rate: raw.audio_rate as u32,
-                    num_samples: raw.audio_n as u32,
-                    num_channels: raw.audio_ch as u32,
+                    sample_rate: raw.audio_rate as usize,
+                    num_samples: raw.audio_n as usize,
+                    num_channels: raw.audio_ch as usize,
                 })
             } else {
                 None
@@ -204,13 +204,14 @@ impl OutputInfo {
     /// 指定した区間の音声サンプルとチャンネル数を取得する。
     pub fn get_audio_samples<F: FromRawAudioSamples>(
         &self,
-        start: i32,
-        length: i32,
-    ) -> Option<(Vec<F>, u32)> {
+        start: usize,
+        length: usize,
+    ) -> Option<(Vec<F>, usize)> {
         let audio = self.audio.as_ref()?;
         let audio_ptr = unsafe { self.internal.as_mut().and_then(|oip| oip.func_get_audio) }?;
         let mut readed = 0;
-        let audio_data_ptr = audio_ptr(start, length, &mut readed, F::FORMAT) as *mut u8;
+        let audio_data_ptr =
+            audio_ptr(start as i32, length as i32, &mut readed, F::FORMAT) as *mut u8;
 
         let samples = unsafe { F::from_raw(length, audio.num_channels, audio_data_ptr) };
 
@@ -221,8 +222,8 @@ impl OutputInfo {
     /// `num_channels`が1の場合はそのまま、2の場合は左チャンネルのサンプルを返します。
     pub fn get_mono_audio_samples<F: FromRawAudioSamples>(
         &self,
-        start: i32,
-        length: i32,
+        start: usize,
+        length: usize,
     ) -> Option<Vec<F>> {
         let (samples, num_channels) = self.get_audio_samples(start, length)?;
         if num_channels == 1 {
@@ -230,7 +231,7 @@ impl OutputInfo {
         } else {
             Some(
                 samples
-                    .chunks(num_channels as usize)
+                    .chunks(num_channels)
                     .map(|chunk| chunk[0])
                     .collect(),
             )
@@ -243,7 +244,7 @@ impl OutputInfo {
     /// - `length`: 一回のイテレーションで取得するサンプル数。
     pub fn get_mono_audio_samples_iter<F: FromRawAudioSamples>(
         &'_ self,
-        length: i32,
+        length: usize,
     ) -> MonoAudioSamplesIterator<'_, F> {
         MonoAudioSamplesIterator::new(self, length)
     }
@@ -252,14 +253,14 @@ impl OutputInfo {
     /// `num_channels`が2の場合はそのまま、1の場合はチャンネルを複製してステレオ形式に変換します。
     pub fn get_stereo_audio_samples<F: FromRawAudioSamples>(
         &self,
-        start: i32,
-        length: i32,
+        start: usize,
+        length: usize,
     ) -> Option<Vec<(F, F)>> {
         let (samples, num_channels) = self.get_audio_samples(start, length)?;
         if num_channels == 2 {
             Some(
                 samples
-                    .chunks(num_channels as usize)
+                    .chunks(num_channels)
                     .map(|chunk| (chunk[0], chunk[1]))
                     .collect(),
             )
@@ -274,7 +275,7 @@ impl OutputInfo {
     /// - `length`: 一回のイテレーションで取得するサンプル数。
     pub fn get_stereo_audio_samples_iter<F: FromRawAudioSamples>(
         &'_ self,
-        length: i32,
+        length: usize,
     ) -> StereoAudioSamplesIterator<'_, F> {
         StereoAudioSamplesIterator::new(self, length)
     }
@@ -397,18 +398,18 @@ duplicate::duplicate! {
     #[derive(Debug, Clone)]
     pub struct Name<'a, F: FromRawAudioSamples> {
         output_info: &'a OutputInfo,
-        length: i32,
-        total_length: i32,
-        readed: i32,
+        length: usize,
+        total_length: usize,
+        readed: usize,
         _marker: std::marker::PhantomData<F>,
     }
 
     impl<'a, F: FromRawAudioSamples> Name<'a, F> {
-        pub(crate) fn new(output_info: &'a OutputInfo, length: i32) -> Self {
+        pub(crate) fn new(output_info: &'a OutputInfo, length: usize) -> Self {
             Self {
                 output_info,
                 length,
-                total_length: output_info.audio.as_ref().map_or(0, |a| a.num_samples as i32),
+                total_length: output_info.audio.as_ref().map_or(0, |a| a.num_samples),
                 readed: 0,
                 _marker: std::marker::PhantomData,
             }
@@ -430,8 +431,8 @@ duplicate::duplicate! {
             let samples = self.output_info.method(self.readed, length_to_read);
             if let Some(samples) = samples {
                 let start_frame = self.readed;
-                self.readed += samples.len() as i32;
-                Some((start_frame as usize, samples))
+                self.readed += samples.len();
+                Some((start_frame, samples))
             } else {
                 None
             }
