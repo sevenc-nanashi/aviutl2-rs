@@ -133,7 +133,7 @@ impl EditSection {
     /// エイリアスの変換に失敗した場合、またはオブジェクトが既存のオブジェクトに重なる場合にエラー
     ///
     pub fn create_object_from_alias(
-        &mut self,
+        &self,
         alias: &str,
         layer: usize,
         frame: usize,
@@ -247,8 +247,8 @@ impl EditSection {
     /// - `item`：設定項目の名前。（エイリアスファイルのキーの名前）
     /// - `value`：設定する値。
     pub fn set_object_effect_item(
-        &mut self,
-        object: &mut ObjectHandle,
+        &self,
+        object: &ObjectHandle,
         effect_name: &str,
         effect_index: usize,
         item: &str,
@@ -274,7 +274,7 @@ impl EditSection {
 
     /// オブジェクトを移動します。
     pub fn move_object(
-        &mut self,
+        &self,
         object: &ObjectHandle,
         new_layer: usize,
         new_start_frame: usize,
@@ -294,7 +294,7 @@ impl EditSection {
     }
 
     /// オブジェクトを削除します。
-    pub fn delete_object(&mut self, object: &mut ObjectHandle) -> EditSectionResult<()> {
+    pub fn delete_object(&self, object: &ObjectHandle) -> EditSectionResult<()> {
         self.ensure_object_exists(object)?;
         unsafe { ((*self.internal).delete_object)(object.internal) };
         Ok(())
@@ -317,7 +317,7 @@ impl EditSection {
     /// # Note
     ///
     /// コールバック処理の終了時に設定されます。
-    pub fn focus_object(&mut self, object: &mut ObjectHandle) -> EditSectionResult<()> {
+    pub fn focus_object(&self, object: &ObjectHandle) -> EditSectionResult<()> {
         self.ensure_object_exists(object)?;
         unsafe { ((*self.internal).set_focus_object)(object.internal) };
         Ok(())
@@ -375,7 +375,7 @@ impl EditSection {
         EditSectionLayerCaller::new(self, layer)
     }
     /// [EditSectionObjectCaller] を作成します。
-    pub fn object<'a>(&'a mut self, object: &'a mut ObjectHandle) -> EditSectionObjectCaller<'a> {
+    pub fn object<'a>(&'a self, object: &'a ObjectHandle) -> EditSectionObjectCaller<'a> {
         EditSectionObjectCaller::new(self, object)
     }
 }
@@ -384,11 +384,11 @@ impl EditSection {
 /// EditSection と ObjectHandle の組をまとめ、対象オブジェクトに対する
 /// 操作を簡潔に呼び出せるようにします。
 pub struct EditSectionObjectCaller<'a> {
-    edit_section: &'a mut EditSection,
-    pub handle: &'a mut ObjectHandle,
+    edit_section: &'a EditSection,
+    pub handle: &'a ObjectHandle,
 }
 impl<'a> EditSectionObjectCaller<'a> {
-    pub fn new(edit_section: &'a mut EditSection, object: &'a mut ObjectHandle) -> Self {
+    pub fn new(edit_section: &'a EditSection, object: &'a ObjectHandle) -> Self {
         Self {
             edit_section,
             handle: object,
@@ -438,7 +438,7 @@ impl<'a> EditSectionObjectCaller<'a> {
     /// - `item`：設定項目の名前。（エイリアスファイルのキーの名前）
     /// - `value`：設定する値。
     pub fn set_effect_item(
-        &mut self,
+        &self,
         effect_name: &str,
         effect_index: usize,
         item: &str,
@@ -460,7 +460,7 @@ impl<'a> EditSectionObjectCaller<'a> {
     /// - `new_layer`：移動先のレイヤー番号（0始まり）。
     /// - `new_start_frame`：移動先の開始フレーム番号（0始まり）。
     pub fn move_object(
-        &mut self,
+        &self,
         new_layer: usize,
         new_start_frame: usize,
     ) -> EditSectionResult<()> {
@@ -469,7 +469,7 @@ impl<'a> EditSectionObjectCaller<'a> {
     }
 
     /// オブジェクトを削除します。
-    pub fn delete_object(&mut self) -> EditSectionResult<()> {
+    pub fn delete_object(&self) -> EditSectionResult<()> {
         self.edit_section.delete_object(self.handle)
     }
 
@@ -478,7 +478,7 @@ impl<'a> EditSectionObjectCaller<'a> {
     /// # Note
     ///
     /// コールバック処理の終了時に設定されます。
-    pub fn focus_object(&mut self) -> EditSectionResult<()> {
+    pub fn focus_object(&self) -> EditSectionResult<()> {
         self.edit_section.focus_object(self.handle)
     }
 

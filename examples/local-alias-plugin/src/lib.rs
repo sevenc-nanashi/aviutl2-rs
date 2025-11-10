@@ -199,17 +199,12 @@ impl LocalAliasPlugin {
 
     fn ipc_handler(message_str: String) {
         #[derive(serde::Deserialize, Debug)]
-        #[serde(tag = "type", content = "data")]
+        #[serde(tag = "type", content = "data", rename_all = "snake_case")]
         enum IpcMessage {
-            #[serde(rename = "get_version")]
             GetVersion,
-            #[serde(rename = "get_aliases")]
             GetAliases,
-            #[serde(rename = "set_aliases")]
             SetAliases(Vec<AliasEntry>),
-            #[serde(rename = "add_alias")]
             AddAlias,
-            #[serde(rename = "set_current_alias")]
             SetCurrentAlias(AliasEntry),
         }
 
@@ -239,17 +234,22 @@ impl LocalAliasPlugin {
                     IpcMessage::AddAlias => {
                         let new_alias = LocalAliasPlugin::with_instance(|instance| {
                             let handle = instance.edit_handle.get().unwrap();
-                            handle.call_edit_section(|section| {
-                                let alias = section
-                                    .get_focused_object()?
-                                    .map(|obj| section.get_object_alias(&obj))
-                                    .transpose()?;
-                                let entry = alias.map(|alias| AliasEntry {
-                                    name: "New Alias".to_string(),
-                                    alias,
-                                });
-                                anyhow::Ok(entry)
-                            })
+                            let test = "hoge".to_string();
+                            let test_ref = &test;
+                            handle
+                                .call_edit_section(|section| {
+                                    section.output_log(test_ref);
+                                    let alias = section
+                                        .get_focused_object()?
+                                        .map(|obj| section.get_object_alias(&obj))
+                                        .transpose()?;
+                                    let entry = alias.map(|alias| AliasEntry {
+                                        name: "New Alias".to_string(),
+                                        alias,
+                                    });
+                                    anyhow::Ok(entry)
+                                })
+                                .map_err(anyhow::Error::from)
                         })
                         .flatten();
                         match new_alias {

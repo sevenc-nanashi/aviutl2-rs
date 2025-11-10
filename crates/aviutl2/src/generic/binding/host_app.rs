@@ -358,10 +358,10 @@ impl EditHandle {
     }
 
     /// プロジェクトデータの編集を開始します。
-    pub fn call_edit_section<T, F>(&self, callback: F) -> Result<T, EditHandleError>
+    pub fn call_edit_section<'a, T, F>(&self, callback: F) -> Result<T, EditHandleError>
     where
         T: Send + 'static,
-        F: FnOnce(&mut EditSection) -> T + Send + 'static,
+        F: FnOnce(&mut EditSection) -> T + Send + 'a,
     {
         type TrampolineCallback =
             dyn FnOnce(&mut EditSection) -> Box<dyn std::any::Any + Send> + Send;
@@ -371,11 +371,27 @@ impl EditHandle {
         static CALLBACK_RETURN_VALUE: std::sync::Mutex<Option<Box<dyn std::any::Any + Send>>> =
             std::sync::Mutex::new(None);
 
+        let kill_switch = KillSwitch::new();
+
+        // Safety: `'static`だけど、実際は`'a`として扱うので大丈夫のはず（KillSwitchでチェックしてるので大丈夫のはず）
+        let leaked_callback = Box::into_raw(Box::new(Some(callback)));
+
         {
             let mut guard = NEXT_CALLBACK.lock().unwrap();
-            *guard = Some(Box::new(move |section: &mut EditSection| {
-                let result = callback(section);
-                Box::new(result) as Box<dyn std::any::Any + Send>
+            *guard = Some(Box::new({
+                let kill_switch = kill_switch.clone();
+                move |section: &mut EditSection| {
+                    if kill_switch.is_killed() {
+                        panic!(
+                            "EditHandle has been dropped while EditSection callback is pending."
+                        );
+                    }
+                    let callback = (&mut *leaked_callback)
+                        .take()
+                        .expect("EditSection callback has already been called");
+                    let result = callback(section);
+                    Box::new(result) as Box<dyn std::any::Any + Send>
+                }
             }));
         }
         let call_result = unsafe { ((*self.internal).call_edit_section)(trampoline) };
@@ -403,5 +419,33 @@ impl EditHandle {
                 *return_guard = Some(return_value);
             }
         }
+    }
+}
+
+struct KillSwitch {
+    kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+impl Drop for KillSwitch {
+    fn drop(&mut self) {
+        self.kill_switch
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+impl Clone for KillSwitch {
+    fn clone(&self) -> Self {
+        Self {
+            kill_switch: std::sync::Arc::clone(&self.kill_switch),
+        }
+    }
+}
+impl KillSwitch {
+    pub fn new() -> Self {
+        Self {
+            kill_switch: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        }
+    }
+
+    pub fn is_killed(&self) -> bool {
+        self.kill_switch.load(std::sync::atomic::Ordering::SeqCst)
     }
 }

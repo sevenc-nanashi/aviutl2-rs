@@ -43,13 +43,13 @@ function waitFor<T = unknown>(type: string): Promise<T> {
 
 export const ipc = {
   async getVersion(): Promise<string> {
-    bridge.send("get_version", {});
+    bridge.send("get_version", undefined);
     const res = await waitFor<{ version: string }>("version_response");
     return res.version ?? "";
   },
 
   async getAliases(): Promise<AliasEntry[]> {
-    bridge.send("get_aliases", {});
+    bridge.send("get_aliases", undefined);
     const res = await waitFor<AliasEntry[]>("aliases_response");
     return Array.isArray(res) ? res : [];
   },
@@ -59,7 +59,7 @@ export const ipc = {
   },
 
   addAlias(): void {
-    bridge.send("add_alias", {});
+    bridge.send("add_alias", undefined);
   },
 
   setCurrentAlias(alias: AliasEntry): void {

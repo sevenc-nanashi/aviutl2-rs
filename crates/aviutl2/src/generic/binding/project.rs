@@ -138,9 +138,7 @@ impl ProjectFile {
 
     /// プロジェクトからデータをデシリアライズして取得します。
     pub fn deserialize<T: serde::de::DeserializeOwned>(&self, key: &str) -> crate::AnyResult<T> {
-        let header = self
-            .get_param_string(key)?
-            .ok_or_else(|| anyhow::anyhow!("no data found for key {}", key))?;
+        let header = self.get_param_string(key)?;
         let header_prefix = format!("{NAMESPACE}:serde-zstd-v1:");
         let num_bytes = header
             .strip_prefix(&header_prefix)
