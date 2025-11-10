@@ -312,6 +312,22 @@ impl EditSection {
         }
     }
 
+    /// 現在選択されているオブジェクトの一覧を取得します。
+    pub fn get_selected_objects(&self) -> EditSectionResult<Vec<ObjectHandle>> {
+        let mut handles = Vec::new();
+        let num_objects = unsafe { ((*self.internal).get_selected_object_num)() };
+        for i in 0..num_objects {
+            let object_handle = unsafe { ((*self.internal).get_selected_object)(i) };
+            if object_handle.is_null() {
+                return Err(EditSectionError::ApiCallFailed);
+            }
+            handles.push(ObjectHandle {
+                internal: object_handle,
+            });
+        }
+        Ok(handles)
+    }
+
     /// オブジェクト設定ウィンドウで指定のオブジェクトを選択状態にします。
     ///
     /// # Note
@@ -459,11 +475,7 @@ impl<'a> EditSectionObjectCaller<'a> {
     ///
     /// - `new_layer`：移動先のレイヤー番号（0始まり）。
     /// - `new_start_frame`：移動先の開始フレーム番号（0始まり）。
-    pub fn move_object(
-        &self,
-        new_layer: usize,
-        new_start_frame: usize,
-    ) -> EditSectionResult<()> {
+    pub fn move_object(&self, new_layer: usize, new_start_frame: usize) -> EditSectionResult<()> {
         self.edit_section
             .move_object(self.handle, new_layer, new_start_frame)
     }
