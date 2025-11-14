@@ -83,13 +83,13 @@ pub trait FilterPlugin: Send + Sync + Sized {
 #[derive(Debug, Clone, Copy)]
 pub struct SceneInfo {
     /// 解像度（幅）。
-    pub width: u32,
+    pub width: usize,
     /// 解像度（高さ）。
-    pub height: u32,
+    pub height: usize,
     /// フレームレート。
     pub frame_rate: Rational32,
     /// サンプリングレート。
-    pub sample_rate: u32,
+    pub sample_rate: usize,
 }
 
 /// オブジェクト情報。
@@ -102,9 +102,9 @@ pub struct ObjectInfo {
     /// アプリ起動ごとの固有IDです。
     pub effect_id: i64,
     /// オブジェクトの現在のフレーム番号。
-    pub frame: u32,
+    pub frame: usize,
     /// オブジェクトの総フレーム数。
-    pub frame_total: u32,
+    pub frame_total: usize,
     /// オブジェクトの現在の時間（秒）。
     pub time: f64,
     /// オブジェクトの総時間（秒）。
@@ -115,23 +115,23 @@ pub struct ObjectInfo {
 #[derive(Debug, Clone, Copy)]
 pub struct VideoObjectInfo {
     /// オブジェクトの現在の画像サイズの幅。
-    pub width: u32,
+    pub width: usize,
     /// オブジェクトの現在の画像サイズの高さ。
-    pub height: u32,
+    pub height: usize,
 }
 
 /// 音声フィルタのオブジェクト情報。
 #[derive(Debug, Clone, Copy)]
 pub struct AudioObjectInfo {
     /// オブジェクトの現在の音声サンプル位置。
-    pub sample_index: u64,
+    pub sample_index: usize,
     /// オブジェクトの総サンプル数。
-    pub sample_total: u64,
+    pub sample_total: usize,
     /// オブジェクトの現在の音声サンプル数。
-    pub sample_num: u32,
+    pub sample_num: usize,
     /// オブジェクトの現在の音声チャンネル数。
     /// 通常2になります。
-    pub channel_num: u32,
+    pub channel_num: usize,
 }
 
 /// RGBAのピクセル。
@@ -187,15 +187,15 @@ impl FilterProcVideo {
         }
         assert_eq!(
             std::mem::size_of_val(buffer),
-            (self.video_object.width * self.video_object.height * 4) as usize,
+            (self.video_object.width * self.video_object.height * 4),
             "buffer length as bytes does not match width * height * 4"
         );
         assert!(
             std::mem::align_of::<T>() >= std::mem::align_of::<aviutl2_sys::filter2::PIXEL_RGBA>(),
             "buffer alignment is not sufficient"
         );
-        let width = self.video_object.width as usize;
-        let height = self.video_object.height as usize;
+        let width = self.video_object.width;
+        let height = self.video_object.height;
         let inner = unsafe { &*self.inner };
         unsafe {
             (inner.get_image_data)(
@@ -214,13 +214,13 @@ impl FilterProcVideo {
     pub fn set_image_data<T: IntoBytes + Immutable>(
         &mut self,
         data: &[T],
-        width: u32,
-        height: u32,
+        width: usize,
+        height: usize,
     ) {
         let bytes = &data.as_bytes();
         assert_eq!(
             bytes.len(),
-            (width * height * 4) as usize,
+            (width * height * 4),
             "data length does not match width * height * 4"
         );
         let inner = unsafe { &*self.inner };
@@ -283,7 +283,7 @@ impl FilterProcAudio {
     ///
     /// `buffer` の長さが `sample_num` と一致しない場合、パニックします。
     pub fn get_sample_data(&mut self, channel: AudioChannel, buffer: &mut [f32]) -> usize {
-        let sample_num = self.audio_object.sample_num as usize;
+        let sample_num = self.audio_object.sample_num;
         assert_eq!(
             buffer.len(),
             sample_num,
@@ -301,7 +301,7 @@ impl FilterProcAudio {
     ///
     /// `data` の長さが `sample_num` と一致しない場合、パニックします。
     pub fn set_sample_data(&mut self, channel: AudioChannel, data: &[f32]) {
-        let sample_num = self.audio_object.sample_num as usize;
+        let sample_num = self.audio_object.sample_num;
         assert_eq!(
             data.len(),
             sample_num,

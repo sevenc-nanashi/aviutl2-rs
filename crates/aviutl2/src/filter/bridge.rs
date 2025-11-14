@@ -33,10 +33,10 @@ impl SceneInfo {
     unsafe fn from_raw(raw: *const aviutl2_sys::filter2::SCENE_INFO) -> SceneInfo {
         let raw = unsafe { &*raw };
         SceneInfo {
-            width: raw.width as u32,
-            height: raw.height as u32,
+            width: raw.width as _,
+            height: raw.height as _,
             frame_rate: num_rational::Rational32::new(raw.rate, raw.scale),
-            sample_rate: raw.sample_rate as u32,
+            sample_rate: raw.sample_rate as _,
         }
     }
 }
@@ -46,8 +46,8 @@ impl ObjectInfo {
         ObjectInfo {
             id: raw.id,
             effect_id: raw.effect_id,
-            frame: raw.frame as u32,
-            frame_total: raw.frame_total as u32,
+            frame: raw.frame as _,
+            frame_total: raw.frame_total as _,
             time: raw.time,
             time_total: raw.time_total,
         }
@@ -57,8 +57,8 @@ impl VideoObjectInfo {
     unsafe fn from_raw(raw: *const aviutl2_sys::filter2::OBJECT_INFO) -> VideoObjectInfo {
         let raw = unsafe { &*raw };
         VideoObjectInfo {
-            width: raw.width as u32,
-            height: raw.height as u32,
+            width: raw.width as _,
+            height: raw.height as _,
         }
     }
 }
@@ -66,10 +66,10 @@ impl AudioObjectInfo {
     unsafe fn from_raw(raw: *const aviutl2_sys::filter2::OBJECT_INFO) -> AudioObjectInfo {
         let raw = unsafe { &*raw };
         AudioObjectInfo {
-            sample_index: raw.sample_index as u64,
-            sample_total: raw.sample_total as u64,
-            sample_num: raw.sample_num as u32,
-            channel_num: raw.channel_num as u32,
+            sample_index: raw.sample_index as _,
+            sample_total: raw.sample_total as _,
+            sample_num: raw.sample_num as _,
+            channel_num: raw.channel_num as _,
         }
     }
 }
