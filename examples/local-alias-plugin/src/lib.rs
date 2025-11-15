@@ -127,10 +127,13 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
 
 impl LocalAliasPlugin {
     fn init_logging() {
-        let _ = env_logger::Builder::new()
-            .parse_filters("debug")
-            .target(aviutl2::utils::debug_logger_target())
-            .try_init();
+        aviutl2::logger::LogBuilder::new()
+            .filter_level(if cfg!(debug_assertions) {
+                log::LevelFilter::Debug
+            } else {
+                log::LevelFilter::Info
+            })
+            .init();
     }
 
     fn spawn_replace_thread(

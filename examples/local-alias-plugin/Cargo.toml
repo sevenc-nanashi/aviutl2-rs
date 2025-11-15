@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1.0.98"
-aviutl2 = { workspace = true, features = ["env_logger", "serde"] }
+aviutl2 = { workspace = true, features = ["serde"] }
 dirs = "6.0.0"
 raw-window-handle = "0.6.2"
 tao = "0.34.5"

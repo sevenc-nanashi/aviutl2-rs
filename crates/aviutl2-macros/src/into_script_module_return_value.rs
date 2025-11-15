@@ -21,7 +21,7 @@ pub fn into_script_module_return_value(
     let push_fields = fields.named.iter().map(|field| {
         let field_name = field.ident.as_ref().unwrap();
         quote::quote! {
-            if let ::std::option::Option::Some(value) = ::aviutl2::module::table_converter::ToOptionalTableEntry::to_optional(&self.#field_name) {
+            if let ::std::option::Option::Some(value) = ::aviutl2::module::__table_converter::ToOptionalTableEntry::to_optional(&self.#field_name) {
                map.insert(
                     ::std::string::String::from(stringify!(#field_name)),
                     value,

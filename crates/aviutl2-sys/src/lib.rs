@@ -7,6 +7,7 @@
 //! - [`filter2`][]：`filter2.h`相当。
 //! - [`module2`][]：`module2.h`相当。
 //! - [`plugin2`][]：`plugin2.h`相当。
+//! - [`logger2`][]：`logger2.h`相当。
 //!
 //! - [`common`][]：共通定義。
 
@@ -15,6 +16,7 @@
 pub mod common;
 pub mod filter2;
 pub mod input2;
+pub mod logger2;
 pub mod module2;
 pub mod output2;
 pub mod plugin2;
