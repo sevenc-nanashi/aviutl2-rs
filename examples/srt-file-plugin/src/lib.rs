@@ -1,4 +1,4 @@
-use aviutl2::AnyResult;
+use aviutl2::{AnyResult, lprintln};
 
 #[easy_ext::ext]
 impl srtlib::Timestamp {
@@ -95,11 +95,10 @@ impl SrtImportPlugin {
             if start_frame < next_frame {
                 start_frame = next_frame;
             }
-            #[expect(deprecated)]
-            edit_section.output_log(&format!(
+            lprintln!(
                 "Adding subtitle: {} --> {} (frames {} to {})",
                 subtitle.start_time, subtitle.end_time, start_frame, end_frame
-            ))?;
+            );
             let new_obj = edit_section.create_object_from_alias(
                 &alias,
                 layer.index,

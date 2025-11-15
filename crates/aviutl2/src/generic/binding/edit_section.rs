@@ -339,14 +339,6 @@ impl EditSection {
         Ok(())
     }
 
-    /// ログにメッセージを出力します。
-    #[deprecated = "TODO: ロガーのPRがマージされたらメソッドごと消す"]
-    pub fn output_log(&self, message: &str) -> EditSectionResult<()> {
-        let wide = crate::common::CWString::new(message)?;
-        unsafe { ((*self.internal).deprecated_output_log)(wide.as_ptr()) };
-        Ok(())
-    }
-
     /// オブジェクトが存在するかどうか調べます。
     ///
     /// # Note
@@ -368,8 +360,7 @@ impl EditSection {
     #[expect(private_bounds)]
     pub fn __output_log_if_error<T: MenuCallbackReturn>(&self, result: T) {
         if let Some(err_msg) = result.into_optional_error() {
-            #[expect(deprecated)]
-            let _ = self.output_log(&err_msg);
+            let _ = crate::logger::write_error_log(&err_msg);
         }
     }
 

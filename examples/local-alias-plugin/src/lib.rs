@@ -5,7 +5,7 @@ use crate::entry::DummyObject;
 use aviutl2::{
     AnyResult,
     generic::{GenericPlugin, SubPlugin},
-    odbg,
+    ldbg,
 };
 use std::sync::{Arc, Mutex, OnceLock};
 use tap::Pipe;
@@ -63,7 +63,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
                     builder
                         .with_custom_protocol("app".to_string(), move |_id, request| {
                             let path = request.uri().path().trim_start_matches('/');
-                            odbg!(path);
+                            ldbg!(path);
                             if let Some(file) = WEB_CONTENT.get_file(path) {
                                 let mime = mime_guess::from_path(path).first_or_octet_stream();
                                 wry::http::Response::builder()
@@ -237,11 +237,8 @@ impl LocalAliasPlugin {
                     IpcMessage::AddAlias => {
                         let new_alias = LocalAliasPlugin::with_instance(|instance| {
                             let handle = instance.edit_handle.get().unwrap();
-                            let test = "hoge".to_string();
-                            let test_ref = &test;
                             handle
                                 .call_edit_section(|section| {
-                                    section.output_log(test_ref);
                                     let alias = section
                                         .get_focused_object()?
                                         .map(|obj| section.get_object_alias(&obj))

@@ -1,5 +1,8 @@
 //! [`log`](https://crates.io/crates/log) クレートを使用したロギング機能を提供します。
 
+pub use log::LevelFilter;
+use crate::{CWString, NullByteError};
+
 // NOTE:
 // InitializeLoggerは可能な限り早く実行されるらしいので、まぁ捨てられるログはないとしていいはず...
 
@@ -78,9 +81,6 @@ impl Default for LogBuilder {
         Self::new()
     }
 }
-
-pub use log::LevelFilter;
-
 struct InternalLogger {
     formatter: Box<Formatter>,
 }
@@ -114,12 +114,12 @@ impl log::Log for InternalLogger {
 #[macro_export]
 macro_rules! ldbg {
     () => {
-        $crate::lprintln!("[{}:{}:{}]", ::std::file!(), ::std::line!(), ::std::column!());
+        $crate::lprintln!(debug, "[{}:{}:{}]", ::std::file!(), ::std::line!(), ::std::column!());
     };
     ($val:expr $(,)?) => {
         match $val {
             tmp => {
-                $crate::lprintln!("[{}:{}:{}] {} = {:#?}",
+                $crate::lprintln!(debug, "[{}:{}:{}] {} = {:#?}",
                     ::std::file!(),
                     ::std::line!(),
                     ::std::column!(),
@@ -136,11 +136,40 @@ macro_rules! ldbg {
 }
 
 /// プラグイン用ログに出力する[`println!`]マクロ。
+///
+/// ```rust
+/// # use aviutl2::lprintln;
+/// lprintln!("This is a plugin log message.");  // デフォルトはpluginログに出力
+/// lprintln!(plugin, "This is also a plugin log message.");
+/// lprintln!(info, "This is an info log message.");
+/// lprintln!(warn, "This is a warning log message.");
+/// lprintln!(error, "This is an error log message.");
+/// lprintln!(debug, "This is a debug log message.");
+/// ```
 #[macro_export]
 macro_rules! lprintln {
-    ($($arg:tt)*) => {
+    (plugin, $($arg:tt)*) => {
         let message = format!($($arg)*);
-        $crate::logger::write_plugin_log(&message);
+        let _ = $crate::logger::write_plugin_log(&message);
+    };
+    (info, $($arg:tt)*) => {
+        let message = format!($($arg)*);
+        let _ = $crate::logger::write_info_log(&message);
+    };
+    (warn, $($arg:tt)*) => {
+        let message = format!($($arg)*);
+        let _ = $crate::logger::write_warn_log(&message);
+    };
+    (error, $($arg:tt)*) => {
+        let message = format!($($arg)*);
+        let _ = $crate::logger::write_error_log(&message);
+    };
+    (debug, $($arg:tt)*) => {
+        let message = format!($($arg)*);
+        let _ = $crate::logger::write_debug_log(&message);
+    };
+    ($($arg:tt)*) => {
+        $crate::lprintln!(plugin, $($arg)*);
     };
 }
 
@@ -154,11 +183,39 @@ macro_rules! lprintln {
 ///
 /// - [`ldbg!`]
 /// - [`lprintln!`]
-pub fn write_plugin_log(message: &str) {
-    let wide_message = encode_utf16_with_nul(message);
+pub fn write_plugin_log(message: &str) -> Result<(), NullByteError> {
     with_logger_handle(|handle| unsafe {
+        let wide_message = CWString::new(message)?;
         ((*handle).log)(handle, wide_message.as_ptr());
-    });
+        Ok(())
+    })
+    .unwrap_or(Ok(()))
+}
+
+#[duplicate::duplicate_item(
+    level       function_name;
+    ["ERROR"]   [write_error_log];
+    ["WARN"]    [write_warn_log];
+    ["INFO"]    [write_info_log];
+    ["DEBUG"]   [write_debug_log];
+)]
+#[doc = concat!("ログに", level, "レベルのメッセージを書き込みます。")]
+///
+/// # Note
+///
+/// ロガーが初期化されていない場合は何も行いません。
+///
+/// # See Also
+///
+/// - [`ldbg!`]
+/// - [`lprintln!`]
+pub fn function_name(message: &str) -> Result<(), NullByteError> {
+    with_logger_handle(|handle| unsafe {
+        let wide_message = CWString::new(message)?;
+        ((*handle).log)(handle, wide_message.as_ptr());
+        Ok(())
+    })
+    .unwrap_or(Ok(()))
 }
 
 struct InternalLoggerHandle(*mut aviutl2_sys::logger2::LOG_HANDLE);
@@ -187,16 +244,14 @@ fn encode_utf16_with_nul(message: &str) -> Vec<u16> {
     message.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
-fn with_logger_handle<F>(f: F)
+fn with_logger_handle<F, T>(f: F) -> Option<T>
 where
-    F: FnOnce(*mut aviutl2_sys::logger2::LOG_HANDLE),
+    F: FnOnce(*mut aviutl2_sys::logger2::LOG_HANDLE) -> T,
 {
-    let Some(handle) = LOGGER_HANDLE.get() else {
-        return;
-    };
+    let handle = LOGGER_HANDLE.get()?;
     let handle = handle.lock().unwrap();
     let handle_ptr = handle.ptr();
-    f(handle_ptr);
+    Some(f(handle_ptr))
 }
 
 fn send_record(level: log::Level, message: String) {
