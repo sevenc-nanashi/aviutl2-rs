@@ -69,8 +69,6 @@ impl InputPlugin for MidiPlayerPlugin {
         let handle = MidiPlayerHandle::open(content)
             .map_err(|e| anyhow::anyhow!("Failed to open MIDI file: {}", e))?;
 
-        aviutl2::odbg!(&handle.tempo_index);
-
         Ok(handle)
     }
 

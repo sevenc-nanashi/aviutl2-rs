@@ -14,8 +14,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1.0.100"
-aviutl2 = { workspace = true, features = ["env_logger"] }
-env_logger = "0.11.8"
+aviutl2.workspace = true
 log = "0.4.28"
 pollster = "0.4.0"
 wgpu = "27.0.1"
