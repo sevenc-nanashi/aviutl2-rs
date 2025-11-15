@@ -167,9 +167,12 @@ struct BinauralFilter {
 
 impl aviutl2::filter::FilterPlugin for BinauralFilter {
     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
-        env_logger::Builder::new()
-            .parse_filters("debug")
-            .target(aviutl2::utils::debug_logger_target())
+        aviutl2::logger::LogBuilder::new()
+            .filter_level(if cfg!(debug_assertions) {
+                log::LevelFilter::Debug
+            } else {
+                log::LevelFilter::Info
+            })
             .init();
         Ok(Self {
             states: dashmap::DashMap::new(),

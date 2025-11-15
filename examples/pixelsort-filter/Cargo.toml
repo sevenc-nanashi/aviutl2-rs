@@ -29,10 +29,9 @@ rayon-luminance = []
 rayon-threshold = []
 
 [dependencies]
-aviutl2 = { workspace = true, features = ["env_logger"] }
+aviutl2.workspace = true
 cfg-elif = "0.6.5"
 duplicate = "2.0.0"
-env_logger = "0.11.8"
 rayon = "1.11.0"
 wide = "0.8.0"
 

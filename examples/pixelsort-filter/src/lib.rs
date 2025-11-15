@@ -6,6 +6,7 @@ use aviutl2::{
         FilterConfigItemSliceExt, FilterConfigItems, FilterConfigSelectItems, FilterPlugin,
         FilterPluginTable, FilterProcVideo, RgbaPixel,
     },
+    log,
 };
 
 pub use rotate::{Rotate, rotate_image};
@@ -54,9 +55,12 @@ struct PixelSortFilter;
 
 impl FilterPlugin for PixelSortFilter {
     fn new(_info: AviUtl2Info) -> AnyResult<Self> {
-        env_logger::Builder::new()
-            .parse_filters("info")
-            .target(aviutl2::utils::debug_logger_target())
+        aviutl2::logger::LogBuilder::new()
+            .filter_level(if cfg!(debug_assertions) {
+                log::LevelFilter::Debug
+            } else {
+                log::LevelFilter::Info
+            })
             .init();
         Ok(Self)
     }

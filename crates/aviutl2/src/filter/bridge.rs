@@ -274,6 +274,11 @@ macro_rules! register_filter_plugin {
     ($struct:ident) => {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
+            unsafe extern "C" fn InitializeLogger(logger: *mut $crate::sys::logger2::LOG_HANDLE) {
+                $crate::logger::__initialize_logger(logger)
+            }
+
+            #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
                 $crate::filter::__bridge::initialize_plugin::<$struct>(version)
             }

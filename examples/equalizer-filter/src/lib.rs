@@ -84,9 +84,12 @@ struct EqualizerFilter {
 
 impl aviutl2::filter::FilterPlugin for EqualizerFilter {
     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
-        env_logger::Builder::new()
-            .parse_filters("info")
-            .target(aviutl2::utils::debug_logger_target())
+        aviutl2::logger::LogBuilder::new()
+            .filter_level(if cfg!(debug_assertions) {
+                log::LevelFilter::Debug
+            } else {
+                log::LevelFilter::Info
+            })
             .init();
         Ok(Self {
             q_states: dashmap::DashMap::new(),
