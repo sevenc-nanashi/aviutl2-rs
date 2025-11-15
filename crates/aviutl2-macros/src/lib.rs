@@ -248,7 +248,7 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 ///
 ///     fn return_overload(a: i32) -> impl aviutl2::module::IntoScriptModuleReturnValue {
 ///         if a % 2 == 0 {
-///             return "Even".into_return_values();
+///             return "Even".into_return_values().map_err(anyhow::Error::from);
 ///         } else {
 ///             return ("Odd", a).into_return_values();
 ///         }

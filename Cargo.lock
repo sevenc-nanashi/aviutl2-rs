@@ -591,6 +591,7 @@ dependencies = [
 name = "aviutl2-macros"
 version = "0.10.0"
 dependencies = [
+ "anyhow",
  "aviutl2",
  "decimal-rs",
  "either",

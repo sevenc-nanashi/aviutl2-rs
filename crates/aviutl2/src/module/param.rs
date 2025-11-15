@@ -8,7 +8,7 @@ pub struct ScriptModuleCallHandle {
 #[derive(thiserror::Error, Debug)]
 pub enum ScriptModuleCallHandleError {
     #[error("key contains null byte")]
-    KeyContainsNullByte(#[from] std::ffi::NulError),
+    KeyContainsNullByte(std::ffi::NulError),
 
     #[error("value contains null byte")]
     ValueContainsNullByte(std::ffi::NulError),
@@ -113,7 +113,8 @@ impl ScriptModuleCallHandle {
         index: usize,
         key: &str,
     ) -> ScriptModuleCallHandleResult<i32> {
-        let c_key = std::ffi::CString::new(key)?;
+        let c_key = std::ffi::CString::new(key)
+            .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         Ok(unsafe { ((*self.internal).get_param_table_int)(index as i32, c_key.as_ptr()) })
     }
 
@@ -127,7 +128,8 @@ impl ScriptModuleCallHandle {
         index: usize,
         key: &str,
     ) -> ScriptModuleCallHandleResult<f64> {
-        let c_key = std::ffi::CString::new(key)?;
+        let c_key = std::ffi::CString::new(key)
+            .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         Ok(unsafe { ((*self.internal).get_param_table_double)(index as i32, c_key.as_ptr()) })
     }
 
@@ -137,7 +139,8 @@ impl ScriptModuleCallHandle {
         index: usize,
         key: &str,
     ) -> ScriptModuleCallHandleResult<Option<String>> {
-        let c_key = std::ffi::CString::new(key)?;
+        let c_key = std::ffi::CString::new(key)
+            .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         unsafe {
             let c_str = ((*self.internal).get_param_table_string)(index as i32, c_key.as_ptr());
             Ok(if c_str.is_null() {
@@ -185,7 +188,8 @@ impl ScriptModuleCallHandle {
 
     /// 関数のエラーを設定する。
     pub fn set_error(&mut self, message: &str) -> ScriptModuleCallHandleResult<()> {
-        let c_message = std::ffi::CString::new(message)?;
+        let c_message = std::ffi::CString::new(message)
+            .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         unsafe {
             ((*self.internal).set_error)(c_message.as_ptr());
         }
@@ -216,7 +220,8 @@ impl ScriptModuleCallHandle {
 
     /// 関数の返り値に文字列を追加する。
     pub fn push_result_str(&mut self, value: &str) -> ScriptModuleCallHandleResult<()> {
-        let c_value = std::ffi::CString::new(value)?;
+        let c_value = std::ffi::CString::new(value)
+            .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         unsafe {
             ((*self.internal).push_result_string)(c_value.as_ptr());
         }
@@ -231,7 +236,8 @@ impl ScriptModuleCallHandle {
         let mut keys = Vec::new();
         let mut values = Vec::new();
         for (key, value) in table {
-            let c_key = std::ffi::CString::new(key)?;
+            let c_key = std::ffi::CString::new(key)
+                .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
             keys.push(c_key);
             values.push(value);
         }
@@ -254,7 +260,8 @@ impl ScriptModuleCallHandle {
         let mut keys = Vec::new();
         let mut values = Vec::new();
         for (key, value) in table {
-            let c_key = std::ffi::CString::new(key)?;
+            let c_key = std::ffi::CString::new(key)
+                .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
             keys.push(c_key);
             values.push(value);
         }
@@ -277,7 +284,8 @@ impl ScriptModuleCallHandle {
         let mut keys = Vec::new();
         let mut values = Vec::new();
         for (key, value) in table {
-            let c_key = std::ffi::CString::new(key)?;
+            let c_key = std::ffi::CString::new(key)
+                .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
             let c_value = std::ffi::CString::new(value)
                 .map_err(ScriptModuleCallHandleError::ValueContainsNullByte)?;
             keys.push(c_key);
@@ -326,7 +334,8 @@ impl ScriptModuleCallHandle {
         let c_values: Vec<std::ffi::CString> = values
             .iter()
             .map(|s| std::ffi::CString::new(*s))
-            .collect::<Result<_, _>>()?;
+            .collect::<Result<_, _>>()
+            .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         if c_values.len() > i32::MAX as usize {
             return Err(ScriptModuleCallHandleError::TooManyElements);
         }
@@ -612,7 +621,7 @@ pub enum ScriptModuleReturnValue {
 #[derive(thiserror::Error, Debug)]
 pub enum IntoScriptModuleReturnValueError<T> {
     #[error("failed to convert value: {0}")]
-    ConversionFailed(T),
+    ConversionFailed(#[source] T),
     #[error("failed to push return value: {0}")]
     PushFailed(#[from] ScriptModuleCallHandleError),
 }
@@ -626,9 +635,8 @@ pub enum IntoScriptModuleReturnValueError<T> {
 pub trait IntoScriptModuleReturnValue
 where
     Self: Sized,
-    Self::Err: Send + Sync + 'static,
 {
-    type Err;
+    type Err: Send + Sync + 'static + Into<Box<dyn std::error::Error + 'static>>;
 
     fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err>;
     fn push_into(
@@ -784,8 +792,7 @@ where
 }
 impl<T: IntoScriptModuleReturnValue, E> IntoScriptModuleReturnValue for Result<T, E>
 where
-    Box<dyn std::error::Error>: From<E>,
-    <T as IntoScriptModuleReturnValue>::Err: std::error::Error + 'static,
+    E: Into<Box<dyn std::error::Error + 'static>>,
 {
     type Err = T::Err;
 
@@ -811,7 +818,11 @@ where
     > {
         match self {
             Ok(value) => value.push_into(param)?,
-            Err(err) => param.set_error(&(Box::<dyn std::error::Error>::from(err).to_string()))?,
+            Err(err) => {
+                let e: Box<dyn std::error::Error + 'static> = err.into();
+                let e = e.to_string();
+                param.set_error(&e)?
+            }
         }
         Ok(())
     }

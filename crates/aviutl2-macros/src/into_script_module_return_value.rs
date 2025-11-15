@@ -32,10 +32,11 @@ pub fn into_script_module_return_value(
 
     let expanded = quote::quote! {
         impl ::aviutl2::module::IntoScriptModuleReturnValue for #ident {
+            type Err = ::aviutl2::anyhow::Error;
             fn into_return_values(self) -> ::aviutl2::AnyResult<Vec<::aviutl2::module::ScriptModuleReturnValue>> {
                 let mut map = ::std::collections::HashMap::new();
                 #(#push_fields)*
-                ::aviutl2::module::IntoScriptModuleReturnValue::into_return_values(map)
+                ::aviutl2::module::IntoScriptModuleReturnValue::into_return_values(map).map_err(::aviutl2::anyhow::Error::from)
             }
         }
     };
