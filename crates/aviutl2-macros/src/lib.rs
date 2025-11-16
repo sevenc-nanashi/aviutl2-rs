@@ -259,10 +259,10 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 ///     }
 ///
 ///     #[direct]
-///     fn direct_sum(params: &mut aviutl2::module::ScriptModuleCallHandle) -> impl aviutl2::module::IntoScriptModuleReturnValue {
+///     fn direct_sum(params: &mut aviutl2::module::ScriptModuleCallHandle) {
 ///         let a: i32 = params.get_param(0).unwrap_or(0);
 ///         let b: i32 = params.get_param(1).unwrap_or(0);
-///         params.push_result(a + b).into_return_values()
+///         params.push_result(a + b);
 ///     }
 ///
 ///     #[direct]
