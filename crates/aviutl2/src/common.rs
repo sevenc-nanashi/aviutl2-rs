@@ -436,6 +436,66 @@ pub(crate) fn alert_error(error: &anyhow::Error) {
         .show();
 }
 
+/// ワイド文字列(LPCWSTR)を所有するRust文字列として扱うためのラッパー。
+///
+/// # Safety
+///
+/// - `ptr` は有効なLPCWSTRであること。
+/// - `ptr` はNull Terminatedなu16文字列を指していること。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CWString(Vec<u16>);
+
+/// ヌルバイトを含む文字列を作成しようとした際のエラー。
+#[derive(thiserror::Error, Debug)]
+#[error("String contains null byte")]
+pub struct NullByteError {
+    position: usize,
+    u16_seq: Vec<u16>,
+}
+impl NullByteError {
+    pub fn nul_position(&self) -> usize {
+        self.position
+    }
+
+    pub fn into_vec(self) -> Vec<u16> {
+        self.u16_seq
+    }
+}
+
+impl CWString {
+    /// 新しいCWStringを作成します。
+    ///
+    /// # Errors
+    ///
+    /// `string`にヌルバイトが含まれている場合、`NullByteError`を返します。
+    pub fn new(string: &str) -> Result<Self, NullByteError> {
+        let mut wide: Vec<u16> = string.encode_utf16().collect();
+        if let Some((pos, _)) = wide.iter().enumerate().find(|&(_, &c)| c == 0) {
+            return Err(NullByteError {
+                position: pos,
+                u16_seq: wide,
+            });
+        }
+        wide.push(0); // Null-terminate the string
+        Ok(Self(wide))
+    }
+
+    /// 内部のポインタを取得します。
+    ///
+    /// # Safety
+    ///
+    /// `self`が有効な間のみポインタを使用してください。
+    pub fn as_ptr(&self) -> *const u16 {
+        self.0.as_ptr()
+    }
+}
+impl std::fmt::Display for CWString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = String::from_utf16_lossy(&self.0[..self.0.len() - 1]);
+        write!(f, "{}", s)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -487,5 +547,16 @@ mod tests {
 
         let u32_from_version: u32 = version.into();
         assert_eq!(u32_from_version, 2001500);
+    }
+
+    #[test]
+    fn test_cwstring_new() {
+        let s = "Hello, world!";
+        let cwstring = CWString::new(s).unwrap();
+        assert_eq!(unsafe { load_wide_string(cwstring.as_ptr()) }, s);
+
+        let s_with_nul = "Hello\0world!";
+        let err = CWString::new(s_with_nul).unwrap_err();
+        assert_eq!(err.nul_position(), 5);
     }
 }
