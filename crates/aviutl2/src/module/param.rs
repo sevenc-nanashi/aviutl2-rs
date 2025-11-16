@@ -956,3 +956,17 @@ pub mod __table_converter {
         }
     }
 }
+
+#[doc(hidden)]
+pub mod __push_return_value {
+    pub fn push_return_value<T>(param: &mut crate::module::ScriptModuleCallHandle, value: T)
+    where
+        T: crate::module::IntoScriptModuleReturnValue,
+    {
+        let res = value.push_into(param);
+        let _ = res.map_err(|e| {
+            let e: Box<dyn std::error::Error + 'static> = e.into();
+            e
+        }).push_into(param);
+    }
+}

@@ -248,9 +248,9 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 ///
 ///     fn return_overload(a: i32) -> impl aviutl2::module::IntoScriptModuleReturnValue {
 ///         if a % 2 == 0 {
-///             return "Even".into_return_values().map_err(anyhow::Error::from);
+///             "Even".into_return_values().map_err(anyhow::Error::from)
 ///         } else {
-///             return ("Odd", a).into_return_values();
+///             ("Odd", a).into_return_values()
 ///         }
 ///     }
 ///
@@ -259,10 +259,10 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 ///     }
 ///
 ///     #[direct]
-///     fn direct_sum(params: &mut aviutl2::module::ScriptModuleCallHandle) {
+///     fn direct_sum(params: &mut aviutl2::module::ScriptModuleCallHandle) -> impl aviutl2::module::IntoScriptModuleReturnValue {
 ///         let a: i32 = params.get_param(0).unwrap_or(0);
 ///         let b: i32 = params.get_param(1).unwrap_or(0);
-///         params.push_result(a + b);
+///         params.push_result(a + b).into_return_values()
 ///     }
 ///
 ///     #[direct]
