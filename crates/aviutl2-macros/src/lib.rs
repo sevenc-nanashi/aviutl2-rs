@@ -323,8 +323,8 @@ pub fn from_script_module_param(item: proc_macro::TokenStream) -> proc_macro::To
 /// ```rust
 /// #[derive(aviutl2::module::IntoScriptModuleReturnValue)]
 /// struct MyStruct {
-///     foo: String,
-///     bar: Option<String>,
+///     foo: Option<String>,
+///     bar: String,
 /// }
 /// ```
 ///
