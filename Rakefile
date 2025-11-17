@@ -178,3 +178,12 @@ desc "ドキュメントを生成します"
 task :doc do
   sh "cargo doc --no-deps -p aviutl2 -p aviutl2-sys -p aviutl2-macros --all-features"
 end
+
+desc "ドキュメントを生成します"
+task :doc do
+  sh "cargo doc --no-deps #{main_crates.map { |c| "--package #{c}" }.join(" ")}"
+
+  File.write("./target/doc/_redirects", <<~TEXT)
+      / /aviutl2/ 308
+    TEXT
+end

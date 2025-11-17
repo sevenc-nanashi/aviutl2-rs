@@ -2,3 +2,5 @@
 
 .vs
 /release
+.wrangler
+node_modules

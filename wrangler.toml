@@ -1,0 +1,4 @@
+name = "aviutl2-rs-doc"
+compatibility_date = "2025-01-01"
+[assets]
+directory = "./target/doc"
