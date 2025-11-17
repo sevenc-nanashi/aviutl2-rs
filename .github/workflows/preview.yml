@@ -32,11 +32,11 @@ jobs:
           command: versions upload --preview-alias pr-${{ github.event.number }}
 
       - name: Comment preview link
-        uses: peter-evans/create-or-update-comment@v4
+        uses: thollander/actions-comment-pull-request@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ github.event.number }}
-          body: |
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-tag: preview-link
+          message: |
             プレビューがデプロイされました：
             https://pr-${{ github.event.number }}-aviutl2-rs-doc.sevenc7c.workers.dev
 
