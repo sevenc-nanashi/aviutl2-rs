@@ -437,11 +437,6 @@ pub(crate) fn alert_error(error: &anyhow::Error) {
 }
 
 /// ワイド文字列(LPCWSTR)を所有するRust文字列として扱うためのラッパー。
-///
-/// # Safety
-///
-/// - `ptr` は有効なLPCWSTRであること。
-/// - `ptr` はNull Terminatedなu16文字列を指していること。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CWString(Vec<u16>);
 
