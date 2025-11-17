@@ -27,6 +27,7 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.WORKERS_TOKEN }}
+          wranglerVersion: "latest"
           command: versions upload --preview-alias pr-${{ github.event.number }}
 
       - name: Comment preview link
