@@ -477,9 +477,13 @@ impl CWString {
 
     /// 内部のポインタを取得します。
     ///
-    /// # Safety
+    /// # Warning
     ///
-    /// `self`が有効な間のみポインタを使用してください。
+    /// <div class="warning">
+    ///
+    /// この`CWString`がDropされた後にこのポインタを使用すると未定義動作を引き起こします。
+    ///
+    /// </div>
     pub fn as_ptr(&self) -> *const u16 {
         self.0.as_ptr()
     }
