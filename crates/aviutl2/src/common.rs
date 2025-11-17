@@ -80,8 +80,8 @@ impl aviutl2_alias::FromTableValue for AviUtl2Version {
     type Err = std::num::ParseIntError;
 
     fn from_table_value(value: &str) -> Result<Self, Self::Err> {
-        let v = value.parse::<u32>()?;
-        Ok(AviUtl2Version::from(v))
+        let v: u32 = value.parse()?;
+        Ok(Self::from(v))
     }
 }
 
@@ -425,6 +425,56 @@ pub(crate) unsafe fn load_wide_string(ptr: *const u16) -> String {
     }
 
     unsafe { String::from_utf16_lossy(std::slice::from_raw_parts(ptr, len)) }
+}
+
+/// ワイド文字列(LPCWSTR)を所有するRust文字列として扱うためのラッパー。
+///
+/// # Safety
+///
+/// - `ptr` は有効なLPCWSTRであること。
+/// - `ptr` はNull Terminatedなu16文字列を指していること。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CWString(Vec<u16>);
+
+/// ヌルバイトを含む文字列を作成しようとした際のエラー。
+#[derive(thiserror::Error, Debug)]
+#[error("String contains null byte")]
+pub struct NullByteError {
+    position: usize,
+    u16_seq: Vec<u16>,
+}
+impl NullByteError {
+    pub fn nul_position(&self) -> usize {
+        self.position
+    }
+
+    pub fn into_vec(self) -> Vec<u16> {
+        self.u16_seq
+    }
+}
+
+impl CWString {
+    pub fn new(string: &str) -> Result<Self, NullByteError> {
+        let mut wide: Vec<u16> = string.encode_utf16().collect();
+        if let Some((pos, _)) = wide.iter().enumerate().find(|&(_, &c)| c == 0) {
+            return Err(NullByteError {
+                position: pos,
+                u16_seq: wide,
+            });
+        }
+        wide.push(0); // Null-terminate the string
+        Ok(Self(wide))
+    }
+
+    pub fn as_ptr(&self) -> *const u16 {
+        self.0.as_ptr()
+    }
+}
+impl std::fmt::Display for CWString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = String::from_utf16_lossy(&self.0[..self.0.len() - 1]);
+        write!(f, "{}", s)
+    }
 }
 
 pub(crate) fn alert_error(error: &anyhow::Error) {

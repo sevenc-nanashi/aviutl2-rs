@@ -10,6 +10,9 @@ pub mod singleton_traits {
 
     #[cfg(feature = "module")]
     pub use crate::module::__bridge::ScriptModuleSingleton as ScriptModule;
+
+    #[cfg(feature = "generic")]
+    pub use crate::generic::__bridge::GenericSingleton as GenericPlugin;
 }
 
 pub mod state {
@@ -24,4 +27,7 @@ pub mod state {
 
     #[cfg(feature = "module")]
     pub use crate::module::__bridge::InternalScriptModuleState as ScriptModule;
+
+    #[cfg(feature = "generic")]
+    pub use crate::generic::__bridge::InternalGenericPluginState as GenericPlugin;
 }
