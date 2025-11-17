@@ -14,6 +14,10 @@ use crate::common::{CWString, NullByteError};
 pub type Formatter = dyn Fn(&log::Record) -> String + Send + Sync + 'static;
 
 /// [`log`]クレートを使用してAviUtl2のログ出力を設定するためのビルダー。
+///
+/// # See Also
+///
+/// - [`env_filter::Builder`]
 #[must_use]
 pub struct LogBuilder {
     filter: env_filter::Builder,
