@@ -636,7 +636,7 @@ pub trait IntoScriptModuleReturnValue
 where
     Self: Sized,
 {
-    type Err: Send + Sync + 'static + Into<Box<dyn std::error::Error + 'static>>;
+    type Err: Send + Sync + 'static + Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
 
     fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err>;
     fn push_into(
@@ -792,7 +792,7 @@ where
 }
 impl<T: IntoScriptModuleReturnValue, E> IntoScriptModuleReturnValue for Result<T, E>
 where
-    E: Into<Box<dyn std::error::Error + 'static>>,
+    E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>,
 {
     type Err = T::Err;
 
@@ -839,8 +839,7 @@ macro_rules! impl_into_script_module_return_value_for_tuple {
     ($($name:ident),+) => {
         impl<$($name),+> IntoScriptModuleReturnValue for ($($name,)+)
         where
-            $($name: IntoScriptModuleReturnValue,)+
-            $(<$name as IntoScriptModuleReturnValue>::Err: std::error::Error + 'static),+
+            $($name: IntoScriptModuleReturnValue),+
         {
             type Err = anyhow::Error;
 
@@ -849,7 +848,10 @@ macro_rules! impl_into_script_module_return_value_for_tuple {
                 #[allow(non_snake_case)]
                 let ($($name,)+) = self;
                 $(
-                    vec.extend($name.into_return_values().map_err(|e| anyhow::Error::from(e))?);
+                    vec.extend(
+                        $name.into_return_values()
+                            .map_err(|e| anyhow::Error::from_boxed(e.into()))?
+                    );
                 )+
                 Ok(vec)
             }
@@ -964,11 +966,10 @@ where
 {
     let res = value.push_into(param);
     let _ = res
-        .map_err(|e| match e {
-            crate::module::IntoScriptModuleReturnValueError::PushFailed(e) => Box::new(e),
-            crate::module::IntoScriptModuleReturnValueError::ConversionFailed(e) => {
-                let e: Box<dyn std::error::Error + 'static> = e.into();
-                e
+        .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
+            match e {
+                crate::module::IntoScriptModuleReturnValueError::PushFailed(e) => Box::new(e),
+                crate::module::IntoScriptModuleReturnValueError::ConversionFailed(e) => e.into(),
             }
         })
         .push_into(param);
