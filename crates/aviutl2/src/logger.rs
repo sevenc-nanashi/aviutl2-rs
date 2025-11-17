@@ -1,7 +1,7 @@
 //! AviUtl2のロガーへのインターフェースを提供します。
 
-pub use log::LevelFilter;
 use crate::common::{CWString, NullByteError};
+pub use log::LevelFilter;
 
 // NOTE:
 // InitializeLoggerは可能な限り早く実行されるらしいので、まぁ捨てられるログはないとしていいはず...
@@ -126,12 +126,12 @@ impl log::Log for InternalLogger {
 #[macro_export]
 macro_rules! ldbg {
     () => {
-        $crate::lprintln!(debug, "[{}:{}:{}]", ::std::file!(), ::std::line!(), ::std::column!());
+        $crate::lprintln!(verbose, "[{}:{}:{}]", ::std::file!(), ::std::line!(), ::std::column!());
     };
     ($val:expr $(,)?) => {
         match $val {
             tmp => {
-                $crate::lprintln!(debug, "[{}:{}:{}] {} = {:#?}",
+                $crate::lprintln!(verbose, "[{}:{}:{}] {} = {:#?}",
                     ::std::file!(),
                     ::std::line!(),
                     ::std::column!(),
@@ -156,29 +156,24 @@ macro_rules! ldbg {
 /// lprintln!(info, "This is an info log message.");
 /// lprintln!(warn, "This is a warning log message.");
 /// lprintln!(error, "This is an error log message.");
-/// lprintln!(debug, "This is a debug log message.");
+/// lprintln!(verbose, "This is a verbose log message.");
 /// ```
 #[macro_export]
 macro_rules! lprintln {
     (plugin, $($arg:tt)*) => {
-        let message = format!($($arg)*);
-        let _ = $crate::logger::write_plugin_log(&message);
+        let _ = $crate::logger::write_plugin_log(&format!($($arg)*));
     };
     (info, $($arg:tt)*) => {
-        let message = format!($($arg)*);
-        let _ = $crate::logger::write_info_log(&message);
+        let _ = $crate::logger::write_info_log(&format!($($arg)*));
     };
     (warn, $($arg:tt)*) => {
-        let message = format!($($arg)*);
-        let _ = $crate::logger::write_warn_log(&message);
+        let _ = $crate::logger::write_warn_log(&format!($($arg)*));
     };
     (error, $($arg:tt)*) => {
-        let message = format!($($arg)*);
-        let _ = $crate::logger::write_error_log(&message);
+        let _ = $crate::logger::write_error_log(&format!($($arg)*));
     };
-    (debug, $($arg:tt)*) => {
-        let message = format!($($arg)*);
-        let _ = $crate::logger::write_debug_log(&message);
+    (verbose, $($arg:tt)*) => {
+        let _ = $crate::logger::write_verbose_log(&format!($($arg)*));
     };
     ($($arg:tt)*) => {
         $crate::lprintln!(plugin, $($arg)*);
@@ -205,11 +200,11 @@ pub fn write_plugin_log(message: &str) -> Result<(), NullByteError> {
 }
 
 #[duplicate::duplicate_item(
-    level       function_name;
-    ["ERROR"]   [write_error_log];
-    ["WARN"]    [write_warn_log];
-    ["INFO"]    [write_info_log];
-    ["DEBUG"]   [write_debug_log];
+    level       function_name     log_method;
+    ["ERROR"]   [write_error_log] [error];
+    ["WARN"]    [write_warn_log]  [warn];
+    ["INFO"]    [write_info_log]  [info];
+    ["VERBOSE"] [write_verbose_log] [verbose];
 )]
 #[doc = concat!("ログに", level, "レベルのメッセージを書き込みます。")]
 ///
@@ -224,7 +219,7 @@ pub fn write_plugin_log(message: &str) -> Result<(), NullByteError> {
 pub fn function_name(message: &str) -> Result<(), NullByteError> {
     with_logger_handle(|handle| unsafe {
         let wide_message = CWString::new(message)?;
-        ((*handle).log)(handle, wide_message.as_ptr());
+        ((*handle).log_method)(handle, wide_message.as_ptr());
         Ok(())
     })
     .unwrap_or(Ok(()))
@@ -252,10 +247,6 @@ impl InternalLoggerHandle {
     }
 }
 
-fn encode_utf16_with_nul(message: &str) -> Vec<u16> {
-    message.encode_utf16().chain(std::iter::once(0)).collect()
-}
-
 fn with_logger_handle<F, T>(f: F) -> Option<T>
 where
     F: FnOnce(*mut aviutl2_sys::logger2::LOG_HANDLE) -> T,
@@ -267,17 +258,20 @@ where
 }
 
 fn send_record(level: log::Level, message: String) {
-    let wide_message = encode_utf16_with_nul(&message);
-    with_logger_handle(|handle| unsafe {
-        match level {
-            log::Level::Error => ((*handle).error)(handle, wide_message.as_ptr()),
-            log::Level::Warn => ((*handle).warn)(handle, wide_message.as_ptr()),
-            log::Level::Info => ((*handle).info)(handle, wide_message.as_ptr()),
-            log::Level::Debug | log::Level::Trace => {
-                ((*handle).verbose)(handle, wide_message.as_ptr())
-            }
+    match level {
+        log::Level::Error => {
+            let _ = write_error_log(&message);
         }
-    });
+        log::Level::Warn => {
+            let _ = write_warn_log(&message);
+        }
+        log::Level::Info => {
+            let _ = write_info_log(&message);
+        }
+        log::Level::Debug | log::Level::Trace => {
+            let _ = write_verbose_log(&message);
+        }
+    }
 }
 
 #[cfg(test)]
