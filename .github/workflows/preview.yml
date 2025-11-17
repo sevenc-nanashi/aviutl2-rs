@@ -21,7 +21,7 @@ jobs:
 
       - name: Build documentation
         run: |
-          rake doc
+          bundle exec rake doc
 
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
