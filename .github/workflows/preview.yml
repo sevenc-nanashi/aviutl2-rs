@@ -1,12 +1,15 @@
 name: Preview Documentation
 
 on:
-  pull_request:  # TODO: pull_request_targetにする
+  pull_request: # TODO: pull_request_targetにする
     types: [opened, synchronize, reopened]
 
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,4 +29,13 @@ jobs:
           apiToken: ${{ secrets.WORKERS_TOKEN }}
           command: versions upload --preview-alias pr-${{ github.event.number }}
 
+      - name: Comment preview link
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.number }}
+          body: |
+            プレビューがデプロイされました：
+            https://pr-${{ github.event.number }}-aviutl2-rs-doc.sevenc7c.workers.dev
 
+            更新時点でのコミット： ${{ github.event.pull_request.head.sha }}
