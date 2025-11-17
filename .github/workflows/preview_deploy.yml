@@ -49,4 +49,4 @@ jobs:
             プレビューがデプロイされました：
             https://pr-${{ steps.read-pr-number.outputs.PR_NUMBER }}-aviutl2-rs-doc.sevenc7c.workers.dev
 
-            更新時点でのコミット： ${{ github.event.pull_request.head.sha }}
+            更新時点でのコミット： ${{ github.event.workflow_run.pull_requests[0].head.sha }}
