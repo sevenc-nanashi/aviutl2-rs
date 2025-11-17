@@ -15,6 +15,10 @@ pub type Formatter = dyn Fn(&log::Record) -> String + Send + Sync + 'static;
 
 /// [`log`]クレートを使用してAviUtl2のログ出力を設定するためのビルダー。
 ///
+/// # Note
+///
+/// Debug、TraceレベルのログはVERBOSEとしてまとめられます。
+///
 /// # See Also
 ///
 /// - [`env_filter::Builder`](https://docs.rs/env_filter/latest/env_filter/struct.Builder.html)
@@ -200,10 +204,10 @@ pub fn write_plugin_log(message: &str) -> Result<(), NullByteError> {
 }
 
 #[duplicate::duplicate_item(
-    level       function_name     log_method;
-    ["ERROR"]   [write_error_log] [error];
-    ["WARN"]    [write_warn_log]  [warn];
-    ["INFO"]    [write_info_log]  [info];
+    level       function_name       log_method;
+    ["ERROR"]   [write_error_log]   [error];
+    ["WARN"]    [write_warn_log]    [warn];
+    ["INFO"]    [write_info_log]    [info];
     ["VERBOSE"] [write_verbose_log] [verbose];
 )]
 #[doc = concat!("ログに", level, "レベルのメッセージを書き込みます。")]
