@@ -1,7 +1,7 @@
 name: Preview Documentation
 
 on:
-  pull_request: # TODO: pull_request_targetにする
+  pull_request_target:
     types: [opened, synchronize, reopened]
 
 jobs:
