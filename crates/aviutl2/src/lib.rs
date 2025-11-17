@@ -36,10 +36,17 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub use aviutl2_sys as sys;
+
+pub use anyhow;
+pub use half;
 pub use log;
 
 #[cfg(feature = "aviutl2-alias")]
 pub use aviutl2_alias as alias;
+pub use num_rational;
+pub use raw_window_handle;
+#[cfg(feature = "image")]
+pub use image;
 
 #[doc(inline)]
 pub use aviutl2_macros::plugin;
@@ -66,7 +73,6 @@ pub mod __internal_base;
 pub mod common;
 pub mod logger;
 pub mod utils;
-pub use anyhow;
 pub use common::*;
 
 #[macro_export]

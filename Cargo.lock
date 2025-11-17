@@ -599,7 +599,6 @@ dependencies = [
  "rmp-serde",
  "serde",
  "thiserror 2.0.17",
- "windows 0.61.3",
  "zerocopy",
  "zstd",
 ]
