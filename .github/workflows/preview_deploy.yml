@@ -42,6 +42,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           comment-tag: preview-link
+          pr-number: ${{ steps.read-pr-number.outputs.PR_NUMBER }}
           message: |
             プレビューがデプロイされました：
             https://pr-${{ steps.read-pr-number.outputs.PR_NUMBER }}-aviutl2-rs-doc.sevenc7c.workers.dev
