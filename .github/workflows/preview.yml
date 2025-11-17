@@ -32,7 +32,7 @@ jobs:
           command: versions upload --preview-alias pr-${{ github.event.number }}
 
       - name: Comment preview link
-        uses: thollander/actions-comment-pull-request@v4
+        uses: thollander/actions-comment-pull-request@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           comment-tag: preview-link
