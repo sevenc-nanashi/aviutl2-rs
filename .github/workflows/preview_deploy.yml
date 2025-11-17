@@ -1,27 +1,23 @@
-name: Preview Documentation
+name: Deploy Documentation Preview
 
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened]
+  workflow_run:
+    workflows: ["Build Documentation Preview"]
+    types:
+      - completed
 
 jobs:
   build:
-    runs-on: windows-latest
-    permissions:
-      contents: write
-      pull-requests: write
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/download-artifact@v5
         with:
-          submodules: "recursive"
-
-      - name: Setup Environment
-        uses: ./.github/actions/setup-environment
-
-      - name: Build documentation
-        run: |
-          bundle exec rake doc
+          name: preview-doc
+          path: ./target/doc/
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.event.workflow_run.repository.full_name }}
+          run-id: ${{ github.event.workflow_run.id }}
 
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
