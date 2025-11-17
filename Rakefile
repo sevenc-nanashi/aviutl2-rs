@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 require "syntax_tree/rake_tasks"
 require "tomlrb"
+require "fileutils"
 
 SyntaxTree::Rake::WriteTask.new do |t|
   t.source_files = FileList[%w[./Rakefile]]
@@ -176,7 +177,13 @@ end
 
 desc "ドキュメントを生成します"
 task :doc do
-  sh "cargo doc --no-deps #{main_crates.map { |c| "--package #{c}" }.join(" ")}"
+  FileUtils.rm_rf("./target/doc")
+  # NOTE:
+  # cargo-docs-rsは複数パッケージのドキュメントを一括で生成できないので使わない
+  sh(
+    { "RUSTDOCFLAGS" => "--cfg docsrs" },
+    "cargo +nightly doc --no-deps --all-features #{main_crates.map { |c| "--package #{c}" }.join(" ")}"
+  )
 
   File.write("./target/doc/_redirects", <<~TEXT)
       / /aviutl2/ 308
