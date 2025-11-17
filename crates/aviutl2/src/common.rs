@@ -438,7 +438,7 @@ pub(crate) fn alert_error(error: &anyhow::Error) {
 
 /// ワイド文字列(LPCWSTR)を所有するRust文字列として扱うためのラッパー。
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CWString(Vec<u16>);
+pub(crate) struct CWString(Vec<u16>);
 
 /// ヌルバイトを含む文字列を作成しようとした際のエラー。
 #[derive(thiserror::Error, Debug)]
