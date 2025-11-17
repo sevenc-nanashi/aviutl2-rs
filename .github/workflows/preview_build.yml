@@ -1,0 +1,28 @@
+name: Build Documentation Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: "recursive"
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+
+      - name: Build documentation
+        run: |
+          bundle exec rake doc
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        id: upload-doc
+        with:
+          name: preview-doc
+          path: ./target/doc/
