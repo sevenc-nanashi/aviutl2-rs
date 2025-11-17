@@ -17,7 +17,7 @@ pub type Formatter = dyn Fn(&log::Record) -> String + Send + Sync + 'static;
 ///
 /// # See Also
 ///
-/// - [`env_filter::Builder`]
+/// - [`env_filter::Builder`](https://docs.rs/env_filter/latest/env_filter/struct.Builder.html)
 #[must_use]
 pub struct LogBuilder {
     filter: env_filter::Builder,
