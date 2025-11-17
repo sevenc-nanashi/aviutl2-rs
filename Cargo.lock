@@ -529,7 +529,6 @@ dependencies = [
  "num-rational",
  "raw-window-handle",
  "thiserror 2.0.17",
- "windows 0.61.3",
  "zerocopy",
 ]
 
