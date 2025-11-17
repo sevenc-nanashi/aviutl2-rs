@@ -1,13 +1,8 @@
 # frozen_string_literal: true
 require "syntax_tree/rake_tasks"
 require "tomlrb"
-<<<<<<< HEAD
-||||||| 5777640
-
-=======
 require "fileutils"
 
->>>>>>> main
 SyntaxTree::Rake::WriteTask.new do |t|
   t.source_files = FileList[%w[./Rakefile]]
 end
