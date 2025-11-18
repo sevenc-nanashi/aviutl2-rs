@@ -42,14 +42,7 @@ impl MyModule {
                     }
                 };
                 let fn_result = <MyModule>::my_function(__internal_self, fuga);
-                let push_result = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(
-                    fn_result,
-                    &mut params,
-                );
-                let _ = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(
-                    push_result,
-                    &mut params,
-                );
+                ::aviutl2::module::__push_return_value(&mut params, fn_result);
             }
         }
     }

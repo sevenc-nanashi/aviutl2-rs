@@ -30,9 +30,15 @@ pub fn into_script_module_return_value(
         }
     });
 
+    let first_field_type = fields.named.first().unwrap().ty.clone();
+
     let expanded = quote::quote! {
         impl ::aviutl2::module::IntoScriptModuleReturnValue for #ident {
-            fn into_return_values(self) -> ::aviutl2::AnyResult<Vec<::aviutl2::module::ScriptModuleReturnValue>> {
+            type Err = <::std::option::Option<#first_field_type> as ::aviutl2::module::IntoScriptModuleReturnValue>::Err;
+            fn into_return_values(self) -> ::std::result::Result<
+                ::std::vec::Vec<::aviutl2::module::ScriptModuleReturnValue>,
+                Self::Err,
+            > {
                 let mut map = ::std::collections::HashMap::new();
                 #(#push_fields)*
                 ::aviutl2::module::IntoScriptModuleReturnValue::into_return_values(map)
