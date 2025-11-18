@@ -189,7 +189,7 @@ impl ScriptModuleCallHandle {
     /// 関数のエラーを設定する。
     pub fn set_error(&mut self, message: &str) -> ScriptModuleCallHandleResult<()> {
         let c_message = std::ffi::CString::new(message)
-            .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
+            .map_err(ScriptModuleCallHandleError::ValueContainsNullByte)?;
         unsafe {
             ((*self.internal).set_error)(c_message.as_ptr());
         }
