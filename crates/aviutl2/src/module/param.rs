@@ -335,7 +335,7 @@ impl ScriptModuleCallHandle {
             .iter()
             .map(|s| std::ffi::CString::new(*s))
             .collect::<Result<_, _>>()
-            .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
+            .map_err(ScriptModuleCallHandleError::ValueContainsNullByte)?;
         if c_values.len() > i32::MAX as usize {
             return Err(ScriptModuleCallHandleError::TooManyElements);
         }
