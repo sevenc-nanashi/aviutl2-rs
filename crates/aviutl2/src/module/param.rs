@@ -221,7 +221,7 @@ impl ScriptModuleCallHandle {
     /// 関数の返り値に文字列を追加する。
     pub fn push_result_str(&mut self, value: &str) -> ScriptModuleCallHandleResult<()> {
         let c_value = std::ffi::CString::new(value)
-            .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
+            .map_err(ScriptModuleCallHandleError::ValueContainsNullByte)?;
         unsafe {
             ((*self.internal).push_result_string)(c_value.as_ptr());
         }
