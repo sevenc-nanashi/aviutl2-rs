@@ -27,13 +27,6 @@ pub struct OBJECT_LAYER_FRAME {
     pub end: i32,
 }
 
-/// 冗長なので後で廃止します
-#[repr(C)]
-pub struct DEPRECATED_OBJECT_FRAME_INFO {
-    pub start: i32,
-    pub end: i32,
-}
-
 /// 編集情報構造体
 /// フレーム番号、レイヤー番号が0からの番号になります ※UI表示と異なります
 #[repr(C)]
@@ -83,9 +76,11 @@ pub struct EDIT_SECTION {
     /// 戻り値 : 検索したオブジェクトのハンドル (見つからない場合はnullptrを返却)
     pub find_object: unsafe extern "C" fn(layer: i32, frame: i32) -> OBJECT_HANDLE,
 
-    /// 冗長なので後で廃止します
-    pub deprecated_get_object_frame_info:
-        unsafe extern "C" fn(object: OBJECT_HANDLE) -> DEPRECATED_OBJECT_FRAME_INFO,
+    /// オブジェクトに対象エフェクトが何個存在するかを取得します
+    /// object : オブジェクトのハンドル
+    /// effect : 対象のエフェクト名 (エイリアスファイルのeffect.nameの値)
+    /// 戻り値 : 対象エフェクトの数 ※存在しない場合は0
+    pub count_object_effect: unsafe extern "C" fn(object: OBJECT_HANDLE, effect: LPCWSTR) -> i32,
 
     /// オブジェクトのレイヤー・フレーム情報を取得します
     /// object : オブジェクトのハンドル
@@ -171,6 +166,12 @@ pub struct EDIT_HANDLE {
     ///        編集が出来ない場合(出力中等)に失敗します
     pub call_edit_section:
         unsafe extern "C" fn(func_proc_edit: unsafe extern "C" fn(edit: *mut EDIT_SECTION)) -> bool,
+
+    /// call_edit_section()に引数paramを渡せるようにした関数です
+    pub call_edit_section_param: unsafe extern "C" fn(
+        param: *mut c_void,
+        func_proc_edit: unsafe extern "C" fn(param: *mut c_void, edit: *mut EDIT_SECTION),
+    ) -> bool,
 }
 
 /// プロジェクトファイル構造体

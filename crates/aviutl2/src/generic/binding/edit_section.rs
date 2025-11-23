@@ -178,6 +178,28 @@ impl EditSection {
         }
     }
 
+    /// オブジェクトに対象エフェクトが何個存在するかを取得します。
+    ///
+    /// # Arguments
+    ///
+    /// - `object`：対象のオブジェクトハンドル。
+    /// - `effect`：対象のエフェクト名。（エイリアスファイルの effect.name の値）
+    ///
+    /// # Returns
+    ///
+    /// 対象エフェクトの数。存在しない場合は0を返します。
+    pub fn count_object_effect(
+        &self,
+        object: &ObjectHandle,
+        effect: &str,
+    ) -> EditSectionResult<usize> {
+        self.ensure_object_exists(object)?;
+        let c_effect = crate::common::CWString::new(effect)?;
+        let count =
+            unsafe { ((*self.internal).count_object_effect)(object.internal, c_effect.as_ptr()) };
+        Ok(count.try_into()?)
+    }
+
     /// 指定のオブジェクトのレイヤーとフレーム情報を取得します。
     pub fn get_object_layer_frame(
         &self,
@@ -417,6 +439,19 @@ impl<'a> EditSectionObjectCaller<'a> {
             .get_object_alias(self.handle)?
             .parse()
             .map_err(Into::into)
+    }
+
+    /// オブジェクトに対象エフェクトが何個存在するかを取得します。
+    ///
+    /// # Arguments
+    ///
+    /// - `effect`：対象のエフェクト名。（エイリアスファイルの effect.name の値）
+    ///
+    /// # Returns
+    ///
+    /// 対象エフェクトの数。存在しない場合は0を返します。
+    pub fn count_effect(&self, effect: &str) -> EditSectionResult<usize> {
+        self.edit_section.count_object_effect(self.handle, effect)
     }
 
     /// オブジェクトの設定項目の値を文字列で取得します。

@@ -358,64 +358,59 @@ impl EditHandle {
     }
 
     /// プロジェクトデータの編集を開始します。
+    ///
+    /// # Note
+    ///
+    /// 内部では call_edit_section_param を使用しています。
     pub fn call_edit_section<'a, T, F>(&self, callback: F) -> Result<T, EditHandleError>
     where
         T: Send + 'static,
         F: FnOnce(&mut EditSection) -> T + Send + 'a,
     {
-        type TrampolineCallback =
-            dyn FnOnce(&mut EditSection) -> Box<dyn std::any::Any + Send> + Send;
-        static NEXT_CALLBACK: std::sync::Mutex<Option<Box<TrampolineCallback>>> =
-            std::sync::Mutex::new(None);
+        type CallbackParam<F, T> = (ChildKillablePointer<Option<F>>, Option<T>);
 
-        static CALLBACK_RETURN_VALUE: std::sync::Mutex<Option<Box<dyn std::any::Any + Send>>> =
-            std::sync::Mutex::new(None);
+        let mut result: Option<T> = None;
+        let mut closure = Some(callback);
+        let param = &mut closure as *mut Option<F> as *mut std::ffi::c_void;
+        let param = KillablePointer::new(param);
+        let child_param = param.create_child();
 
-        let callback = KillablePointer::new(Some(callback))
-            .cast::<Option<Box<dyn FnOnce(&mut EditSection) -> T + Send>>>();
-
+        extern "C" fn trampoline<F, T>(
+            param: *mut std::ffi::c_void,
+            edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
+        ) where
+            T: Send + 'static,
+            F: FnOnce(&mut EditSection) -> T,
         {
-            let mut guard = NEXT_CALLBACK.lock().unwrap();
-            *guard = Some(Box::new({
-                let mut callback_ref = callback.create_child();
-                move |section: &mut EditSection| {
-                    if callback_ref.is_killed() {
-                        panic!(
-                            "EditHandle has been dropped while EditSection callback is pending."
-                        );
-                    }
-                    let callback = unsafe { callback_ref.as_mut() }
-                        .take()
-                        .expect("EditSection callback has already been called.");
-                    let result = callback(section);
-                    Box::new(result) as Box<dyn std::any::Any + Send>
-                }
-            }));
-        }
-        let call_result = unsafe { ((*self.internal).call_edit_section)(trampoline) };
-        if call_result {
-            let mut return_guard = CALLBACK_RETURN_VALUE.lock().unwrap();
-            if let Some(return_value) = return_guard.take() {
-                // 型安全にダウンキャストできるはず
-                let boxed: Box<T> = return_value
-                    .downcast::<T>()
-                    .expect("Type mismatch in EditSection callback return value");
-                return Ok(*boxed);
-            } else {
-                unreachable!("No return value from EditSection callback")
+            unsafe {
+                let (child_param, result_ptr) = &mut *(param as *mut CallbackParam<F, T>);
+                let callback = child_param
+                    .as_mut()
+                    .take()
+                    .expect("Callback has already been called");
+                let mut edit_section = EditSection::from_ptr(edit_section);
+                let res = callback(&mut edit_section);
+
+                *result_ptr = Some(res);
             }
-        } else {
-            return Err(EditHandleError::ApiCallFailed);
         }
 
-        extern "C" fn trampoline(edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION) {
-            let mut guard = NEXT_CALLBACK.lock().unwrap();
-            if let Some(callback) = guard.take() {
-                let mut section = unsafe { EditSection::from_ptr(edit_section) };
-                let return_value = callback(&mut section);
-                let mut return_guard = CALLBACK_RETURN_VALUE.lock().unwrap();
-                *return_guard = Some(return_value);
-            }
+        let trampoline_static = trampoline::<F, T>
+            as extern "C" fn(*mut std::ffi::c_void, *mut aviutl2_sys::plugin2::EDIT_SECTION);
+
+        let param = Box::new((child_param, &mut result));
+
+        let success = unsafe {
+            ((*self.internal).call_edit_section_param)(
+                Box::into_raw(param) as *mut std::ffi::c_void,
+                trampoline_static,
+            )
+        };
+
+        if success {
+            Ok(result.expect("Callback did not set result"))
+        } else {
+            Err(EditHandleError::ApiCallFailed)
         }
     }
 }
@@ -446,15 +441,6 @@ impl<T> KillablePointer<T> {
             inner: self.inner,
         }
     }
-
-    pub fn cast<U>(self) -> KillablePointer<U> {
-        KillablePointer {
-            kill_switch: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
-                self.kill_switch.load(std::sync::atomic::Ordering::SeqCst),
-            )),
-            inner: self.inner as *mut U,
-        }
-    }
 }
 
 struct ChildKillablePointer<T> {
@@ -470,7 +456,7 @@ impl<T> ChildKillablePointer<T> {
 
     pub unsafe fn as_mut(&mut self) -> &mut T {
         if self.is_killed() {
-            panic!("Parent KillablePointer has been dropped.");
+            panic!("parent KillablePointer has been dropped");
         }
         unsafe { &mut *self.inner }
     }
