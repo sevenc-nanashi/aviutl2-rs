@@ -3,9 +3,12 @@ source: crates/aviutl2-macros/src/into_script_module_return_value.rs
 expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
 impl ::aviutl2::module::IntoScriptModuleReturnValue for MyReturnValue {
+    type Err =
+        <::std::option::Option<String> as ::aviutl2::module::IntoScriptModuleReturnValue>::Err;
     fn into_return_values(
         self,
-    ) -> ::aviutl2::AnyResult<Vec<::aviutl2::module::ScriptModuleReturnValue>> {
+    ) -> ::std::result::Result<::std::vec::Vec<::aviutl2::module::ScriptModuleReturnValue>, Self::Err>
+    {
         let mut map = ::std::collections::HashMap::new();
         if let ::std::option::Option::Some(value) =
             ::aviutl2::module::__table_converter::ToOptionalTableEntry::to_optional(

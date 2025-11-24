@@ -32,11 +32,9 @@ duplicate = "2.0.0"
 env_filter = "0.1.4"
 half = { version = "2.6.0", features = ["zerocopy"] }
 image = { version = "0.25.6", optional = true }
-impl-trait-for-tuples = "0.2.3"
 log = "0.4.27"
 native-dialog = "0.9.0"
 num-rational = "0.4.2"
 raw-window-handle = "0.6.2"
 thiserror = "2.0.12"
-windows = { version = "0.61.3", features = ["Win32_System_Diagnostics_Debug"] }
 zerocopy = { version = "0.8.26", features = ["std"] }

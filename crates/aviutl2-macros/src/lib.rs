@@ -248,9 +248,9 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 ///
 ///     fn return_overload(a: i32) -> impl aviutl2::module::IntoScriptModuleReturnValue {
 ///         if a % 2 == 0 {
-///             return "Even".into_return_values();
+///             "Even".into_return_values().map_err(anyhow::Error::from)
 ///         } else {
-///             return ("Odd", a).into_return_values();
+///             ("Odd", a).into_return_values()
 ///         }
 ///     }
 ///
@@ -311,17 +311,30 @@ pub fn from_script_module_param(item: proc_macro::TokenStream) -> proc_macro::To
 
 /// `IntoScriptModuleReturnValue` を自動で実装するためのマクロ。
 ///
-/// このマクロを利用するには、構造体の各フィールドが
-/// `aviutl2::module::IntoScriptModuleReturnValueValue` トレイトを実装している、かつすべてのフィールドが
-/// `T` または `Option<T>` 型である必要があります。
+/// このマクロを利用するには、
+///
+/// - 構造体のすべてのフィールドが同じ`T`または`Option<T>`型、かつ
+/// - `std::collections::HashMap<String, T>`が`IntoScriptModuleReturnValue`を実装している
+///
+/// 必要があります。
 ///
 /// # Example
 ///
 /// ```rust
 /// #[derive(aviutl2::module::IntoScriptModuleReturnValue)]
 /// struct MyStruct {
-///     foo: String,
+///     foo: Option<String>,
 ///     bar: String,
+/// }
+/// ```
+///
+/// 以下は動きません：
+///
+/// ```rust,compile_fail
+/// #[derive(aviutl2::module::IntoScriptModuleReturnValue)]
+/// struct MyBadStruct {
+///    foo: String,
+///    bar: i32, // 異なる型
 /// }
 /// ```
 ///

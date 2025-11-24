@@ -523,13 +523,11 @@ dependencies = [
  "env_filter",
  "half",
  "image",
- "impl-trait-for-tuples",
  "log",
  "native-dialog",
  "num-rational",
  "raw-window-handle",
  "thiserror 2.0.17",
- "windows 0.61.3",
  "zerocopy",
 ]
 
@@ -548,6 +546,7 @@ dependencies = [
 name = "aviutl2-macros"
 version = "0.10.0"
 dependencies = [
+ "anyhow",
  "aviutl2",
  "decimal-rs",
  "either",
@@ -2467,17 +2466,6 @@ name = "imgref"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7c5cedc30da3a610cac6b4ba17597bdf7152cf974e8aab3afb3d54455e371c8"
-
-[[package]]
-name = "impl-trait-for-tuples"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0eb5a3343abf848c0984fe4604b2b105da9539376e24fc0a3b0007411ae4fd9"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
 
 [[package]]
 name = "indexmap"

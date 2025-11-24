@@ -7,11 +7,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    permissions:
-      contents: write
-      pull-requests: write
     steps:
-      - name: Checkout main
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: "recursive"
