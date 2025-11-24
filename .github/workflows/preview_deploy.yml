@@ -12,32 +12,23 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
-      checks: write
+      statuses: write
     steps:
       - name: Create check run
-        uses: LouisBrunner/checks-action@v2
+        uses: guibranco/github-status-action-v2@latest
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
-          name: "Documentation Preview"
-          conclusion: failure
+          context: "Documentation Preview"
+          state: failure
 
   deploy:
     if: ${{ github.event.workflow_run.pull_requests[0] != null && github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
-      checks: write
+      statuses: write
     steps:
-      - name: Create check run
-        uses: LouisBrunner/checks-action@v2
-        id: preview-check
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
-          name: "Documentation Preview"
-          status: in_progress
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -77,23 +68,20 @@ jobs:
 
             更新時点でのコミット： ${{ github.event.workflow_run.pull_requests[0].head.sha }}
 
-      - name: Update check run (Success)
-        uses: LouisBrunner/checks-action@v2
+      - name: Create check run (Success)
+        uses: guibranco/github-status-action-v2@latest
         with:
-          check_id: ${{ steps.preview-check.outputs.check_id }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
-          conclusion: success
-          details_url: https://pr-${{ steps.read-pr-number.outputs.PR_NUMBER }}-aviutl2-rs-doc.sevenc7c.workers.dev
-          output: |
-            {"summary":"Deployed Documentation Preview"}
+          context: "Documentation Preview"
+          state: success
+          target_url: https://pr-${{ steps.read-pr-number.outputs.PR_NUMBER }}-aviutl2-rs-doc.sevenc7c.workers.dev
 
-      - name: Update check run (Failure)
+      - name: Create check run (Failure)
         if: failure()
-        uses: LouisBrunner/checks-action@v2
+        uses: guibranco/github-status-action-v2@latest
         with:
-          check_id: ${{ steps.preview-check.outputs.check_id }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
-          conclusion: failure
-
+          context: "Documentation Preview"
+          state: failure
