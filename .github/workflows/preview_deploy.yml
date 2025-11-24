@@ -7,8 +7,8 @@ on:
       - completed
 
 jobs:
-  build:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0] != null }}
+  deploy:
+    if: ${{ github.event.workflow_run.pull_requests[0] != null }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -32,6 +32,7 @@ jobs:
           echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_OUTPUT
 
       - name: Deploy
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.WORKERS_TOKEN }}
@@ -40,6 +41,7 @@ jobs:
           command: versions upload --preview-alias pr-${{ steps.read-pr-number.outputs.PR_NUMBER }}
 
       - name: Comment preview link
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
         uses: thollander/actions-comment-pull-request@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -50,3 +52,12 @@ jobs:
             https://pr-${{ steps.read-pr-number.outputs.PR_NUMBER }}-aviutl2-rs-doc.sevenc7c.workers.dev
 
             更新時点でのコミット： ${{ github.event.workflow_run.pull_requests[0].head.sha }}
+
+      - name: Create check run
+        uses: LouisBrunner/checks-action@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
+          name: "Documentation Preview"
+          conclusion: ${{ github.event.workflow_run.conclusion == 'success' && 'success' || 'failure' }}
+          details_url: https://pr-${{ steps.read-pr-number.outputs.PR_NUMBER }}-aviutl2-rs-doc.sevenc7c.workers.dev
