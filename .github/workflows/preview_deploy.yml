@@ -7,13 +7,37 @@ on:
       - completed
 
 jobs:
-  deploy:
-    if: ${{ github.event.workflow_run.pull_requests[0] != null }}
+  failure:
+    if: ${{ github.event.workflow_run.pull_requests[0] != null && github.event.workflow_run.conclusion == 'failure' }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
       checks: write
     steps:
+      - name: Create check run
+        uses: LouisBrunner/checks-action@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
+          name: "Documentation Preview"
+          conclusion: failure
+
+  deploy:
+    if: ${{ github.event.workflow_run.pull_requests[0] != null && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      checks: write
+    steps:
+      - name: Create check run
+        uses: LouisBrunner/checks-action@v2
+        id: preview-check
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
+          name: "Documentation Preview"
+          status: in_progress
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -42,7 +66,6 @@ jobs:
           command: versions upload --preview-alias pr-${{ steps.read-pr-number.outputs.PR_NUMBER }}
 
       - name: Comment preview link
-        if: ${{ github.event.workflow_run.conclusion == 'success' }}
         uses: thollander/actions-comment-pull-request@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -54,11 +77,23 @@ jobs:
 
             更新時点でのコミット： ${{ github.event.workflow_run.pull_requests[0].head.sha }}
 
-      - name: Create check run
+      - name: Update check run (Success)
         uses: LouisBrunner/checks-action@v2
         with:
+          check_id: ${{ steps.preview-check.outputs.check_id }}
           token: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
-          name: "Documentation Preview"
-          conclusion: ${{ github.event.workflow_run.conclusion == 'success' && 'success' || 'failure' }}
+          conclusion: success
           details_url: https://pr-${{ steps.read-pr-number.outputs.PR_NUMBER }}-aviutl2-rs-doc.sevenc7c.workers.dev
+          output: |
+            {"summary":"Deployed Documentation Preview"}
+
+      - name: Update check run (Failure)
+        if: failure()
+        uses: LouisBrunner/checks-action@v2
+        with:
+          check_id: ${{ steps.preview-check.outputs.check_id }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
+          conclusion: failure
+
