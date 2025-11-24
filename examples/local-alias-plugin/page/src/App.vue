@@ -31,9 +31,8 @@ const renameAlias = (index: number) => {
   const alias = aliases.value[index]!;
   const newName = window.prompt("新しいエイリアス名", alias.name)?.trim();
   if (!newName || newName === alias.name) return;
-  const updated = aliases.value.map((a) =>
-    a.name === alias.name ? { ...a, name: newName } : a,
-  );
+  const updated = aliases.value.slice();
+  updated[index] = { ...alias, name: newName };
   store.setAliases(updated);
   store.saveAliases(updated);
   // 選択はインデックス基準なので変更不要
