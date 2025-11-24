@@ -6,7 +6,7 @@ pub fn into_script_module_return_value(
 
     let fields = match ast.data {
         syn::Data::Struct(syn::DataStruct {
-            fields: syn::Fields::Named(fields),
+            fields: syn::Fields::Named(ref fields),
             ..
         }) => fields,
         _ => {
@@ -29,8 +29,14 @@ pub fn into_script_module_return_value(
             }
         }
     });
-
-    let first_field_type = fields.named.first().unwrap().ty.clone();
+    let Some(first_field) = fields.named.first() else {
+        return Err(syn::Error::new_spanned(
+            ast,
+            "`IntoScriptModuleReturnValue` cannot be derived for structs with no fields",
+        )
+        .to_compile_error());
+    };
+    let first_field_type = &first_field.ty;
 
     let expanded = quote::quote! {
         impl ::aviutl2::module::IntoScriptModuleReturnValue for #ident {
