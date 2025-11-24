@@ -367,7 +367,7 @@ impl EditHandle {
         T: Send + 'static,
         F: FnOnce(&mut EditSection) -> T + Send + 'a,
     {
-        type CallbackParam<F, T> = (ChildKillablePointer<Option<F>>, std::sync::Arc<std::sync::Mutex<Option<T>>>);
+        type CallbackParam<'a, F, T> = (ChildKillablePointer<Option<F>>, &'a mut Option<T>);
 
         let closure = Some(callback);
         let param = KillablePointer::new(closure);
@@ -389,16 +389,15 @@ impl EditHandle {
                 let mut edit_section = EditSection::from_ptr(edit_section);
                 let res = callback(&mut edit_section);
 
-                let mut result_lock = result_ptr.lock().unwrap();
-                *result_lock = Some(res);
+                result_ptr.replace(res);
             }
         }
 
         let trampoline_static = trampoline::<F, T>
             as extern "C" fn(*mut std::ffi::c_void, *mut aviutl2_sys::plugin2::EDIT_SECTION);
 
-        let result = std::sync::Arc::new(std::sync::Mutex::new(None));
-        let param = Box::<CallbackParam<F, T>>::new((child_param, std::sync::Arc::clone(&result)));
+        let mut result = None;
+        let param = Box::<CallbackParam<F, T>>::new((child_param, &mut result));
         let param_ptr = Box::into_raw(param);
 
         let success = unsafe {
@@ -409,7 +408,7 @@ impl EditHandle {
         };
 
         if success {
-            Ok(result.lock().unwrap().take().expect("Result not set"))
+            Ok(result.expect("Callback did not set result"))
         } else {
             Err(EditHandleError::ApiCallFailed)
         }
