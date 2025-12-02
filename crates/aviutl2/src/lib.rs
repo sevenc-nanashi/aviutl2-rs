@@ -43,10 +43,10 @@ pub use log;
 
 #[cfg(feature = "aviutl2-alias")]
 pub use aviutl2_alias as alias;
-pub use num_rational;
-pub use raw_window_handle;
 #[cfg(feature = "image")]
 pub use image;
+pub use num_rational;
+pub use raw_window_handle;
 
 #[doc(inline)]
 pub use aviutl2_macros::plugin;

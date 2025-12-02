@@ -97,7 +97,10 @@ impl SrtImportPlugin {
             }
             lprintln!(
                 "Adding subtitle: {} --> {} (frames {} to {})",
-                subtitle.start_time, subtitle.end_time, start_frame, end_frame
+                subtitle.start_time,
+                subtitle.end_time,
+                start_frame,
+                end_frame
             );
             let new_obj = edit_section.create_object_from_alias(
                 &alias,

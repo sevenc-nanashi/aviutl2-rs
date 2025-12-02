@@ -247,7 +247,7 @@ pub fn __initialize_logger(handle: *mut aviutl2_sys::logger2::LOG_HANDLE) {
 
 impl InternalLoggerHandle {
     fn ptr(&self) -> *mut aviutl2_sys::logger2::LOG_HANDLE {
- self.0
+        self.0
     }
 }
 
