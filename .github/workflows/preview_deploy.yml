@@ -7,11 +7,27 @@ on:
       - completed
 
 jobs:
-  build:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0] != null }}
+  failure:
+    if: ${{ github.event.workflow_run.pull_requests[0] != null && github.event.workflow_run.conclusion == 'failure' }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+      statuses: write
+    steps:
+      - name: Create check run
+        uses: guibranco/github-status-action-v2@latest
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
+          context: "Documentation Preview"
+          state: failure
+
+  deploy:
+    if: ${{ github.event.workflow_run.pull_requests[0] != null && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      statuses: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -32,6 +48,7 @@ jobs:
           echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_OUTPUT
 
       - name: Deploy
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.WORKERS_TOKEN }}
@@ -50,3 +67,21 @@ jobs:
             https://pr-${{ steps.read-pr-number.outputs.PR_NUMBER }}-aviutl2-rs-doc.sevenc7c.workers.dev
 
             更新時点でのコミット： ${{ github.event.workflow_run.pull_requests[0].head.sha }}
+
+      - name: Create check run (Success)
+        uses: guibranco/github-status-action-v2@latest
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
+          context: "Documentation Preview"
+          state: success
+          target_url: https://pr-${{ steps.read-pr-number.outputs.PR_NUMBER }}-aviutl2-rs-doc.sevenc7c.workers.dev
+
+      - name: Create check run (Failure)
+        if: failure()
+        uses: guibranco/github-status-action-v2@latest
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
+          context: "Documentation Preview"
+          state: failure

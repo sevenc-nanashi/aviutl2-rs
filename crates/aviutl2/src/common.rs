@@ -427,14 +427,18 @@ pub(crate) unsafe fn load_wide_string(ptr: *const u16) -> String {
     unsafe { String::from_utf16_lossy(std::slice::from_raw_parts(ptr, len)) }
 }
 
+pub(crate) fn alert_error(error: &anyhow::Error) {
+    let _ = native_dialog::DialogBuilder::message()
+        .set_title("エラー")
+        .set_level(native_dialog::MessageLevel::Error)
+        .set_text(format!("エラーが発生しました: {error}"))
+        .alert()
+        .show();
+}
+
 /// ワイド文字列(LPCWSTR)を所有するRust文字列として扱うためのラッパー。
-///
-/// # Safety
-///
-/// - `ptr` は有効なLPCWSTRであること。
-/// - `ptr` はNull Terminatedなu16文字列を指していること。
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CWString(Vec<u16>);
+pub(crate) struct CWString(Vec<u16>);
 
 /// ヌルバイトを含む文字列を作成しようとした際のエラー。
 #[derive(thiserror::Error, Debug)]
@@ -454,6 +458,11 @@ impl NullByteError {
 }
 
 impl CWString {
+    /// 新しいCWStringを作成します。
+    ///
+    /// # Errors
+    ///
+    /// `string`にヌルバイトが含まれている場合、`NullByteError`を返します。
     pub fn new(string: &str) -> Result<Self, NullByteError> {
         let mut wide: Vec<u16> = string.encode_utf16().collect();
         if let Some((pos, _)) = wide.iter().enumerate().find(|&(_, &c)| c == 0) {
@@ -466,6 +475,15 @@ impl CWString {
         Ok(Self(wide))
     }
 
+    /// 内部のポインタを取得します。
+    ///
+    /// # Warning
+    ///
+    /// <div class="warning">
+    ///
+    /// この`CWString`がDropされた後にこのポインタを使用すると未定義動作を引き起こします。
+    ///
+    /// </div>
     pub fn as_ptr(&self) -> *const u16 {
         self.0.as_ptr()
     }
@@ -475,15 +493,6 @@ impl std::fmt::Display for CWString {
         let s = String::from_utf16_lossy(&self.0[..self.0.len() - 1]);
         write!(f, "{}", s)
     }
-}
-
-pub(crate) fn alert_error(error: &anyhow::Error) {
-    let _ = native_dialog::DialogBuilder::message()
-        .set_title("エラー")
-        .set_level(native_dialog::MessageLevel::Error)
-        .set_text(format!("エラーが発生しました: {error}"))
-        .alert()
-        .show();
 }
 
 #[cfg(test)]
@@ -537,5 +546,16 @@ mod tests {
 
         let u32_from_version: u32 = version.into();
         assert_eq!(u32_from_version, 2001500);
+    }
+
+    #[test]
+    fn test_cwstring_new() {
+        let s = "Hello, world!";
+        let cwstring = CWString::new(s).unwrap();
+        assert_eq!(unsafe { load_wide_string(cwstring.as_ptr()) }, s);
+
+        let s_with_nul = "Hello\0world!";
+        let err = CWString::new(s_with_nul).unwrap_err();
+        assert_eq!(err.nul_position(), 5);
     }
 }

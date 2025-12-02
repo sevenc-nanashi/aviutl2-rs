@@ -21,29 +21,23 @@ impl MyModule {
             ) {
                 let mut params =
                     unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
-                let fuga: f64 = match <f64 as ::aviutl2::module::FromScriptModuleParam>::from_param(
-                    &params, 0usize,
-                ) {
-                    ::std::option::Option::Some(value) => value,
-                    ::std::option::Option::None => {
-                        let _ = params.set_error(&format!(
-                            "Failed to convert parameter #{} to {}",
-                            0usize,
-                            stringify!(f64)
-                        ));
-                        return;
-                    }
-                };
                 <MyModule as ::aviutl2::module::ScriptModule>::with_instance(|__internal_self| {
+                    let fuga: f64 =
+                        match <f64 as ::aviutl2::module::FromScriptModuleParam>::from_param(
+                            &params, 0usize,
+                        ) {
+                            ::std::option::Option::Some(value) => value,
+                            ::std::option::Option::None => {
+                                let _ = params.set_error(&format!(
+                                    "Failed to convert parameter #{} to {}",
+                                    0usize,
+                                    stringify!(f64)
+                                ));
+                                return;
+                            }
+                        };
                     let fn_result = <MyModule>::my_function(__internal_self, fuga);
-                    let push_result = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(
-                        fn_result,
-                        &mut params,
-                    );
-                    let _ = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(
-                        push_result,
-                        &mut params,
-                    );
+                    ::aviutl2::module::__push_return_value(&mut params, fn_result);
                 });
             }
         }

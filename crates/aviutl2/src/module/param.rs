@@ -4,6 +4,21 @@ pub struct ScriptModuleCallHandle {
     pub(crate) internal: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,
 }
 
+/// [`ScriptModuleCallHandle`]関連のエラー。
+#[derive(thiserror::Error, Debug)]
+pub enum ScriptModuleCallHandleError {
+    #[error("key contains null byte")]
+    KeyContainsNullByte(std::ffi::NulError),
+
+    #[error("value contains null byte")]
+    ValueContainsNullByte(std::ffi::NulError),
+
+    #[error("too many elements")]
+    TooManyElements,
+}
+
+pub type ScriptModuleCallHandleResult<T> = std::result::Result<T, ScriptModuleCallHandleError>;
+
 impl ScriptModuleCallHandle {
     /// ポインタから`ScriptModuleParam`を作成する。
     ///
@@ -95,9 +110,14 @@ impl ScriptModuleCallHandle {
     /// # Note
     ///
     /// 引数を取得できない場合は0を返します。
-    pub fn get_param_table_int(&self, index: usize, key: &str) -> i32 {
-        let c_key = std::ffi::CString::new(key).unwrap();
-        unsafe { ((*self.internal).get_param_table_int)(index as i32, c_key.as_ptr()) }
+    pub fn get_param_table_int(
+        &self,
+        index: usize,
+        key: &str,
+    ) -> ScriptModuleCallHandleResult<i32> {
+        let c_key = std::ffi::CString::new(key)
+            .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
+        Ok(unsafe { ((*self.internal).get_param_table_int)(index as i32, c_key.as_ptr()) })
     }
 
     /// 引数のテーブルの要素を浮動小数点数として取得する。
@@ -105,17 +125,27 @@ impl ScriptModuleCallHandle {
     /// # Note
     ///
     /// 引数を取得できない場合は0.0を返します。
-    pub fn get_param_table_float(&self, index: usize, key: &str) -> f64 {
-        let c_key = std::ffi::CString::new(key).unwrap();
-        unsafe { ((*self.internal).get_param_table_double)(index as i32, c_key.as_ptr()) }
+    pub fn get_param_table_float(
+        &self,
+        index: usize,
+        key: &str,
+    ) -> ScriptModuleCallHandleResult<f64> {
+        let c_key = std::ffi::CString::new(key)
+            .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
+        Ok(unsafe { ((*self.internal).get_param_table_double)(index as i32, c_key.as_ptr()) })
     }
 
     /// 引数のテーブルの要素を文字列として取得する。
-    pub fn get_param_table_str(&self, index: usize, key: &str) -> Option<String> {
-        let c_key = std::ffi::CString::new(key).unwrap();
+    pub fn get_param_table_str(
+        &self,
+        index: usize,
+        key: &str,
+    ) -> ScriptModuleCallHandleResult<Option<String>> {
+        let c_key = std::ffi::CString::new(key)
+            .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         unsafe {
             let c_str = ((*self.internal).get_param_table_string)(index as i32, c_key.as_ptr());
-            if c_str.is_null() {
+            Ok(if c_str.is_null() {
                 None
             } else {
                 Some(
@@ -123,7 +153,7 @@ impl ScriptModuleCallHandle {
                         .to_string_lossy()
                         .into_owned(),
                 )
-            }
+            })
         }
     }
 
@@ -159,8 +189,9 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数のエラーを設定する。
-    pub fn set_error(&mut self, message: &str) -> crate::AnyResult<()> {
-        let c_message = std::ffi::CString::new(message)?;
+    pub fn set_error(&mut self, message: &str) -> ScriptModuleCallHandleResult<()> {
+        let c_message = std::ffi::CString::new(message)
+            .map_err(ScriptModuleCallHandleError::ValueContainsNullByte)?;
         unsafe {
             ((*self.internal).set_error)(c_message.as_ptr());
         }
@@ -171,7 +202,7 @@ impl ScriptModuleCallHandle {
     pub fn push_result<T: IntoScriptModuleReturnValue>(
         &mut self,
         value: T,
-    ) -> crate::AnyResult<()> {
+    ) -> Result<(), IntoScriptModuleReturnValueError<T::Err>> {
         value.push_into(self)
     }
 
@@ -190,8 +221,9 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値に文字列を追加する。
-    pub fn push_result_str(&mut self, value: &str) -> crate::AnyResult<()> {
-        let c_value = std::ffi::CString::new(value)?;
+    pub fn push_result_str(&mut self, value: &str) -> ScriptModuleCallHandleResult<()> {
+        let c_value = std::ffi::CString::new(value)
+            .map_err(ScriptModuleCallHandleError::ValueContainsNullByte)?;
         unsafe {
             ((*self.internal).push_result_string)(c_value.as_ptr());
         }
@@ -199,14 +231,15 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値に整数の連想配列を追加する。
-    pub fn push_result_table_int<'a, T>(&mut self, table: T) -> crate::AnyResult<()>
+    pub fn push_result_table_int<'a, T>(&mut self, table: T) -> ScriptModuleCallHandleResult<()>
     where
         T: std::iter::IntoIterator<Item = (&'a str, i32)>,
     {
         let mut keys = Vec::new();
         let mut values = Vec::new();
         for (key, value) in table {
-            let c_key = std::ffi::CString::new(key)?;
+            let c_key = std::ffi::CString::new(key)
+                .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
             keys.push(c_key);
             values.push(value);
         }
@@ -222,14 +255,15 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値に浮動小数点数の連想配列を追加する。
-    pub fn push_result_table_float<'a, T>(&mut self, table: T) -> crate::AnyResult<()>
+    pub fn push_result_table_float<'a, T>(&mut self, table: T) -> ScriptModuleCallHandleResult<()>
     where
         T: std::iter::IntoIterator<Item = (&'a str, f64)>,
     {
         let mut keys = Vec::new();
         let mut values = Vec::new();
         for (key, value) in table {
-            let c_key = std::ffi::CString::new(key)?;
+            let c_key = std::ffi::CString::new(key)
+                .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
             keys.push(c_key);
             values.push(value);
         }
@@ -245,22 +279,23 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値に文字列の連想配列を追加する。
-    pub fn push_result_table_str<'a, T>(&mut self, table: T) -> crate::AnyResult<()>
+    pub fn push_result_table_str<'a, T>(&mut self, table: T) -> ScriptModuleCallHandleResult<()>
     where
         T: std::iter::IntoIterator<Item = (&'a str, &'a str)>,
     {
         let mut keys = Vec::new();
         let mut values = Vec::new();
         for (key, value) in table {
-            let c_key = std::ffi::CString::new(key)?;
-            let c_value = std::ffi::CString::new(value)?;
+            let c_key = std::ffi::CString::new(key)
+                .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
+            let c_value = std::ffi::CString::new(value)
+                .map_err(ScriptModuleCallHandleError::ValueContainsNullByte)?;
             keys.push(c_key);
             values.push(c_value);
         }
-        anyhow::ensure!(
-            keys.len() <= i32::MAX as usize,
-            "Table size exceeds i32::MAX"
-        );
+        if keys.len() > i32::MAX as usize {
+            return Err(ScriptModuleCallHandleError::TooManyElements);
+        }
         let key_ptrs: Vec<*const std::os::raw::c_char> = keys.iter().map(|k| k.as_ptr()).collect();
         let value_ptrs: Vec<*const std::os::raw::c_char> =
             values.iter().map(|v| v.as_ptr()).collect();
@@ -275,11 +310,10 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値に整数の配列を追加する。
-    pub fn push_result_array_int(&mut self, values: &[i32]) -> crate::AnyResult<()> {
-        anyhow::ensure!(
-            values.len() <= i32::MAX as usize,
-            "Array length exceeds i32::MAX"
-        );
+    pub fn push_result_array_int(&mut self, values: &[i32]) -> ScriptModuleCallHandleResult<()> {
+        if values.len() > i32::MAX as usize {
+            return Err(ScriptModuleCallHandleError::TooManyElements);
+        }
         unsafe {
             ((*self.internal).push_result_array_int)(values.as_ptr(), values.len() as i32);
         }
@@ -287,11 +321,10 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値に浮動小数点数の配列を追加する。
-    pub fn push_result_array_float(&mut self, values: &[f64]) -> crate::AnyResult<()> {
-        anyhow::ensure!(
-            values.len() <= i32::MAX as usize,
-            "Array length exceeds i32::MAX"
-        );
+    pub fn push_result_array_float(&mut self, values: &[f64]) -> ScriptModuleCallHandleResult<()> {
+        if values.len() > i32::MAX as usize {
+            return Err(ScriptModuleCallHandleError::TooManyElements);
+        }
         unsafe {
             ((*self.internal).push_result_array_double)(values.as_ptr(), values.len() as i32);
         }
@@ -299,15 +332,15 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値に文字列の配列を追加する。
-    pub fn push_result_array_str(&mut self, values: &[&str]) -> crate::AnyResult<()> {
+    pub fn push_result_array_str(&mut self, values: &[&str]) -> ScriptModuleCallHandleResult<()> {
         let c_values: Vec<std::ffi::CString> = values
             .iter()
             .map(|s| std::ffi::CString::new(*s))
-            .collect::<Result<_, _>>()?;
-        anyhow::ensure!(
-            c_values.len() <= i32::MAX as usize,
-            "Array length exceeds i32::MAX"
-        );
+            .collect::<Result<_, _>>()
+            .map_err(ScriptModuleCallHandleError::ValueContainsNullByte)?;
+        if c_values.len() > i32::MAX as usize {
+            return Err(ScriptModuleCallHandleError::TooManyElements);
+        }
         let c_value_ptrs: Vec<*const std::os::raw::c_char> =
             c_values.iter().map(|s| s.as_ptr()).collect();
         unsafe {
@@ -586,19 +619,36 @@ pub enum ScriptModuleReturnValue {
     StringTable(std::collections::HashMap<String, String>),
 }
 
+/// [`IntoScriptModuleReturnValue::push_into`]で使われるエラー。
+#[derive(thiserror::Error, Debug)]
+pub enum IntoScriptModuleReturnValueError<T> {
+    #[error("failed to convert value: {0}")]
+    ConversionFailed(#[source] T),
+    #[error("failed to push return value: {0}")]
+    PushFailed(#[from] ScriptModuleCallHandleError),
+}
+
 /// 関数の戻り値として使える型。
 ///
 /// # Note
 ///
 /// この関数はDeriveマクロを使用して実装することもできます。
 /// 詳細は[`derive@IntoScriptModuleReturnValue`]のドキュメントを参照してください。
-pub trait IntoScriptModuleReturnValue {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>>;
-    fn push_into(self, param: &mut ScriptModuleCallHandle) -> crate::AnyResult<()>
-    where
-        Self: std::marker::Sized,
-    {
-        for value in self.into_return_values()? {
+pub trait IntoScriptModuleReturnValue
+where
+    Self: Sized,
+{
+    type Err: Send + Sync + 'static + Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err>;
+    fn push_into(
+        self,
+        param: &mut ScriptModuleCallHandle,
+    ) -> Result<(), IntoScriptModuleReturnValueError<Self::Err>> {
+        for value in self
+            .into_return_values()
+            .map_err(IntoScriptModuleReturnValueError::ConversionFailed)?
+        {
             match value {
                 ScriptModuleReturnValue::Int(v) => {
                     param.push_result_int(v);
@@ -638,7 +688,9 @@ pub trait IntoScriptModuleReturnValue {
 pub use aviutl2_macros::IntoScriptModuleReturnValue;
 
 impl IntoScriptModuleReturnValue for i32 {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::Int(self)])
     }
 }
@@ -646,62 +698,82 @@ impl IntoScriptModuleReturnValue for i32 {
     Integer;
     [i8];
     [i16];
+    [u8];
+    [u16];
+)]
+impl IntoScriptModuleReturnValue for Integer {
+    type Err = std::convert::Infallible;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        Ok(vec![ScriptModuleReturnValue::Int(self as i32)])
+    }
+}
+#[duplicate::duplicate_item(
+    Integer;
     [i64];
     [i128];
     [isize];
-    [u8];
-    [u16];
     [u32];
     [u64];
     [u128];
     [usize];
 )]
 impl IntoScriptModuleReturnValue for Integer {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
-        #[allow(clippy::unnecessary_fallible_conversions)]
+    type Err = std::num::TryFromIntError;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::Int(self.try_into()?)])
     }
 }
 impl IntoScriptModuleReturnValue for f64 {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::Float(self)])
     }
 }
 impl IntoScriptModuleReturnValue for f32 {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::Float(self as f64)])
     }
 }
 impl IntoScriptModuleReturnValue for bool {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::Boolean(self)])
     }
 }
 impl IntoScriptModuleReturnValue for &str {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::String(self.to_string())])
     }
 }
 impl IntoScriptModuleReturnValue for String {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::String(self)])
     }
 }
 
 impl IntoScriptModuleReturnValue for ScriptModuleReturnValue {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![self])
     }
 }
 
 impl IntoScriptModuleReturnValue for Vec<ScriptModuleReturnValue> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(self)
     }
 }
 
 impl<T: IntoScriptModuleReturnValue> IntoScriptModuleReturnValue for Option<T> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = T::Err;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         if let Some(value) = self {
             value.into_return_values()
         } else {
@@ -709,32 +781,49 @@ impl<T: IntoScriptModuleReturnValue> IntoScriptModuleReturnValue for Option<T> {
         }
     }
 }
-impl<T: IntoScriptModuleReturnValue, const N: usize> IntoScriptModuleReturnValue for [T; N] {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
-        let mut out = Vec::new();
-        for value in self.into_iter() {
-            out.extend(value.into_return_values()?);
-        }
-        Ok(out)
+impl<T, const N: usize> IntoScriptModuleReturnValue for [T; N]
+where
+    Vec<T>: IntoScriptModuleReturnValue,
+{
+    type Err = <Vec<T> as IntoScriptModuleReturnValue>::Err;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        let vec: Vec<T> = self.into();
+        vec.into_return_values()
     }
 }
 impl<T: IntoScriptModuleReturnValue, E> IntoScriptModuleReturnValue for Result<T, E>
 where
-    Box<dyn std::error::Error>: From<E>,
+    E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>,
 {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = T::Err;
+
+    fn into_return_values(
+        self,
+    ) -> Result<
+        Vec<ScriptModuleReturnValue>,
+        <std::result::Result<T, E> as IntoScriptModuleReturnValue>::Err,
+    > {
         match self {
             Ok(value) => value.into_return_values(),
             Err(_) => Ok(Vec::new()),
         }
     }
-    fn push_into(self, param: &mut ScriptModuleCallHandle) -> crate::AnyResult<()> {
+    fn push_into(
+        self,
+        param: &mut ScriptModuleCallHandle,
+    ) -> Result<
+        (),
+        IntoScriptModuleReturnValueError<
+            <std::result::Result<T, E> as IntoScriptModuleReturnValue>::Err,
+        >,
+    > {
         match self {
-            Ok(value) => {
-                value.push_into(param)?;
-            }
+            Ok(value) => value.push_into(param)?,
             Err(err) => {
-                let _ = param.set_error(&(Box::<dyn std::error::Error>::from(err).to_string()));
+                let e: Box<dyn std::error::Error + 'static> = err.into();
+                let e = e.to_string();
+                param.set_error(&e)?
             }
         }
         Ok(())
@@ -742,69 +831,99 @@ where
 }
 
 impl IntoScriptModuleReturnValue for () {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(Vec::new())
     }
 }
 
-#[impl_trait_for_tuples::impl_for_tuples(1, 10)]
-impl IntoScriptModuleReturnValue for Tuple {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
-        let mut vec = Vec::new();
-        for_tuples!(#(
-            vec.extend(Tuple.into_return_values()?);
-        )*);
-        Ok(vec)
-    }
+macro_rules! impl_into_script_module_return_value_for_tuple {
+    ($($name:ident),+) => {
+        impl<$($name),+> IntoScriptModuleReturnValue for ($($name,)+)
+        where
+            $($name: IntoScriptModuleReturnValue),+
+        {
+            type Err = anyhow::Error;
+
+            fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+                let mut vec = Vec::new();
+                #[allow(non_snake_case)]
+                let ($($name,)+) = self;
+                $(
+                    vec.extend(
+                        $name.into_return_values()
+                            .map_err(|e| anyhow::Error::from_boxed(e.into()))?
+                    );
+                )+
+                Ok(vec)
+            }
+        }
+    };
 }
+impl_into_script_module_return_value_for_tuple!(T1);
+impl_into_script_module_return_value_for_tuple!(T1, T2);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3, T4);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3, T4, T5);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3, T4, T5, T6);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3, T4, T5, T6, T7);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3, T4, T5, T6, T7, T8);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9);
+impl_into_script_module_return_value_for_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
 
 impl IntoScriptModuleReturnValue for Vec<String> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::StringArray(self)])
     }
 }
 impl IntoScriptModuleReturnValue for Vec<&str> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::StringArray(
             self.iter().map(|s| s.to_string()).collect(),
         )])
     }
 }
 impl IntoScriptModuleReturnValue for Vec<i32> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::IntArray(self)])
     }
 }
 impl IntoScriptModuleReturnValue for Vec<f64> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::FloatArray(self)])
     }
 }
 impl<T> IntoScriptModuleReturnValue for &[T]
 where
-    T: IntoScriptModuleReturnValue + Clone,
+    Vec<T>: IntoScriptModuleReturnValue,
+    T: Clone,
 {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
-        let mut vec = Vec::new();
-        for item in self.iter() {
-            vec.extend(item.clone().into_return_values()?);
-        }
-        Ok(vec)
+    type Err = <Vec<T> as IntoScriptModuleReturnValue>::Err;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        let vec: Vec<T> = self.to_vec();
+        vec.into_return_values()
     }
 }
 
 impl IntoScriptModuleReturnValue for std::collections::HashMap<String, i32> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::IntTable(self)])
     }
 }
 impl IntoScriptModuleReturnValue for std::collections::HashMap<String, f64> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::FloatTable(self)])
     }
 }
 impl IntoScriptModuleReturnValue for std::collections::HashMap<String, String> {
-    fn into_return_values(self) -> crate::AnyResult<Vec<ScriptModuleReturnValue>> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::StringTable(self)])
     }
 }
@@ -840,4 +959,20 @@ pub mod __table_converter {
             Some(self.clone())
         }
     }
+}
+
+#[doc(hidden)]
+pub fn __push_return_value<T>(param: &mut crate::module::ScriptModuleCallHandle, value: T)
+where
+    T: crate::module::IntoScriptModuleReturnValue,
+{
+    let res = value.push_into(param);
+    let _ = res
+        .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
+            match e {
+                crate::module::IntoScriptModuleReturnValueError::PushFailed(e) => Box::new(e),
+                crate::module::IntoScriptModuleReturnValueError::ConversionFailed(e) => e.into(),
+            }
+        })
+        .push_into(param);
 }

@@ -175,11 +175,10 @@ fn create_bridge(
                         quote::quote! {
                             extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
                                 let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
-                                #(#param_bridges)*
                                 <#impl_token as ::aviutl2::module::ScriptModule>::with_instance_mut(|__internal_self| {
+                                    #(#param_bridges)*
                                     let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
-                                    let push_result = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(fn_result, &mut params);
-                                    let _ = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(push_result, &mut params);
+                                    ::aviutl2::module::__push_return_value(&mut params, fn_result);
                                 });
                             }
                         }
@@ -187,11 +186,10 @@ fn create_bridge(
                         quote::quote! {
                             extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
                                 let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
-                                #(#param_bridges)*
                                 <#impl_token as ::aviutl2::module::ScriptModule>::with_instance(|__internal_self| {
+                                    #(#param_bridges)*
                                     let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
-                                    let push_result = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(fn_result, &mut params);
-                                    let _ = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(push_result, &mut params);
+                                    ::aviutl2::module::__push_return_value(&mut params, fn_result);
                                 });
                             }
                         }
@@ -202,8 +200,7 @@ fn create_bridge(
                             let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
                             #(#param_bridges)*
                             let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
-                            let push_result = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(fn_result, &mut params);
-                            let _ = ::aviutl2::module::IntoScriptModuleReturnValue::push_into(push_result, &mut params);
+                            ::aviutl2::module::__push_return_value(&mut params, fn_result);
                         }
                     }
                 }
