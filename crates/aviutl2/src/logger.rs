@@ -1,12 +1,27 @@
-//! [`log`](https://crates.io/crates/log) クレートを使用したロギング機能を提供します。
+//! AviUtl2のロガーへのインターフェースを提供します。
+
+use crate::common::{CWString, NullByteError};
+pub use log::LevelFilter;
 
 // NOTE:
 // InitializeLoggerは可能な限り早く実行されるらしいので、まぁ捨てられるログはないとしていいはず...
 
 /// フォーマッター。
+///
+/// # See Also
+///
+/// [`LogBuilder::formatter`]
 pub type Formatter = dyn Fn(&log::Record) -> String + Send + Sync + 'static;
 
-/// ログのBuilder。
+/// [`log`]クレートを使用してAviUtl2のログ出力を設定するためのビルダー。
+///
+/// # Note
+///
+/// Debug、TraceレベルのログはVERBOSEとしてまとめられます。
+///
+/// # See Also
+///
+/// - [`env_filter::Builder`](https://docs.rs/env_filter/latest/env_filter/struct.Builder.html)
 #[must_use]
 pub struct LogBuilder {
     filter: env_filter::Builder,
@@ -57,6 +72,10 @@ impl LogBuilder {
     }
 
     /// ロガーを初期化します。
+    ///
+    /// # Errors
+    ///
+    /// ロガーを2回以上初期化しようとした場合にエラーを返します。
     pub fn try_init(self) -> Result<(), log::SetLoggerError> {
         let LogBuilder {
             mut filter,
@@ -78,9 +97,6 @@ impl Default for LogBuilder {
         Self::new()
     }
 }
-
-pub use log::LevelFilter;
-
 struct InternalLogger {
     formatter: Box<Formatter>,
 }
@@ -114,12 +130,12 @@ impl log::Log for InternalLogger {
 #[macro_export]
 macro_rules! ldbg {
     () => {
-        $crate::lprintln!("[{}:{}:{}]", ::std::file!(), ::std::line!(), ::std::column!());
+        $crate::lprintln!(verbose, "[{}:{}:{}]", ::std::file!(), ::std::line!(), ::std::column!());
     };
     ($val:expr $(,)?) => {
         match $val {
             tmp => {
-                $crate::lprintln!("[{}:{}:{}] {} = {:#?}",
+                $crate::lprintln!(verbose, "[{}:{}:{}] {} = {:#?}",
                     ::std::file!(),
                     ::std::line!(),
                     ::std::column!(),
@@ -136,11 +152,35 @@ macro_rules! ldbg {
 }
 
 /// プラグイン用ログに出力する[`println!`]マクロ。
+///
+/// ```rust
+/// # use aviutl2::lprintln;
+/// lprintln!("This is a plugin log message.");  // デフォルトはpluginログに出力
+/// lprintln!(plugin, "This is also a plugin log message.");
+/// lprintln!(info, "This is an info log message.");
+/// lprintln!(warn, "This is a warning log message.");
+/// lprintln!(error, "This is an error log message.");
+/// lprintln!(verbose, "This is a verbose log message.");
+/// ```
 #[macro_export]
 macro_rules! lprintln {
+    (plugin, $($arg:tt)*) => {
+        let _ = $crate::logger::write_plugin_log(&format!($($arg)*));
+    };
+    (info, $($arg:tt)*) => {
+        let _ = $crate::logger::write_info_log(&format!($($arg)*));
+    };
+    (warn, $($arg:tt)*) => {
+        let _ = $crate::logger::write_warn_log(&format!($($arg)*));
+    };
+    (error, $($arg:tt)*) => {
+        let _ = $crate::logger::write_error_log(&format!($($arg)*));
+    };
+    (verbose, $($arg:tt)*) => {
+        let _ = $crate::logger::write_verbose_log(&format!($($arg)*));
+    };
     ($($arg:tt)*) => {
-        let message = format!($($arg)*);
-        $crate::logger::write_plugin_log(&message);
+        $crate::lprintln!(plugin, $($arg)*);
     };
 }
 
@@ -154,11 +194,39 @@ macro_rules! lprintln {
 ///
 /// - [`ldbg!`]
 /// - [`lprintln!`]
-pub fn write_plugin_log(message: &str) {
-    let wide_message = encode_utf16_with_nul(message);
+pub fn write_plugin_log(message: &str) -> Result<(), NullByteError> {
     with_logger_handle(|handle| unsafe {
+        let wide_message = CWString::new(message)?;
         ((*handle).log)(handle, wide_message.as_ptr());
-    });
+        Ok(())
+    })
+    .unwrap_or(Ok(()))
+}
+
+#[duplicate::duplicate_item(
+    level       function_name       log_method;
+    ["ERROR"]   [write_error_log]   [error];
+    ["WARN"]    [write_warn_log]    [warn];
+    ["INFO"]    [write_info_log]    [info];
+    ["VERBOSE"] [write_verbose_log] [verbose];
+)]
+#[doc = concat!("ログに", level, "レベルのメッセージを書き込みます。")]
+///
+/// # Note
+///
+/// ロガーが初期化されていない場合は何も行いません。
+///
+/// # See Also
+///
+/// - [`ldbg!`]
+/// - [`lprintln!`]
+pub fn function_name(message: &str) -> Result<(), NullByteError> {
+    with_logger_handle(|handle| unsafe {
+        let wide_message = CWString::new(message)?;
+        ((*handle).log_method)(handle, wide_message.as_ptr());
+        Ok(())
+    })
+    .unwrap_or(Ok(()))
 }
 
 struct InternalLoggerHandle(*mut aviutl2_sys::logger2::LOG_HANDLE);
@@ -183,34 +251,31 @@ impl InternalLoggerHandle {
     }
 }
 
-fn encode_utf16_with_nul(message: &str) -> Vec<u16> {
-    message.encode_utf16().chain(std::iter::once(0)).collect()
-}
-
-fn with_logger_handle<F>(f: F)
+fn with_logger_handle<F, T>(f: F) -> Option<T>
 where
-    F: FnOnce(*mut aviutl2_sys::logger2::LOG_HANDLE),
+    F: FnOnce(*mut aviutl2_sys::logger2::LOG_HANDLE) -> T,
 {
-    let Some(handle) = LOGGER_HANDLE.get() else {
-        return;
-    };
+    let handle = LOGGER_HANDLE.get()?;
     let handle = handle.lock().unwrap();
     let handle_ptr = handle.ptr();
-    f(handle_ptr);
+    Some(f(handle_ptr))
 }
 
 fn send_record(level: log::Level, message: String) {
-    let wide_message = encode_utf16_with_nul(&message);
-    with_logger_handle(|handle| unsafe {
-        match level {
-            log::Level::Error => ((*handle).error)(handle, wide_message.as_ptr()),
-            log::Level::Warn => ((*handle).warn)(handle, wide_message.as_ptr()),
-            log::Level::Info => ((*handle).info)(handle, wide_message.as_ptr()),
-            log::Level::Debug | log::Level::Trace => {
-                ((*handle).verbose)(handle, wide_message.as_ptr())
-            }
+    match level {
+        log::Level::Error => {
+            let _ = write_error_log(&message);
         }
-    });
+        log::Level::Warn => {
+            let _ = write_warn_log(&message);
+        }
+        log::Level::Info => {
+            let _ = write_info_log(&message);
+        }
+        log::Level::Debug | log::Level::Trace => {
+            let _ = write_verbose_log(&message);
+        }
+    }
 }
 
 #[cfg(test)]
