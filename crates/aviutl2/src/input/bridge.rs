@@ -110,32 +110,36 @@ struct InternalInputHandle<T: Send + Sync> {
     handle: T,
 }
 
-pub fn initialize_plugin<T: InputSingleton>(version: u32) -> bool {
+pub unsafe fn initialize_plugin_c<T: InputSingleton>(version: u32) -> bool {
+    match initialize_plugin::<T>(version) {
+        Ok(_) => true,
+        Err(e) => {
+            log::error!("Failed to initialize plugin: {}", e);
+            alert_error(&e);
+            false
+        }
+    }
+}
+
+pub(crate) fn initialize_plugin<T: InputSingleton>(version: u32) -> AnyResult<()> {
     let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),
     };
-    let internal = match T::new(info) {
-        Ok(plugin) => plugin,
-        Err(e) => {
-            log::error!("Failed to initialize plugin: {}", e);
-            alert_error(&e);
-            return false;
-        }
-    };
+    let internal = T::new(info)?;
     let plugin = InternalInputPluginState::new(internal);
     *plugin_state.write().unwrap() = Some(plugin);
 
-    true
+    Ok(())
 }
 
-pub fn uninitialize_plugin<T: InputSingleton>() {
+pub unsafe fn uninitialize_plugin<T: InputSingleton>() {
     let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     *plugin_state = None;
 }
 
-pub fn create_table<T: InputSingleton>() -> *mut aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
+pub unsafe fn create_table<T: InputSingleton>() -> *mut aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
     let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
@@ -527,6 +531,18 @@ where
     Self: 'static + Send + Sync + InputPlugin,
 {
     fn __get_singleton_state() -> &'static std::sync::RwLock<Option<InternalInputPluginState<Self>>>;
+    fn with_instance<R>(f: impl FnOnce(&Self) -> R) -> R {
+        let lock = Self::__get_singleton_state();
+        let guard = lock.read().unwrap();
+        let state = guard.as_ref().expect("Plugin not initialized");
+        f(&state.instance)
+    }
+    fn with_instance_mut<R>(f: impl FnOnce(&mut Self) -> R) -> R {
+        let lock = Self::__get_singleton_state();
+        let mut guard = lock.write().unwrap();
+        let state = guard.as_mut().expect("Plugin not initialized");
+        f(&mut state.instance)
+    }
 }
 
 /// 入力プラグインを登録するマクロ。
@@ -541,18 +557,18 @@ macro_rules! register_input_plugin {
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                $crate::input::__bridge::initialize_plugin::<$struct>(version)
+                unsafe { $crate::input::__bridge::initialize_plugin_c::<$struct>(version) }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                $crate::input::__bridge::uninitialize_plugin::<$struct>()
+                unsafe { $crate::input::__bridge::uninitialize_plugin::<$struct>() }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetInputPluginTable()
             -> *mut aviutl2::sys::input2::INPUT_PLUGIN_TABLE {
-                $crate::input::__bridge::create_table::<$struct>()
+                unsafe { $crate::input::__bridge::create_table::<$struct>() }
             }
         }
     };

@@ -23,7 +23,7 @@ jobs:
         uses: ./.github/actions/setup-environment
 
       - name: Build Page
-        uses: ./.github/actions/render-statistics-page
+        uses: ./.github/actions/prepare-resources
 
       - name: Run format
         run: |

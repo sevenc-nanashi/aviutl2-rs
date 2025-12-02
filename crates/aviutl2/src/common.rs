@@ -80,8 +80,8 @@ impl aviutl2_alias::FromTableValue for AviUtl2Version {
     type Err = std::num::ParseIntError;
 
     fn from_table_value(value: &str) -> Result<Self, Self::Err> {
-        let v = value.parse::<u32>()?;
-        Ok(AviUtl2Version::from(v))
+        let v: u32 = value.parse()?;
+        Ok(Self::from(v))
     }
 }
 
