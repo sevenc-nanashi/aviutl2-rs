@@ -11,6 +11,7 @@ pub union FILTER_ITEM {
     pub color: FILTER_ITEM_COLOR,
     pub select: FILTER_ITEM_SELECT,
     pub file: FILTER_ITEM_FILE,
+    pub data: FILTER_ITEM_DATA,
 }
 
 /// トラックバー項目構造体
@@ -99,6 +100,26 @@ pub struct FILTER_ITEM_FILE {
     pub value: LPCWSTR,
     /// ファイルフィルタ
     pub filefilter: LPCWSTR,
+}
+
+/// 汎用データ項目構造体
+///
+/// # Note
+///
+/// `default_value` は最大1024バイトまでの任意のデータを格納できます。
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_DATA {
+    /// 設定の種別（L"data"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// 設定値（フィルタ処理の呼び出し時に現在の値のポインタに更新されます）
+    pub value: *mut c_void,
+    /// 汎用データのサイズ（1024バイト以下）
+    pub size: i32,
+    /// デフォルト値（sizeで指定した長さまで有効）
+    pub default_value: [u8; 1024],
 }
 
 /// RGBA32bit構造体

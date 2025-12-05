@@ -1,4 +1,7 @@
+use std::{ffi::c_void, ptr::NonNull};
+
 use crate::common::LeakManager;
+use zerocopy::{FromBytes, Immutable, IntoBytes};
 
 /// [`Vec<FilterConfigItem>`] と相互変換するためのトレイト。
 /// 基本的にはこのトレイトを手動で実装する必要はありません。
@@ -53,6 +56,8 @@ pub enum FilterConfigItem {
     Select(FilterConfigSelect),
     /// ファイル選択。
     File(FilterConfigFile),
+    /// 汎用データ。
+    Data(FilterConfigData),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -62,6 +67,7 @@ pub(crate) enum FilterConfigItemValue {
     Color(FilterConfigColorValue),
     Select(i32),
     File(String),
+    Data { value: *mut u8, size: usize },
 }
 
 impl FilterConfigItem {
@@ -73,6 +79,7 @@ impl FilterConfigItem {
             FilterConfigItem::Color(item) => &item.name,
             FilterConfigItem::Select(item) => &item.name,
             FilterConfigItem::File(item) => &item.name,
+            FilterConfigItem::Data(item) => &item.name,
         }
     }
 
@@ -139,6 +146,23 @@ impl FilterConfigItem {
                     },
                 }
             }
+            FilterConfigItem::Data(item) => {
+                let mut data = aviutl2_sys::filter2::FILTER_ITEM_DATA {
+                    r#type: leak_manager.leak_as_wide_string("data"),
+                    name: leak_manager.leak_as_wide_string(&item.name),
+                    value: std::ptr::null_mut(),
+                    size: item.size as i32,
+                    default_value: [0; 1024],
+                };
+                assert!(
+                    item.size <= data.default_value.len(),
+                    "FilterConfigData size must be <= 1024"
+                );
+                data.default_value[..item.size].copy_from_slice(item.default_value());
+                data.value = data.default_value.as_mut_ptr() as *mut c_void;
+
+                aviutl2_sys::filter2::FILTER_ITEM { data }
+            }
         }
     }
 
@@ -176,6 +200,19 @@ impl FilterConfigItem {
                 let value = unsafe { crate::common::load_wide_string(raw_file.value) };
                 FilterConfigItemValue::File(value)
             }
+            "data" => {
+                let raw_data = unsafe { &(*raw).data };
+                let size = usize::try_from(raw_data.size)
+                    .expect("FILTER_ITEM_DATA size must not be negative");
+                assert!(
+                    size <= 1024,
+                    "FILTER_ITEM_DATA size must be 1024 bytes or less"
+                );
+                FilterConfigItemValue::Data {
+                    value: raw_data.value as *mut u8,
+                    size,
+                }
+            }
             _ => panic!("Unknown filter config item type: {}", item_type),
         }
     }
@@ -196,6 +233,16 @@ impl FilterConfigItem {
             (FilterConfigItem::Color(item), FilterConfigItemValue::Color(v)) => item.value != v,
             (FilterConfigItem::Select(item), FilterConfigItemValue::Select(v)) => item.value != v,
             (FilterConfigItem::File(item), FilterConfigItemValue::File(v)) => item.value != v,
+            (FilterConfigItem::Data(item), FilterConfigItemValue::Data { value, size }) => {
+                let size_changed = item.size != size;
+                let ptr_changed = match (item.value, NonNull::new(value)) {
+                    (Some(old), Some(new)) => old != new,
+                    (None, None) => false,
+                    _ => true,
+                };
+
+                size_changed || ptr_changed
+            }
             _ => {
                 panic!("Mismatched filter config item type");
             }
@@ -222,6 +269,13 @@ impl FilterConfigItem {
             }
             (FilterConfigItem::File(item), FilterConfigItemValue::File(v)) => {
                 item.value = v;
+            }
+            (FilterConfigItem::Data(item), FilterConfigItemValue::Data { value, size }) => {
+                if size > item.default_value.len() {
+                    item.default_value.resize(size, 0);
+                }
+                item.size = size;
+                item.value = NonNull::new(value);
             }
             _ => {
                 panic!("Mismatched filter config item type");
@@ -425,4 +479,100 @@ pub struct FilterConfigFile {
     pub value: String,
     /// ファイルフィルタ。
     pub filters: Vec<crate::common::FileFilter>,
+}
+
+/// 汎用データ。
+#[derive(Debug, Clone)]
+pub struct FilterConfigData {
+    /// 設定名。
+    pub name: String,
+    /// データのサイズ。
+    pub size: usize,
+    /// 現在の値を指すポインタ。
+    pub value: Option<NonNull<u8>>,
+    default_value: Vec<u8>,
+}
+
+impl FilterConfigData {
+    /// 任意のバイト列をデフォルト値として作成します。
+    ///
+    /// # Panics
+    ///
+    /// デフォルト値が1024バイトを超える場合パニックします。
+    pub fn with_bytes(name: impl Into<String>, default_value: impl Into<Vec<u8>>) -> Self {
+        let default_value = default_value.into();
+        assert!(
+            default_value.len() <= 1024,
+            "FILTER_ITEM_DATA default value must be 1024 bytes or less"
+        );
+        Self {
+            name: name.into(),
+            size: default_value.len(),
+            value: None,
+            default_value,
+        }
+    }
+
+    /// 任意の型からデフォルト値を作成します。
+    ///
+    /// # Panics
+    ///
+    /// デフォルト値が1024バイトを超える場合パニックします。
+    pub fn new<T>(name: impl Into<String>, default_value: T) -> Self
+    where
+        T: IntoBytes + Immutable,
+    {
+        Self::with_bytes(name, default_value.as_bytes().to_vec())
+    }
+
+    /// デフォルト値を返します。
+    pub fn default_value(&self) -> &[u8] {
+        &self.default_value[..self.size]
+    }
+
+    /// 現在の値のバイト列を返します。
+    ///
+    /// ポインタが未初期化の場合は `None` を返します。
+    pub fn value_bytes(&self) -> Option<&[u8]> {
+        self.value
+            .map(|ptr| unsafe { std::slice::from_raw_parts(ptr.as_ptr(), self.size) })
+    }
+
+    /// 現在の値のバイト列をミュータブルに返します。
+    ///
+    /// ポインタが未初期化の場合は `None` を返します。
+    pub fn value_bytes_mut(&mut self) -> Option<&mut [u8]> {
+        self.value
+            .map(|mut ptr| unsafe { std::slice::from_raw_parts_mut(ptr.as_mut(), self.size) })
+    }
+
+    /// 現在の値を型付きで参照します。
+    ///
+    /// サイズが型と一致しない場合は `None` を返します。
+    pub fn value_as<T>(&self) -> Option<&T>
+    where
+        T: FromBytes + Immutable,
+    {
+        if self.size != std::mem::size_of::<T>() {
+            return None;
+        }
+        self.value
+            .map(|ptr| unsafe { &*(ptr.as_ptr() as *const T) })
+    }
+
+    /// 現在の値を型付きでミュータブル参照します。
+    ///
+    /// # Safety
+    ///
+    /// 呼び出し側でデータの整合性を保証する必要があります。
+    pub unsafe fn value_as_mut<T>(&mut self) -> Option<&mut T>
+    where
+        T: FromBytes + Immutable,
+    {
+        if self.size != std::mem::size_of::<T>() {
+            return None;
+        }
+        self.value
+            .map(|ptr| unsafe { &mut *(ptr.as_ptr() as *mut T) })
+    }
 }
