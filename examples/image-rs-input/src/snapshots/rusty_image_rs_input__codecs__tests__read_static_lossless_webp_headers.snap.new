@@ -1,0 +1,11 @@
+---
+source: examples/image-rs-input/src/codecs.rs
+assertion_line: 259
+expression: animation_info
+---
+AnimationInfo {
+    width: 815,
+    height: 854,
+    frame_timings: {},
+    length_in_seconds: 0.0,
+}
