@@ -12,6 +12,7 @@ pub union FILTER_ITEM {
     pub select: FILTER_ITEM_SELECT,
     pub file: FILTER_ITEM_FILE,
     pub data: FILTER_ITEM_DATA,
+    pub group: FILTER_ITEM_GROUP,
 }
 
 /// トラックバー項目構造体
@@ -122,6 +123,23 @@ pub struct FILTER_ITEM_DATA {
     pub default_value: [u8; 1024],
 }
 
+/// 設定グループ項目構造体
+///
+/// # Note
+///
+/// 自身以降の設定項目をグループ化することが出来ます
+/// ※設定名を空にするとグループの終端を定義することが出来ます
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_GROUP {
+    /// 設定の種別（L"group"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// デフォルトの表示状態
+    pub default_visible: bool,
+}
+
 /// RGBA32bit構造体
 #[repr(C)]
 pub struct PIXEL_RGBA {
@@ -193,6 +211,16 @@ pub struct FILTER_PROC_VIDEO {
     /// buffer: 画像データへのポインタ
     /// width,height: 画像サイズ
     pub set_image_data: unsafe extern "C" fn(buffer: *const PIXEL_RGBA, width: i32, height: i32),
+
+    // 現在のオブジェクトの画像データのポインタを取得する (ID3D11Texture2Dのポインタを取得します)
+    // 戻り値		: オブジェクトの画像データへのポインタ
+    //				  ※現在の画像が変更(set_image_data)されるかフィルタ処理の終了まで有効
+    pub get_image_texture2d: unsafe extern "C" fn() -> *mut c_void,
+
+    // 現在のフレームバッファの画像データのポインタを取得する (ID3D11Texture2Dのポインタを取得します)
+    // 戻り値		: フレームバッファの画像データへのポインタ
+    //				  ※フィルタ処理の終了まで有効
+    pub get_framebuffer_texture2d: unsafe extern "C" fn() -> *mut c_void,
 }
 
 /// 音声フィルタ処理用構造体
@@ -220,8 +248,11 @@ impl FILTER_PLUGIN_TABLE {
     pub const FLAG_VIDEO: i32 = 1;
     /// 音声フィルタをサポートする
     pub const FLAG_AUDIO: i32 = 2;
-    /// オブジェクトの初期入力をする (メディアオブジェクトにする場合)
+    /// メディアオブジェクトの初期入力をする (メディアオブジェクトにする場合)
     pub const FLAG_INPUT: i32 = 4;
+    /// フィルタオブジェクトをサポートする (フィルタオブジェクトに対応する場合)
+    /// フィルタオブジェクトの場合は画像サイズの変更が出来ません
+    pub const FLAG_FILTER: i32 = 8;
 }
 
 /// フィルタプラグイン構造体
