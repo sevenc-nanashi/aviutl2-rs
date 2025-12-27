@@ -1,7 +1,6 @@
 use std::{ffi::c_void, ptr::NonNull};
 
 use crate::common::LeakManager;
-use zerocopy::{FromBytes, Immutable, IntoBytes};
 
 /// [`Vec<FilterConfigItem>`] と相互変換するためのトレイト。
 /// 基本的にはこのトレイトを手動で実装する必要はありません。
@@ -57,7 +56,7 @@ pub enum FilterConfigItem {
     /// ファイル選択。
     File(FilterConfigFile),
     /// 汎用データ。
-    Data(FilterConfigData),
+    Data(ErasedFilterConfigData),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -481,98 +480,129 @@ pub struct FilterConfigFile {
     pub filters: Vec<crate::common::FileFilter>,
 }
 
-/// 汎用データ。
+/// 型を消去した汎用データ。
+///
+/// # Warning
+///
+/// この型は型が全くついていません。
+/// 基本的には[`FilterConfigData`]を使用してください。
 #[derive(Debug, Clone)]
-pub struct FilterConfigData {
+pub struct ErasedFilterConfigData {
     /// 設定名。
     pub name: String,
     /// データのサイズ。
+    ///
+    /// # Note
+    ///
+    /// 1024バイトを超えることはできません。
     pub size: usize,
     /// 現在の値を指すポインタ。
     pub value: Option<NonNull<u8>>,
     default_value: Vec<u8>,
 }
 
-impl FilterConfigData {
-    /// 任意のバイト列をデフォルト値として作成します。
+impl ErasedFilterConfigData {
+    /// 新しく作成します。
     ///
     /// # Panics
     ///
-    /// デフォルト値が1024バイトを超える場合パニックします。
-    pub fn with_bytes(name: impl Into<String>, default_value: impl Into<Vec<u8>>) -> Self {
-        let default_value = default_value.into();
+    /// Tが1024バイトを超える場合、パニックします。
+    pub fn new<T: Copy + Default + 'static>(name: String) -> Self {
+        Self::with_default_value(name, T::default())
+    }
+
+    /// デフォルト値を指定して新しく作成します。
+    ///
+    /// # Panics
+    ///
+    /// Tが1024バイトを超える場合、パニックします。
+    pub fn with_default_value<T: Copy + 'static>(name: String, default_value: T) -> Self {
         assert!(
-            default_value.len() <= 1024,
-            "FILTER_ITEM_DATA default value must be 1024 bytes or less"
+            std::mem::size_of::<T>() <= 1024,
+            "FilterConfigData<T> size must be <= 1024 bytes"
         );
-        Self {
-            name: name.into(),
-            size: default_value.len(),
+        let size = std::mem::size_of::<T>();
+        let mut default_value_bytes = vec![0u8; size];
+        let default_value_ptr = &default_value as *const T as *const u8;
+        default_value_bytes
+            .copy_from_slice(unsafe { std::slice::from_raw_parts(default_value_ptr, size) });
+
+        ErasedFilterConfigData {
+            name,
+            size,
             value: None,
-            default_value,
+            default_value: default_value_bytes,
         }
     }
 
-    /// 任意の型からデフォルト値を作成します。
-    ///
-    /// # Panics
-    ///
-    /// デフォルト値が1024バイトを超える場合パニックします。
-    pub fn new<T>(name: impl Into<String>, default_value: T) -> Self
-    where
-        T: IntoBytes + Immutable,
-    {
-        Self::with_bytes(name, default_value.as_bytes().to_vec())
-    }
-
-    /// デフォルト値を返します。
+    /// デフォルト値のスライスを取得します。
     pub fn default_value(&self) -> &[u8] {
-        &self.default_value[..self.size]
+        &self.default_value
     }
 
-    /// 現在の値のバイト列を返します。
-    ///
-    /// ポインタが未初期化の場合は `None` を返します。
-    pub fn value_bytes(&self) -> Option<&[u8]> {
-        self.value
-            .map(|ptr| unsafe { std::slice::from_raw_parts(ptr.as_ptr(), self.size) })
-    }
-
-    /// 現在の値のバイト列をミュータブルに返します。
-    ///
-    /// ポインタが未初期化の場合は `None` を返します。
-    pub fn value_bytes_mut(&mut self) -> Option<&mut [u8]> {
-        self.value
-            .map(|mut ptr| unsafe { std::slice::from_raw_parts_mut(ptr.as_mut(), self.size) })
-    }
-
-    /// 現在の値を型付きで参照します。
-    ///
-    /// サイズが型と一致しない場合は `None` を返します。
-    pub fn value_as<T>(&self) -> Option<&T>
-    where
-        T: FromBytes + Immutable,
-    {
-        if self.size != std::mem::size_of::<T>() {
-            return None;
-        }
-        self.value
-            .map(|ptr| unsafe { &*(ptr.as_ptr() as *const T) })
-    }
-
-    /// 現在の値を型付きでミュータブル参照します。
+    /// 型付きの汎用データに変換します。
     ///
     /// # Safety
     ///
-    /// 呼び出し側でデータの整合性を保証する必要があります。
-    pub unsafe fn value_as_mut<T>(&mut self) -> Option<&mut T>
-    where
-        T: FromBytes + Immutable,
-    {
-        if self.size != std::mem::size_of::<T>() {
-            return None;
+    /// 型情報を正しく指定する必要があります。
+    pub unsafe fn into_typed<T: Copy + 'static>(self) -> FilterConfigData<T> {
+        let expected_size = std::mem::size_of::<T>();
+        assert_eq!(
+            self.size, expected_size,
+            "Size mismatch when converting ErasedFilterConfigData to FilterConfigData<T>"
+        );
+        let value = self
+            .value
+            .map(|v| NonNull::new(v.as_ptr() as *mut T).unwrap());
+        let default_value_ptr = self.default_value.as_ptr() as *const T;
+        let default_value = unsafe { *default_value_ptr };
+        FilterConfigData {
+            name: self.name,
+            value,
+            default_value,
         }
-        self.value
-            .map(|ptr| unsafe { &mut *(ptr.as_ptr() as *mut T) })
+    }
+}
+
+/// 汎用データ。
+///
+/// # Note
+///
+/// Tのサイズが変わったとき、値はデフォルト値にリセットされます。
+#[derive(Debug, Clone)]
+pub struct FilterConfigData<T: Copy + 'static> {
+    /// 設定名。
+    pub name: String,
+    /// 設定値。
+    pub value: Option<NonNull<T>>,
+    /// デフォルト値。
+    pub default_value: T,
+}
+
+impl<T: Copy + Default + 'static> FilterConfigData<T> {
+    /// 型を消去した汎用データに変換します。
+    ///
+    /// # Panics
+    ///
+    /// Tが1024バイトを超える場合、パニックします。
+    pub fn erase_type(&self) -> ErasedFilterConfigData {
+        assert!(
+            std::mem::size_of::<T>() <= 1024,
+            "FilterConfigData<T> size must be <= 1024 bytes"
+        );
+        let size = std::mem::size_of::<T>();
+        let mut default_value = vec![0u8; size];
+        let default_value_ptr = &self.default_value as *const T as *const u8;
+        default_value
+            .copy_from_slice(unsafe { std::slice::from_raw_parts(default_value_ptr, size) });
+
+        ErasedFilterConfigData {
+            name: self.name.clone(),
+            size,
+            value: self
+                .value
+                .map(|v| NonNull::new(v.as_ptr() as *mut u8).unwrap()),
+            default_value,
+        }
     }
 }
