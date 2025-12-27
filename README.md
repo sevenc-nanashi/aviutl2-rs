@@ -29,7 +29,7 @@ AviUtl2 SDKのRust版です。
     - `./examples/pixelsort-filter`：ピクセルソートフィルタのサンプル。
   - フィルタプラグイン（カスタムオブジェクト）：
     - `./examples/chiptune-filter`：チップチューンの音を生成するサンプル。
-    - `./examples/wgpu-filter`：wgpuクレートを使用してGPUで画像を生成するフィルタのサンプル。
+    - `./examples/random-color-filter`：ランダムな色を表示するサンプル。
   - スクリプトモジュール：
     - `./examples/username-module`：ユーザー名を取得するスクリプトモジュールのサンプル。
 
