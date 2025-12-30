@@ -1747,6 +1747,7 @@ dependencies = [
  "anyhow",
  "aviutl2",
  "log",
+ "rand 0.9.2",
 ]
 
 [[package]]

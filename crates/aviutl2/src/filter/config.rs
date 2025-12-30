@@ -151,14 +151,11 @@ impl FilterConfigItem {
                     name: leak_manager.leak_as_wide_string(&item.name),
                     value: std::ptr::null_mut(),
                     size: item.size as i32,
-                    default_value: [0; 1024],
+                    default_value: aviutl2_sys::filter2::DummyData1024 { data: [0u8; 1024] },
                 };
-                assert!(
-                    item.size <= data.default_value.len(),
-                    "FilterConfigData size must be <= 1024"
-                );
-                data.default_value[..item.size].copy_from_slice(item.default_value());
-                data.value = data.default_value.as_mut_ptr() as *mut c_void;
+                assert!(item.size <= 1024, "FilterConfigData size must be <= 1024");
+                data.default_value.data[..item.size].copy_from_slice(item.default_value());
+                data.value = data.default_value.data.as_mut_ptr() as *mut c_void;
 
                 aviutl2_sys::filter2::FILTER_ITEM { data }
             }
@@ -270,9 +267,6 @@ impl FilterConfigItem {
                 item.value = v;
             }
             (FilterConfigItem::Data(item), FilterConfigItemValue::Data { value, size }) => {
-                if size > item.default_value.len() {
-                    item.default_value.resize(size, 0);
-                }
                 item.size = size;
                 item.value = NonNull::new(value);
             }
@@ -544,7 +538,9 @@ impl ErasedFilterConfigData {
     ///
     /// # Safety
     ///
-    /// 型情報を正しく指定する必要があります。
+    /// - Tのサイズが`self.size`と一致している必要があります。
+    /// - `self.value`が指すポインタが有効である必要があります。
+    /// - `self.default_value`はTとして有効なデータである必要があります。
     pub unsafe fn into_typed<T: Copy + 'static>(self) -> FilterConfigData<T> {
         let expected_size = std::mem::size_of::<T>();
         assert_eq!(
@@ -579,7 +575,7 @@ pub struct FilterConfigData<T: Copy + 'static> {
     pub default_value: T,
 }
 
-impl<T: Copy + Default + 'static> FilterConfigData<T> {
+impl<T: Copy + 'static> FilterConfigData<T> {
     /// 型を消去した汎用データに変換します。
     ///
     /// # Panics
@@ -604,5 +600,11 @@ impl<T: Copy + Default + 'static> FilterConfigData<T> {
                 .map(|v| NonNull::new(v.as_ptr() as *mut u8).unwrap()),
             default_value,
         }
+    }
+}
+
+impl<T: Copy + 'static> From<FilterConfigData<T>> for ErasedFilterConfigData {
+    fn from(value: FilterConfigData<T>) -> Self {
+        value.erase_type()
     }
 }

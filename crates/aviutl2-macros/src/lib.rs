@@ -130,9 +130,47 @@ mod utils;
 ///
 /// - 値の型は`Option<std::path::PathBuf>`である必要があります。
 ///
+/// # `data`
+///
+/// ```rust
+/// # #[derive(Copy, Default)]
+/// # struct MyData {
+/// #     a: u32,
+/// #     b: f32,
+/// # }
+/// #
+/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # struct S {
+/// #[data(name = "サンプル汎用データ")]
+/// data_field: FilterConfigDataHandle<MyData>,
+///
+/// #[data(name = "サンプル汎用データ2", default = MyData { a: 10, b: 0.5 })]
+/// data_field2: FilterConfigDataHandle<MyData>,
+/// # }
+/// ```
+///
+/// - `name`: 汎用データの名前。省略した場合、フィールド名が使用されます。
+/// - `default`: 汎用データの初期値。 省略された場合、`Default::default()`が使用されます。
+///
+/// - 値は`FilterConfigDataHandle<T>`型である必要があります。
+///
 /// # Example
 ///
 /// ```rust
+/// use aviutl2::filter::FilterConfigDataHandle;
+///
+/// #[derive(Copy, Default)]
+/// struct MyDataWithDefault {
+///    a: u32,
+///    b: f32,
+/// }
+///
+/// #[derive(Copy)]
+/// struct MyDataWithoutDefault {
+///     a: u32,
+///     b: f32,
+/// }
+///
 /// #[derive(Debug, aviutl2::filter::FilterConfigItems)]
 /// struct FilterConfig {
 ///     #[track(name = "サンプル整数", range = -100..=100, default = 0, step = 1.0)]
@@ -154,13 +192,17 @@ mod utils;
 ///         "すべてのファイル" => [],
 ///     })]
 ///     sample_file: Option<std::path::PathBuf>,
+///     #[data(name = "サンプル汎用データ")]
+///     sample_data_with_default: FilterConfigDataHandle<MyDataWithDefault>,
+///     #[data(name = "サンプル汎用データ2")]
+///     sample_data_without_default: FilterConfigDataHandle<MyDataWithoutDefault>,
 /// }
 /// ```
 ///
 /// # See Also
 ///
 /// - [`FilterConfigSelectItems`]
-#[proc_macro_derive(FilterConfigItems, attributes(track, check, color, select, file))]
+#[proc_macro_derive(FilterConfigItems, attributes(track, check, color, select, file, data))]
 pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     filter_config_items::filter_config_items(item.into())
         .unwrap_or_else(|e| e)

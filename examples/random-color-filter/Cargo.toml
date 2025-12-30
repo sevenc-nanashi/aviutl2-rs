@@ -16,3 +16,4 @@ crate-type = ["cdylib"]
 anyhow = "1.0.100"
 aviutl2.workspace = true
 log = "0.4.28"
+rand = "0.9.2"

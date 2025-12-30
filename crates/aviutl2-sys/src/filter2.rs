@@ -120,7 +120,16 @@ pub struct FILTER_ITEM_DATA {
     /// 汎用データのサイズ（1024バイト以下）
     pub size: i32,
     /// デフォルト値（sizeで指定した長さまで有効）
-    pub default_value: [u8; 1024],
+    pub default_value: DummyData1024,
+}
+
+/// 1024バイトのダミーデータ構造体。
+/// 16バイトにalignした方が良いらしいのでalign(16)を指定しています。
+/// （TODO：理解する）
+#[repr(C, align(16))]
+#[derive(Clone, Copy)]
+pub struct DummyData1024 {
+    pub data: [u8; 1024],
 }
 
 /// 設定グループ項目構造体

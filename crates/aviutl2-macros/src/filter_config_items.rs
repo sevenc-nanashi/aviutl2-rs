@@ -67,6 +67,12 @@ enum FilterConfigField {
         name: String,
         filters: Vec<FileFilterEntry>,
     },
+    Data {
+        id: String,
+        name: String,
+        type_path: syn::TypePath,
+        default: Option<syn::Expr>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -265,6 +271,26 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     )
                 }
             }
+            FilterConfigField::Data { id: _, name, type_path, default } => {
+                if let Some(default) = default {
+                    quote::quote! {
+                        ::aviutl2::filter::FilterConfigItem::Data(
+                            ::aviutl2::filter::ErasedFilterConfigData::with_default::<#type_path>(
+                                #name.to_string(),
+                                #default,
+                            )
+                        )
+                    }
+                } else {
+                    quote::quote! {
+                        ::aviutl2::filter::FilterConfigItem::Data(
+                            ::aviutl2::filter::ErasedFilterConfigData::new::<#type_path>(
+                                #name.to_string(),
+                            )
+                        )
+                    }
+                }
+            }
         })
         .collect::<Vec<_>>();
 
@@ -370,6 +396,17 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                     }
                 }
             }
+            FilterConfigField::Data { id, type_path, .. } => {
+                let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+                let type_path = type_path.to_token_stream();
+                quote::quote! {
+                    #id_ident: match items[#i] {
+                        ::aviutl2::filter::FilterConfigItem::Data(ref data) =>
+                            data.get_value::<#type_path>().clone(),
+                        _ => panic!("Expected Data at index {}", #i),
+                    }
+                }
+            }
         })
         .collect::<Vec<_>>();
     quote::quote! {
@@ -420,6 +457,18 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
                 #id_ident: None
             }
         }
+        FilterConfigField::Data { id, default, .. } => {
+            let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+            if let Some(default) = default {
+                quote::quote! {
+                    #id_ident: #default
+                }
+            } else {
+                quote::quote! {
+                    #id_ident: ::std::default::Default::default()
+                }
+            }
+        }
     });
     quote::quote! {
         Self {
@@ -446,6 +495,7 @@ fn validate_filter_config(item: &syn::ItemStruct) -> Result<(), proc_macro2::Tok
             FilterConfigField::Color { name, .. } => name,
             FilterConfigField::Select { name, .. } => name,
             FilterConfigField::File { name, .. } => name,
+            FilterConfigField::Data { name, .. } => name,
         })
         .collect::<Vec<_>>();
 
@@ -462,7 +512,7 @@ fn validate_filter_config(item: &syn::ItemStruct) -> Result<(), proc_macro2::Tok
 }
 
 fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Error> {
-    static RECOGNIZED_FIELDS: &[&str] = &["track", "check", "color", "select", "file"];
+    static RECOGNIZED_FIELDS: &[&str] = &["track", "check", "color", "select", "file", "data"];
     let recognized_fields = field
         .attrs
         .iter()
@@ -478,7 +528,8 @@ fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Err
         return Err(syn::Error::new_spanned(
             field,
             format!(
-                "Exactly one of #[track], #[check], #[color], #[select], or #[file] is required (found {})",
+                "Exactly one of {} is required (found {})",
+                RECOGNIZED_FIELDS.iter().map(|s| format!("`#[{s}]`")).collect::<Vec<_>>().join(", "),
                 recognized_fields.len()
             ),
         ));

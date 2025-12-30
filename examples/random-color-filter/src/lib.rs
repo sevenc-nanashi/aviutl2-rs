@@ -8,16 +8,19 @@ use aviutl2::{
 
 #[derive(Debug, Clone, PartialEq, FilterConfigItems)]
 struct FilterConfig {
-    #[color(name = "Color", default = "#48b0d5")]
-    color: aviutl2::filter::FilterConfigColorValue,
-
     #[track(name = "Width", range = 1..=4096, step = 1.0, default = 640)]
     width: u32,
     #[track(name = "Height", range = 1..=4096, step = 1.0, default = 640)]
     height: u32,
 }
 
-struct Color {}
+#[derive(Debug, Clone, Copy)]
+struct Color {
+    initialized: bool,
+    r: u8,
+    g: u8,
+    b: u8,
+}
 
 #[aviutl2::plugin(FilterPlugin)]
 struct RandomColorFilter {}
