@@ -1,0 +1,19 @@
+[package]
+name = "example-random-color-filter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "rusty_random_color_filter"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.100"
+aviutl2.workspace = true
+log = "0.4.28"
+rand = "0.9.2"

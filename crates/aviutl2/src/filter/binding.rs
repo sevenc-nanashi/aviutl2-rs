@@ -23,6 +23,15 @@ pub struct FilterPluginTable {
     /// `false` の場合、フィルタ効果として動作します。
     pub as_object: bool,
 
+    /// フィルタオブジェクトをサポートするかどうか。
+    /// `true` の場合、フィルタオブジェクトとして使えるようになります。
+    /// `false` の場合、フィルタオブジェクトとして使えません。
+    ///
+    /// # Note
+    ///
+    /// フィルタオブジェクトの場合、画像サイズを変更できなくなります。
+    pub support_filter_object: bool,
+
     /// 設定項目。
     pub config_items: Vec<config::FilterConfigItem>,
 }
@@ -231,6 +240,26 @@ impl FilterProcVideo {
                 height as i32,
             )
         };
+    }
+
+    /// 現在のオブジェクトの画像データのポインタをID3D11Texture2Dのポインタとして取得する。
+    ///
+    /// # Warning
+    ///
+    /// [`set_image_data`] によって現在の画像が変更されるかフィルタ処理の終了まで有効です。
+    pub fn get_image_texture2d(&mut self) -> *mut std::ffi::c_void {
+        let inner = unsafe { &*self.inner };
+        unsafe { (inner.get_image_texture2d)() }
+    }
+
+    /// 現在のフレームバッファの画像データのポインタをID3D11Texture2Dのポインタとして取得する。
+    ///
+    /// # Warning
+    ///
+    /// フィルタ処理の終了まで有効です。
+    pub fn get_framebuffer_texture2d(&mut self) -> *mut std::ffi::c_void {
+        let inner = unsafe { &*self.inner };
+        unsafe { (inner.get_framebuffer_texture2d)() }
     }
 }
 
