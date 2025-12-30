@@ -1,20 +1,23 @@
 use aviutl2::{
     AnyResult,
     filter::{
-        FilterConfigItemSliceExt, FilterConfigItems, FilterPlugin, FilterPluginTable,
-        FilterProcVideo,
+        FilterConfigDataHandle, FilterConfigItemSliceExt, FilterConfigItems, FilterPlugin,
+        FilterPluginTable, FilterProcVideo,
     },
 };
 
-#[derive(Debug, Clone, PartialEq, FilterConfigItems)]
+#[derive(Debug, Clone, FilterConfigItems)]
 struct FilterConfig {
     #[track(name = "Width", range = 1..=4096, step = 1.0, default = 640)]
     width: u32,
     #[track(name = "Height", range = 1..=4096, step = 1.0, default = 640)]
     height: u32,
+
+    #[data]
+    color: FilterConfigDataHandle<Color>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 struct Color {
     initialized: bool,
     r: u8,
@@ -53,6 +56,7 @@ impl FilterPlugin for RandomColorFilter {
         let config: FilterConfig = config.to_struct();
         let width = config.width;
         let height = config.height;
+        let color_handle = config.color;
 
         todo!()
     }

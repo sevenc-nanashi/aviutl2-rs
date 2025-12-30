@@ -1,6 +1,6 @@
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
-use super::config;
+use super::{ErasedFilterConfigData, config};
 use crate::common::{AnyResult, AviUtl2Info, Rational32};
 
 /// 入力プラグインの情報を表す構造体。
@@ -338,5 +338,76 @@ impl FilterProcAudio {
         );
         let inner = unsafe { &*self.inner };
         unsafe { (inner.set_sample_data)(data.as_ptr(), channel.into()) };
+    }
+}
+
+/// フィルタプラグインでのデータを使うためのハンドル。
+/// RwLockのような仕組みで安全にデータを扱うことができます。
+#[derive(Debug)]
+pub struct FilterConfigDataHandle<T: Copy> {
+    pub(crate) inner: *mut T,
+}
+
+unsafe impl<T: Send + Sync + Copy> Send for FilterConfigDataHandle<T> {}
+unsafe impl<T: Send + Sync + Copy> Sync for FilterConfigDataHandle<T> {}
+
+static HANDLES: std::sync::LazyLock<dashmap::DashMap<usize, std::sync::RwLock<()>>> =
+    std::sync::LazyLock::new(dashmap::DashMap::new);
+static OWNED_REFERENCES: std::sync::LazyLock<
+    dashmap::DashMap<usize, std::sync::atomic::AtomicUsize>,
+> = std::sync::LazyLock::new(dashmap::DashMap::new);
+
+impl std::clone::Clone for FilterConfigDataHandle<u8> {
+    fn clone(&self) -> Self {
+        if !self.inner.is_null() {
+            let addr = self.inner as usize;
+            if OWNED_REFERENCES.contains_key(&addr) {
+                let entry = OWNED_REFERENCES.get(&addr).unwrap();
+                entry.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+        Self { inner: self.inner }
+    }
+}
+impl<T: Copy> Drop for FilterConfigDataHandle<T> {
+    fn drop(&mut self) {
+        if !self.inner.is_null() {
+            let addr = self.inner as usize;
+            if let Some(entry) = OWNED_REFERENCES.get(&addr) {
+                let prev = entry.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+                if prev == 1 {
+                    unsafe {
+                        let _boxed = Box::from_raw(self.inner);
+                    }
+                    OWNED_REFERENCES.remove(&addr);
+                }
+            }
+        }
+    }
+}
+
+impl<T: Copy> FilterConfigDataHandle<T> {
+    #[doc(hidden)]
+    pub fn __generics_default_value() -> T
+    where
+        T: Default,
+    {
+        T::default()
+    }
+
+    #[doc(hidden)]
+    pub fn __from_erased(erased: &ErasedFilterConfigData) -> Self {
+        Self {
+            inner: erased.value.map_or(std::ptr::null_mut(), |v| v.as_ptr()) as *mut T,
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn __new_owned(value: T) -> Self {
+        let boxed = Box::new(value);
+        let pointer = Box::into_raw(boxed);
+        let addr = pointer as usize;
+        OWNED_REFERENCES.insert(addr, std::sync::atomic::AtomicUsize::new(1));
+        Self { inner: pointer }
     }
 }

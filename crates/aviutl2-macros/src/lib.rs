@@ -130,45 +130,29 @@ mod utils;
 ///
 /// - 値の型は`Option<std::path::PathBuf>`である必要があります。
 ///
-/// # `data`
+/// ## `data`
 ///
 /// ```rust
-/// # #[derive(Copy, Default)]
-/// # struct MyData {
-/// #     a: u32,
-/// #     b: f32,
-/// # }
-/// #
 /// # #[derive(aviutl2_macros::FilterConfigItems)]
 /// # struct S {
-/// #[data(name = "サンプル汎用データ")]
+/// #[data(name = "サンプルデータ", default = MyData { value: 0 })]
 /// data_field: FilterConfigDataHandle<MyData>,
-///
-/// #[data(name = "サンプル汎用データ2", default = MyData { a: 10, b: 0.5 })]
-/// data_field2: FilterConfigDataHandle<MyData>,
 /// # }
 /// ```
 ///
-/// - `name`: 汎用データの名前。省略した場合、フィールド名が使用されます。
-/// - `default`: 汎用データの初期値。 省略された場合、`Default::default()`が使用されます。
+/// - `name`: データの名前。省略した場合、フィールド名が使用されます。
+/// - `default`: データの初期値。省略した場合、`Default::default()`が使用されます。
 ///
-/// - 値は`FilterConfigDataHandle<T>`型である必要があります。
+/// - 値の型は`aviutl2::filter::FilterConfigDataHandle<T>`である必要があります。
 ///
 /// # Example
 ///
 /// ```rust
 /// use aviutl2::filter::FilterConfigDataHandle;
 ///
-/// #[derive(Copy, Default)]
-/// struct MyDataWithDefault {
-///    a: u32,
-///    b: f32,
-/// }
-///
-/// #[derive(Copy)]
-/// struct MyDataWithoutDefault {
-///     a: u32,
-///     b: f32,
+/// #[derive(Debug, Copy)]
+/// struct MyData {
+///    value: i32,
 /// }
 ///
 /// #[derive(Debug, aviutl2::filter::FilterConfigItems)]
@@ -192,10 +176,8 @@ mod utils;
 ///         "すべてのファイル" => [],
 ///     })]
 ///     sample_file: Option<std::path::PathBuf>,
-///     #[data(name = "サンプル汎用データ")]
-///     sample_data_with_default: FilterConfigDataHandle<MyDataWithDefault>,
-///     #[data(name = "サンプル汎用データ2")]
-///     sample_data_without_default: FilterConfigDataHandle<MyDataWithoutDefault>,
+///     #[data(name = "サンプルデータ")]
+///     sample_data: FilterConfigDataHandle<MyData>,
 /// }
 /// ```
 ///
@@ -245,6 +227,66 @@ pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenSt
 #[proc_macro_derive(FilterConfigSelectItems, attributes(item))]
 pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     filter_config_select_items::filter_config_select_items(item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// `FromScriptModuleParam` を自動で実装するためのマクロ。
+///
+/// このマクロを利用するには、構造体の各フィールドが `aviutl2::module::FromScriptModuleParamValue`
+/// トレイトを実装している必要があります。
+///
+/// # Example
+///
+/// ```rust
+/// #[derive(aviutl2::module::FromScriptModuleParam)]
+/// struct MyStruct {
+///     foo: i32,
+///     bar: String,
+/// }
+/// ```
+#[proc_macro_derive(FromScriptModuleParam)]
+pub fn from_script_module_param(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    from_script_module_param::from_script_module_param(item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// `IntoScriptModuleReturnValue` を自動で実装するためのマクロ。
+///
+/// このマクロを利用するには、
+///
+/// - 構造体のすべてのフィールドが同じ`T`または`Option<T>`型、かつ
+/// - `std::collections::HashMap<String, T>`が`IntoScriptModuleReturnValue`を実装している
+///
+/// 必要があります。
+///
+/// # Example
+///
+/// ```rust
+/// #[derive(aviutl2::module::IntoScriptModuleReturnValue)]
+/// struct MyStruct {
+///     foo: Option<String>,
+///     bar: String,
+/// }
+/// ```
+///
+/// 以下は動きません：
+///
+/// ```rust,compile_fail
+/// #[derive(aviutl2::module::IntoScriptModuleReturnValue)]
+/// struct MyBadStruct {
+///    foo: String,
+///    bar: i32, // 異なる型
+/// }
+/// ```
+///
+/// # See Also
+///
+/// - [`FromScriptModuleParam`]
+#[proc_macro_derive(IntoScriptModuleReturnValue)]
+pub fn into_script_module_return_value(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    into_script_module_return_value::into_script_module_return_value(item.into())
         .unwrap_or_else(|e| e)
         .into()
 }
@@ -326,66 +368,6 @@ pub fn module_functions(
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     module_functions::module_functions(item.into())
-        .unwrap_or_else(|e| e)
-        .into()
-}
-
-/// `FromScriptModuleParam` を自動で実装するためのマクロ。
-///
-/// このマクロを利用するには、構造体の各フィールドが `aviutl2::module::FromScriptModuleParamValue`
-/// トレイトを実装している必要があります。
-///
-/// # Example
-///
-/// ```rust
-/// #[derive(aviutl2::module::FromScriptModuleParam)]
-/// struct MyStruct {
-///     foo: i32,
-///     bar: String,
-/// }
-/// ```
-#[proc_macro_derive(FromScriptModuleParam)]
-pub fn from_script_module_param(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    from_script_module_param::from_script_module_param(item.into())
-        .unwrap_or_else(|e| e)
-        .into()
-}
-
-/// `IntoScriptModuleReturnValue` を自動で実装するためのマクロ。
-///
-/// このマクロを利用するには、
-///
-/// - 構造体のすべてのフィールドが同じ`T`または`Option<T>`型、かつ
-/// - `std::collections::HashMap<String, T>`が`IntoScriptModuleReturnValue`を実装している
-///
-/// 必要があります。
-///
-/// # Example
-///
-/// ```rust
-/// #[derive(aviutl2::module::IntoScriptModuleReturnValue)]
-/// struct MyStruct {
-///     foo: Option<String>,
-///     bar: String,
-/// }
-/// ```
-///
-/// 以下は動きません：
-///
-/// ```rust,compile_fail
-/// #[derive(aviutl2::module::IntoScriptModuleReturnValue)]
-/// struct MyBadStruct {
-///    foo: String,
-///    bar: i32, // 異なる型
-/// }
-/// ```
-///
-/// # See Also
-///
-/// - [`FromScriptModuleParam`]
-#[proc_macro_derive(IntoScriptModuleReturnValue)]
-pub fn into_script_module_return_value(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    into_script_module_return_value::into_script_module_return_value(item.into())
         .unwrap_or_else(|e| e)
         .into()
 }

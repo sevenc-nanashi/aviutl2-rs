@@ -37,6 +37,7 @@ pub fn filter_config_items(
     Ok(expanded)
 }
 
+#[allow(clippy::large_enum_variant)]
 enum FilterConfigField {
     Track {
         id: String,
@@ -70,8 +71,8 @@ enum FilterConfigField {
     Data {
         id: String,
         name: String,
-        type_path: syn::TypePath,
         default: Option<syn::Expr>,
+        value_type: syn::Type,
     },
 }
 
@@ -271,21 +272,27 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     )
                 }
             }
-            FilterConfigField::Data { id: _, name, type_path, default } => {
-                if let Some(default) = default {
+            FilterConfigField::Data {
+                id: _,
+                name,
+                default,
+                value_type,
+            } => {
+                if let Some(expr) = default {
                     quote::quote! {
                         ::aviutl2::filter::FilterConfigItem::Data(
-                            ::aviutl2::filter::ErasedFilterConfigData::with_default::<#type_path>(
+                            ::aviutl2::filter::ErasedFilterConfigData::with_default_value(
                                 #name.to_string(),
-                                #default,
+                                #expr,
                             )
                         )
                     }
                 } else {
                     quote::quote! {
                         ::aviutl2::filter::FilterConfigItem::Data(
-                            ::aviutl2::filter::ErasedFilterConfigData::new::<#type_path>(
+                            ::aviutl2::filter::ErasedFilterConfigData::with_default_value(
                                 #name.to_string(),
+                                <#value_type>::__generics_default_value()
                             )
                         )
                     }
@@ -396,13 +403,11 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                     }
                 }
             }
-            FilterConfigField::Data { id, type_path, .. } => {
+            FilterConfigField::Data { id, .. } => {
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
-                let type_path = type_path.to_token_stream();
                 quote::quote! {
                     #id_ident: match items[#i] {
-                        ::aviutl2::filter::FilterConfigItem::Data(ref data) =>
-                            data.get_value::<#type_path>().clone(),
+                        ::aviutl2::filter::FilterConfigItem::Data(ref data) => ::aviutl2::filter::FilterConfigDataHandle::__from_erased(data),
                         _ => panic!("Expected Data at index {}", #i),
                     }
                 }
@@ -459,14 +464,13 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
         }
         FilterConfigField::Data { id, default, .. } => {
             let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
-            if let Some(default) = default {
-                quote::quote! {
-                    #id_ident: #default
-                }
+            let value = if let Some(expr) = default {
+                quote::quote! { #expr }
             } else {
-                quote::quote! {
-                    #id_ident: ::std::default::Default::default()
-                }
+                quote::quote! { ::std::default::Default::default() }
+            };
+            quote::quote! {
+                #id_ident: ::aviutl2::filter::FilterConfigDataHandle::__new_owned(#value)
             }
         }
     });
@@ -529,7 +533,11 @@ fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Err
             field,
             format!(
                 "Exactly one of {} is required (found {})",
-                RECOGNIZED_FIELDS.iter().map(|s| format!("`#[{s}]`")).collect::<Vec<_>>().join(", "),
+                RECOGNIZED_FIELDS
+                    .iter()
+                    .map(|s| format!("`#[{s}]`"))
+                    .collect::<Vec<_>>()
+                    .join(", "),
                 recognized_fields.len()
             ),
         ));
@@ -547,6 +555,7 @@ fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Err
         "color" => filter_config_field_color(field, recognized_attr),
         "select" => filter_config_field_select(field, recognized_attr),
         "file" => filter_config_field_file(field, recognized_attr),
+        "data" => filter_config_field_data(field, recognized_attr),
 
         _ => unreachable!(),
     }
@@ -925,6 +934,34 @@ fn filter_config_field_file(
         id: field.ident.as_ref().unwrap().to_string(),
         name,
         filters: filter,
+    })
+}
+
+fn filter_config_field_data(
+    field: &syn::Field,
+    recognized_attr: &syn::Attribute,
+) -> Result<FilterConfigField, syn::Error> {
+    let mut name = None;
+    let mut default = None;
+
+    // 別になくても良いので、エラーにはしない
+    let _ = recognized_attr.parse_nested_meta(|m| {
+        if m.path.is_ident("name") {
+            name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("default") {
+            default = Some(m.value()?.parse::<syn::Expr>()?);
+        } else {
+            return Err(m.error("Unknown attribute for data"));
+        }
+        Ok(())
+    });
+
+    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    Ok(FilterConfigField::Data {
+        id: field.ident.as_ref().unwrap().to_string(),
+        name,
+        default,
+        value_type: field.ty.clone(),
     })
 }
 

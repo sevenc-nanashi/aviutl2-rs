@@ -28,6 +28,7 @@ anyhow = "1.0.98"
 aviutl2-alias = { workspace = true, optional = true }
 aviutl2-macros.workspace = true
 aviutl2-sys.workspace = true
+dashmap = "6.1.0"
 duplicate = "2.0.0"
 env_filter = "0.1.4"
 half = { version = "2.6.0", features = ["zerocopy"] }

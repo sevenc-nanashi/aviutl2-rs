@@ -43,6 +43,7 @@ impl FilterConfigItemSliceExt for &[FilterConfigItem] {
 }
 
 /// フィルタの設定。
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum FilterConfigItem {
     /// トラックバー。
@@ -66,7 +67,7 @@ pub(crate) enum FilterConfigItemValue {
     Color(FilterConfigColorValue),
     Select(i32),
     File(String),
-    Data { value: *mut u8, size: usize },
+    Data { value: *mut std::ffi::c_void, size: usize },
 }
 
 impl FilterConfigItem {
@@ -205,7 +206,7 @@ impl FilterConfigItem {
                     "FILTER_ITEM_DATA size must be 1024 bytes or less"
                 );
                 FilterConfigItemValue::Data {
-                    value: raw_data.value as *mut u8,
+                    value: raw_data.value,
                     size,
                 }
             }
@@ -462,6 +463,7 @@ pub trait FilterConfigSelectItems {
 
 #[doc(inline)]
 pub use aviutl2_macros::FilterConfigSelectItems;
+use aviutl2_sys::filter2::DummyData1024;
 
 /// ファイル選択。
 #[derive(Debug, Clone)]
@@ -491,8 +493,8 @@ pub struct ErasedFilterConfigData {
     /// 1024バイトを超えることはできません。
     pub size: usize,
     /// 現在の値を指すポインタ。
-    pub value: Option<NonNull<u8>>,
-    default_value: Vec<u8>,
+    pub value: Option<NonNull<std::ffi::c_void>>,
+    default_value: DummyData1024,
 }
 
 impl ErasedFilterConfigData {
@@ -516,7 +518,7 @@ impl ErasedFilterConfigData {
             "FilterConfigData<T> size must be <= 1024 bytes"
         );
         let size = std::mem::size_of::<T>();
-        let mut default_value_bytes = vec![0u8; size];
+        let mut default_value_bytes = [0u8; 1024];
         let default_value_ptr = &default_value as *const T as *const u8;
         default_value_bytes
             .copy_from_slice(unsafe { std::slice::from_raw_parts(default_value_ptr, size) });
@@ -525,13 +527,15 @@ impl ErasedFilterConfigData {
             name,
             size,
             value: None,
-            default_value: default_value_bytes,
+            default_value: DummyData1024 {
+                data: default_value_bytes,
+            },
         }
     }
 
     /// デフォルト値のスライスを取得します。
     pub fn default_value(&self) -> &[u8] {
-        &self.default_value
+        &self.default_value.data[..self.size]
     }
 
     /// 型付きの汎用データに変換します。
@@ -550,7 +554,7 @@ impl ErasedFilterConfigData {
         let value = self
             .value
             .map(|v| NonNull::new(v.as_ptr() as *mut T).unwrap());
-        let default_value_ptr = self.default_value.as_ptr() as *const T;
+        let default_value_ptr = self.default_value.data.as_ptr() as *const T;
         let default_value = unsafe { *default_value_ptr };
         FilterConfigData {
             name: self.name,
@@ -587,7 +591,7 @@ impl<T: Copy + 'static> FilterConfigData<T> {
             "FilterConfigData<T> size must be <= 1024 bytes"
         );
         let size = std::mem::size_of::<T>();
-        let mut default_value = vec![0u8; size];
+        let mut default_value = [0u8; 1024];
         let default_value_ptr = &self.default_value as *const T as *const u8;
         default_value
             .copy_from_slice(unsafe { std::slice::from_raw_parts(default_value_ptr, size) });
@@ -597,8 +601,10 @@ impl<T: Copy + 'static> FilterConfigData<T> {
             size,
             value: self
                 .value
-                .map(|v| NonNull::new(v.as_ptr() as *mut u8).unwrap()),
-            default_value,
+                .map(|v| NonNull::new(v.as_ptr() as *mut c_void).unwrap()),
+            default_value: DummyData1024 {
+                data: default_value,
+            },
         }
     }
 }

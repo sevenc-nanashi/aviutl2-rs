@@ -519,6 +519,7 @@ dependencies = [
  "aviutl2-alias",
  "aviutl2-macros",
  "aviutl2-sys",
+ "dashmap",
  "duplicate",
  "env_filter",
  "half",
