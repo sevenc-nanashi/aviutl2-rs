@@ -1,3 +1,83 @@
+/// `Table::parse_value`から呼び出される変換トレイト。
+///
+/// 任意の型に実装することで、`Table`から直接その型として値を取得できます。
+pub trait FromTableValue: Sized {
+    type Err;
+    fn from_table_value(value: &str) -> Result<Self, Self::Err>;
+}
+
+/// バイナリ。
+/// フィルタ効果のdata、汎用プラグインのデータなどで使われています。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BinaryItem(Vec<u8>);
+
+impl std::ops::Deref for BinaryItem {
+    type Target = Vec<u8>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl From<Vec<u8>> for BinaryItem {
+    fn from(value: Vec<u8>) -> Self {
+        BinaryItem(value)
+    }
+}
+impl From<&[u8]> for BinaryItem {
+    fn from(value: &[u8]) -> Self {
+        BinaryItem(value.to_vec())
+    }
+}
+impl<const N: usize> From<&[u8; N]> for BinaryItem {
+    fn from(value: &[u8; N]) -> Self {
+        BinaryItem(value.to_vec())
+    }
+}
+impl std::fmt::Display for BinaryItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for byte in &self.0 {
+            write!(f, "{:02x}", byte)?;
+        }
+        Ok(())
+    }
+}
+impl std::str::FromStr for BinaryItem {
+    type Err = BinaryParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if !s.len().is_multiple_of(2) {
+            return Err(BinaryParseError::InvalidLength);
+        }
+        let mut result = Vec::with_capacity(s.len() / 2);
+        for i in (0..s.len()).step_by(2) {
+            let byte = u8::from_str_radix(&s[i..i + 2], 16)?;
+            result.push(byte);
+        }
+        Ok(result.into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum BinaryParseError {
+    #[error("invalid length")]
+    InvalidLength,
+    #[error("invalid hex value")]
+    InvalidHex(#[from] std::num::ParseIntError),
+}
+
+impl FromTableValue for BinaryItem {
+    type Err = BinaryParseError;
+    fn from_table_value(value: &str) -> Result<Self, Self::Err> {
+        if !value.len().is_multiple_of(2) {
+            return Err(BinaryParseError::InvalidLength);
+        }
+        let mut result = Vec::with_capacity(value.len() / 2);
+        for i in (0..value.len()).step_by(2) {
+            let byte = u8::from_str_radix(&value[i..i + 2], 16)?;
+            result.push(byte);
+        }
+        Ok(result.into())
+    }
+}
+
 /// 色項目。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ColorItem {
@@ -38,14 +118,6 @@ impl std::str::FromStr for ColorItem {
         let b = u8::from_str_radix(&s[4..6], 16)?;
         Ok(ColorItem::Color(r, g, b))
     }
-}
-
-/// `Table::parse_value`から呼び出される変換トレイト。
-///
-/// 任意の型に実装することで、`Table`から直接その型として値を取得できます。
-pub trait FromTableValue: Sized {
-    type Err;
-    fn from_table_value(value: &str) -> Result<Self, Self::Err>;
 }
 
 impl FromTableValue for ColorItem {
@@ -183,6 +255,30 @@ mod tests {
         assert_eq!(
             effect.parse_value::<String>("テキスト").unwrap().unwrap(),
             "Hello\\\nWorld"
+        );
+    }
+
+    #[test]
+    fn test_parse_binaries() {
+        let input = include_str!("../test_assets/binary.aup2");
+        let table: Table = input.parse().unwrap();
+
+        let obj0 = table.get_table("0").unwrap();
+        let effect = obj0.get_table("0").unwrap();
+        assert_eq!(
+            effect.parse_value::<BinaryItem>("color").unwrap().unwrap(),
+            BinaryItem::from(&[0x01, 0x93, 0x4d, 0x5e])
+        );
+
+        let plugin = table.get_table("plugin").unwrap();
+        let plugin0 = plugin.get_table("0").unwrap();
+
+        assert_eq!(
+            plugin0
+                .parse_value::<BinaryItem>("--aviutl2-rs:serde-zstd-v1:chunk:alias_entries:0")
+                .unwrap()
+                .unwrap(),
+            BinaryItem::from(&[0x28, 0xb5, 0x2f, 0xfd, 0x00, 0x58, 0x09, 0x00, 0x00, 0x90])
         );
     }
 }
