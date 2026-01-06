@@ -4,8 +4,9 @@
 
 - **Breaking:** APIからのResultはanyhow::Resultを使わないように変更
 - **Breaking:** module: IntoScriptModuleReturnValue traitの返り値をanyhow::Errorから変更
-- **Breaking:** module: `&[T]`、`[T]`はVec<T>として返すように変更
+- **Breaking:** module: `&[T]`、`[T]`は`Vec<T>`として返すように変更
 - **Breaking:** `odbg!`、`oprintln!`を削除
+- **Breaking:** filter: `FilterPluginTable::filter_type`、`as_object`を`FilterPluginTable::flags`に統合
 - `log`クレートで本体のログに出力できるように
 - aviutl2-aliasを追加
 - filter: effect_idを追加
