@@ -19,7 +19,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
         Self {
             enable: match items[0usize] {
                 ::aviutl2::filter::FilterConfigItem::Checkbox(ref check) => check.value,
-                _ => panic!("Expected Checkbox at index {}", 0usize),
+                _ => panic!("expected Checkbox at index {}", 0usize),
             },
         }
     }

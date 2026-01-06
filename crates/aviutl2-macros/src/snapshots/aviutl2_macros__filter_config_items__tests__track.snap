@@ -21,7 +21,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
         Self {
             frequency: match items[0usize] {
                 ::aviutl2::filter::FilterConfigItem::Track(ref track) => (track.value as i32) as _,
-                _ => panic!("Expected Track at index {}", 0usize),
+                _ => panic!("expected Track at index {}", 0usize),
             },
         }
     }

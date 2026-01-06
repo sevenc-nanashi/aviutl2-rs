@@ -29,15 +29,15 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
         Self {
             int_color: match items[0usize] {
                 ::aviutl2::filter::FilterConfigItem::Color(ref color) => color.value.into(),
-                _ => panic!("Expected Color at index {}", 0usize),
+                _ => panic!("expected Color at index {}", 0usize),
             },
             str_color: match items[1usize] {
                 ::aviutl2::filter::FilterConfigItem::Color(ref color) => color.value.into(),
-                _ => panic!("Expected Color at index {}", 1usize),
+                _ => panic!("expected Color at index {}", 1usize),
             },
             tuple_color: match items[2usize] {
                 ::aviutl2::filter::FilterConfigItem::Color(ref color) => color.value.into(),
-                _ => panic!("Expected Color at index {}", 2usize),
+                _ => panic!("expected Color at index {}", 2usize),
             },
         }
     }

@@ -35,7 +35,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
                         Some(std::path::PathBuf::from(&file.value))
                     }
                 }
-                _ => panic!("Expected File at index {}", 0usize),
+                _ => panic!("expected File at index {}", 0usize),
             },
         }
     }

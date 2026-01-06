@@ -53,7 +53,7 @@ fn preprocess_group(
     let Some(proc_macro2::TokenTree::Group(last_group_start)) = stream.last() else {
         return Err(syn::Error::new(
             proc_macro2::Span::call_site(),
-            "Expected a struct definition",
+            "expected a struct definition",
         )
         .to_compile_error());
     };
@@ -71,9 +71,9 @@ fn preprocess_group(
     }
 
     while index < orig_inner_stream.len() {
-        // # [group(...)] group : group ! { ... }
-        // ^ ^^^^^^^^^^^^ ^^^^^ ^ ^^^^^ ^ ^^^^^^^
-        // 0 1            2     3 4     5 6
+        // # [group(...)] pub? group : group ! { ... }
+        // ^ ^^^^^^^^^^^^ ^^^^ ^^^^^ ^ ^^^^^ ^ ^^^^^^^
+        // 0 1            2?   2     3 4     5 6
         match (&orig_inner_stream[index], orig_inner_stream.get(index + 1)) {
             (
                 proc_macro2::TokenTree::Punct(punct0),
@@ -93,6 +93,13 @@ fn preprocess_group(
                         }
                     }) =>
             {
+                let has_vis = orig_inner_stream
+                    .get(index + 2)
+                    .is_some_and(|tt| syn::parse2::<syn::Visibility>(tt.to_token_stream()).is_ok());
+                if has_vis {
+                    // pubがある場合はスキップ
+                    index += 1;
+                }
                 match (
                     orig_inner_stream.get(index + 2),
                     orig_inner_stream.get(index + 3),
@@ -121,7 +128,7 @@ fn preprocess_group(
                         else {
                             return Err(syn::Error::new_spanned(
                                 group_meta,
-                                "Expected parentheses in #[group(...)]",
+                                "expected parentheses in #[group(...)]",
                             )
                             .to_compile_error());
                         };
@@ -157,12 +164,15 @@ fn preprocess_group(
                     }
                     (o1, o2, o3, o4, o5) => {
                         let mut tree = proc_macro2::TokenStream::new();
+                        if has_vis {
+                            tree.extend(std::iter::once(orig_inner_stream[index + 2 - 1].clone()));
+                        }
                         for t in [o1, o2, o3, o4, o5].iter().flatten() {
                             tree.extend(std::iter::once(t.into_token_stream()));
                         }
                         return Err(syn::Error::new_spanned(
                             tree,
-                            "Expected `group: group! { ... }` after `#[group(...)]`",
+                            "expected `group: group! { ... }` after `#[group(...)]`",
                         )
                         .to_compile_error());
                     }
@@ -555,7 +565,7 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                 Some(quote::quote! {
                     #id_ident: match items[#i] {
                         ::aviutl2::filter::FilterConfigItem::Track(ref track) => #to_value,
-                        _ => panic!("Expected Track at index {}", #i),
+                        _ => panic!("expected Track at index {}", #i),
                     }
                 })
             }
@@ -564,7 +574,7 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                 Some(quote::quote! {
                     #id_ident: match items[#i] {
                         ::aviutl2::filter::FilterConfigItem::Checkbox(ref check) => check.value,
-                        _ => panic!("Expected Checkbox at index {}", #i),
+                        _ => panic!("expected Checkbox at index {}", #i),
                     }
                 })
             }
@@ -573,7 +583,7 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                 Some(quote::quote! {
                     #id_ident: match items[#i] {
                         ::aviutl2::filter::FilterConfigItem::Color(ref color) => color.value.into(),
-                        _ => panic!("Expected Color at index {}", #i),
+                        _ => panic!("expected Color at index {}", #i),
                     }
                 })
             }
@@ -610,7 +620,7 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                         ::aviutl2::filter::FilterConfigItem::Select(ref select) => {
                             #to_value
                         },
-                        _ => panic!("Expected Select at index {}", #i),
+                        _ => panic!("expected Select at index {}", #i),
                     }
                 })
             }
@@ -624,7 +634,7 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                             } else {
                                 Some(std::path::PathBuf::from(&file.value))
                             },
-                        _ => panic!("Expected File at index {}", #i),
+                        _ => panic!("expected File at index {}", #i),
                     }
                 })
             }
@@ -633,7 +643,7 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                 Some(quote::quote! {
                     #id_ident: match items[#i] {
                         ::aviutl2::filter::FilterConfigItem::Data(ref data) => ::aviutl2::filter::FilterConfigDataHandle::__from_erased(data),
-                        _ => panic!("Expected Data at index {}", #i),
+                        _ => panic!("expected Data at index {}", #i),
                     }
                 })
             }
@@ -1318,12 +1328,12 @@ fn parse_int_or_float(expr: &syn::Expr) -> Result<decimal_rs::Decimal, syn::Erro
             }
             _ => Err(syn::Error::new_spanned(
                 lit,
-                "Expected integer or float literal",
+                "expected integer or float literal",
             )),
         },
         _ => Err(syn::Error::new_spanned(
             current,
-            "Expected integer or float literal",
+            "expected integer or float literal",
         )),
     }
 }
@@ -1451,6 +1461,23 @@ mod tests {
                     frequency: f64,
                     #[check(name = "Enable", default = true)]
                     enable: bool,
+                },
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
+    fn test_pub_group() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[group(name = "Test", opened = true)]
+                pub test_group: group! {
+                    #[track(name = "Frequency", range = 20.0..=20000.0, step = 1.0, default = 440.0)]
+                    pub frequency: f64,
+                    #[check(name = "Enable", default = true)]
+                    pub enable: bool,
                 },
             }
         };

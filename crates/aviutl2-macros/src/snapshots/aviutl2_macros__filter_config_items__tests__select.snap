@@ -35,7 +35,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
                 ::aviutl2::filter::FilterConfigItem::Select(ref select) => {
                     (select.value as usize) as _
                 }
-                _ => panic!("Expected Select at index {}", 0usize),
+                _ => panic!("expected Select at index {}", 0usize),
             },
         }
     }
