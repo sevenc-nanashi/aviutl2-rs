@@ -178,7 +178,7 @@ impl FilterProcVideo {
     ///
     /// # Note
     ///
-    /// [`FilterPluginTable::as_object`] が `true` の場合、この関数は何もせずに 0 を返します。
+    /// [`FilterPluginFlags::video`] が `true` の場合、この関数は何もせずに 0 を返します。
     pub fn get_image_data<T>(&mut self, buffer: &mut [T]) -> usize
     where
         T: Copy + FromBytes + Immutable,
@@ -239,7 +239,7 @@ impl FilterProcVideo {
     ///
     /// # Warning
     ///
-    /// [`set_image_data`] によって現在の画像が変更されるかフィルタ処理の終了まで有効です。
+    /// [`Self::set_image_data`] によって現在の画像が変更されるかフィルタ処理の終了まで有効です。
     pub fn get_image_texture2d(&mut self) -> *mut std::ffi::c_void {
         let inner = unsafe { &*self.inner };
         unsafe { (inner.get_image_texture2d)() }
