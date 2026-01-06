@@ -67,7 +67,10 @@ pub(crate) enum FilterConfigItemValue {
     Color(FilterConfigColorValue),
     Select(i32),
     File(String),
-    Data { value: *mut std::ffi::c_void, size: usize },
+    Data {
+        value: *mut std::ffi::c_void,
+        size: usize,
+    },
 }
 
 impl FilterConfigItem {
@@ -499,6 +502,7 @@ pub struct ErasedFilterConfigData {
 
 impl ErasedFilterConfigData {
     /// 新しく作成します。
+    /// `value` は `None` になります。
     ///
     /// # Panics
     ///
@@ -508,6 +512,7 @@ impl ErasedFilterConfigData {
     }
 
     /// デフォルト値を指定して新しく作成します。
+    /// `value` は `None` になります。
     ///
     /// # Panics
     ///
@@ -520,7 +525,7 @@ impl ErasedFilterConfigData {
         let size = std::mem::size_of::<T>();
         let mut default_value_bytes = [0u8; 1024];
         let default_value_ptr = &default_value as *const T as *const u8;
-        default_value_bytes
+        default_value_bytes[..size]
             .copy_from_slice(unsafe { std::slice::from_raw_parts(default_value_ptr, size) });
 
         ErasedFilterConfigData {

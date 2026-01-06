@@ -1,7 +1,8 @@
 mod codecs;
-use aviutl2::{input::{
-    AnyResult, ImageBuffer, ImageReturner, InputPlugin, IntoImage as _, Rational32,
-}, ldbg};
+use aviutl2::{
+    input::{AnyResult, ImageBuffer, ImageReturner, InputPlugin, IntoImage as _, Rational32},
+    ldbg,
+};
 use image::{AnimationDecoder, GenericImageView};
 use ordered_float::OrderedFloat;
 use std::io::Seek;

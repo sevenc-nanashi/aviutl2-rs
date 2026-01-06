@@ -30,6 +30,9 @@
 //! これらのアイテムはsemverの保証対象外であり、予告なく変更または削除される可能性があります。
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+#[macro_use]
+mod internal_macros;
+
 #[cfg(feature = "aviutl2-alias")]
 pub use aviutl2_alias as alias;
 pub use aviutl2_sys as sys;

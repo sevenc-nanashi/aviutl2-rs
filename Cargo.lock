@@ -527,6 +527,7 @@ dependencies = [
  "log",
  "native-dialog",
  "num-rational",
+ "parking_lot",
  "raw-window-handle",
  "thiserror 2.0.17",
  "zerocopy",

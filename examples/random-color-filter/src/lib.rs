@@ -41,9 +41,10 @@ impl FilterPlugin for RandomColorFilter {
                 "Example render filter plugin, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/wgsl-filter",
                 version = env!("CARGO_PKG_VERSION")
             ),
-            filter_type: aviutl2::filter::FilterType::Video,
-            as_object: true,
-            support_filter_object: false,
+            flags: aviutl2::bitflag!(aviutl2::filter::FilterPluginFlags {
+                video: true,
+                as_object: true,
+            }),
             config_items: FilterConfig::to_config_items(),
         }
     }
@@ -56,9 +57,37 @@ impl FilterPlugin for RandomColorFilter {
         let config: FilterConfig = config.to_struct();
         let width = config.width;
         let height = config.height;
-        let color_handle = config.color;
+        let color_handle = config.color.read();
 
-        todo!()
+        let color = if !color_handle.initialized {
+            use rand::Rng;
+            let mut rng = rand::rng();
+            let mut color = *color_handle;
+            color.r = rng.random_range(0..=255);
+            color.g = rng.random_range(0..=255);
+            color.b = rng.random_range(0..=255);
+            color.initialized = true;
+            drop(color_handle);
+            *config.color.write() = color;
+            color
+        } else {
+            *color_handle
+        };
+
+        video.set_image_data(
+            &(0..(width * height))
+                .map(|_| aviutl2::filter::RgbaPixel {
+                    r: color.r,
+                    g: color.g,
+                    b: color.b,
+                    a: 255,
+                })
+                .collect::<Vec<_>>(),
+            width,
+            height,
+        );
+
+        Ok(())
     }
 }
 

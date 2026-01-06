@@ -104,8 +104,10 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
                 "Simple equalizer, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/equalizer-filter",
                 version = env!("CARGO_PKG_VERSION")
             ),
-            filter_type: aviutl2::filter::FilterType::Audio,
-            as_object: false,
+            flags: aviutl2::bitflag!(aviutl2::filter::FilterPluginFlags {
+                audio: true,
+                as_filter: true,
+            }),
             config_items: FilterConfig::to_config_items(),
         }
     }

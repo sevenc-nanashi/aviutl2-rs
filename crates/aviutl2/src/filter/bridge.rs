@@ -187,13 +187,6 @@ pub fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::FILTER_P
         plugin_info.information.clone()
     };
 
-    let flag = plugin_info.filter_type.to_bits()
-        | (if plugin_info.as_object {
-            aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_INPUT
-        } else {
-            0
-        });
-
     let config_items = plugin_info
         .config_items
         .iter()
@@ -218,7 +211,7 @@ pub fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::FILTER_P
 
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
     let table = aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
-        flag,
+        flag: plugin_info.flags.to_bits(),
         name: plugin_state.global_leak_manager.leak_as_wide_string(&name),
         information: plugin_state
             .global_leak_manager

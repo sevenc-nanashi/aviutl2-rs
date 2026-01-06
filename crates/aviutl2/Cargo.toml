@@ -36,6 +36,7 @@ image = { version = "0.25.6", optional = true }
 log = "0.4.27"
 native-dialog = "0.9.0"
 num-rational = "0.4.2"
+parking_lot = "0.12.5"
 raw-window-handle = "0.6.2"
 thiserror = "2.0.12"
 zerocopy = { version = "0.8.26", features = ["std"] }
