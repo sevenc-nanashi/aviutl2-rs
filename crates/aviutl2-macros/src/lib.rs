@@ -13,6 +13,8 @@ mod utils;
 
 /// `FilterConfigItems` を自動で実装するためのマクロ。
 ///
+/// このマクロは他の`derive`などのマクロより先に適用する必要があります。
+///
 /// # Attributes
 ///
 /// - structのフィールドはすべてちょうど1つの属性を持つ必要があります。
@@ -20,7 +22,7 @@ mod utils;
 /// ## `track`
 ///
 /// ```rust
-/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
 /// #[track(name = "サンプル整数", range = 0..=100, default = 50, step = 1.0)]
 /// int_field: i32,
@@ -40,7 +42,7 @@ mod utils;
 /// ## `check`
 ///
 /// ```rust
-/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
 /// #[check(name = "サンプルチェックボックス", default = true)]
 /// bool_field: bool,
@@ -55,7 +57,7 @@ mod utils;
 /// ## `color`
 ///
 /// ```rust
-/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
 /// #[color(name = "サンプルカラー", default = 0x48b0d5)]
 /// color_field: aviutl2::filter::FilterConfigColorValue,
@@ -74,7 +76,7 @@ mod utils;
 /// ## `select`
 ///
 /// ```rust
-/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
 /// #[select(
 ///     name = "サンプルセレクトボックス",
@@ -94,7 +96,7 @@ mod utils;
 ///    Fuga,
 /// }
 ///
-/// #[derive(aviutl2_macros::FilterConfigItems)]
+/// #[aviutl2_macros::filter_config_items]
 /// struct MyConfig {
 ///     #[select(
 ///         name = "サンプルセレクトボックス",
@@ -115,7 +117,7 @@ mod utils;
 /// ## `file`
 ///
 /// ```rust
-/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
 /// #[file(name = "サンプルファイル", filters = {
 ///     "テキストファイル" => ["txt"],
@@ -133,7 +135,12 @@ mod utils;
 /// ## `data`
 ///
 /// ```rust
-/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # use aviutl2::filter::FilterConfigDataHandle;
+/// # #[derive(Debug, Default, Clone, Copy)]
+/// # struct MyData {
+/// #    value: i32,
+/// # }
+/// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
 /// #[data(name = "サンプルデータ", default = MyData { value: 0 })]
 /// data_field: FilterConfigDataHandle<MyData>,
@@ -145,22 +152,71 @@ mod utils;
 ///
 /// - 値の型は`aviutl2::filter::FilterConfigDataHandle<T>`である必要があります。
 ///
+/// ## `group`
+///
+/// ```rust
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[group(name = "サンプルグループ", opened = true)]
+/// group: group! {
+///     // ...
+/// }
+/// # }
+/// ```
+///
+/// グループとしてフィールドをまとめます。
+///
+/// - `name`: グループの名前。省略した場合、フィールド名が使用されます。
+/// - `opened`: グループが初期状態で開いているかどうか。省略した場合、`false`になります。
+///
+/// - 型には`group! { ... }`と記述する必要があります。
+///
+/// ## `button`
+///
+/// ```rust,ignore
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[button(name = "サンプルボタン")]
+/// button: on_button_pressed,
+/// # }
+/// ```
+///
+/// `aviutl2::filter::FilterConfigItem::Button`を挿入します。
+///
+/// - `name`: ボタンの名前。省略した場合、フィールド名が使用されます。
+/// - 型には関数名を指定します。また、関数名とフィールド名が同じ場合は`fn()`と省略できます。
+/// - 関数のシグネチャは以下のようになります。
+///
+/// ```rust,ignore
+/// fn on_button_pressed(handle: &mut aviutl2::plugin::EditSection) { /* ... */ }
+/// ```
+///
+/// - このフィールドは削除されます。
+///
 /// # Example
 ///
 /// ```rust
 /// use aviutl2::filter::FilterConfigDataHandle;
 ///
-/// #[derive(Debug, Copy)]
+/// #[derive(Debug, Default, Clone, Copy)]
 /// struct MyData {
 ///    value: i32,
 /// }
 ///
-/// #[derive(Debug, aviutl2::filter::FilterConfigItems)]
+/// // fn my_button_handler(handle: &mut aviutl2::plugin::EditSection) {
+/// //     // ボタンが押されたときの処理
+/// // }
+///
+/// #[aviutl2_macros::filter_config_items]
+/// #[derive(Debug)]
 /// struct FilterConfig {
-///     #[track(name = "サンプル整数", range = -100..=100, default = 0, step = 1.0)]
-///     sample_integer: i32,
-///     #[track(name = "サンプル小数", range = -1.0..=1.0, default = 0.0, step = 0.01)]
-///     sample_float: f64,
+///     #[group(name = "サンプルグループ", opened = true)]
+///     sample_group: group! {
+///         #[track(name = "サンプル整数", range = -100..=100, default = 0, step = 1.0)]
+///         sample_integer: i32,
+///         #[track(name = "サンプル小数", range = -1.0..=1.0, default = 0.0, step = 0.01)]
+///         sample_float: f64,
+///     },
 ///     #[check(name = "サンプルチェックボックス", default = true)]
 ///     sample_checkbox: bool,
 ///     #[select(
@@ -178,14 +234,20 @@ mod utils;
 ///     sample_file: Option<std::path::PathBuf>,
 ///     #[data(name = "サンプルデータ")]
 ///     sample_data: FilterConfigDataHandle<MyData>,
+///
+///     // #[button(name = "サンプルボタン")]
+///     // on_button_pressed: my_button_handler,
 /// }
 /// ```
 ///
 /// # See Also
 ///
 /// - [`FilterConfigSelectItems`]
-#[proc_macro_derive(FilterConfigItems, attributes(track, check, color, select, file, data))]
-pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_attribute]
+pub fn filter_config_items(
+    _attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     filter_config_items::filter_config_items(item.into())
         .unwrap_or_else(|e| e)
         .into()

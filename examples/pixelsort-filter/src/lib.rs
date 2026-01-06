@@ -32,7 +32,8 @@ pub enum SortDirection {
     VerticalInverted,
 }
 
-#[derive(Debug, Clone, PartialEq, FilterConfigItems)]
+#[aviutl2::filter::filter_config_items]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FilterConfig {
     #[track(name = "しきい値", range = 0.0..=1.0, step = 0.001, default = 0.5)]
     pub threshold: f64,

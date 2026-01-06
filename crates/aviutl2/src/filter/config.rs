@@ -4,7 +4,7 @@ use crate::common::LeakManager;
 
 /// [`Vec<FilterConfigItem>`] と相互変換するためのトレイト。
 /// 基本的にはこのトレイトを手動で実装する必要はありません。
-/// [`derive@FilterConfigItems`] マクロを使用してください。
+/// [`macros@filter_config_items`] マクロを使用してください。
 ///
 /// <div class="warning">
 ///
@@ -28,7 +28,7 @@ pub trait FilterConfigItems: Sized {
     fn from_config_items(items: &[FilterConfigItem]) -> Self;
 }
 #[doc(inline)]
-pub use aviutl2_macros::FilterConfigItems;
+pub use aviutl2_macros::filter_config_items;
 
 /// `&[FilterConfigItem]` に対する拡張トレイト。
 pub trait FilterConfigItemSliceExt {
@@ -58,6 +58,8 @@ pub enum FilterConfigItem {
     File(FilterConfigFile),
     /// 汎用データ。
     Data(ErasedFilterConfigData),
+    /// グループ。
+    Group(FilterConfigGroup),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -71,10 +73,15 @@ pub(crate) enum FilterConfigItemValue {
         value: *mut std::ffi::c_void,
         size: usize,
     },
+    Group,
 }
 
 impl FilterConfigItem {
     /// 設定名を取得します。
+    ///
+    /// # Note
+    ///
+    /// `FilterConfigItem::Group` の場合、`name` が `None` のときは空文字列を返します。
     pub fn name(&self) -> &str {
         match self {
             FilterConfigItem::Track(item) => &item.name,
@@ -83,6 +90,7 @@ impl FilterConfigItem {
             FilterConfigItem::Select(item) => &item.name,
             FilterConfigItem::File(item) => &item.name,
             FilterConfigItem::Data(item) => &item.name,
+            FilterConfigItem::Group(item) => item.name.as_deref().unwrap_or(""),
         }
     }
 
@@ -163,6 +171,13 @@ impl FilterConfigItem {
 
                 aviutl2_sys::filter2::FILTER_ITEM { data }
             }
+            FilterConfigItem::Group(item) => aviutl2_sys::filter2::FILTER_ITEM {
+                group: aviutl2_sys::filter2::FILTER_ITEM_GROUP {
+                    r#type: leak_manager.leak_as_wide_string("group"),
+                    name: leak_manager.leak_as_wide_string(item.name.as_deref().unwrap_or("")),
+                    default_visible: item.opened,
+                },
+            },
         }
     }
 
@@ -213,6 +228,7 @@ impl FilterConfigItem {
                     size,
                 }
             }
+            "group" => FilterConfigItemValue::Group,
             _ => panic!("Unknown filter config item type: {}", item_type),
         }
     }
@@ -617,5 +633,39 @@ impl<T: Copy + 'static> FilterConfigData<T> {
 impl<T: Copy + 'static> From<FilterConfigData<T>> for ErasedFilterConfigData {
     fn from(value: FilterConfigData<T>) -> Self {
         value.erase_type()
+    }
+}
+
+/// グループ。
+#[derive(Debug, Clone)]
+pub struct FilterConfigGroup {
+    /// 設定名。
+    /// Noneの場合、グループの終端として扱われます。
+    pub name: Option<String>,
+
+    /// デフォルトで開いているかどうか。
+    pub opened: bool,
+}
+
+impl FilterConfigGroup {
+    /// グループの開始を表す設定を作成します。
+    pub fn start(name: String) -> Self {
+        Self::start_with_opened(name, true)
+    }
+
+    /// `opened` を指定してグループの開始を表す設定を作成します。
+    pub fn start_with_opened(name: String, opened: bool) -> Self {
+        FilterConfigGroup {
+            name: Some(name),
+            opened,
+        }
+    }
+
+    /// グループの終了を表す設定を作成します。
+    pub fn end() -> Self {
+        FilterConfigGroup {
+            name: None,
+            opened: false,
+        }
     }
 }

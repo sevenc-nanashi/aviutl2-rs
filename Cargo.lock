@@ -553,6 +553,7 @@ dependencies = [
  "decimal-rs",
  "either",
  "insta",
+ "itertools 0.14.0",
  "proc-macro2",
  "quote",
  "rustfmt-wrapper",

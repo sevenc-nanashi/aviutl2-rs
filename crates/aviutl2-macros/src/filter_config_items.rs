@@ -1,11 +1,12 @@
+use itertools::Itertools;
 use quote::ToTokens;
 use syn::parse::Parse;
 
 pub fn filter_config_items(
     item: proc_macro2::TokenStream,
 ) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
-    let item: syn::ItemStruct = syn::parse2(item).map_err(|e| e.to_compile_error())?;
-    validate_filter_config(&item)?;
+    let item = preprocess_group(item)?;
+    let mut item: syn::ItemStruct = syn::parse2(item).map_err(|e| e.to_compile_error())?;
 
     let name = &item.ident;
     let fields = item
@@ -14,11 +15,15 @@ pub fn filter_config_items(
         .map(filter_config_field)
         .collect::<crate::utils::CombinedVecResults<_>>()
         .into_result()?;
+    validate_filter_config(&item, &fields)?;
+    item.fields = clean_fields(&item.fields);
     let to_config_items = impl_to_config_items(&fields);
     let from_config_items = impl_from_filter_config(&fields);
     let default = impl_default(&fields);
 
     let expanded = quote::quote! {
+        #item
+
         #[automatically_derived]
         impl ::aviutl2::filter::FilterConfigItems for #name {
             #to_config_items
@@ -35,6 +40,194 @@ pub fn filter_config_items(
     };
 
     Ok(expanded)
+}
+
+fn preprocess_group(
+    item: proc_macro2::TokenStream,
+) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
+    // とりあえずTokenStreamの最後のgroupを見て、いい感じに展開する
+    // これが本当にstructかどうかはsynに任せる
+
+    let stream = item.into_iter().collect::<Vec<_>>();
+
+    let Some(proc_macro2::TokenTree::Group(last_group_start)) = stream.last() else {
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "Expected a struct definition",
+        )
+        .to_compile_error());
+    };
+
+    let orig_inner_stream = last_group_start.stream();
+    let orig_inner_stream = orig_inner_stream.into_iter().collect::<Vec<_>>();
+    let mut index = 0;
+    let mut new_inner_contents = Vec::new();
+
+    #[derive(Debug, PartialEq, Eq)]
+    enum FieldType {
+        Content,
+        GroupStart,
+        GroupEnd,
+    }
+
+    while index < orig_inner_stream.len() {
+        // # [group(...)] group : group ! { ... }
+        // ^ ^^^^^^^^^^^^ ^^^^^ ^ ^^^^^ ^ ^^^^^^^
+        // 0 1            2     3 4     5 6
+        match (&orig_inner_stream[index], orig_inner_stream.get(index + 1)) {
+            (
+                proc_macro2::TokenTree::Punct(punct0),
+                Some(proc_macro2::TokenTree::Group(group_meta)),
+            ) if punct0.as_char() == '#'
+                && group_meta.delimiter() == proc_macro2::Delimiter::Bracket
+                && group_meta
+                    .stream()
+                    .to_token_stream()
+                    .into_iter()
+                    .next()
+                    .is_some_and(|tt| {
+                        if let proc_macro2::TokenTree::Ident(ident) = &tt {
+                            ident == "group"
+                        } else {
+                            false
+                        }
+                    }) =>
+            {
+                match (
+                    orig_inner_stream.get(index + 2),
+                    orig_inner_stream.get(index + 3),
+                    orig_inner_stream.get(index + 4),
+                    orig_inner_stream.get(index + 5),
+                    orig_inner_stream.get(index + 6),
+                ) {
+                    (
+                        Some(proc_macro2::TokenTree::Ident(field_ident)),
+                        Some(proc_macro2::TokenTree::Punct(field_punct)),
+                        Some(proc_macro2::TokenTree::Ident(macro_ident)),
+                        Some(proc_macro2::TokenTree::Punct(macro_punct)),
+                        Some(proc_macro2::TokenTree::Group(content_group)),
+                    ) if field_punct.as_char() == ':'
+                        && macro_ident == "group"
+                        && macro_punct.as_char() == '!'
+                        && content_group.delimiter() == proc_macro2::Delimiter::Brace =>
+                    {
+                        let group_meta_vec = group_meta
+                            .stream()
+                            .to_token_stream()
+                            .into_iter()
+                            .collect::<Vec<_>>();
+                        let Some(proc_macro2::TokenTree::Group(attributes_group)) =
+                            group_meta_vec.get(1)
+                        else {
+                            return Err(syn::Error::new_spanned(
+                                group_meta,
+                                "Expected parentheses in #[group(...)]",
+                            )
+                            .to_compile_error());
+                        };
+                        new_inner_contents.push((
+                            FieldType::GroupStart,
+                            quote::quote! {
+                                #[__internal_group_start #attributes_group]
+                                #field_ident: (),
+                            },
+                        ));
+
+                        let mut group_content =
+                            content_group.stream().into_iter().collect::<Vec<_>>();
+                        // ケツカンマを追加してあげる（その方が都合が良いので）
+                        if !matches!(group_content.last(), Some(proc_macro2::TokenTree::Punct(p)) if p.as_char() == ',')
+                        {
+                            group_content.push(proc_macro2::TokenTree::Punct(
+                                proc_macro2::Punct::new(',', proc_macro2::Spacing::Alone),
+                            ));
+                        }
+                        let group_content = proc_macro2::TokenStream::from_iter(group_content);
+                        new_inner_contents.push((FieldType::Content, group_content));
+
+                        new_inner_contents.push((
+                            FieldType::GroupEnd,
+                            quote::quote! {
+                                #[__internal_group_end]
+                                __dummy_group_field_end: ()
+                            },
+                        ));
+                        index += 7;
+                        continue;
+                    }
+                    (o1, o2, o3, o4, o5) => {
+                        let mut tree = proc_macro2::TokenStream::new();
+                        for t in [o1, o2, o3, o4, o5].iter().flatten() {
+                            tree.extend(std::iter::once(t.into_token_stream()));
+                        }
+                        return Err(syn::Error::new_spanned(
+                            tree,
+                            "Expected `group: group! { ... }` after `#[group(...)]`",
+                        )
+                        .to_compile_error());
+                    }
+                }
+            }
+            (other, _) => {
+                new_inner_contents.push((
+                    FieldType::Content,
+                    proc_macro2::TokenStream::from_iter(std::iter::once(other.clone())),
+                ));
+            }
+        }
+        index += 1;
+    }
+
+    let mut new_inner_stream = Vec::new();
+
+    // 末尾のGroupStart/GroupEndとカンマを削る
+    while (matches!(
+        new_inner_contents.last(),
+        Some((FieldType::GroupStart | FieldType::GroupEnd, _))
+    ) || matches!(
+        new_inner_contents.last(),
+        Some((FieldType::Content, content))
+        if content.to_token_stream().into_iter().count() == 1 &&
+            content
+            .to_token_stream()
+            .into_iter()
+            .last()
+            .is_some_and(|tt| {
+                if let proc_macro2::TokenTree::Punct(p) = &tt {
+                    p.as_char() == ','
+                } else {
+                    false
+                }
+            })
+    )) {
+        new_inner_contents.pop();
+    }
+    for (i, (field_type, content)) in new_inner_contents.iter().enumerate() {
+        match field_type {
+            FieldType::GroupEnd
+                if matches!(
+                    new_inner_contents.get(i + 1),
+                    Some((FieldType::GroupStart, _))
+                ) =>
+            {
+                // GroupEnd -> GroupStartはGroupStartだけにする
+            }
+            _ => {
+                new_inner_stream.push(content);
+            }
+        }
+    }
+
+    let mut new_token = proc_macro2::TokenStream::new();
+    new_token.extend(stream[..stream.len() - 1].iter().cloned());
+
+    new_token.extend(std::iter::once(proc_macro2::TokenTree::Group(
+        proc_macro2::Group::new(
+            last_group_start.delimiter(),
+            proc_macro2::TokenStream::from_iter(new_inner_stream.into_iter().cloned()),
+        ),
+    )));
+    Ok(new_token)
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -74,6 +267,11 @@ enum FilterConfigField {
         default: Option<syn::Expr>,
         value_type: syn::Type,
     },
+    GroupStart {
+        name: String,
+        opened: Option<bool>,
+    },
+    GroupEnd,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -298,6 +496,33 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     }
                 }
             }
+            FilterConfigField::GroupStart { name, opened} => {
+                if let Some(opened) = opened {
+                    quote::quote! {
+                        ::aviutl2::filter::FilterConfigItem::Group(
+                            ::aviutl2::filter::FilterConfigGroup::start_with_opened(
+                                #name.to_string(),
+                                #opened,
+                            )
+                        )
+                    }
+                } else {
+                    quote::quote! {
+                        ::aviutl2::filter::FilterConfigItem::Group(
+                            ::aviutl2::filter::FilterConfigGroup::start(
+                                #name.to_string(),
+                            )
+                        )
+                    }
+                }
+            }
+            FilterConfigField::GroupEnd => {
+                quote::quote! {
+                    ::aviutl2::filter::FilterConfigItem::Group(
+                        ::aviutl2::filter::FilterConfigGroup::end()
+                    )
+                }
+            }
         })
         .collect::<Vec<_>>();
 
@@ -314,7 +539,7 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
     let field_assign = config_fields
         .iter()
         .enumerate()
-        .map(|(i, f)| match f {
+        .filter_map(|(i, f)| match f {
             FilterConfigField::Track { id, step, .. } => {
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
                 let to_value = if *step == TrackStep::One {
@@ -327,30 +552,30 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                         track.value as _
                     }
                 };
-                quote::quote! {
+                Some(quote::quote! {
                     #id_ident: match items[#i] {
                         ::aviutl2::filter::FilterConfigItem::Track(ref track) => #to_value,
                         _ => panic!("Expected Track at index {}", #i),
                     }
-                }
+                })
             }
             FilterConfigField::Check { id, .. } => {
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
-                quote::quote! {
+                Some(quote::quote! {
                     #id_ident: match items[#i] {
                         ::aviutl2::filter::FilterConfigItem::Checkbox(ref check) => check.value,
                         _ => panic!("Expected Checkbox at index {}", #i),
                     }
-                }
+                })
             }
             FilterConfigField::Color { id, .. } => {
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
-                quote::quote! {
+                Some(quote::quote! {
                     #id_ident: match items[#i] {
                         ::aviutl2::filter::FilterConfigItem::Color(ref color) => color.value.into(),
                         _ => panic!("Expected Color at index {}", #i),
                     }
-                }
+                })
             }
             FilterConfigField::Select {
                 id, items, default, ..
@@ -380,18 +605,18 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                     },
                 };
 
-                quote::quote! {
+                Some(quote::quote! {
                     #id_ident: match items[#i] {
                         ::aviutl2::filter::FilterConfigItem::Select(ref select) => {
                             #to_value
                         },
                         _ => panic!("Expected Select at index {}", #i),
                     }
-                }
+                })
             }
             FilterConfigField::File { id, .. } => {
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
-                quote::quote! {
+                Some(quote::quote! {
                     #id_ident: match items[#i] {
                         ::aviutl2::filter::FilterConfigItem::File(ref file) =>
                             if file.value.is_empty() {
@@ -401,16 +626,19 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                             },
                         _ => panic!("Expected File at index {}", #i),
                     }
-                }
+                })
             }
             FilterConfigField::Data { id, .. } => {
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
-                quote::quote! {
+                Some(quote::quote! {
                     #id_ident: match items[#i] {
                         ::aviutl2::filter::FilterConfigItem::Data(ref data) => ::aviutl2::filter::FilterConfigDataHandle::__from_erased(data),
                         _ => panic!("Expected Data at index {}", #i),
                     }
-                }
+                })
+            }
+            FilterConfigField::GroupStart { .. } | FilterConfigField::GroupEnd => {
+                None
             }
         })
         .collect::<Vec<_>>();
@@ -426,41 +654,41 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
 }
 
 fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
-    let field_inits = fields.iter().map(|f| match f {
+    let field_inits = fields.iter().filter_map(|f| match f {
         FilterConfigField::Track { id, default, .. } => {
             let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
-            quote::quote! {
+            Some(quote::quote! {
                 #id_ident: #default as _
-            }
+            })
         }
         FilterConfigField::Check { id, default, .. } => {
             let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
-            quote::quote! {
+            Some(quote::quote! {
                 #id_ident: #default
-            }
+            })
         }
         FilterConfigField::Color { id, default, .. } => {
             let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
-            quote::quote! {
+            Some(quote::quote! {
                 #id_ident: #default.into()
-            }
+            })
         }
         FilterConfigField::Select { id, default, .. } => {
             let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
-            match default {
+            Some(match default {
                 either::Either::Left(v) => quote::quote! {
                     #id_ident: #v as _
                 },
                 either::Either::Right(v) => quote::quote! {
                     #id_ident: <_ as ::std::convert::From<_>>::from(#v)
                 },
-            }
+            })
         }
         FilterConfigField::File { id, .. } => {
             let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
-            quote::quote! {
+            Some(quote::quote! {
                 #id_ident: None
-            }
+            })
         }
         FilterConfigField::Data { id, default, .. } => {
             let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
@@ -469,10 +697,11 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
             } else {
                 quote::quote! { ::std::default::Default::default() }
             };
-            quote::quote! {
+            Some(quote::quote! {
                 #id_ident: ::aviutl2::filter::FilterConfigDataHandle::__new_owned(#value)
-            }
+            })
         }
+        FilterConfigField::GroupStart { .. } | FilterConfigField::GroupEnd => None,
     });
     quote::quote! {
         Self {
@@ -481,16 +710,11 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
     }
 }
 
-fn validate_filter_config(item: &syn::ItemStruct) -> Result<(), proc_macro2::TokenStream> {
-    let fields = item
-        .fields
-        .iter()
-        .map(filter_config_field)
-        .collect::<Result<Vec<_>, _>>();
-    let fields = match fields {
-        Ok(f) => f,
-        Err(e) => return Err(e.to_compile_error()),
-    };
+fn validate_filter_config(
+    item: &syn::ItemStruct,
+    fields: &[FilterConfigField],
+) -> Result<(), proc_macro2::TokenStream> {
+    assert!(item.fields.len() == fields.len());
     let field_names = fields
         .iter()
         .map(|f| match f {
@@ -500,23 +724,47 @@ fn validate_filter_config(item: &syn::ItemStruct) -> Result<(), proc_macro2::Tok
             FilterConfigField::Select { name, .. } => name,
             FilterConfigField::File { name, .. } => name,
             FilterConfigField::Data { name, .. } => name,
+            FilterConfigField::GroupStart { name, .. } => name,
+            FilterConfigField::GroupEnd => "__internal_group_end",
         })
         .collect::<Vec<_>>();
 
-    if field_names.len()
-        != field_names
-            .iter()
-            .collect::<std::collections::HashSet<_>>()
-            .len()
-    {
-        // TODO: フィールドに対してエラーを吐くようにしたい
-        return Err(syn::Error::new_spanned(item, "Field names must be unique").to_compile_error());
+    let mut counts = field_names.iter().counts();
+    // 終了は重複しても問題ないので除外する
+    counts.remove(&"__internal_group_end");
+
+    let errors = counts
+        .into_iter()
+        .zip(item.fields.iter())
+        .filter(|((_, count), _)| *count > 1)
+        .map(|((name, count), field)| {
+            syn::Error::new_spanned(
+                field,
+                format!(
+                    "Duplicate filter config item name `{}` found {} times",
+                    name, count
+                ),
+            )
+            .to_compile_error()
+        })
+        .collect::<Vec<_>>();
+    if !errors.is_empty() {
+        return Err(proc_macro2::TokenStream::from_iter(errors));
     }
     Ok(())
 }
 
+static RECOGNIZED_FIELDS: &[&str] = &[
+    "track",
+    "check",
+    "color",
+    "select",
+    "file",
+    "data",
+    "__internal_group_start",
+    "__internal_group_end",
+];
 fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Error> {
-    static RECOGNIZED_FIELDS: &[&str] = &["track", "check", "color", "select", "file", "data"];
     let recognized_fields = field
         .attrs
         .iter()
@@ -524,7 +772,7 @@ fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Err
             if let Some(ident) = attr.path().get_ident() {
                 RECOGNIZED_FIELDS.contains(&ident.to_string().as_str())
             } else {
-                false
+                true
             }
         })
         .collect::<Vec<_>>();
@@ -542,7 +790,7 @@ fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Err
             ),
         ));
     }
-    let recognized_attr = recognized_fields[0];
+    let recognized_attr = &recognized_fields[0];
     match recognized_attr
         .path()
         .get_ident()
@@ -556,8 +804,52 @@ fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Err
         "select" => filter_config_field_select(field, recognized_attr),
         "file" => filter_config_field_file(field, recognized_attr),
         "data" => filter_config_field_data(field, recognized_attr),
+        "__internal_group_start" => filter_config_field_group_start(field, recognized_attr),
+        "__internal_group_end" => filter_config_field_group_end(field, recognized_attr),
 
         _ => unreachable!(),
+    }
+}
+fn clean_fields(fields: &syn::Fields) -> syn::Fields {
+    let new_fields = fields
+        .iter()
+        .filter_map(|field| {
+            let (recognized_attrs, new_attrs): (Vec<_>, Vec<_>) =
+                field.attrs.iter().partition(|attr| {
+                    if let Some(ident) = attr.path().get_ident() {
+                        RECOGNIZED_FIELDS.contains(&ident.to_string().as_str())
+                    } else {
+                        false
+                    }
+                });
+            let should_delete = recognized_attrs[0]
+                .path()
+                .get_ident()
+                .unwrap()
+                .to_string()
+                .starts_with("__internal_");
+            if should_delete {
+                None
+            } else {
+                let mut new_field = field.clone();
+                new_field.attrs = new_attrs.into_iter().cloned().collect();
+                Some(new_field)
+            }
+        })
+        .collect::<Vec<_>>();
+
+    match fields {
+        syn::Fields::Named(original) => syn::Fields::Named(syn::FieldsNamed {
+            brace_token: original.brace_token,
+            named: syn::punctuated::Punctuated::<syn::Field, syn::Token![,]>::from_iter(new_fields),
+        }),
+        syn::Fields::Unnamed(original) => syn::Fields::Unnamed(syn::FieldsUnnamed {
+            paren_token: original.paren_token,
+            unnamed: syn::punctuated::Punctuated::<syn::Field, syn::Token![,]>::from_iter(
+                new_fields,
+            ),
+        }),
+        syn::Fields::Unit => syn::Fields::Unit,
     }
 }
 
@@ -965,6 +1257,35 @@ fn filter_config_field_data(
     })
 }
 
+fn filter_config_field_group_start(
+    field: &syn::Field,
+    recognized_attr: &syn::Attribute,
+) -> Result<FilterConfigField, syn::Error> {
+    let mut name = None;
+    let mut opened = None;
+
+    recognized_attr.parse_nested_meta(|m| {
+        if m.path.is_ident("name") {
+            name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("opened") {
+            opened = Some(m.value()?.parse::<syn::LitBool>()?.value);
+        } else {
+            // NOTE: ユーザーには`#[group(...)]`として見えるので、`group`と表示する
+            return Err(m.error("Unknown attribute for group"));
+        }
+        Ok(())
+    })?;
+
+    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    Ok(FilterConfigField::GroupStart { name, opened })
+}
+fn filter_config_field_group_end(
+    _field: &syn::Field,
+    _recognized_attr: &syn::Attribute,
+) -> Result<FilterConfigField, syn::Error> {
+    Ok(FilterConfigField::GroupEnd)
+}
+
 fn parse_int_or_float(expr: &syn::Expr) -> Result<decimal_rs::Decimal, syn::Error> {
     let mut current = expr;
     let mut neg_count = 0;
@@ -1078,7 +1399,7 @@ mod tests {
             Hard,
         }
 
-        #[derive(aviutl2::filter::FilterConfigItems)]
+        #[aviutl2::filter::filter_config_items]
         struct Config {
             #[select(name = "Mode", items = ["Easy", "Medium", "Hard"], default = 1)]
             mode: usize,
@@ -1118,5 +1439,22 @@ mod tests {
         };
         let result = filter_config_items(input);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_group() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[group(name = "Test", opened = true)]
+                test_group: group! {
+                    #[track(name = "Frequency", range = 20.0..=20000.0, step = 1.0, default = 440.0)]
+                    frequency: f64,
+                    #[check(name = "Enable", default = true)]
+                    enable: bool,
+                },
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
     }
 }
