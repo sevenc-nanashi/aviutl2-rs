@@ -188,53 +188,13 @@ fn preprocess_group(
         index += 1;
     }
 
-    let mut new_inner_stream = Vec::new();
-
-    // 末尾のGroupStart/GroupEndとカンマを削る
-    while (matches!(
-        new_inner_contents.last(),
-        Some((FieldType::GroupStart | FieldType::GroupEnd, _))
-    ) || matches!(
-        new_inner_contents.last(),
-        Some((FieldType::Content, content))
-        if content.to_token_stream().into_iter().count() == 1 &&
-            content
-            .to_token_stream()
-            .into_iter()
-            .last()
-            .is_some_and(|tt| {
-                if let proc_macro2::TokenTree::Punct(p) = &tt {
-                    p.as_char() == ','
-                } else {
-                    false
-                }
-            })
-    )) {
-        new_inner_contents.pop();
-    }
-    for (i, (field_type, content)) in new_inner_contents.iter().enumerate() {
-        match field_type {
-            FieldType::GroupEnd
-                if matches!(
-                    new_inner_contents.get(i + 1),
-                    Some((FieldType::GroupStart, _))
-                ) =>
-            {
-                // GroupEnd -> GroupStartはGroupStartだけにする
-            }
-            _ => {
-                new_inner_stream.push(content);
-            }
-        }
-    }
-
     let mut new_token = proc_macro2::TokenStream::new();
     new_token.extend(stream[..stream.len() - 1].iter().cloned());
 
     new_token.extend(std::iter::once(proc_macro2::TokenTree::Group(
         proc_macro2::Group::new(
             last_group_start.delimiter(),
-            proc_macro2::TokenStream::from_iter(new_inner_stream.into_iter().cloned()),
+            proc_macro2::TokenStream::from_iter(new_inner_contents.into_iter().map(|(_ft, ts)| ts)),
         ),
     )));
     Ok(new_token)
@@ -1479,6 +1439,28 @@ mod tests {
                     #[check(name = "Enable", default = true)]
                     pub enable: bool,
                 },
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
+    fn test_multi_group() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[group(name = "Test 1", opened = true)]
+                test_group_1: group! {
+                    #[check(name = "Check 1", default = true)]
+                    check_1: bool,
+                },
+                #[group(name = "Test 2", opened = false)]
+                test_group_2: group! {
+                    #[check(name = "Check 2", default = false)]
+                    check_2: bool,
+                },
+                #[check(name = "Outside Check", default = true)]
+                outside_check: bool,
             }
         };
         let output = filter_config_items(input).unwrap();
