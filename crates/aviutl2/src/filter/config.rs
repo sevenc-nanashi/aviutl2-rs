@@ -4,7 +4,7 @@ use crate::common::LeakManager;
 
 /// [`Vec<FilterConfigItem>`] と相互変換するためのトレイト。
 /// 基本的にはこのトレイトを手動で実装する必要はありません。
-/// [`macros@filter_config_items`] マクロを使用してください。
+/// [`macro@filter_config_items`] マクロを使用してください。
 ///
 /// <div class="warning">
 ///
@@ -15,7 +15,7 @@ use crate::common::LeakManager;
 ///
 /// # See Also
 ///
-/// [derive@FilterConfigItems]
+/// [`macro@filter_config_items`]
 pub trait FilterConfigItems: Sized {
     /// [`Vec<FilterConfigItem>`] に変換します。
     fn to_config_items() -> Vec<FilterConfigItem>;

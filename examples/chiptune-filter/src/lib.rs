@@ -29,7 +29,8 @@ enum FrequencyMode {
     FrequencyHz,
 }
 
-#[derive(Debug, Clone, PartialEq, FilterConfigItems)]
+#[aviutl2::filter::filter_config_items]
+#[derive(Debug, Clone, PartialEq)]
 struct FilterConfig {
     #[track(name = "音量", range = 0.0..=1.0, step = 0.01, default = 0.5)]
     volume: f64,

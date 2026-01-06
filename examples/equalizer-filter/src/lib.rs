@@ -4,7 +4,8 @@ use aviutl2::{
     log,
 };
 
-#[derive(Debug, Clone, PartialEq, aviutl2::filter::FilterConfigItems)]
+#[aviutl2::filter::filter_config_items]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FilterConfig {
     #[track(name = "Wet", range = 0.0..=1.0, step = 0.01, default = 1.0)]
     wet: f64,

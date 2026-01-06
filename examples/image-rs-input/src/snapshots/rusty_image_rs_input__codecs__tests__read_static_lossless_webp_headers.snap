@@ -1,6 +1,5 @@
 ---
 source: examples/image-rs-input/src/codecs.rs
-assertion_line: 259
 expression: animation_info
 ---
 AnimationInfo {

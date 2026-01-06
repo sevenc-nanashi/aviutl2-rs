@@ -4,7 +4,8 @@ use aviutl2::{
 };
 use ringbuffer::RingBuffer;
 
-#[derive(Debug, Clone, PartialEq, aviutl2::filter::FilterConfigItems)]
+#[aviutl2::filter::filter_config_items]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FilterConfig {
     #[track(name = "ゲイン", range = 0.0..=8.0, step = 0.01, default = 2.0)]
     gain: f32,
