@@ -259,6 +259,7 @@ impl FilterConfigItem {
 
                 size_changed || ptr_changed
             }
+            (FilterConfigItem::Group(_), FilterConfigItemValue::Group) => false,
             _ => {
                 panic!("Mismatched filter config item type");
             }
@@ -289,6 +290,9 @@ impl FilterConfigItem {
             (FilterConfigItem::Data(item), FilterConfigItemValue::Data { value, size }) => {
                 item.size = size;
                 item.value = NonNull::new(value);
+            }
+            (FilterConfigItem::Group(_), FilterConfigItemValue::Group) => {
+                // グループは値を持たないので何もしない
             }
             _ => {
                 panic!("Mismatched filter config item type");

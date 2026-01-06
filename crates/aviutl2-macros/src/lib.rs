@@ -183,6 +183,10 @@ mod utils;
 /// # }
 /// ```
 ///
+/// <div class="warning">
+/// この属性はまだ実装されていません。
+/// </div>
+///
 /// `aviutl2::filter::FilterConfigItem::Button`を挿入します。
 ///
 /// - `name`: ボタンの名前。省略した場合、フィールド名が使用されます。

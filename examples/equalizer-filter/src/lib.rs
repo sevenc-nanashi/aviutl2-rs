@@ -9,27 +9,42 @@ use aviutl2::{
 pub struct FilterConfig {
     #[track(name = "Wet", range = 0.0..=1.0, step = 0.01, default = 1.0)]
     wet: f64,
-    #[track(name = "Bass: Frequency", range = 20.0..=250.0, step = 1.0, default = 100.0)]
-    bass_freq: f64,
-    #[track(name = "Bass: Gain", range = -15.0..=15.0, step = 0.1, default = 0.0)]
-    bass_gain: f64,
-    #[track(name = "Mid: Frequency", range = 250.0..=4000.0, step = 1.0, default = 1000.0)]
-    mid_freq: f64,
-    #[track(name = "Mid: Gain", range = -15.0..=15.0, step = 0.1, default = 0.0)]
-    mid_gain: f64,
-    #[track(name = "Treble: Frequency", range = 4000.0..=20000.0, step = 1.0, default = 10000.0)]
-    treble_freq: f64,
-    #[track(name = "Treble: Gain", range = -15.0..=15.0, step = 0.1, default = 0.0)]
-    treble_gain: f64,
+    #[group(name = "Bass")]
+    bass: group! {
+        #[track(name = "Bass: Frequency", range = 20.0..=250.0, step = 1.0, default = 100.0)]
+        bass_freq: f64,
+        #[track(name = "Bass: Gain", range = -15.0..=15.0, step = 0.1, default = 0.0)]
+        bass_gain: f64,
+    },
+    #[group(name = "Mid")]
+    mid: group! {
+        #[track(name = "Mid: Frequency", range = 250.0..=4000.0, step = 1.0, default = 1000.0)]
+        mid_freq: f64,
+        #[track(name = "Mid: Gain", range = -15.0..=15.0, step = 0.1, default = 0.0)]
+        mid_gain: f64,
+    },
+    #[group(name = "Treble")]
+    treble: group! {
+        #[track(name = "Treble: Frequency", range = 4000.0..=20000.0, step = 1.0, default = 10000.0)]
+        treble_freq: f64,
+        #[track(name = "Treble: Gain", range = -15.0..=15.0, step = 0.1, default = 0.0)]
+        treble_gain: f64,
+    },
 
-    #[check(name = "Hi-pass: Enable", default = false)]
-    hipass_enable: bool,
-    #[track(name = "Hi-pass: Frequency", range = 20.0..=20000.0, step = 1.0, default = 20.0)]
-    hipass_freq: f64,
-    #[check(name = "Lo-pass: Enable", default = false)]
-    lopass_enable: bool,
-    #[track(name = "Lo-pass: Frequency", range = 20.0..=20000.0, step = 1.0, default = 20000.0)]
-    lopass_freq: f64,
+    #[group(name = "Hi-pass Filter")]
+    hi_pass: group! {
+        #[check(name = "Hi-pass: Enable", default = false)]
+        hipass_enable: bool,
+        #[track(name = "Hi-pass: Frequency", range = 20.0..=20000.0, step = 1.0, default = 20.0)]
+        hipass_freq: f64,
+    },
+    #[group(name = "Lo-pass Filter")]
+    lo_pass: group! {
+        #[check(name = "Lo-pass: Enable", default = false)]
+        lopass_enable: bool,
+        #[track(name = "Lo-pass: Frequency", range = 20.0..=20000.0, step = 1.0, default = 20000.0)]
+        lopass_freq: f64,
+    },
 }
 
 const NUM_CACHES: usize = 2;

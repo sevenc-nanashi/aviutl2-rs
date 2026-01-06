@@ -113,6 +113,24 @@ macro_rules! bitflag {
     }
 }
 
+pub(crate) fn catch_unwind_with_panic_info<F, R>(f: F) -> Result<R, String>
+where
+    F: FnOnce() -> R + std::panic::UnwindSafe,
+{
+    match std::panic::catch_unwind(f) {
+        Ok(result) => Ok(result),
+        Err(err) => {
+            if let Some(s) = err.downcast_ref::<&str>() {
+                Err(s.to_string())
+            } else if let Some(s) = err.downcast_ref::<String>() {
+                Err(s.clone())
+            } else {
+                Err("<unknown panic".to_string())
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
