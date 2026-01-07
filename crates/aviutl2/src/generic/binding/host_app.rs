@@ -1,5 +1,6 @@
 use crate::{AviUtl2Info, generic::EditSection};
 use pastey::paste;
+use std::num::NonZeroIsize;
 
 /// ホストアプリケーションのハンドル。
 /// プラグインの初期化処理で使用します。
@@ -148,6 +149,38 @@ impl<'a> HostAppHandle<'a> {
                 callback,
             )
         }
+    }
+
+    /// 編集メニューを登録します。
+    /// 名前に`\\`を含めるとサブメニューとして登録されます。
+    pub fn register_edit_menu(
+        &mut self,
+        name: &str,
+        callback: extern "C" fn(*mut aviutl2_sys::plugin2::EDIT_SECTION),
+    ) {
+        self.assert_not_killed();
+        unsafe {
+            ((*self.internal).register_edit_menu)(
+                self.global_leak_manager.leak_as_wide_string(name),
+                callback,
+            )
+        }
+    }
+
+    /// 設定メニューを登録します。
+    /// 設定メニューの登録後にウィンドウクライアントを登録するとシステムメニューに「設定」が追加されます。
+    pub fn register_config_menu(
+        &mut self,
+        name: &str,
+        callback: extern "C" fn(aviutl2_sys::plugin2::HWND, aviutl2_sys::plugin2::HINSTANCE),
+    ) {
+        self.assert_not_killed();
+        unsafe {
+            ((*self.internal).register_config_menu)(
+                self.global_leak_manager.leak_as_wide_string(name),
+                callback,
+            )
+        };
     }
 
     /// ウィンドウクライアントを登録します。
@@ -429,6 +462,56 @@ impl EditHandle {
             let edit_info = raw_info.assume_init();
             crate::generic::EditInfo::from_ptr(&edit_info)
         }
+    }
+}
+
+#[doc(hidden)]
+pub unsafe fn __internal_rwh_from_raw(
+    hwnd: aviutl2_sys::plugin2::HWND,
+    hinstance: aviutl2_sys::plugin2::HINSTANCE,
+) -> raw_window_handle::Win32WindowHandle {
+    let mut handle =
+        raw_window_handle::Win32WindowHandle::new(NonZeroIsize::new(hwnd as isize).unwrap());
+    handle.hinstance = Some(NonZeroIsize::new(hinstance as isize).unwrap());
+    handle
+}
+
+#[doc(hidden)]
+#[expect(private_bounds)]
+pub fn __output_log_if_error<T: MenuCallbackReturn>(result: T) {
+    if let Some(err_msg) = result.into_optional_error() {
+        let _ = crate::logger::write_error_log(&err_msg);
+    }
+}
+
+#[doc(hidden)]
+#[expect(private_bounds)]
+pub fn __alert_if_error<T: MenuCallbackReturn>(result: T) {
+    if let Some(err_msg) = result.into_optional_error() {
+        crate::common::alert_error(&anyhow::anyhow!(err_msg));
+    }
+}
+
+trait MenuCallbackReturn {
+    fn into_optional_error(self) -> Option<String>;
+}
+impl<E> MenuCallbackReturn for Result<(), E>
+where
+    Box<dyn std::error::Error>: From<E>,
+{
+    fn into_optional_error(self) -> Option<String> {
+        match self {
+            Ok(_) => None,
+            Err(e) => {
+                let boxed: Box<dyn std::error::Error> = e.into();
+                Some(format!("{}", boxed))
+            }
+        }
+    }
+}
+impl MenuCallbackReturn for () {
+    fn into_optional_error(self) -> Option<String> {
+        None
     }
 }
 

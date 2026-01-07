@@ -330,16 +330,19 @@ impl EditSection {
         name: Option<&str>,
     ) -> EditSectionResult<()> {
         self.ensure_object_exists(object)?;
-        let mut c_name = None;
-        let name_ptr = match name {
-            Some(value) => {
-                c_name = Some(crate::common::CWString::new(value)?);
-                c_name.as_ref().unwrap().as_ptr()
+        match name {
+            None => {
+                unsafe { ((*self.internal).set_object_name)(object.internal, std::ptr::null()) };
+                Ok(())
             }
-            None => std::ptr::null(),
-        };
-        unsafe { ((*self.internal).set_object_name)(object.internal, name_ptr) };
-        Ok(())
+            Some(name) => {
+                let c_name = crate::common::CWString::new(name)?;
+                unsafe {
+                    ((*self.internal).set_object_name)(object.internal, c_name.as_ptr());
+                }
+                Ok(())
+            }
+        }
     }
 
     /// オブジェクトの設定項目の値を文字列で取得します。
@@ -704,22 +707,6 @@ impl EditSection {
         Ok(())
     }
 
-    #[doc(hidden)]
-    #[expect(private_bounds)]
-    pub fn __output_log_if_error<T: MenuCallbackReturn>(&self, result: T) {
-        if let Some(err_msg) = result.into_optional_error() {
-            let _ = crate::logger::write_error_log(&err_msg);
-        }
-    }
-
-    #[doc(hidden)]
-    #[expect(private_bounds)]
-    pub fn __alert_if_error<T: MenuCallbackReturn>(&self, result: T) {
-        if let Some(err_msg) = result.into_optional_error() {
-            crate::common::alert_error(&anyhow::anyhow!(err_msg));
-        }
-    }
-
     /// すべてのレイヤーをイテレータで取得します。
     pub fn layers(&self) -> EditSectionLayersIterator<'_> {
         EditSectionLayersIterator::new(self)
@@ -953,28 +940,5 @@ impl<'a> Iterator for EditSectionLayerObjectsIterator<'a> {
         self.next_frame = lf.end.saturating_add(1);
 
         Some((lf, handle))
-    }
-}
-
-trait MenuCallbackReturn {
-    fn into_optional_error(self) -> Option<String>;
-}
-impl<E> MenuCallbackReturn for Result<(), E>
-where
-    Box<dyn std::error::Error>: From<E>,
-{
-    fn into_optional_error(self) -> Option<String> {
-        match self {
-            Ok(_) => None,
-            Err(e) => {
-                let boxed: Box<dyn std::error::Error> = e.into();
-                Some(format!("{}", boxed))
-            }
-        }
-    }
-}
-impl MenuCallbackReturn for () {
-    fn into_optional_error(self) -> Option<String> {
-        None
     }
 }

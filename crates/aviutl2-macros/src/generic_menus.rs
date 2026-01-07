@@ -13,6 +13,8 @@ enum EntryType {
     Export,
     Layer,
     Object,
+    Edit,
+    Config,
 }
 
 struct Entry {
@@ -161,13 +163,19 @@ pub fn generic_menus(
             EntryType::Object => {
                 quote::quote! { host.register_object_menu(#name_str, #wrapper_ident); }
             }
+            EntryType::Edit => {
+                quote::quote! { host.register_edit_menu(#name_str, #wrapper_ident); }
+            }
+            EntryType::Config => {
+                quote::quote! { host.register_config_menu(#name_str, #wrapper_ident); }
+            }
         };
         register_lines.push(reg);
 
         let call_on_error = match e.error_mode {
             ErrorMode::Ignore => quote::quote! { let _ = ret; },
-            ErrorMode::Log => quote::quote! { edit.__output_log_if_error(ret); },
-            ErrorMode::Alert => quote::quote! { edit.__alert_if_error(ret); },
+            ErrorMode::Log => quote::quote! { ::aviutl2::generic::__output_log_if_error(ret); },
+            ErrorMode::Alert => quote::quote! { ::aviutl2::generic::__alert_if_error(ret); },
         };
 
         let wrapper = if e.has_self {
@@ -176,13 +184,33 @@ pub fn generic_menus(
             } else {
                 quote::quote!(with_instance)
             };
+            if e.entry_type == EntryType::Config {
+                quote::quote! {
+                    extern "C" fn #wrapper_ident(hwnd: ::aviutl2::sys::plugin2::HWND, hinstance: ::aviutl2::sys::plugin2::HINSTANCE) {
+                        let mut rwh = unsafe { ::aviutl2::generic::__internal_rwh_from_raw(hwnd, hinstance) };
+                        <#impl_token as ::aviutl2::generic::GenericPlugin>::#with_fn(|__self| {
+                            let ret = <#impl_token>::#method_ident(__self, rwh);
+                            #call_on_error
+                        });
+                    }
+                }
+            } else {
+                quote::quote! {
+                    extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
+                        let mut edit = unsafe { ::aviutl2::generic::EditSection::from_ptr(edit) };
+                        <#impl_token as ::aviutl2::generic::GenericPlugin>::#with_fn(|__self| {
+                            let ret = <#impl_token>::#method_ident(__self, &mut edit);
+                            #call_on_error
+                        });
+                    }
+                }
+            }
+        } else if e.entry_type == EntryType::Config {
             quote::quote! {
-                extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
-                    let mut edit = unsafe { ::aviutl2::generic::EditSection::from_ptr(edit) };
-                    <#impl_token as ::aviutl2::generic::GenericPlugin>::#with_fn(|__self| {
-                        let ret = <#impl_token>::#method_ident(__self, &mut edit);
-                        #call_on_error
-                    });
+                extern "C" fn #wrapper_ident(hwnd: ::aviutl2::sys::plugin2::HWND, hinstance: ::aviutl2::sys::plugin2::HINSTANCE) {
+                    let mut rwh = unsafe { ::aviutl2::generic::__internal_rwh_from_raw(hwnd, hinstance) };
+                    let ret = <#impl_token>::#method_ident(rwh);
+                    #call_on_error
                 }
             }
         } else {
@@ -230,34 +258,30 @@ fn has_generic_args_in_type(ty: &syn::Type) -> bool {
 fn find_menu_attr(
     attrs: &[syn::Attribute],
 ) -> Result<Option<(usize, EntryType)>, proc_macro2::TokenStream> {
-    let mut import: Option<usize> = None;
-    let mut export: Option<usize> = None;
-    let mut layer: Option<usize> = None;
-    let mut object: Option<usize> = None;
+    static RECOGNIZED_ATTRS: &[&str] = &["import", "export", "layer", "object", "edit", "config"];
+    let mut found: Option<(usize, EntryType)> = None;
     for (idx, attr) in attrs.iter().enumerate() {
-        if attr.path().is_ident("import") {
-            import = Some(idx);
-        }
-        if attr.path().is_ident("export") {
-            export = Some(idx);
-        }
-        if attr.path().is_ident("layer") {
-            layer = Some(idx);
-        }
-        if attr.path().is_ident("object") {
-            object = Some(idx);
+        for &recognized in RECOGNIZED_ATTRS {
+            if attr.path().is_ident(recognized) {
+                let entry_type = match recognized {
+                    "import" => EntryType::Import,
+                    "export" => EntryType::Export,
+                    "layer" => EntryType::Layer,
+                    "object" => EntryType::Object,
+                    "edit" => EntryType::Edit,
+                    "config" => EntryType::Config,
+                    _ => unreachable!(),
+                };
+                if found.is_some() {
+                    return Err(syn::Error::new_spanned(
+                        &attrs[0],
+                        "method can have only one of #[import], #[export], #[layer], #[object], or #[edit]",
+                    )
+                    .to_compile_error());
+                }
+                found = Some((idx, entry_type));
+            }
         }
     }
-    match (import, export, layer, object) {
-        (Some(i), None, None, None) => Ok(Some((i, EntryType::Import))),
-        (None, Some(e), None, None) => Ok(Some((e, EntryType::Export))),
-        (None, None, Some(l), None) => Ok(Some((l, EntryType::Layer))),
-        (None, None, None, Some(o)) => Ok(Some((o, EntryType::Object))),
-        (None, None, None, None) => Ok(None),
-        _ => Err(syn::Error::new_spanned(
-            &attrs[0],
-            "method can have only one of #[import], #[export], #[layer], or #[object]",
-        )
-        .to_compile_error()),
-    }
+    Ok(found)
 }
