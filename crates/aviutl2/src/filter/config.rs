@@ -189,7 +189,7 @@ impl FilterConfigItem {
         let item_type = unsafe {
             crate::common::load_wide_string(
                 // SAFETY: aviutl2_sys::filter2::FILTER_ITEM の最初のメンバーはLPCWSTRなので問題ないはず
-                *(raw as *const aviutl2_sys::common::LPCWSTR),
+                *(raw.cast::<aviutl2_sys::common::LPCWSTR>()),
             )
         };
         match item_type.as_str() {
@@ -543,7 +543,7 @@ impl ErasedFilterConfigData {
         );
         let size = std::mem::size_of::<T>();
         let mut default_value_bytes = [0u8; 1024];
-        let default_value_ptr = &default_value as *const T as *const u8;
+        let default_value_ptr = (&raw const default_value).cast::<u8>();
         default_value_bytes[..size]
             .copy_from_slice(unsafe { std::slice::from_raw_parts(default_value_ptr, size) });
 
@@ -578,8 +578,8 @@ impl ErasedFilterConfigData {
         );
         let value = self
             .value
-            .map(|v| NonNull::new(v.as_ptr() as *mut T).unwrap());
-        let default_value_ptr = self.default_value.data.as_ptr() as *const T;
+            .map(|v| NonNull::new(v.as_ptr().cast::<T>()).unwrap());
+        let default_value_ptr = self.default_value.data.as_ptr().cast::<T>();
         let default_value = unsafe { *default_value_ptr };
         FilterConfigData {
             name: self.name,
@@ -617,7 +617,7 @@ impl<T: Copy + 'static> FilterConfigData<T> {
         );
         let size = std::mem::size_of::<T>();
         let mut default_value = [0u8; 1024];
-        let default_value_ptr = &self.default_value as *const T as *const u8;
+        let default_value_ptr = (&raw const self.default_value).cast::<u8>();
         default_value[..size]
             .copy_from_slice(unsafe { std::slice::from_raw_parts(default_value_ptr, size) });
 
@@ -626,7 +626,7 @@ impl<T: Copy + 'static> FilterConfigData<T> {
             size,
             value: self
                 .value
-                .map(|v| NonNull::new(v.as_ptr() as *mut c_void).unwrap()),
+                .map(|v| NonNull::new(v.as_ptr().cast::<c_void>()).unwrap()),
             default_value: DummyData1024 {
                 data: default_value,
             },
