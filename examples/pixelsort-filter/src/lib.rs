@@ -75,7 +75,7 @@ impl FilterPlugin for PixelSortFilter {
                 version = env!("CARGO_PKG_VERSION")
             ),
             flags: aviutl2::bitflag!(FilterPluginFlags {
-                audio: true,
+                video: true,
                 as_object: true,
             }),
             config_items: FilterConfig::to_config_items(),
