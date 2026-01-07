@@ -5,8 +5,8 @@ use syn::parse::Parse;
 pub fn filter_config_items(
     item: proc_macro2::TokenStream,
 ) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
-    let item = preprocess_group(item)?;
     let mut item: syn::ItemStruct = syn::parse2(item).map_err(|e| e.to_compile_error())?;
+    item.fields = expand_groups_in_fields(&item.fields)?;
 
     let name = &item.ident;
     let fields = item
@@ -42,162 +42,132 @@ pub fn filter_config_items(
     Ok(expanded)
 }
 
-fn preprocess_group(
-    item: proc_macro2::TokenStream,
-) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
-    // とりあえずTokenStreamの最後のgroupを見て、いい感じに展開する
-    // これが本当にstructかどうかはsynに任せる
-
-    let stream = item.into_iter().collect::<Vec<_>>();
-
-    let Some(proc_macro2::TokenTree::Group(last_group_start)) = stream.last() else {
+fn expand_groups_in_fields(fields: &syn::Fields) -> Result<syn::Fields, proc_macro2::TokenStream> {
+    let syn::Fields::Named(fields) = fields else {
         return Err(syn::Error::new(
             proc_macro2::Span::call_site(),
-            "expected a struct definition",
+            "only named fields are supported",
         )
         .to_compile_error());
     };
 
-    let orig_inner_stream = last_group_start.stream();
-    let orig_inner_stream = orig_inner_stream.into_iter().collect::<Vec<_>>();
-    let mut index = 0;
-    let mut new_inner_contents = Vec::new();
-
-    #[derive(Debug, PartialEq, Eq)]
+    #[derive(Debug, PartialEq, Eq, Clone)]
     enum FieldType {
         Content,
         GroupStart,
         GroupEnd,
     }
 
-    while index < orig_inner_stream.len() {
-        // # [group(...)] pub? group : group ! { ... }
-        // ^ ^^^^^^^^^^^^ ^^^^ ^^^^^ ^ ^^^^^ ^ ^^^^^^^
-        // 0 1            2?   2     3 4     5 6
-        match (&orig_inner_stream[index], orig_inner_stream.get(index + 1)) {
-            (
-                proc_macro2::TokenTree::Punct(punct0),
-                Some(proc_macro2::TokenTree::Group(group_meta)),
-            ) if punct0.as_char() == '#'
-                && group_meta.delimiter() == proc_macro2::Delimiter::Bracket
-                && group_meta
-                    .stream()
-                    .to_token_stream()
-                    .into_iter()
-                    .next()
-                    .is_some_and(|tt| {
-                        if let proc_macro2::TokenTree::Ident(ident) = &tt {
-                            ident == "group"
-                        } else {
-                            false
-                        }
-                    }) =>
-            {
-                let has_vis = orig_inner_stream
-                    .get(index + 2)
-                    .is_some_and(|tt| syn::parse2::<syn::Visibility>(tt.to_token_stream()).is_ok());
-                if has_vis {
-                    // pubがある場合はスキップ
-                    index += 1;
-                }
-                match (
-                    orig_inner_stream.get(index + 2),
-                    orig_inner_stream.get(index + 3),
-                    orig_inner_stream.get(index + 4),
-                    orig_inner_stream.get(index + 5),
-                    orig_inner_stream.get(index + 6),
-                ) {
-                    (
-                        Some(proc_macro2::TokenTree::Ident(field_ident)),
-                        Some(proc_macro2::TokenTree::Punct(field_punct)),
-                        Some(proc_macro2::TokenTree::Ident(macro_ident)),
-                        Some(proc_macro2::TokenTree::Punct(macro_punct)),
-                        Some(proc_macro2::TokenTree::Group(content_group)),
-                    ) if field_punct.as_char() == ':'
-                        && macro_ident == "group"
-                        && macro_punct.as_char() == '!'
-                        && content_group.delimiter() == proc_macro2::Delimiter::Brace =>
-                    {
-                        let group_meta_vec = group_meta
-                            .stream()
-                            .to_token_stream()
-                            .into_iter()
-                            .collect::<Vec<_>>();
-                        let Some(proc_macro2::TokenTree::Group(attributes_group)) =
-                            group_meta_vec.get(1)
-                        else {
-                            return Err(syn::Error::new_spanned(
-                                group_meta,
-                                "expected parentheses in #[group(...)]",
-                            )
-                            .to_compile_error());
-                        };
-                        new_inner_contents.push((
-                            FieldType::GroupStart,
-                            quote::quote! {
-                                #[__internal_group_start #attributes_group]
-                                #field_ident: (),
-                            },
-                        ));
-
-                        let mut group_content =
-                            content_group.stream().into_iter().collect::<Vec<_>>();
-                        // ケツカンマを追加してあげる（その方が都合が良いので）
-                        if !matches!(group_content.last(), Some(proc_macro2::TokenTree::Punct(p)) if p.as_char() == ',')
-                        {
-                            group_content.push(proc_macro2::TokenTree::Punct(
-                                proc_macro2::Punct::new(',', proc_macro2::Spacing::Alone),
-                            ));
-                        }
-                        let group_content = proc_macro2::TokenStream::from_iter(group_content);
-                        new_inner_contents.push((FieldType::Content, group_content));
-
-                        new_inner_contents.push((
-                            FieldType::GroupEnd,
-                            quote::quote! {
-                                #[__internal_group_end]
-                                __dummy_group_field_end: ()
-                            },
-                        ));
-                        index += 7;
-                        continue;
-                    }
-                    (o1, o2, o3, o4, o5) => {
-                        let mut tree = proc_macro2::TokenStream::new();
-                        if has_vis {
-                            tree.extend(std::iter::once(orig_inner_stream[index + 2 - 1].clone()));
-                        }
-                        for t in [o1, o2, o3, o4, o5].iter().flatten() {
-                            tree.extend(std::iter::once(t.into_token_stream()));
-                        }
-                        return Err(syn::Error::new_spanned(
-                            tree,
-                            "expected `group: group! { ... }` after `#[group(...)]`",
-                        )
-                        .to_compile_error());
-                    }
-                }
-            }
-            (other, _) => {
-                new_inner_contents.push((
-                    FieldType::Content,
-                    proc_macro2::TokenStream::from_iter(std::iter::once(other.clone())),
+    let new_fields = fields
+        .named
+        .iter()
+        .cloned()
+        .map(|f| {
+            let Some(group_attr) = f.attrs.iter().find(|attr| {
+                attr.path()
+                    .get_ident()
+                    .is_some_and(|ident| ident == "group")
+            }) else {
+                return Ok(vec![(FieldType::Content, f)]);
+            };
+            let syn::Meta::List(ref group_meta) = group_attr.meta else {
+                return Err(syn::Error::new_spanned(
+                    group_attr,
+                    "expected #[group(...)]",
+                ));
+            };
+            let group_meta = &group_meta.tokens;
+            let syn::Type::Macro(group_macro) = &f.ty else {
+                return Err(syn::Error::new_spanned(
+                    &f.ty,
+                    "expected `group! { ... }` as type",
+                ));
+            };
+            if !group_macro.mac.path.is_ident("group") {
+                return Err(syn::Error::new_spanned(
+                    &f.ty,
+                    "expected `group! { ... }` as type",
                 ));
             }
+            if !matches!(&group_macro.mac.delimiter, syn::MacroDelimiter::Brace(_)) {
+                return Err(syn::Error::new_spanned(
+                    &f.ty,
+                    "expected `group! { ... }` as type",
+                ));
+            }
+            let field_ident = &f.ident;
+            let group_start = syn::parse2::<syn::FieldsNamed>(quote::quote!({
+                #[__internal_group_start(#group_meta)]
+                #field_ident: (),
+            }))?
+            .named
+            .into_iter()
+            .next()
+            .unwrap();
+            let group_end = syn::parse2::<syn::FieldsNamed>(quote::quote!({
+                #[__internal_group_end]
+                __internal_group_end: (),
+            }))
+            .unwrap()
+            .named
+            .into_iter()
+            .next()
+            .unwrap();
+
+            let mut fields = vec![(FieldType::GroupStart, group_start)];
+            let group_content = group_macro
+                .mac
+                .tokens
+                .clone()
+                .into_iter()
+                .collect::<proc_macro2::TokenStream>();
+            let inner_fields = syn::parse2::<syn::FieldsNamed>(quote::quote!({
+                #group_content
+            }))?;
+            for inner_field in inner_fields.named {
+                fields.push((FieldType::Content, inner_field));
+            }
+            fields.push((FieldType::GroupEnd, group_end));
+
+            Ok(fields)
+        })
+        .collect::<crate::utils::CombinedVecResults<_>>()
+        .into_result()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+
+    let mut optimized_fields = vec![];
+    let mut index = 0;
+    // GroupEnd -> GroupStartをGroupStartに、最後のGroupEndを削除する最適化
+    while index < new_fields.len() {
+        let (field_type, field) = &new_fields[index];
+        if *field_type == FieldType::GroupEnd
+            && index + 1 < new_fields.len()
+            && new_fields[index + 1].0 == FieldType::GroupStart
+        {
+            optimized_fields.push(new_fields[index + 1].clone());
+            index += 2;
+        } else {
+            optimized_fields.push((field_type.clone(), field.clone()));
+            index += 1;
         }
-        index += 1;
     }
 
-    let mut new_token = proc_macro2::TokenStream::new();
-    new_token.extend(stream[..stream.len() - 1].iter().cloned());
+    // 最後のGroupEndを削除
+    if matches!(optimized_fields.last(), Some((FieldType::GroupEnd, _))) {
+        optimized_fields.pop();
+    }
 
-    new_token.extend(std::iter::once(proc_macro2::TokenTree::Group(
-        proc_macro2::Group::new(
-            last_group_start.delimiter(),
-            proc_macro2::TokenStream::from_iter(new_inner_contents.into_iter().map(|(_ft, ts)| ts)),
-        ),
-    )));
-    Ok(new_token)
+    let final_fields = optimized_fields
+        .into_iter()
+        .map(|(_, field)| field)
+        .collect::<Vec<_>>();
+
+    Ok(syn::Fields::Named(syn::FieldsNamed {
+        brace_token: fields.brace_token,
+        named: syn::punctuated::Punctuated::<syn::Field, syn::Token![,]>::from_iter(final_fields),
+    }))
 }
 
 #[allow(clippy::large_enum_variant)]
