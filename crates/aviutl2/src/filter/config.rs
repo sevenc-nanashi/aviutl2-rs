@@ -566,6 +566,7 @@ impl ErasedFilterConfigData {
     ///
     /// # Safety
     ///
+    /// - `self` を消去する前の型Tと同じ型で呼び出す必要があります。
     /// - Tのサイズが`self.size`と一致している必要があります。
     /// - `self.value`が指すポインタが有効である必要があります。
     /// - `self.default_value`はTとして有効なデータである必要があります。
