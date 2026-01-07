@@ -1,6 +1,7 @@
 mod codecs;
-use aviutl2::input::{
-    AnyResult, ImageBuffer, ImageReturner, InputPlugin, IntoImage as _, Rational32,
+use aviutl2::{
+    input::{AnyResult, ImageBuffer, ImageReturner, InputPlugin, IntoImage as _, Rational32},
+    ldbg,
 };
 use image::{AnimationDecoder, GenericImageView};
 use ordered_float::OrderedFloat;
@@ -231,6 +232,9 @@ impl InputPlugin for ImageInputPlugin {
                     .ok_or_else(|| anyhow::anyhow!("Failed to get frame {}", frame))?;
                 handle.current_frame += 1;
                 let img = frame.into_buffer();
+                let w = img.width();
+                let h = img.height();
+                ldbg!(w, h);
 
                 returner.write(&img);
                 handle.reader = Some(ImageReader::Animated(frames));
