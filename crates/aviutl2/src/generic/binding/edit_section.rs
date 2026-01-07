@@ -1,3 +1,5 @@
+use std::num::NonZero;
+
 use crate::common::Rational32;
 
 /// オブジェクトへのハンドル。
@@ -43,6 +45,36 @@ pub struct EditInfo {
     pub frame_max: usize,
     /// オブジェクトが存在する最大のレイヤー番号。
     pub layer_max: usize,
+    /// レイヤー編集で表示されているフレームの開始番号。
+    pub display_frame_start: usize,
+    /// レイヤー編集で表示されているレイヤーの開始番号。
+    pub display_layer_start: usize,
+    /// レイヤー編集で表示されているフレーム数。
+    ///
+    /// # Note
+    ///
+    /// この値は厳密な値ではありません。
+    pub display_frame_num: usize,
+    /// レイヤー編集で表示されているレイヤー数
+    ///
+    /// # Note
+    ///
+    /// この値は厳密な値ではありません。
+    pub display_layer_num: usize,
+    /// フレーム範囲選択の開始フレーム番号
+    /// 未選択の場合は`None`になります。
+    pub select_range_start: Option<usize>,
+    /// フレーム範囲選択の終了フレーム番号。
+    /// 未選択の場合は`None`になります。
+    pub select_range_end: Option<usize>,
+    /// グリッド（BPM）のテンポ。
+    pub grid_bpm_tempo: f32,
+    /// グリッド（BPM）の拍数。
+    pub grid_bpm_beat: usize,
+    /// グリッド（BPM）の基準時間。
+    pub grid_bpm_offset: f32,
+    /// シーンのID
+    pub scene_id: i32,
 }
 
 impl EditInfo {
@@ -60,6 +92,23 @@ impl EditInfo {
             layer: raw.layer as usize,
             frame_max: raw.frame_max as usize,
             layer_max: raw.layer_max as usize,
+            display_frame_start: raw.display_frame_start as usize,
+            display_layer_start: raw.display_layer_start as usize,
+            display_frame_num: raw.display_frame_num as usize,
+            display_layer_num: raw.display_layer_num as usize,
+
+            // `as usize` はpanicしないけど一応気分的に安全にしておく、それはそうと
+            // clippyはこれをunnecessary_lazy_evaluationsと判断するので無視する
+            #[expect(clippy::unnecessary_lazy_evaluations)]
+            select_range_start: (raw.select_range_start >= 0)
+                .then(|| raw.select_range_start as usize),
+            #[expect(clippy::unnecessary_lazy_evaluations)]
+            select_range_end: (raw.select_range_end >= 0).then(|| raw.select_range_end as usize),
+
+            grid_bpm_tempo: raw.grid_bpm_tempo,
+            grid_bpm_beat: raw.grid_bpm_beat as usize,
+            grid_bpm_offset: raw.grid_bpm_offset,
+            scene_id: raw.scene_id,
         }
     }
 }
@@ -70,6 +119,36 @@ pub struct ObjectLayerFrame {
     pub layer: usize,
     pub start: usize,
     pub end: usize,
+}
+
+/// レイヤーとフレーム情報。
+#[derive(Debug, Clone, Copy)]
+pub struct LayerFrameData {
+    pub layer: usize,
+    pub frame: usize,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct MediaInfo {
+    /// Videoトラック数。
+    pub video_track_num: Option<NonZero<usize>>,
+    /// Audioトラック数。
+    pub audio_track_num: Option<NonZero<usize>>,
+    /// 総時間（秒）。
+    pub total_time: f64,
+    /// 解像度の幅。
+    pub width: usize,
+    /// 解像度の高さ。
+    pub height: usize,
+}
+
+/// [`EditSection::is_support_media_file`] のモード。
+#[derive(Debug, Clone, Copy)]
+pub enum MediaFileSupportMode {
+    /// 拡張子が対応しているかどうかのみを確認します。
+    ExtensionOnly,
+    /// 実際にファイルを開いて対応しているかどうかを確認します。
+    Strict,
 }
 
 /// [`EditSection`] 関連のエラー。
@@ -226,6 +305,43 @@ impl EditSection {
         Ok(alias)
     }
 
+    /// オブジェクト名を取得します。
+    ///
+    /// # Returns
+    ///
+    /// 標準の名前の場合は`None`を返します。
+    pub fn get_object_name(&self, object: &ObjectHandle) -> EditSectionResult<Option<String>> {
+        self.ensure_object_exists(object)?;
+        let name_ptr = unsafe { ((*self.internal).get_object_name)(object.internal) };
+        if name_ptr.is_null() {
+            return Ok(None);
+        }
+        Ok(Some(unsafe { crate::common::load_wide_string(name_ptr) }))
+    }
+
+    /// オブジェクト名を設定します。
+    ///
+    /// # Note
+    ///
+    /// `name`に`None`や空文字を指定すると、標準の名前になります。
+    pub fn set_object_name(
+        &self,
+        object: &ObjectHandle,
+        name: Option<&str>,
+    ) -> EditSectionResult<()> {
+        self.ensure_object_exists(object)?;
+        let mut c_name = None;
+        let name_ptr = match name {
+            Some(value) => {
+                c_name = Some(crate::common::CWString::new(value)?);
+                c_name.as_ref().unwrap().as_ptr()
+            }
+            None => std::ptr::null(),
+        };
+        unsafe { ((*self.internal).set_object_name)(object.internal, name_ptr) };
+        Ok(())
+    }
+
     /// オブジェクトの設定項目の値を文字列で取得します。
     ///
     /// # Arguments
@@ -358,6 +474,216 @@ impl EditSection {
     pub fn focus_object(&self, object: &ObjectHandle) -> EditSectionResult<()> {
         self.ensure_object_exists(object)?;
         unsafe { ((*self.internal).set_focus_object)(object.internal) };
+        Ok(())
+    }
+
+    /// プロジェクトファイルのポインタを取得します。
+    pub fn get_project_file<'handle>(
+        &'handle self,
+        edit_handle: &crate::generic::EditHandle,
+    ) -> crate::generic::ProjectFile<'handle> {
+        let pf_ptr = unsafe { ((*self.internal).get_project_file)(edit_handle.internal) };
+        unsafe { crate::generic::ProjectFile::from_raw(pf_ptr) }
+    }
+
+    /// マウス座標のレイヤー・フレーム位置を取得します。
+    ///
+    /// # Returns
+    ///
+    /// マウスがレイヤー編集エリア内にある場合は `Some` を返し、
+    /// そうでない場合は `None` を返します。
+    pub fn get_mouse_layer_frame(&self) -> EditSectionResult<Option<LayerFrameData>> {
+        let mut layer = 0;
+        let mut frame = 0;
+        let on_layer_edit =
+            unsafe { ((*self.internal).get_mouse_layer_frame)(&mut layer, &mut frame) };
+        if on_layer_edit {
+            Ok(Some(LayerFrameData {
+                layer: layer.try_into()?,
+                frame: frame.try_into()?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// 指定のスクリーン座標のレイヤー・フレーム位置を取得します。
+    pub fn pos_to_layer_frame(&self, x: i32, y: i32) -> EditSectionResult<Option<LayerFrameData>> {
+        let mut layer = 0;
+        let mut frame = 0;
+        let on_layer_edit =
+            unsafe { ((*self.internal).pos_to_layer_frame)(x, y, &mut layer, &mut frame) };
+        if on_layer_edit {
+            Ok(Some(LayerFrameData {
+                layer: layer.try_into()?,
+                frame: frame.try_into()?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// 指定のメディアファイルがサポートされているかどうか調べます。
+    pub fn is_support_media_file<P: AsRef<str>>(
+        &self,
+        file_path: P,
+        mode: MediaFileSupportMode,
+    ) -> EditSectionResult<bool> {
+        let c_file_path = crate::common::CWString::new(file_path.as_ref())?;
+        let is_supported = unsafe {
+            match mode {
+                MediaFileSupportMode::ExtensionOnly => {
+                    ((*self.internal).is_support_media_file)(c_file_path.as_ptr(), false)
+                }
+                MediaFileSupportMode::Strict => {
+                    ((*self.internal).is_support_media_file)(c_file_path.as_ptr(), true)
+                }
+            }
+        };
+        Ok(is_supported)
+    }
+
+    /// 指定のメディアファイルの情報を取得します。
+    ///
+    /// # Note
+    ///
+    /// 動画、音声、画像ファイル以外では取得出来ません。
+    pub fn get_media_info<P: AsRef<str>>(&self, file_path: P) -> EditSectionResult<MediaInfo> {
+        let c_file_path = crate::common::CWString::new(file_path.as_ref())?;
+        let mut media_info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::MEDIA_INFO>::uninit();
+        let success = unsafe {
+            ((*self.internal).get_media_info)(
+                c_file_path.as_ptr(),
+                media_info.as_mut_ptr(),
+                std::mem::size_of::<aviutl2_sys::plugin2::MEDIA_INFO>() as i32,
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        let media_info = unsafe { media_info.assume_init() };
+        Ok(MediaInfo {
+            video_track_num: NonZero::new(media_info.video_track_num.try_into()?),
+            audio_track_num: NonZero::new(media_info.audio_track_num.try_into()?),
+            total_time: media_info.total_time,
+            width: media_info.width.try_into()?,
+            height: media_info.height.try_into()?,
+        })
+    }
+
+    /// 指定の位置にメディアファイルからオブジェクトを作成します。
+    ///
+    /// # Arguments
+    ///
+    /// - `file_path`：メディアファイルのパス。
+    /// - `layer`：作成するオブジェクトのレイヤー番号（0始まり）。
+    /// - `frame`：作成するオブジェクトのフレーム番号（0始まり）。
+    /// - `length`：作成するオブジェクトの長さ（フレーム数）。`None`を指定した場合、長さや追加位置は自動的に調整されます。
+    pub fn create_object_from_media_file<P: AsRef<str>>(
+        &self,
+        file_path: P,
+        layer: usize,
+        frame: usize,
+        length: Option<usize>,
+    ) -> EditSectionResult<ObjectHandle> {
+        let c_file_path = crate::common::CWString::new(file_path.as_ref())?;
+        let object_handle = unsafe {
+            ((*self.internal).create_object_from_media_file)(
+                c_file_path.as_ptr(),
+                layer.try_into()?,
+                frame.try_into()?,
+                length.unwrap_or(0).try_into()?,
+            )
+        };
+        if object_handle.is_null() {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(ObjectHandle {
+            internal: object_handle,
+        })
+    }
+
+    /// 指定の位置にオブジェクトを作成します。
+    ///
+    /// # Arguments
+    ///
+    /// - `effect`：エフェクト名。（エイリアスファイルの effect.name の値）
+    /// - `layer`：作成するオブジェクトのレイヤー番号（0始まり）。
+    /// - `frame`：作成するオブジェクトのフレーム番号（0始まり）。
+    /// - `length`：作成するオブジェクトの長さ（フレーム数）。`None`を指定した場合、長さや追加位置は自動的に調整されます。
+    pub fn create_object(
+        &self,
+        effect: &str,
+        layer: usize,
+        frame: usize,
+        length: Option<usize>,
+    ) -> EditSectionResult<ObjectHandle> {
+        let c_effect = crate::common::CWString::new(effect)?;
+        let object_handle = unsafe {
+            ((*self.internal).create_object)(
+                c_effect.as_ptr(),
+                layer.try_into()?,
+                frame.try_into()?,
+                length.unwrap_or(0).try_into()?,
+            )
+        };
+        if object_handle.is_null() {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(ObjectHandle {
+            internal: object_handle,
+        })
+    }
+
+    /// 現在のレイヤー・フレーム位置を設定します。
+    ///
+    /// # Note
+    ///
+    /// 設定出来る範囲に調整されます。
+    pub fn set_cursor_layer_frame(&self, layer: usize, frame: usize) -> EditSectionResult<()> {
+        unsafe {
+            ((*self.internal).set_cursor_layer_frame)(layer.try_into()?, frame.try_into()?);
+        }
+        Ok(())
+    }
+
+    /// レイヤー編集のレイヤー・フレームの表示開始位置を設定します。
+    ///
+    /// # Note
+    ///
+    /// 設定出来る範囲に調整されます。
+    pub fn set_display_layer_frame(&self, layer: usize, frame: usize) -> EditSectionResult<()> {
+        unsafe {
+            ((*self.internal).set_display_layer_frame)(layer.try_into()?, frame.try_into()?);
+        }
+        Ok(())
+    }
+
+    /// フレーム範囲選択を設定します。
+    ///
+    /// # Note
+    ///
+    /// 設定出来る範囲に調整されます。
+    pub fn set_select_range(&self, start: usize, end: usize) -> EditSectionResult<()> {
+        unsafe {
+            ((*self.internal).set_select_range)(start.try_into()?, end.try_into()?);
+        }
+        Ok(())
+    }
+
+    /// 選択されているフレーム範囲選択を解除します。
+    pub fn clear_select_range(&self) -> EditSectionResult<()> {
+        unsafe {
+            ((*self.internal).set_select_range)(-1, -1);
+        }
+        Ok(())
+    }
+
+    /// グリッド（BPM）を設定します。
+    pub fn set_grid_bpm(&self, tempo: f32, beat: usize, offset: f32) -> EditSectionResult<()> {
+        unsafe {
+            ((*self.internal).set_grid_bpm)(tempo, beat.try_into()?, offset);
+        }
         Ok(())
     }
 

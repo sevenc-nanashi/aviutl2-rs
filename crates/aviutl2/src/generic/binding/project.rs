@@ -1,6 +1,9 @@
+use crate::load_wide_string;
+
 /// プロジェクトファイルにデータを保存・取得するための構造体。
-pub struct ProjectFile {
+pub struct ProjectFile<'a> {
     pub(crate) internal: *mut aviutl2_sys::plugin2::PROJECT_FILE,
+    _marker: std::marker::PhantomData<&'a ()>,
 }
 
 /// プロジェクトファイルのデータ取得・保存に関するエラー。
@@ -16,14 +19,17 @@ pub enum ProjectFileError {
     ValueContainsNull(std::ffi::NulError),
 }
 
-impl ProjectFile {
+impl<'a> ProjectFile<'a> {
     /// 生ポインタから`ProjectFile`を作成します。
     ///
     /// # Safety
     ///
     /// - `raw`は有効な`PROJECT_FILE`ポインタである必要があります。
     pub unsafe fn from_raw(raw: *mut aviutl2_sys::plugin2::PROJECT_FILE) -> Self {
-        Self { internal: raw }
+        Self {
+            internal: raw,
+            _marker: std::marker::PhantomData,
+        }
     }
 
     /// プロジェクトに保存されている文字列を取得します。
@@ -107,13 +113,24 @@ impl ProjectFile {
     pub fn clear_params(&mut self) {
         unsafe { ((*self.internal).clear_params)() }
     }
+
+    /// プロジェクトファイルのパスを取得します。
+    pub fn get_path(&self) -> Option<std::path::PathBuf> {
+        unsafe {
+            let raw_str = ((*self.internal).get_project_file_path)();
+            if raw_str.is_null() {
+                return None;
+            }
+            Some(std::path::PathBuf::from(load_wide_string(raw_str)))
+        }
+    }
 }
 
 #[cfg(feature = "serde")]
 static NAMESPACE: &str = "--aviutl2-rs";
 
 #[cfg(feature = "serde")]
-impl ProjectFile {
+impl<'a> ProjectFile<'a> {
     /// プロジェクトにデータをシリアライズして保存します。
     ///
     /// # Note

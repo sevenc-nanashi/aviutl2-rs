@@ -413,6 +413,23 @@ impl EditHandle {
             Err(EditHandleError::ApiCallFailed)
         }
     }
+
+    /// 編集情報を取得します。
+    ///
+    /// # Note
+    ///
+    /// 既に編集処理中（`call_edit_section` 内）である場合、失敗します。
+    pub fn get_edit_info(&self) -> crate::generic::EditInfo {
+        let mut raw_info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::EDIT_INFO>::uninit();
+        unsafe {
+            ((*self.internal).get_edit_info)(
+                raw_info.as_mut_ptr(),
+                std::mem::size_of::<aviutl2_sys::plugin2::EDIT_INFO>() as _,
+            );
+            let edit_info = raw_info.assume_init();
+            crate::generic::EditInfo::from_ptr(&edit_info)
+        }
+    }
 }
 
 struct KillablePointer<T> {
