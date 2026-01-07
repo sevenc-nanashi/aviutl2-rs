@@ -414,7 +414,8 @@ impl<T: Copy> FilterConfigDataHandle<T> {
             .or_insert_with(|| parking_lot::RawRwLock::INIT);
         let lock = lock.value();
 
-        FilterConfigDataReadGuard::new(self.inner, lock)
+        lock.lock_shared();
+        FilterConfigDataReadGuard::new(self.inner)
     }
 
     /// データを読み取るためのロックの取得を試みる。
@@ -427,7 +428,7 @@ impl<T: Copy> FilterConfigDataHandle<T> {
         let lock = lock.value();
 
         if lock.try_lock_shared() {
-            Some(FilterConfigDataReadGuard::new(self.inner, lock))
+            Some(FilterConfigDataReadGuard::new(self.inner))
         } else {
             None
         }
@@ -440,7 +441,8 @@ impl<T: Copy> FilterConfigDataHandle<T> {
             .entry(addr)
             .or_insert_with(|| parking_lot::RawRwLock::INIT);
         let lock = lock.value();
-        FilterConfigDataWriteGuard::new(self.inner, lock)
+        lock.lock_exclusive();
+        FilterConfigDataWriteGuard::new(self.inner)
     }
 
     /// データを書き込むためのロックの取得を試みる。
@@ -452,7 +454,7 @@ impl<T: Copy> FilterConfigDataHandle<T> {
             .or_insert_with(|| parking_lot::RawRwLock::INIT);
         let lock = lock.value();
         if lock.try_lock_exclusive() {
-            Some(FilterConfigDataWriteGuard::new(self.inner, lock))
+            Some(FilterConfigDataWriteGuard::new(self.inner))
         } else {
             None
         }
@@ -475,8 +477,7 @@ pub struct FilterConfigDataReadGuard<T: Copy> {
 unsafe impl<T: Send + Sync + Copy> Send for FilterConfigDataReadGuard<T> {}
 unsafe impl<T: Send + Sync + Copy> Sync for FilterConfigDataReadGuard<T> {}
 impl<T: Copy> FilterConfigDataReadGuard<T> {
-    fn new(inner: *mut T, lock: &parking_lot::RawRwLock) -> FilterConfigDataReadGuard<T> {
-        lock.lock_shared();
+    fn new(inner: *mut T) -> FilterConfigDataReadGuard<T> {
         FilterConfigDataReadGuard { inner }
     }
 }
@@ -510,8 +511,7 @@ pub struct FilterConfigDataWriteGuard<T: Copy> {
 unsafe impl<T: Send + Sync + Copy> Send for FilterConfigDataWriteGuard<T> {}
 unsafe impl<T: Send + Sync + Copy> Sync for FilterConfigDataWriteGuard<T> {}
 impl<T: Copy> FilterConfigDataWriteGuard<T> {
-    fn new(inner: *mut T, lock: &parking_lot::RawRwLock) -> FilterConfigDataWriteGuard<T> {
-        lock.lock_exclusive();
+    fn new(inner: *mut T) -> FilterConfigDataWriteGuard<T> {
         FilterConfigDataWriteGuard { inner }
     }
 }
