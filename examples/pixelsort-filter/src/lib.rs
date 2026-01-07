@@ -76,7 +76,7 @@ impl FilterPlugin for PixelSortFilter {
             ),
             flags: aviutl2::bitflag!(FilterPluginFlags {
                 video: true,
-                as_object: true,
+                as_filter: true,
             }),
             config_items: FilterConfig::to_config_items(),
         }
