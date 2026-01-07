@@ -98,8 +98,8 @@ pub fn read_webp_headers<R: std::io::Read + std::io::Seek>(
                     chunk_data.len() >= 10,
                     "VP8 chunk too small to contain width and height"
                 );
-                width = chunk_data[6] as u32 | ((chunk_data[7] as u32) << 8);
-                height = chunk_data[8] as u32 | ((chunk_data[9] as u32) << 8);
+                width = (chunk_data[6] as u32 | ((chunk_data[7] as u32) << 8)) & 0x3FFF;
+                height = (chunk_data[8] as u32 | ((chunk_data[9] as u32) << 8)) & 0x3FFF;
             }
             "VP8L" => {
                 anyhow::ensure!(
