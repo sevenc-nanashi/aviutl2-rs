@@ -160,6 +160,8 @@ mod utils;
 /// #[group(name = "サンプルグループ", opened = true)]
 /// group: group! {
 ///     // ...
+/// #   #[check(name = "フィールド", default = false)]
+/// #   field: bool,
 /// },
 /// # }
 /// ```
