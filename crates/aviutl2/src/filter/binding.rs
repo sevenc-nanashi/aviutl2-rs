@@ -610,4 +610,25 @@ mod tests {
 
         assert_eq!(unsafe { *data_ptr }, 42);
     }
+
+    #[test]
+    fn filter_config_data_handle_reads_value_from_erased_data() {
+        let boxed = Box::new(77u32);
+        let ptr = std::ptr::NonNull::from(boxed.as_ref());
+        let data = crate::filter::FilterConfigData {
+            name: "test".to_string(),
+            value: Some(ptr),
+            default_value: 0,
+        };
+        let erased = data.erase_type();
+        let handle = FilterConfigDataHandle::<u32>::__from_erased(&erased);
+        let read_guard = handle.read();
+
+        assert_eq!(*read_guard, 77);
+        assert_eq!(erased.value.unwrap().as_ptr() as *mut u32, ptr.as_ptr());
+
+        drop(read_guard);
+        drop(handle);
+        drop(boxed);
+    }
 }
