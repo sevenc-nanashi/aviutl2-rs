@@ -167,7 +167,6 @@ impl FilterConfigItem {
                 };
                 assert!(item.size <= 1024, "FilterConfigData size must be <= 1024");
                 data.default_value.data[..item.size].copy_from_slice(item.default_value());
-                data.value = data.default_value.data.as_mut_ptr() as *mut c_void;
 
                 aviutl2_sys::filter2::FILTER_ITEM { data }
             }
@@ -618,7 +617,7 @@ impl<T: Copy + 'static> FilterConfigData<T> {
         let size = std::mem::size_of::<T>();
         let mut default_value = [0u8; 1024];
         let default_value_ptr = &self.default_value as *const T as *const u8;
-        default_value
+        default_value[..size]
             .copy_from_slice(unsafe { std::slice::from_raw_parts(default_value_ptr, size) });
 
         ErasedFilterConfigData {
