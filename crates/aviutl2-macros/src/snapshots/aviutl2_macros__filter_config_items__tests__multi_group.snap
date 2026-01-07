@@ -1,6 +1,5 @@
 ---
 source: crates/aviutl2-macros/src/filter_config_items.rs
-assertion_line: 1467
 expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
 struct Config {
