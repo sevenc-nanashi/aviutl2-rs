@@ -407,7 +407,7 @@ impl<T: Copy> FilterConfigDataHandle<T> {
     }
 
     /// データを読み取るためのロックを取得する。
-    pub fn read(&self) -> FilterConfigDataReadGuard<T> {
+    pub fn read<'handle>(&'handle self) -> FilterConfigDataReadGuard<'handle, T> {
         let addr = self.inner as *mut () as usize;
         let lock = HANDLES
             .entry(addr)
@@ -420,7 +420,7 @@ impl<T: Copy> FilterConfigDataHandle<T> {
 
     /// データを読み取るためのロックの取得を試みる。
     /// ロックが取得できなかった場合は `None` を返します。
-    pub fn try_read(&self) -> Option<FilterConfigDataReadGuard<T>> {
+    pub fn try_read<'handle>(&'handle self) -> Option<FilterConfigDataReadGuard<'handle, T>> {
         let addr = self.inner as *mut () as usize;
         let lock = HANDLES
             .entry(addr)
@@ -435,7 +435,7 @@ impl<T: Copy> FilterConfigDataHandle<T> {
     }
 
     /// データを書き込むためのロックを取得する。
-    pub fn write(&self) -> FilterConfigDataWriteGuard<T> {
+    pub fn write<'handle>(&'handle self) -> FilterConfigDataWriteGuard<'handle, T> {
         let addr = self.inner as *mut () as usize;
         let lock = HANDLES
             .entry(addr)
@@ -447,7 +447,7 @@ impl<T: Copy> FilterConfigDataHandle<T> {
 
     /// データを書き込むためのロックの取得を試みる。
     /// ロックが取得できなかった場合は `None` を返します。
-    pub fn try_write(&self) -> Option<FilterConfigDataWriteGuard<T>> {
+    pub fn try_write<'handle>(&'handle self) -> Option<FilterConfigDataWriteGuard<'handle, T>> {
         let addr = self.inner as *mut () as usize;
         let lock = HANDLES
             .entry(addr)
@@ -471,17 +471,21 @@ impl<T: Copy> FilterConfigDataHandle<T> {
 }
 
 /// フィルタプラグインのデータを読み取るためのガード。
-pub struct FilterConfigDataReadGuard<T: Copy> {
+pub struct FilterConfigDataReadGuard<'handle, T: Copy> {
     pub(crate) inner: *mut T,
+    _handle: std::marker::PhantomData<&'handle FilterConfigDataHandle<T>>,
 }
-unsafe impl<T: Send + Sync + Copy> Send for FilterConfigDataReadGuard<T> {}
-unsafe impl<T: Send + Sync + Copy> Sync for FilterConfigDataReadGuard<T> {}
-impl<T: Copy> FilterConfigDataReadGuard<T> {
-    fn new(inner: *mut T) -> FilterConfigDataReadGuard<T> {
-        FilterConfigDataReadGuard { inner }
+unsafe impl<T: Send + Sync + Copy> Send for FilterConfigDataReadGuard<'_, T> {}
+unsafe impl<T: Send + Sync + Copy> Sync for FilterConfigDataReadGuard<'_, T> {}
+impl<T: Copy> FilterConfigDataReadGuard<'_, T> {
+    fn new<'handle>(inner: *mut T) -> FilterConfigDataReadGuard<'handle, T> {
+        FilterConfigDataReadGuard {
+            inner,
+            _handle: std::marker::PhantomData,
+        }
     }
 }
-impl<T: Copy> Drop for FilterConfigDataReadGuard<T> {
+impl<T: Copy> Drop for FilterConfigDataReadGuard<'_, T> {
     fn drop(&mut self) {
         let addr = self.inner as *mut () as usize;
         if let Some(entry) = HANDLES.get(&addr) {
@@ -490,12 +494,12 @@ impl<T: Copy> Drop for FilterConfigDataReadGuard<T> {
         }
     }
 }
-impl<T: Copy> std::convert::AsRef<T> for FilterConfigDataReadGuard<T> {
+impl<T: Copy> std::convert::AsRef<T> for FilterConfigDataReadGuard<'_, T> {
     fn as_ref(&self) -> &T {
         unsafe { &*self.inner }
     }
 }
-impl<T: Copy> std::ops::Deref for FilterConfigDataReadGuard<T> {
+impl<T: Copy> std::ops::Deref for FilterConfigDataReadGuard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -504,18 +508,22 @@ impl<T: Copy> std::ops::Deref for FilterConfigDataReadGuard<T> {
 }
 
 /// フィルタプラグインのデータを書き込むためのガード。
-pub struct FilterConfigDataWriteGuard<T: Copy> {
+pub struct FilterConfigDataWriteGuard<'handle, T: Copy> {
     pub(crate) inner: *mut T,
+    _handle: std::marker::PhantomData<&'handle FilterConfigDataHandle<T>>,
 }
 
-unsafe impl<T: Send + Sync + Copy> Send for FilterConfigDataWriteGuard<T> {}
-unsafe impl<T: Send + Sync + Copy> Sync for FilterConfigDataWriteGuard<T> {}
-impl<T: Copy> FilterConfigDataWriteGuard<T> {
-    fn new(inner: *mut T) -> FilterConfigDataWriteGuard<T> {
-        FilterConfigDataWriteGuard { inner }
+unsafe impl<T: Send + Sync + Copy> Send for FilterConfigDataWriteGuard<'_, T> {}
+unsafe impl<T: Send + Sync + Copy> Sync for FilterConfigDataWriteGuard<'_, T> {}
+impl<T: Copy> FilterConfigDataWriteGuard<'_, T> {
+    fn new<'handle>(inner: *mut T) -> FilterConfigDataWriteGuard<'handle, T> {
+        FilterConfigDataWriteGuard {
+            inner,
+            _handle: std::marker::PhantomData,
+        }
     }
 }
-impl<T: Copy> Drop for FilterConfigDataWriteGuard<T> {
+impl<T: Copy> Drop for FilterConfigDataWriteGuard<'_, T> {
     fn drop(&mut self) {
         let addr = self.inner as *mut () as usize;
         if let Some(entry) = HANDLES.get(&addr) {
@@ -524,18 +532,18 @@ impl<T: Copy> Drop for FilterConfigDataWriteGuard<T> {
         }
     }
 }
-impl<T: Copy> std::convert::AsMut<T> for FilterConfigDataWriteGuard<T> {
+impl<T: Copy> std::convert::AsMut<T> for FilterConfigDataWriteGuard<'_, T> {
     fn as_mut(&mut self) -> &mut T {
         unsafe { &mut *self.inner }
     }
 }
-impl<T: Copy> std::ops::Deref for FilterConfigDataWriteGuard<T> {
+impl<T: Copy> std::ops::Deref for FilterConfigDataWriteGuard<'_, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         unsafe { &*self.inner }
     }
 }
-impl<T: Copy> std::ops::DerefMut for FilterConfigDataWriteGuard<T> {
+impl<T: Copy> std::ops::DerefMut for FilterConfigDataWriteGuard<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut()
     }
