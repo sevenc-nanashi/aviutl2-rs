@@ -163,10 +163,10 @@ impl FilterConfigItem {
                     name: leak_manager.leak_as_wide_string(&item.name),
                     value: std::ptr::null_mut(),
                     size: item.size as i32,
-                    default_value: aviutl2_sys::filter2::DummyData1024 { data: [0u8; 1024] },
+                    default_value: [0u8; 1024],
                 };
                 assert!(item.size <= 1024, "FilterConfigData size must be <= 1024");
-                data.default_value.data[..item.size].copy_from_slice(item.default_value());
+                data.default_value[..item.size].copy_from_slice(item.default_value());
 
                 aviutl2_sys::filter2::FILTER_ITEM { data }
             }
@@ -485,7 +485,6 @@ pub trait FilterConfigSelectItems {
 
 #[doc(inline)]
 pub use aviutl2_macros::FilterConfigSelectItems;
-use aviutl2_sys::filter2::DummyData1024;
 
 /// ファイル選択。
 #[derive(Debug, Clone)]
@@ -516,7 +515,7 @@ pub struct ErasedFilterConfigData {
     pub size: usize,
     /// 現在の値を指すポインタ。
     pub value: Option<NonNull<std::ffi::c_void>>,
-    default_value: DummyData1024,
+    default_value: [u8; 1024],
 }
 
 impl ErasedFilterConfigData {
@@ -551,15 +550,13 @@ impl ErasedFilterConfigData {
             name,
             size,
             value: None,
-            default_value: DummyData1024 {
-                data: default_value_bytes,
-            },
+            default_value: default_value_bytes,
         }
     }
 
     /// デフォルト値のスライスを取得します。
     pub fn default_value(&self) -> &[u8] {
-        &self.default_value.data[..self.size]
+        &self.default_value[..self.size]
     }
 
     /// 型付きの汎用データに変換します。
@@ -579,7 +576,7 @@ impl ErasedFilterConfigData {
         let value = self
             .value
             .map(|v| NonNull::new(v.as_ptr().cast::<T>()).unwrap());
-        let default_value_ptr = self.default_value.data.as_ptr().cast::<T>();
+        let default_value_ptr = self.default_value.as_ptr().cast::<T>();
         let default_value = unsafe { *default_value_ptr };
         FilterConfigData {
             name: self.name,
@@ -627,9 +624,7 @@ impl<T: Copy + 'static> FilterConfigData<T> {
             value: self
                 .value
                 .map(|v| NonNull::new(v.as_ptr().cast::<c_void>()).unwrap()),
-            default_value: DummyData1024 {
-                data: default_value,
-            },
+            default_value,
         }
     }
 }
