@@ -37,4 +37,28 @@ pub trait ScriptModule: Sized + Send + Sync + 'static + ScriptModuleFunctions {
 
     /// プラグインの情報を返す。
     fn plugin_info(&self) -> ScriptModuleTable;
+
+    /// シングルトンインスタンスを参照するためのヘルパーメソッド。
+    ///
+    /// # Panics
+    ///
+    /// プラグインが初期化されていない場合や、二重に呼び出された場合にパニックします。
+    fn with_instance<R>(f: impl FnOnce(&Self) -> R) -> R
+    where
+        Self: crate::module::__bridge::ScriptModuleSingleton,
+    {
+        <Self as crate::module::__bridge::ScriptModuleSingleton>::with_instance(f)
+    }
+
+    /// シングルトンインスタンスを可変参照するためのヘルパーメソッド。
+    ///
+    /// # Panics
+    ///
+    /// プラグインが初期化されていない場合や、二重に呼び出された場合にパニックします。
+    fn with_instance_mut<R>(f: impl FnOnce(&mut Self) -> R) -> R
+    where
+        Self: crate::module::__bridge::ScriptModuleSingleton,
+    {
+        <Self as crate::module::__bridge::ScriptModuleSingleton>::with_instance_mut(f)
+    }
 }

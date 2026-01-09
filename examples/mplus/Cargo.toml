@@ -1,0 +1,13 @@
+[package]
+name = "mplus"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+publish = false
+
+[build-dependencies]
+anyhow = "1.0.98"
+ureq = "3.0.12"

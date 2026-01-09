@@ -1,0 +1,19 @@
+[package]
+name = "example-srt-file-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "rusty_srt_file_plugin"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.98"
+aviutl2.workspace = true
+easy-ext = "1.0.2"
+native-dialog = "0.9.2"
+srtlib = "0.2.0"
