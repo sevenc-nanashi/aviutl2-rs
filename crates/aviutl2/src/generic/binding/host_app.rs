@@ -279,7 +279,7 @@ impl<'a> HostAppHandle<'a> {
     ///
     /// # Note
     ///
-    /// [`crate::generic::GenericPlugin::on_scene_changed`] が自動的に登録されるため、
+    /// [`crate::generic::GenericPlugin::on_change_scene`] が自動的に登録されるため、
     /// 通常はこの関数を直接使用する必要はありません。
     pub fn register_change_scene_handler(
         &mut self,
