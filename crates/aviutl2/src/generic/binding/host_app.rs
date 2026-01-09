@@ -7,7 +7,7 @@ use std::num::NonZeroIsize;
 ///
 /// # Panics
 ///
-/// この方がプラグインの初期化処理の外で使用された場合はPanicします。
+/// この型がプラグインの初期化処理の外で使用された場合はPanicします。
 pub struct HostAppHandle<'a> {
     internal: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
     global_leak_manager: &'a mut crate::common::LeakManager,
