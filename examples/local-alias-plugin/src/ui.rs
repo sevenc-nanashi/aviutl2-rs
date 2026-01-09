@@ -7,8 +7,8 @@ use std::sync::{Arc, Mutex};
 use windows::Win32::{
     Foundation::{HWND, RECT},
     UI::WindowsAndMessaging::{
-        GWL_STYLE, GetClientRect, GetWindowLongPtrW, MoveWindow, SetParent, SetWindowLongPtrW,
-        WS_CHILD, WS_POPUP, WS_VISIBLE,
+        GetClientRect, GetWindowLongPtrW, MoveWindow, SetParent, SetWindowLongPtrW, ShowWindow,
+        GWL_STYLE, SW_SHOW, WS_CHILD, WS_POPUP, WS_VISIBLE,
     },
 };
 
@@ -41,6 +41,7 @@ pub(crate) struct LocalAliasUiApp {
     repaint_ctx: Arc<Mutex<Option<egui::Context>>>,
     parent_hwnd: isize,
     embedded: bool,
+    child_hwnd: Option<isize>,
 }
 
 impl LocalAliasUiApp {
@@ -54,6 +55,7 @@ impl LocalAliasUiApp {
             repaint_ctx,
             parent_hwnd,
             embedded: false,
+            child_hwnd: None,
         }
     }
 
@@ -323,10 +325,11 @@ impl LocalAliasUiApp {
     }
 
     fn embed_window_if_needed(&mut self, frame: &eframe::Frame) {
-        if self.embedded {
+        if self.parent_hwnd == 0 {
             return;
         }
-        if self.parent_hwnd == 0 {
+        if let Some(child_hwnd) = self.child_hwnd {
+            self.resize_child_window(child_hwnd);
             return;
         }
         let Ok(handle) = frame.window_handle() else {
@@ -342,6 +345,17 @@ impl LocalAliasUiApp {
             let style = GetWindowLongPtrW(child_hwnd, GWL_STYLE) as u32;
             let new_style = (style & !WS_POPUP.0) | WS_CHILD.0 | WS_VISIBLE.0;
             SetWindowLongPtrW(child_hwnd, GWL_STYLE, new_style as isize);
+            let _ = ShowWindow(child_hwnd, SW_SHOW);
+        }
+        self.embedded = true;
+        self.child_hwnd = Some(child_hwnd.0 as isize);
+        self.resize_child_window(child_hwnd.0 as isize);
+    }
+
+    fn resize_child_window(&self, child_hwnd: isize) {
+        let parent_hwnd = HWND(self.parent_hwnd as *mut c_void);
+        let child_hwnd = HWND(child_hwnd as *mut c_void);
+        unsafe {
             let mut rect = RECT::default();
             if GetClientRect(parent_hwnd, &mut rect).is_ok() {
                 let width = rect.right - rect.left;
@@ -349,7 +363,6 @@ impl LocalAliasUiApp {
                 let _ = MoveWindow(child_hwnd, 0, 0, width, height, true);
             }
         }
-        self.embedded = true;
     }
 }
 
