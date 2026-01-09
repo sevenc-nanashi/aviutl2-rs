@@ -2,6 +2,9 @@
 source: crates/aviutl2-macros/src/filter_config_items.rs
 expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
+struct Config {
+    frequency: f64,
+}
 #[automatically_derived]
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
@@ -18,7 +21,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
         Self {
             frequency: match items[0usize] {
                 ::aviutl2::filter::FilterConfigItem::Track(ref track) => (track.value as i32) as _,
-                _ => panic!("Expected Track at index {}", 0usize),
+                _ => panic!("expected Track at index {}", 0usize),
             },
         }
     }

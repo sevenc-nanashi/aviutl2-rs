@@ -1,5 +1,5 @@
 [package]
-name = "example-wgpu-filter"
+name = "example-random-color-filter"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,13 +9,11 @@ repository.workspace = true
 publish.workspace = true
 
 [lib]
-name = "rusty_wgpu_filter"
+name = "rusty_random_color_filter"
 crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1.0.100"
 aviutl2.workspace = true
 log = "0.4.28"
-pollster = "0.4.0"
-wgpu = "27.0.1"
-zerocopy = "0.8.27"
+rand = "0.9.2"

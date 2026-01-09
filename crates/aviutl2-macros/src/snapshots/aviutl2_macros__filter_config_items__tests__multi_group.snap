@@ -1,0 +1,70 @@
+---
+source: crates/aviutl2-macros/src/filter_config_items.rs
+expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
+---
+struct Config {
+    check_1: bool,
+    check_2: bool,
+    outside_check: bool,
+}
+#[automatically_derived]
+impl ::aviutl2::filter::FilterConfigItems for Config {
+    fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
+        vec![
+            ::aviutl2::filter::FilterConfigItem::Group(
+                ::aviutl2::filter::FilterConfigGroup::start_with_opened("Test 1".to_string(), true),
+            ),
+            ::aviutl2::filter::FilterConfigItem::Checkbox(
+                ::aviutl2::filter::FilterConfigCheckbox {
+                    name: "Check 1".to_string(),
+                    value: true,
+                },
+            ),
+            ::aviutl2::filter::FilterConfigItem::Group(
+                ::aviutl2::filter::FilterConfigGroup::start_with_opened(
+                    "Test 2".to_string(),
+                    false,
+                ),
+            ),
+            ::aviutl2::filter::FilterConfigItem::Checkbox(
+                ::aviutl2::filter::FilterConfigCheckbox {
+                    name: "Check 2".to_string(),
+                    value: false,
+                },
+            ),
+            ::aviutl2::filter::FilterConfigItem::Group(::aviutl2::filter::FilterConfigGroup::end()),
+            ::aviutl2::filter::FilterConfigItem::Checkbox(
+                ::aviutl2::filter::FilterConfigCheckbox {
+                    name: "Outside Check".to_string(),
+                    value: true,
+                },
+            ),
+        ]
+    }
+    fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
+        Self {
+            check_1: match items[1usize] {
+                ::aviutl2::filter::FilterConfigItem::Checkbox(ref check) => check.value,
+                _ => panic!("expected Checkbox at index {}", 1usize),
+            },
+            check_2: match items[3usize] {
+                ::aviutl2::filter::FilterConfigItem::Checkbox(ref check) => check.value,
+                _ => panic!("expected Checkbox at index {}", 3usize),
+            },
+            outside_check: match items[5usize] {
+                ::aviutl2::filter::FilterConfigItem::Checkbox(ref check) => check.value,
+                _ => panic!("expected Checkbox at index {}", 5usize),
+            },
+        }
+    }
+}
+#[automatically_derived]
+impl ::std::default::Default for Config {
+    fn default() -> Self {
+        Self {
+            check_1: true,
+            check_2: false,
+            outside_check: true,
+        }
+    }
+}

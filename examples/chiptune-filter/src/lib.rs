@@ -29,7 +29,8 @@ enum FrequencyMode {
     FrequencyHz,
 }
 
-#[derive(Debug, Clone, PartialEq, FilterConfigItems)]
+#[aviutl2::filter::filter_config_items]
+#[derive(Debug, Clone, PartialEq)]
 struct FilterConfig {
     #[track(name = "音量", range = 0.0..=1.0, step = 0.01, default = 0.5)]
     volume: f64,
@@ -82,8 +83,10 @@ impl FilterPlugin for ChiptuneFilter {
                 "Example chiptune synthesizer, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/chiptune-filter",
                 version = env!("CARGO_PKG_VERSION")
             ),
-            filter_type: aviutl2::filter::FilterType::Audio,
-            as_object: true,
+            flags: aviutl2::bitflag!(aviutl2::filter::FilterPluginFlags {
+                audio: true,
+                as_object: true,
+            }),
             config_items: FilterConfig::to_config_items(),
         }
     }

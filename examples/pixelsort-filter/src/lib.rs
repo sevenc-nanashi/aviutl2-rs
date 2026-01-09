@@ -4,7 +4,7 @@ use aviutl2::{
     AnyResult, AviUtl2Info,
     filter::{
         FilterConfigItemSliceExt, FilterConfigItems, FilterConfigSelectItems, FilterPlugin,
-        FilterPluginTable, FilterProcVideo, RgbaPixel,
+        FilterPluginFlags, FilterPluginTable, FilterProcVideo, RgbaPixel,
     },
     log,
 };
@@ -32,7 +32,8 @@ pub enum SortDirection {
     VerticalInverted,
 }
 
-#[derive(Debug, Clone, PartialEq, FilterConfigItems)]
+#[aviutl2::filter::filter_config_items]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FilterConfig {
     #[track(name = "しきい値", range = 0.0..=1.0, step = 0.001, default = 0.5)]
     pub threshold: f64,
@@ -73,8 +74,10 @@ impl FilterPlugin for PixelSortFilter {
                 "Pixel sort filter, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/pixelsort-filter",
                 version = env!("CARGO_PKG_VERSION")
             ),
-            filter_type: aviutl2::filter::FilterType::Video,
-            as_object: false,
+            flags: aviutl2::bitflag!(FilterPluginFlags {
+                video: true,
+                as_filter: true,
+            }),
             config_items: FilterConfig::to_config_items(),
         }
     }
