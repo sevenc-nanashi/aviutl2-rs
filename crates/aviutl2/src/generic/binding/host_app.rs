@@ -296,7 +296,7 @@ impl<'a> HostAppHandle<'a> {
 ///
 /// <div class="warning">
 ///
-/// このトレイトは [`aviutl2::generic::menus`] マクロで自動的に実装されます。
+/// このトレイトは [`crate::generic::menus`] マクロで自動的に実装されます。
 /// 通常は手動で実装する必要はありません。
 ///
 /// </div>
