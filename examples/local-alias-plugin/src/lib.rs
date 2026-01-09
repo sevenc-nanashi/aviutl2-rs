@@ -1,5 +1,6 @@
 mod entry;
 mod ui;
+mod window_client;
 
 use crate::entry::DummyObject;
 use aviutl2::{
@@ -9,6 +10,7 @@ use aviutl2::{
 use eframe::egui;
 use std::sync::{Arc, Mutex, OnceLock};
 use ui::{LocalAliasUiApp, UiState};
+use window_client::WindowClient;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct AliasEntry {
@@ -21,6 +23,7 @@ pub struct LocalAliasPlugin {
     ui_state: Arc<Mutex<UiState>>,
     ui_repaint: Arc<Mutex<Option<egui::Context>>>,
     _ui_thread: std::thread::JoinHandle<()>,
+    window_client: WindowClient,
 
     dummy: SubPlugin<DummyObject>,
 
@@ -40,6 +43,8 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
         Self::init_logging();
         log::info!("Initializing Rusty Local Alias Plugin...");
         let edit_handle = Arc::new(OnceLock::<aviutl2::generic::EditHandle>::new());
+        let window_client = WindowClient::new("Rusty Local Alias Plugin", (800, 600))?;
+        let parent_hwnd = window_client.hwnd().0 as isize;
 
         let ui_state = Arc::new(Mutex::new(UiState::new()));
         let ui_repaint = Arc::new(Mutex::new(None));
@@ -74,6 +79,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
                     Ok(Box::new(LocalAliasUiApp::new(
                         ui_state_clone,
                         ui_repaint_clone,
+                        parent_hwnd,
                     )))
                 }),
             ) {
@@ -88,6 +94,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
             ui_state,
             ui_repaint,
             _ui_thread: ui_thread,
+            window_client,
             edit_handle,
 
             dummy: SubPlugin::new_filter_plugin(info)?,
@@ -106,6 +113,11 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
         ));
         let handle = registry.create_edit_handle();
         let _ = self.edit_handle.set(handle);
+        if let Err(e) =
+            registry.register_window_client("Rusty Local Alias Plugin", &self.window_client)
+        {
+            log::error!("Failed to register window client: {e}");
+        }
         registry.register_filter_plugin(&self.dummy);
     }
 

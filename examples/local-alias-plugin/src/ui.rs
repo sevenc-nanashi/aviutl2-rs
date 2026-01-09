@@ -1,7 +1,16 @@
-use crate::{AliasEntry, LocalAliasPlugin, CURRENT_ALIAS};
+use crate::{AliasEntry, CURRENT_ALIAS, LocalAliasPlugin};
 use aviutl2::generic::GenericPlugin;
 use eframe::egui;
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use std::ffi::c_void;
 use std::sync::{Arc, Mutex};
+use windows::Win32::{
+    Foundation::{HWND, RECT},
+    UI::WindowsAndMessaging::{
+        GWL_STYLE, GetClientRect, GetWindowLongPtrW, MoveWindow, SetParent, SetWindowLongPtrW,
+        WS_CHILD, WS_POPUP, WS_VISIBLE,
+    },
+};
 
 pub(crate) struct UiState {
     pub(crate) aliases: Vec<AliasEntry>,
@@ -30,14 +39,22 @@ impl UiState {
 pub(crate) struct LocalAliasUiApp {
     state: Arc<Mutex<UiState>>,
     repaint_ctx: Arc<Mutex<Option<egui::Context>>>,
+    parent_hwnd: isize,
+    embedded: bool,
 }
 
 impl LocalAliasUiApp {
     pub(crate) fn new(
         state: Arc<Mutex<UiState>>,
         repaint_ctx: Arc<Mutex<Option<egui::Context>>>,
+        parent_hwnd: isize,
     ) -> Self {
-        Self { state, repaint_ctx }
+        Self {
+            state,
+            repaint_ctx,
+            parent_hwnd,
+            embedded: false,
+        }
     }
 
     fn set_repaint_context(&self, ctx: &egui::Context) {
@@ -304,11 +321,42 @@ impl LocalAliasUiApp {
             state.confirm_delete_index = None;
         }
     }
+
+    fn embed_window_if_needed(&mut self, frame: &eframe::Frame) {
+        if self.embedded {
+            return;
+        }
+        if self.parent_hwnd == 0 {
+            return;
+        }
+        let Ok(handle) = frame.window_handle() else {
+            return;
+        };
+        let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+            return;
+        };
+        let child_hwnd = HWND(handle.hwnd.get() as *mut c_void);
+        let parent_hwnd = HWND(self.parent_hwnd as *mut c_void);
+        unsafe {
+            let _ = SetParent(child_hwnd, parent_hwnd);
+            let style = GetWindowLongPtrW(child_hwnd, GWL_STYLE) as u32;
+            let new_style = (style & !WS_POPUP.0) | WS_CHILD.0 | WS_VISIBLE.0;
+            SetWindowLongPtrW(child_hwnd, GWL_STYLE, new_style as isize);
+            let mut rect = RECT::default();
+            if GetClientRect(parent_hwnd, &mut rect).is_ok() {
+                let width = rect.right - rect.left;
+                let height = rect.bottom - rect.top;
+                let _ = MoveWindow(child_hwnd, 0, 0, width, height, true);
+            }
+        }
+        self.embedded = true;
+    }
 }
 
 impl eframe::App for LocalAliasUiApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.set_repaint_context(ctx);
+        self.embed_window_if_needed(frame);
 
         let mut add_clicked = false;
         let mut info_clicked = false;
@@ -326,9 +374,7 @@ impl eframe::App for LocalAliasUiApp {
             });
         });
 
-        if info_clicked
-            && let Ok(mut state) = self.state.lock()
-        {
+        if info_clicked && let Ok(mut state) = self.state.lock() {
             state.show_info = true;
         }
         if add_clicked {
