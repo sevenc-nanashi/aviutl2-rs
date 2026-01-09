@@ -153,6 +153,10 @@ impl<'a> HostAppHandle<'a> {
 
     /// 編集メニューを登録します。
     /// 名前に`\\`を含めるとサブメニューとして登録されます。
+    ///
+    /// # See Also
+    ///
+    /// - [`crate::generic::menus`]
     pub fn register_edit_menu(
         &mut self,
         name: &str,
@@ -169,6 +173,10 @@ impl<'a> HostAppHandle<'a> {
 
     /// 設定メニューを登録します。
     /// 設定メニューの登録後にウィンドウクライアントを登録するとシステムメニューに「設定」が追加されます。
+    ///
+    /// # See Also
+    ///
+    /// - [`crate::generic::menus`]
     pub fn register_config_menu(
         &mut self,
         name: &str,
@@ -248,6 +256,38 @@ impl<'a> HostAppHandle<'a> {
         self.assert_not_killed();
         unsafe {
             ((*self.internal).register_project_save_handler)(callback);
+        }
+    }
+
+    /// 「キャッシュを破棄」が呼ばれたときに呼ばれる関数を登録します。
+    ///
+    /// # Note
+    ///
+    /// [`crate::generic::GenericPlugin::on_clear_cache`] が自動的に登録されるため、
+    /// 通常はこの関数を直接使用する必要はありません。
+    pub fn register_clear_cache_handler(
+        &mut self,
+        callback: extern "C" fn(*mut aviutl2_sys::plugin2::EDIT_SECTION),
+    ) {
+        self.assert_not_killed();
+        unsafe {
+            ((*self.internal).register_clear_cache_handler)(callback);
+        }
+    }
+
+    /// シーンを変更した直後に呼ばれる関数を登録します。
+    ///
+    /// # Note
+    ///
+    /// [`crate::generic::GenericPlugin::on_scene_changed`] が自動的に登録されるため、
+    /// 通常はこの関数を直接使用する必要はありません。
+    pub fn register_change_scene_handler(
+        &mut self,
+        callback: extern "C" fn(*mut aviutl2_sys::plugin2::EDIT_SECTION),
+    ) {
+        self.assert_not_killed();
+        unsafe {
+            ((*self.internal).register_change_scene_handler)(callback);
         }
     }
 }

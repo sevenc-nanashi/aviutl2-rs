@@ -25,6 +25,12 @@ pub trait GenericPlugin: Send + Sync + Sized {
     /// プロジェクトファイルをセーブする直前に呼ばれる。
     fn on_project_save(&mut self, _project: &mut crate::generic::ProjectFile) {}
 
+    /// 「キャッシュを破棄」が呼ばれたときに呼ばれる。
+    fn on_clear_cache(&mut self, _edit_section: &crate::generic::EditSection) {}
+
+    /// シーンを変更した直後に呼ばれる。
+    fn on_change_scene(&mut self, _edit_section: &crate::generic::EditSection) {}
+
     /// シングルトンインスタンスを参照するためのヘルパーメソッド。
     ///
     /// # Panics

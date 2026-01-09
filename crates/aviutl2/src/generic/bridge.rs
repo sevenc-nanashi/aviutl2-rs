@@ -87,6 +87,8 @@ pub unsafe fn register_plugin<T: GenericSingleton>(
     };
     handle.register_project_load_handler(on_project_load::<T>);
     handle.register_project_save_handler(on_project_save::<T>);
+    handle.register_clear_cache_handler(on_clear_cache::<T>);
+    handle.register_change_scene_handler(on_change_scene::<T>);
     T::register(&mut plugin_state.instance, &mut handle);
 
     extern "C" fn on_project_load<T: GenericSingleton>(
@@ -104,6 +106,20 @@ pub unsafe fn register_plugin<T: GenericSingleton>(
         <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
             let mut project = ProjectFile::from_raw(project);
             instance.on_project_save(&mut project);
+        });
+    }
+
+    extern "C" fn on_clear_cache<T: GenericSingleton>(edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION) {
+        <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
+            let edit_section = crate::generic::EditSection::from_ptr(edit_section);
+            instance.on_clear_cache(&edit_section);
+        });
+    }
+
+    extern "C" fn on_change_scene<T: GenericSingleton>(edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION) {
+        <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
+            let edit_section = crate::generic::EditSection::from_ptr(edit_section);
+            instance.on_change_scene(&edit_section);
         });
     }
 }
