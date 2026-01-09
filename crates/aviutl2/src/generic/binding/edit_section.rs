@@ -81,7 +81,7 @@ impl EditInfo {
     /// # Safety
     ///
     /// `ptr`は有効な`EDIT_INFO`ポインタである必要があります。
-    pub unsafe fn from_ptr(ptr: *const aviutl2_sys::plugin2::EDIT_INFO) -> Self {
+    pub unsafe fn from_raw(ptr: *const aviutl2_sys::plugin2::EDIT_INFO) -> Self {
         let raw = unsafe { &*ptr };
         Self {
             width: raw.width as usize,
@@ -189,10 +189,10 @@ impl EditSection {
     /// # Safety
     ///
     /// 有効な `EDIT_SECTION` ポインタである必要があります。
-    pub unsafe fn from_ptr(ptr: *mut aviutl2_sys::plugin2::EDIT_SECTION) -> Self {
+    pub unsafe fn from_raw(ptr: *mut aviutl2_sys::plugin2::EDIT_SECTION) -> Self {
         Self {
             internal: ptr,
-            info: unsafe { EditInfo::from_ptr((*ptr).info) },
+            info: unsafe { EditInfo::from_raw((*ptr).info) },
         }
     }
 

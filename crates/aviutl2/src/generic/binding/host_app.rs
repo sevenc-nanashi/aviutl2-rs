@@ -459,7 +459,7 @@ impl EditHandle {
                     .as_mut()
                     .take()
                     .expect("Callback has already been called");
-                let mut edit_section = EditSection::from_ptr(edit_section);
+                let mut edit_section = EditSection::from_raw(edit_section);
                 let res = callback(&mut edit_section);
 
                 result_ptr.replace(res);
@@ -500,7 +500,7 @@ impl EditHandle {
                 std::mem::size_of::<aviutl2_sys::plugin2::EDIT_INFO>() as _,
             );
             let edit_info = raw_info.assume_init();
-            crate::generic::EditInfo::from_ptr(&edit_info)
+            crate::generic::EditInfo::from_raw(&edit_info)
         }
     }
 }

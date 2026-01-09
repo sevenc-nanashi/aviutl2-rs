@@ -97,7 +97,7 @@ fn create_bridge(
                     if mut_self {
                         quote::quote! {
                             extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                                let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
+                                let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
                                 <#impl_token as ::aviutl2::module::ScriptModule>::with_instance_mut(|__internal_self| {
                                     let () = <#impl_token>::#method_name(__internal_self, &mut params);
                                 });
@@ -106,7 +106,7 @@ fn create_bridge(
                     } else {
                         quote::quote! {
                             extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                                let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
+                                let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
                                 <#impl_token as ::aviutl2::module::ScriptModule>::with_instance(|__internal_self| {
                                     let () = <#impl_token>::#method_name(__internal_self, &mut params);
                                 });
@@ -116,7 +116,7 @@ fn create_bridge(
                 } else {
                     quote::quote! {
                         extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                            let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
+                            let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
                             let () = <#impl_token>::#method_name(&mut params);
                         }
                     }
@@ -174,7 +174,7 @@ fn create_bridge(
                     if self_is_mut {
                         quote::quote! {
                             extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                                let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
+                                let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
                                 <#impl_token as ::aviutl2::module::ScriptModule>::with_instance_mut(|__internal_self| {
                                     #(#param_bridges)*
                                     let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
@@ -185,7 +185,7 @@ fn create_bridge(
                     } else {
                         quote::quote! {
                             extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                                let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
+                                let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
                                 <#impl_token as ::aviutl2::module::ScriptModule>::with_instance(|__internal_self| {
                                     #(#param_bridges)*
                                     let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
@@ -197,7 +197,7 @@ fn create_bridge(
                 } else {
                     quote::quote! {
                         extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                            let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
+                            let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
                             #(#param_bridges)*
                             let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
                             ::aviutl2::module::__push_return_value(&mut params, fn_result);

@@ -20,7 +20,7 @@ impl MyModule {
                 smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
             ) {
                 let mut params =
-                    unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp) };
+                    unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
                 let hoge: i32 = match <i32 as ::aviutl2::module::FromScriptModuleParam>::from_param(
                     &params, 0usize,
                 ) {

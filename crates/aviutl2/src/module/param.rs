@@ -25,7 +25,7 @@ impl ScriptModuleCallHandle {
     /// # Safety
     ///
     /// `ptr`は有効な`SCRIPT_MODULE_PARAM`へのポインタである必要があります。
-    pub unsafe fn from_ptr(
+    pub unsafe fn from_raw(
         ptr: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,
     ) -> ScriptModuleCallHandle {
         ScriptModuleCallHandle { internal: ptr }
