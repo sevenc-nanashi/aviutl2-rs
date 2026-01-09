@@ -45,6 +45,11 @@ task :install, %w[target dest] do |task, args|
     .glob("./examples/*/Cargo.toml")
     .each do |manifest|
       cargo_toml = Tomlrb.load_file(manifest)
+      unless cargo_toml.key?("lib") &&
+               cargo_toml["lib"]["crate-type"]&.include?("cdylib")
+        puts "Skip: #{manifest} is not a cdylib"
+        next
+      end
       name = cargo_toml["lib"]["name"]
       file = "./target/#{target}/#{name}.dll"
       dest_name = replace_suffix(name, target, suffixes)
@@ -73,6 +78,11 @@ task :link, %w[target dest] do |task, args|
     .glob("./examples/*/Cargo.toml")
     .each do |manifest|
       cargo_toml = Tomlrb.load_file(manifest)
+      unless cargo_toml.key?("lib") &&
+               cargo_toml["lib"]["crate-type"]&.include?("cdylib")
+        puts "Skip: #{manifest} is not a cdylib"
+        next
+      end
 
       source = "./target/#{target}/#{cargo_toml["lib"]["name"]}.dll"
       dest_name = replace_suffix(cargo_toml["lib"]["name"], target, suffixes)
@@ -106,8 +116,12 @@ task :release, ["tag"] do |task, args|
   Dir
     .glob("./examples/*")
     .each do |dir|
-      cargo_toml = File.join(dir, "Cargo.toml")
-      lib_name = Tomlrb.load_file(cargo_toml)["lib"]["name"]
+      cargo_toml = Tomlrb.load_file(File.join(dir, "Cargo.toml"))
+      unless cargo_toml.key?("lib") &&
+               cargo_toml["lib"]["crate-type"]&.include?("cdylib")
+        next
+      end
+      lib_name = cargo_toml["lib"]["name"]
       plugin_name = replace_suffix(lib_name, "release", suffixes)
       plugins[plugin_name] = dir
       FileUtils.cp(

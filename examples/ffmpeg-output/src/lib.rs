@@ -399,9 +399,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                     let mut fonts = egui::FontDefinitions::default();
                     fonts.font_data.insert(
                         "M+ 1".to_owned(),
-                        std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
-                            "../fonts/Mplus1-Regular.otf"
-                        ))),
+                        std::sync::Arc::new(egui::FontData::from_static(mplus::MPLUS1_REGULAR)),
                     );
                     fonts
                         .families
@@ -411,9 +409,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
 
                     fonts.font_data.insert(
                         "M+ 1 Code".to_owned(),
-                        std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
-                            "../fonts/Mplus1Code-Medium.otf"
-                        ))),
+                        std::sync::Arc::new(egui::FontData::from_static(mplus::MPLUS1CODE_MEDIUM)),
                     );
                     fonts
                         .families
