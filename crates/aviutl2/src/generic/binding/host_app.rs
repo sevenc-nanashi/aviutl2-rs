@@ -293,6 +293,13 @@ impl<'a> HostAppHandle<'a> {
 }
 
 /// 汎用プラグインのメニュー登録用トレイト。
+///
+/// <div class="warning">
+///
+/// このトレイトは [`aviutl2::generic::menus`] マクロで自動的に実装されます。
+/// 通常は手動で実装する必要はありません。
+///
+/// </div>
 pub trait GenericPluginMenus {
     fn register_menus(host: &mut HostAppHandle);
 }
