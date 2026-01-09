@@ -41,10 +41,10 @@ impl LocalAliasUiApp {
     }
 
     fn set_repaint_context(&self, ctx: &egui::Context) {
-        if let Ok(mut slot) = self.repaint_ctx.lock() {
-            if slot.is_none() {
-                *slot = Some(ctx.clone());
-            }
+        if let Ok(mut slot) = self.repaint_ctx.lock()
+            && slot.is_none()
+        {
+            *slot = Some(ctx.clone());
         }
     }
 
@@ -229,16 +229,15 @@ impl LocalAliasUiApp {
         }
 
         if !open {
-            if submit {
-                if !new_buffer.trim().is_empty() {
-                    if let Some(alias) = state.aliases.get_mut(index) {
-                        let new_name = new_buffer.trim().to_string();
-                        if alias.name != new_name {
-                            alias.name = new_name;
-                            sync_aliases_to_plugin(&state);
-                            sync_current_alias(&state);
-                        }
-                    }
+            if submit
+                && !new_buffer.trim().is_empty()
+                && let Some(alias) = state.aliases.get_mut(index)
+            {
+                let new_name = new_buffer.trim().to_string();
+                if alias.name != new_name {
+                    alias.name = new_name;
+                    sync_aliases_to_plugin(&state);
+                    sync_current_alias(&state);
                 }
             }
             state.rename_index = None;
@@ -327,10 +326,10 @@ impl eframe::App for LocalAliasUiApp {
             });
         });
 
-        if info_clicked {
-            if let Ok(mut state) = self.state.lock() {
-                state.show_info = true;
-            }
+        if info_clicked
+            && let Ok(mut state) = self.state.lock()
+        {
+            state.show_info = true;
         }
         if add_clicked {
             self.handle_add_alias();

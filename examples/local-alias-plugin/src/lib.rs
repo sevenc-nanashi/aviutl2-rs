@@ -183,10 +183,10 @@ impl LocalAliasPlugin {
     fn update_ui_aliases(&self) {
         if let Ok(mut state) = self.ui_state.lock() {
             state.aliases = self.aliases.clone();
-            if let Some(selected) = state.selected_index {
-                if selected >= state.aliases.len() {
-                    state.selected_index = None;
-                }
+            if let Some(selected) = state.selected_index
+                && selected >= state.aliases.len()
+            {
+                state.selected_index = None;
             }
             ui::sync_current_alias(&state);
         }
@@ -194,10 +194,10 @@ impl LocalAliasPlugin {
     }
 
     fn request_ui_repaint(&self) {
-        if let Ok(slot) = self.ui_repaint.lock() {
-            if let Some(ctx) = slot.as_ref() {
-                ctx.request_repaint();
-            }
+        if let Ok(slot) = self.ui_repaint.lock()
+            && let Some(ctx) = slot.as_ref()
+        {
+            ctx.request_repaint();
         }
     }
 
