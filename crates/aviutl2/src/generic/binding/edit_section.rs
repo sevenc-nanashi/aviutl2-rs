@@ -741,10 +741,12 @@ impl<'a> EditSectionObjectCaller<'a> {
     pub fn get_layer_frame(&self) -> EditSectionResult<ObjectLayerFrame> {
         self.edit_section.get_object_layer_frame(self.handle)
     }
+
     /// オブジェクトの情報をエイリアスデータとして取得します。
     pub fn get_alias(&self) -> EditSectionResult<String> {
         self.edit_section.get_object_alias(self.handle)
     }
+
     /// オブジェクトの情報をエイリアスデータとして取得し、パースします。
     #[cfg(feature = "aviutl2-alias")]
     pub fn get_alias_parsed(&self) -> EditSectionResult<aviutl2_alias::Table> {
@@ -853,6 +855,7 @@ impl<'a> EditSectionLayerCaller<'a> {
             index: layer,
         }
     }
+
     /// 指定のフレーム番号以降にあるオブジェクトを検索します。
     ///
     /// # Arguments
@@ -860,6 +863,36 @@ impl<'a> EditSectionLayerCaller<'a> {
     /// - `frame`：検索を開始するフレーム番号（0始まり）。
     pub fn find_object_after(&self, frame: usize) -> EditSectionResult<Option<ObjectHandle>> {
         self.edit_section.find_object_after(self.index, frame)
+    }
+
+    /// 指定の位置にメディアファイルからオブジェクトを作成します。
+    ///
+    /// # See Also
+    ///
+    /// [`EditSection::create_object_from_media_file`]
+    pub fn create_object_from_media_file<P: AsRef<str>>(
+        &self,
+        file_path: P,
+        frame: usize,
+        length: Option<usize>,
+    ) -> EditSectionResult<ObjectHandle> {
+        self.edit_section
+            .create_object_from_media_file(file_path, self.index, frame, length)
+    }
+
+    /// 指定の位置にオブジェクトを作成します。
+    ///
+    /// # See Also
+    ///
+    /// [`EditSection::create_object`]
+    pub fn create_object(
+        &self,
+        effect: &str,
+        frame: usize,
+        length: Option<usize>,
+    ) -> EditSectionResult<ObjectHandle> {
+        self.edit_section
+            .create_object(effect, self.index, frame, length)
     }
 
     /// このレイヤーに存在するすべてのオブジェクトを、
