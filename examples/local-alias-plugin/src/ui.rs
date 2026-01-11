@@ -7,11 +7,10 @@ use windows::Win32::{
     Foundation::HWND,
     UI::Input::KeyboardAndMouse::SetFocus,
     UI::WindowsAndMessaging::{
-        GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos,
-        SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_BORDER, WS_CAPTION, WS_CHILD,
-        WS_DLGFRAME, WS_EX_CLIENTEDGE,
-        WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_WINDOWEDGE, WS_MAXIMIZEBOX, WS_MINIMIZEBOX,
-        WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+        GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE,
+        SWP_NOZORDER, SetWindowLongPtrW, SetWindowPos, WS_BORDER, WS_CAPTION, WS_CHILD,
+        WS_DLGFRAME, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_WINDOWEDGE,
+        WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
     },
 };
 
@@ -62,11 +61,31 @@ impl UiHandle {
                             "M+ 1".to_owned(),
                             std::sync::Arc::new(egui::FontData::from_static(mplus::MPLUS1_REGULAR)),
                         );
+                        add_windows_font(
+                            &mut fonts,
+                            "Segoe UI Symbol",
+                            "C:\\Windows\\Fonts\\seguisym.ttf",
+                        );
+                        add_windows_font(
+                            &mut fonts,
+                            "Segoe UI Emoji",
+                            "C:\\Windows\\Fonts\\seguiemj.ttf",
+                        );
                         fonts
                             .families
                             .get_mut(&egui::FontFamily::Proportional)
                             .unwrap()
                             .insert(0, "M+ 1".to_owned());
+                        if let Some(family) =
+                            fonts.families.get_mut(&egui::FontFamily::Proportional)
+                        {
+                            if fonts.font_data.contains_key("Segoe UI Symbol") {
+                                family.push("Segoe UI Symbol".to_owned());
+                            }
+                            if fonts.font_data.contains_key("Segoe UI Emoji") {
+                                family.push("Segoe UI Emoji".to_owned());
+                            }
+                        }
                         cc.egui_ctx.set_fonts(fonts);
                     }
                     Ok(Box::new(LocalAliasUiApp::new(
@@ -106,6 +125,18 @@ impl UiHandle {
         {
             ctx.request_repaint();
         }
+    }
+}
+
+fn add_windows_font(fonts: &mut egui::FontDefinitions, name: &str, path: &str) {
+    if fonts.font_data.contains_key(name) {
+        return;
+    }
+    if let Ok(bytes) = std::fs::read(path) {
+        fonts.font_data.insert(
+            name.to_owned(),
+            std::sync::Arc::new(egui::FontData::from_owned(bytes)),
+        );
     }
 }
 impl raw_window_handle::HasWindowHandle for UiHandle {
@@ -192,7 +223,7 @@ impl LocalAliasUiApp {
         let state = self.state.lock().unwrap();
         if state.aliases.is_empty() {
             ui.label(
-                "エイリアスがありません。オブジェクトを選択した後、＋ボタンで追加してください。",
+                "エイリアスがありません。オブジェクトを選択した後、+ボタンで追加してください。",
             );
             return;
         }
@@ -526,10 +557,10 @@ impl eframe::App for LocalAliasUiApp {
             ui.horizontal(|ui| {
                 ui.heading("Rusty Local Alias Plugin");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("？").clicked() {
+                    if ui.button("?").clicked() {
                         info_clicked = true;
                     }
-                    if ui.button("＋").clicked() {
+                    if ui.button("+").clicked() {
                         add_clicked = true;
                     }
                 });
