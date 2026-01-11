@@ -1,11 +1,8 @@
 mod ui;
-mod window_client;
 
 use aviutl2::{AnyResult, generic::GenericPlugin};
-use eframe::egui;
 use std::sync::{Arc, Mutex, OnceLock};
-use ui::{LocalAliasUiApp, UiState};
-use window_client::WindowClient;
+use ui::UiHandle;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct AliasEntry {
@@ -15,10 +12,7 @@ pub struct AliasEntry {
 
 #[aviutl2::plugin(GenericPlugin)]
 pub struct LocalAliasPlugin {
-    ui_state: Arc<Mutex<UiState>>,
-    ui_repaint: Arc<Mutex<Option<egui::Context>>>,
-    _ui_thread: std::thread::JoinHandle<()>,
-    window_client: WindowClient,
+    ui_handle: Arc<UiHandle>,
 
     edit_handle: Arc<OnceLock<aviutl2::generic::EditHandle>>,
 
@@ -34,64 +28,10 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
         Self::init_logging();
         log::info!("Initializing Rusty Local Alias Plugin...");
         let edit_handle = Arc::new(OnceLock::<aviutl2::generic::EditHandle>::new());
-        let window_client = WindowClient::new("Rusty Local Alias Plugin", (800, 600))?;
-        let parent_hwnd = window_client.hwnd().0 as isize;
-
-        let ui_state = Arc::new(Mutex::new(UiState::new()));
-        let ui_repaint = Arc::new(Mutex::new(None));
-        let ui_state_clone = Arc::clone(&ui_state);
-        let ui_repaint_clone = Arc::clone(&ui_repaint);
-        let ui_thread = std::thread::spawn(move || {
-            let mut options = eframe::NativeOptions::default();
-            options.viewport = options
-                .viewport
-                .with_title("Rusty Local Alias Plugin")
-                .with_inner_size(egui::vec2(800.0, 600.0));
-            #[cfg(windows)]
-            {
-                options.event_loop_builder = Some(Box::new(|builder| {
-                    use winit::platform::windows::EventLoopBuilderExtWindows;
-                    builder.with_any_thread(true);
-                }));
-            }
-            log::info!("Starting egui UI thread...");
-            if let Err(e) = eframe::run_native(
-                "Rusty Local Alias Plugin",
-                options,
-                Box::new(move |cc| {
-                    log::info!("egui context initialized");
-                    if !egui::FontDefinitions::default()
-                        .font_data
-                        .contains_key("M+ 1")
-                    {
-                        let mut fonts = egui::FontDefinitions::default();
-                        fonts.font_data.insert(
-                            "M+ 1".to_owned(),
-                            std::sync::Arc::new(egui::FontData::from_static(mplus::MPLUS1_REGULAR)),
-                        );
-                        fonts
-                            .families
-                            .get_mut(&egui::FontFamily::Proportional)
-                            .unwrap()
-                            .insert(0, "M+ 1".to_owned());
-                        cc.egui_ctx.set_fonts(fonts);
-                    }
-                    Ok(Box::new(LocalAliasUiApp::new(
-                        ui_state_clone,
-                        ui_repaint_clone,
-                        parent_hwnd,
-                    )))
-                }),
-            ) {
-                log::error!("Failed to run egui UI: {}", e);
-            }
-        });
+        let ui_handle = Arc::new(UiHandle::new());
 
         Ok(LocalAliasPlugin {
-            ui_state,
-            ui_repaint,
-            _ui_thread: ui_thread,
-            window_client,
+            ui_handle,
             edit_handle,
 
             aliases: Vec::new(),
@@ -105,8 +45,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
         ));
         let handle = registry.create_edit_handle();
         let _ = self.edit_handle.set(handle);
-        if let Err(e) =
-            registry.register_window_client("Rusty Local Alias Plugin", &self.window_client)
+        if let Err(e) = registry.register_window_client("Rusty Local Alias Plugin", &self.ui_handle)
         {
             log::error!("Failed to register window client: {e}");
         }
@@ -137,7 +76,7 @@ impl LocalAliasPlugin {
     }
 
     fn update_ui_aliases(&self) {
-        if let Ok(mut state) = self.ui_state.lock() {
+        let _ = self.ui_handle.with_state(|state| {
             state.aliases = self.aliases.clone();
             if let Some(selected) = state.selected_index
                 && selected >= state.aliases.len()
@@ -145,16 +84,8 @@ impl LocalAliasPlugin {
                 state.selected_index = None;
             }
             ui::sync_current_alias(&state);
-        }
-        self.request_ui_repaint();
-    }
-
-    fn request_ui_repaint(&self) {
-        if let Ok(slot) = self.ui_repaint.lock()
-            && let Some(ctx) = slot.as_ref()
-        {
-            ctx.request_repaint();
-        }
+        });
+        self.ui_handle.request_repaint();
     }
 
     fn add_alias_from_focus() -> anyhow::Result<Option<AliasEntry>> {

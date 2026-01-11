@@ -2,18 +2,125 @@ use crate::{AliasEntry, CURRENT_ALIAS, LocalAliasPlugin};
 use aviutl2::generic::GenericPlugin;
 use eframe::egui;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use std::ffi::c_void;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use windows::Win32::{
-    Foundation::{HWND, RECT},
+    Foundation::HWND,
     UI::WindowsAndMessaging::{
-        GWL_EXSTYLE, GWL_STYLE, GetClientRect, GetWindowLongPtrW, MoveWindow, SW_SHOW,
-        SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetParent, SetWindowLongPtrW,
-        SetWindowPos, ShowWindow, WS_CAPTION, WS_CHILD, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME,
-        WS_EX_STATICEDGE, WS_EX_WINDOWEDGE, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU,
-        WS_THICKFRAME, WS_VISIBLE, WS_BORDER, WS_DLGFRAME, GetFocus, SetFocus,
+        GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos,
+        SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_BORDER, WS_CAPTION, WS_CHILD,
+        WS_DLGFRAME, WS_EX_CLIENTEDGE,
+        WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_WINDOWEDGE, WS_MAXIMIZEBOX, WS_MINIMIZEBOX,
+        WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
     },
 };
+
+pub(crate) struct UiHandle {
+    hwnd: Arc<OnceLock<isize>>,
+    state: Arc<Mutex<UiState>>,
+    repaint_ctx: Arc<Mutex<Option<egui::Context>>>,
+    _ui_thread: std::thread::JoinHandle<()>,
+}
+
+impl UiHandle {
+    pub(crate) fn new() -> Self {
+        let hwnd = Arc::new(OnceLock::new());
+        let state = Arc::new(Mutex::new(UiState::new()));
+        let repaint_ctx = Arc::new(Mutex::new(None));
+        let state_clone = Arc::clone(&state);
+        let repaint_clone = Arc::clone(&repaint_ctx);
+        let hwnd_clone = Arc::clone(&hwnd);
+        let ui_thread = std::thread::spawn(move || {
+            let mut options = eframe::NativeOptions::default();
+            options.viewport = options
+                .viewport
+                .with_title("Rusty Local Alias Plugin")
+                .with_inner_size(egui::vec2(800.0, 600.0))
+                .with_visible(false);
+            options.event_loop_builder = Some(Box::new(|builder| {
+                use winit::platform::windows::EventLoopBuilderExtWindows;
+                builder.with_any_thread(true);
+            }));
+            log::info!("Starting egui UI thread...");
+            if let Err(e) = eframe::run_native(
+                "Rusty Local Alias Plugin",
+                options,
+                Box::new(move |cc| {
+                    let winit::raw_window_handle::RawWindowHandle::Win32(hwnd) =
+                        cc.window_handle().unwrap().as_raw()
+                    else {
+                        unreachable!("Only Win32 is supported");
+                    };
+                    let _ = hwnd_clone.set(hwnd.hwnd.into());
+                    log::info!("egui context initialized");
+                    if !egui::FontDefinitions::default()
+                        .font_data
+                        .contains_key("M+ 1")
+                    {
+                        let mut fonts = egui::FontDefinitions::default();
+                        fonts.font_data.insert(
+                            "M+ 1".to_owned(),
+                            std::sync::Arc::new(egui::FontData::from_static(mplus::MPLUS1_REGULAR)),
+                        );
+                        fonts
+                            .families
+                            .get_mut(&egui::FontFamily::Proportional)
+                            .unwrap()
+                            .insert(0, "M+ 1".to_owned());
+                        cc.egui_ctx.set_fonts(fonts);
+                    }
+                    Ok(Box::new(LocalAliasUiApp::new(
+                        state_clone,
+                        repaint_clone,
+                        hwnd.hwnd.into(),
+                    )))
+                }),
+            ) {
+                log::error!("Failed to run egui UI: {}", e);
+            }
+        });
+
+        Self {
+            hwnd,
+            state,
+            repaint_ctx,
+            _ui_thread: ui_thread,
+        }
+    }
+
+    pub(crate) fn get_hwnd(&self) -> isize {
+        *self.hwnd.wait()
+    }
+
+    pub(crate) fn with_state<F, R>(&self, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut UiState) -> R,
+    {
+        let mut state = self.state.lock().ok()?;
+        Some(f(&mut state))
+    }
+
+    pub(crate) fn request_repaint(&self) {
+        if let Ok(slot) = self.repaint_ctx.lock()
+            && let Some(ctx) = slot.as_ref()
+        {
+            ctx.request_repaint();
+        }
+    }
+}
+impl raw_window_handle::HasWindowHandle for UiHandle {
+    fn window_handle(
+        &self,
+    ) -> Result<winit::raw_window_handle::WindowHandle<'_>, winit::raw_window_handle::HandleError>
+    {
+        let hwnd = self.get_hwnd();
+        let raw = raw_window_handle::Win32WindowHandle::new(
+            std::num::NonZero::<isize>::new(hwnd)
+                .ok_or(raw_window_handle::HandleError::Unavailable)?,
+        );
+        let raw = raw_window_handle::RawWindowHandle::Win32(raw);
+        Ok(unsafe { raw_window_handle::WindowHandle::borrow_raw(raw) })
+    }
+}
 
 pub(crate) struct UiState {
     pub(crate) aliases: Vec<AliasEntry>,
@@ -42,24 +149,24 @@ impl UiState {
 pub(crate) struct LocalAliasUiApp {
     state: Arc<Mutex<UiState>>,
     repaint_ctx: Arc<Mutex<Option<egui::Context>>>,
-    parent_hwnd: isize,
     embedded: bool,
-    child_hwnd: Option<isize>,
+    hwnd: isize,
 }
 
 impl LocalAliasUiApp {
     pub(crate) fn new(
         state: Arc<Mutex<UiState>>,
         repaint_ctx: Arc<Mutex<Option<egui::Context>>>,
-        parent_hwnd: isize,
+        hwnd: isize,
     ) -> Self {
-        Self {
+        let this = Self {
             state,
             repaint_ctx,
-            parent_hwnd,
             embedded: false,
-            child_hwnd: None,
-        }
+            hwnd,
+        };
+        this.ensure_child_window_style(HWND(this.hwnd as _));
+        this
     }
 
     fn set_repaint_context(&self, ctx: &egui::Context) {
@@ -327,9 +434,9 @@ impl LocalAliasUiApp {
         }
     }
 
-    fn ensure_child_window_style(&self, child_hwnd: HWND) {
+    fn ensure_child_window_style(&self, hwnd: HWND) {
         unsafe {
-            let style = GetWindowLongPtrW(child_hwnd, GWL_STYLE) as u32;
+            let style = GetWindowLongPtrW(hwnd, GWL_STYLE) as u32;
             let new_style = (style
                 & !WS_POPUP.0
                 & !WS_BORDER.0
@@ -339,25 +446,24 @@ impl LocalAliasUiApp {
                 & !WS_MINIMIZEBOX.0
                 & !WS_MAXIMIZEBOX.0
                 & !WS_SYSMENU.0)
-                | WS_CHILD.0
-                | WS_VISIBLE.0;
+                | WS_CHILD.0;
             if style != new_style {
-                SetWindowLongPtrW(child_hwnd, GWL_STYLE, new_style as isize);
+                SetWindowLongPtrW(hwnd, GWL_STYLE, new_style as isize);
             }
 
-            let ex_style = GetWindowLongPtrW(child_hwnd, GWL_EXSTYLE) as u32;
+            let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
             let new_ex_style = ex_style
                 & !WS_EX_CLIENTEDGE.0
                 & !WS_EX_WINDOWEDGE.0
                 & !WS_EX_DLGMODALFRAME.0
                 & !WS_EX_STATICEDGE.0;
             if ex_style != new_ex_style {
-                SetWindowLongPtrW(child_hwnd, GWL_EXSTYLE, new_ex_style as isize);
+                SetWindowLongPtrW(hwnd, GWL_EXSTYLE, new_ex_style as isize);
             }
 
             if style != new_style || ex_style != new_ex_style {
                 let _ = SetWindowPos(
-                    child_hwnd,
+                    hwnd,
                     None,
                     0,
                     0,
@@ -370,66 +476,23 @@ impl LocalAliasUiApp {
     }
 
     fn embed_window_if_needed(&mut self, frame: &eframe::Frame) {
-        if self.parent_hwnd == 0 {
-            return;
-        }
-        if let Some(child_hwnd) = self.child_hwnd {
-            self.ensure_child_window_style(HWND(child_hwnd as *mut c_void));
-            self.request_keyboard_focus(HWND(child_hwnd as *mut c_void), false);
-            self.resize_child_window(child_hwnd);
-            return;
-        }
         let Ok(handle) = frame.window_handle() else {
             log::warn!("Failed to get window handle for embedding.");
             return;
         };
-        let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+        let RawWindowHandle::Win32(_handle) = handle.as_raw() else {
             log::warn!("Unsupported window handle type for embedding.");
             return;
         };
-        let child_hwnd = HWND(handle.hwnd.get() as *mut c_void);
-        let parent_hwnd = HWND(self.parent_hwnd as *mut c_void);
-        unsafe {
-            let _ = SetParent(child_hwnd, parent_hwnd);
-            self.ensure_child_window_style(child_hwnd);
-            let _ = ShowWindow(child_hwnd, SW_SHOW);
-        }
         self.embedded = true;
-        self.child_hwnd = Some(child_hwnd.0 as isize);
-        self.resize_child_window(child_hwnd.0 as isize);
-        self.request_keyboard_focus(child_hwnd, true);
-    }
-
-    fn resize_child_window(&self, child_hwnd: isize) {
-        let parent_hwnd = HWND(self.parent_hwnd as *mut c_void);
-        let child_hwnd = HWND(child_hwnd as *mut c_void);
-        unsafe {
-            let mut rect = RECT::default();
-            if GetClientRect(parent_hwnd, &mut rect).is_ok() {
-                let width = rect.right - rect.left;
-                let height = rect.bottom - rect.top;
-                let _ = MoveWindow(child_hwnd, 0, 0, width, height, true);
-            }
-        }
-    }
-
-    fn request_keyboard_focus(&self, child_hwnd: HWND, force: bool) {
-        let focus_hwnd = unsafe { GetFocus() };
-        if force || focus_hwnd != child_hwnd {
-            let _ = unsafe { SetFocus(child_hwnd) };
-        }
     }
 }
 
 impl eframe::App for LocalAliasUiApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.set_repaint_context(ctx);
+        self.ensure_child_window_style(HWND(self.hwnd as _));
         self.embed_window_if_needed(frame);
-        if ctx.input(|i| i.pointer.any_pressed()) {
-            if let Some(child_hwnd) = self.child_hwnd {
-                self.request_keyboard_focus(HWND(child_hwnd as *mut c_void), false);
-            }
-        }
 
         let mut add_clicked = false;
         let mut info_clicked = false;
