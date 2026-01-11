@@ -5,6 +5,7 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::sync::{Arc, Mutex, OnceLock};
 use windows::Win32::{
     Foundation::HWND,
+    UI::Input::KeyboardAndMouse::SetFocus,
     UI::WindowsAndMessaging::{
         GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos,
         SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_BORDER, WS_CAPTION, WS_CHILD,
@@ -486,6 +487,15 @@ impl LocalAliasUiApp {
         };
         self.embedded = true;
     }
+
+    fn ensure_window_focus(&self, ctx: &egui::Context) {
+        let pressed = ctx.input(|input| input.pointer.any_pressed());
+        if pressed {
+            unsafe {
+                let _ = SetFocus(HWND(self.hwnd as _));
+            }
+        }
+    }
 }
 
 impl eframe::App for LocalAliasUiApp {
@@ -493,6 +503,7 @@ impl eframe::App for LocalAliasUiApp {
         self.set_repaint_context(ctx);
         self.ensure_child_window_style(HWND(self.hwnd as _));
         self.embed_window_if_needed(frame);
+        self.ensure_window_focus(ctx);
 
         let mut add_clicked = false;
         let mut info_clicked = false;
