@@ -323,6 +323,18 @@ impl LocalAliasUiApp {
             return;
         };
 
+        let ime_active = ctx.input(|input| {
+            input.raw.events.iter().any(|event| {
+                matches!(
+                    event,
+                    egui::Event::Ime(
+                        egui::ImeEvent::Enabled
+                            | egui::ImeEvent::Preedit(_)
+                            | egui::ImeEvent::Commit(_)
+                    )
+                )
+            })
+        });
         let mut open = true;
         let mut new_buffer = buffer;
         let mut submit = false;
@@ -334,7 +346,10 @@ impl LocalAliasUiApp {
             .show(ctx, |ui| {
                 ui.label("新しいエイリアス名");
                 let response = ui.text_edit_singleline(&mut new_buffer);
-                if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                if response.lost_focus()
+                    && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                    && !ime_active
+                {
                     submit = true;
                 }
                 ui.horizontal(|ui| {
