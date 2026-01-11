@@ -11,7 +11,7 @@ use windows::Win32::{
         SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetParent, SetWindowLongPtrW,
         SetWindowPos, ShowWindow, WS_CAPTION, WS_CHILD, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME,
         WS_EX_STATICEDGE, WS_EX_WINDOWEDGE, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU,
-        WS_THICKFRAME, WS_VISIBLE, WS_BORDER, WS_DLGFRAME,
+        WS_THICKFRAME, WS_VISIBLE, WS_BORDER, WS_DLGFRAME, GetFocus, SetFocus,
     },
 };
 
@@ -375,6 +375,7 @@ impl LocalAliasUiApp {
         }
         if let Some(child_hwnd) = self.child_hwnd {
             self.ensure_child_window_style(HWND(child_hwnd as *mut c_void));
+            self.request_keyboard_focus(HWND(child_hwnd as *mut c_void), false);
             self.resize_child_window(child_hwnd);
             return;
         }
@@ -396,6 +397,7 @@ impl LocalAliasUiApp {
         self.embedded = true;
         self.child_hwnd = Some(child_hwnd.0 as isize);
         self.resize_child_window(child_hwnd.0 as isize);
+        self.request_keyboard_focus(child_hwnd, true);
     }
 
     fn resize_child_window(&self, child_hwnd: isize) {
@@ -410,12 +412,24 @@ impl LocalAliasUiApp {
             }
         }
     }
+
+    fn request_keyboard_focus(&self, child_hwnd: HWND, force: bool) {
+        let focus_hwnd = unsafe { GetFocus() };
+        if force || focus_hwnd != child_hwnd {
+            let _ = unsafe { SetFocus(child_hwnd) };
+        }
+    }
 }
 
 impl eframe::App for LocalAliasUiApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.set_repaint_context(ctx);
         self.embed_window_if_needed(frame);
+        if ctx.input(|i| i.pointer.any_pressed()) {
+            if let Some(child_hwnd) = self.child_hwnd {
+                self.request_keyboard_focus(HWND(child_hwnd as *mut c_void), false);
+            }
+        }
 
         let mut add_clicked = false;
         let mut info_clicked = false;
