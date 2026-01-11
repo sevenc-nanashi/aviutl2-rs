@@ -1813,6 +1813,7 @@ dependencies = [
  "raw-window-handle",
  "serde",
  "windows 0.58.0",
+ "winit",
 ]
 
 [[package]]

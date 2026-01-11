@@ -88,7 +88,12 @@ fn register_class() {
             lpszClassName: PCWSTR(class_w.as_ptr()),
             ..Default::default()
         };
-        let _ = RegisterClassW(&wc);
+        let class = RegisterClassW(&wc);
+        if class == 0 {
+            log::error!("Failed to register window class: {}", windows::core::Error::from_win32());
+        } else {
+            log::info!("Registered window class with ID: {}", class);
+        }
     });
 }
 

@@ -7,8 +7,11 @@ use std::sync::{Arc, Mutex};
 use windows::Win32::{
     Foundation::{HWND, RECT},
     UI::WindowsAndMessaging::{
-        GetClientRect, GetWindowLongPtrW, MoveWindow, SetParent, SetWindowLongPtrW, ShowWindow,
-        GWL_STYLE, SW_SHOW, WS_CHILD, WS_POPUP, WS_VISIBLE,
+        GWL_EXSTYLE, GWL_STYLE, GetClientRect, GetWindowLongPtrW, MoveWindow, SW_SHOW,
+        SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetParent, SetWindowLongPtrW,
+        SetWindowPos, ShowWindow, WS_CAPTION, WS_CHILD, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME,
+        WS_EX_STATICEDGE, WS_EX_WINDOWEDGE, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU,
+        WS_THICKFRAME, WS_VISIBLE, WS_BORDER, WS_DLGFRAME,
     },
 };
 
@@ -324,27 +327,70 @@ impl LocalAliasUiApp {
         }
     }
 
+    fn ensure_child_window_style(&self, child_hwnd: HWND) {
+        unsafe {
+            let style = GetWindowLongPtrW(child_hwnd, GWL_STYLE) as u32;
+            let new_style = (style
+                & !WS_POPUP.0
+                & !WS_BORDER.0
+                & !WS_DLGFRAME.0
+                & !WS_CAPTION.0
+                & !WS_THICKFRAME.0
+                & !WS_MINIMIZEBOX.0
+                & !WS_MAXIMIZEBOX.0
+                & !WS_SYSMENU.0)
+                | WS_CHILD.0
+                | WS_VISIBLE.0;
+            if style != new_style {
+                SetWindowLongPtrW(child_hwnd, GWL_STYLE, new_style as isize);
+            }
+
+            let ex_style = GetWindowLongPtrW(child_hwnd, GWL_EXSTYLE) as u32;
+            let new_ex_style = ex_style
+                & !WS_EX_CLIENTEDGE.0
+                & !WS_EX_WINDOWEDGE.0
+                & !WS_EX_DLGMODALFRAME.0
+                & !WS_EX_STATICEDGE.0;
+            if ex_style != new_ex_style {
+                SetWindowLongPtrW(child_hwnd, GWL_EXSTYLE, new_ex_style as isize);
+            }
+
+            if style != new_style || ex_style != new_ex_style {
+                let _ = SetWindowPos(
+                    child_hwnd,
+                    None,
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
+                );
+            }
+        }
+    }
+
     fn embed_window_if_needed(&mut self, frame: &eframe::Frame) {
         if self.parent_hwnd == 0 {
             return;
         }
         if let Some(child_hwnd) = self.child_hwnd {
+            self.ensure_child_window_style(HWND(child_hwnd as *mut c_void));
             self.resize_child_window(child_hwnd);
             return;
         }
         let Ok(handle) = frame.window_handle() else {
+            log::warn!("Failed to get window handle for embedding.");
             return;
         };
         let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+            log::warn!("Unsupported window handle type for embedding.");
             return;
         };
         let child_hwnd = HWND(handle.hwnd.get() as *mut c_void);
         let parent_hwnd = HWND(self.parent_hwnd as *mut c_void);
         unsafe {
             let _ = SetParent(child_hwnd, parent_hwnd);
-            let style = GetWindowLongPtrW(child_hwnd, GWL_STYLE) as u32;
-            let new_style = (style & !WS_POPUP.0) | WS_CHILD.0 | WS_VISIBLE.0;
-            SetWindowLongPtrW(child_hwnd, GWL_STYLE, new_style as isize);
+            self.ensure_child_window_style(child_hwnd);
             let _ = ShowWindow(child_hwnd, SW_SHOW);
         }
         self.embedded = true;

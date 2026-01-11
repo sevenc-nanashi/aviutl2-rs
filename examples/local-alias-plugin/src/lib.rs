@@ -1,12 +1,7 @@
-mod entry;
 mod ui;
 mod window_client;
 
-use crate::entry::DummyObject;
-use aviutl2::{
-    AnyResult,
-    generic::{GenericPlugin, SubPlugin},
-};
+use aviutl2::{AnyResult, generic::GenericPlugin};
 use eframe::egui;
 use std::sync::{Arc, Mutex, OnceLock};
 use ui::{LocalAliasUiApp, UiState};
@@ -25,11 +20,7 @@ pub struct LocalAliasPlugin {
     _ui_thread: std::thread::JoinHandle<()>,
     window_client: WindowClient,
 
-    dummy: SubPlugin<DummyObject>,
-
     edit_handle: Arc<OnceLock<aviutl2::generic::EditHandle>>,
-    _replace_thread: std::thread::JoinHandle<()>,
-    replace_flag: std::sync::mpsc::Sender<()>,
 
     aliases: Vec<AliasEntry>,
 }
@@ -39,7 +30,7 @@ unsafe impl Sync for LocalAliasPlugin {}
 pub static CURRENT_ALIAS: Mutex<Option<AliasEntry>> = Mutex::new(None);
 
 impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
-    fn new(info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
+    fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
         Self::init_logging();
         log::info!("Initializing Rusty Local Alias Plugin...");
         let edit_handle = Arc::new(OnceLock::<aviutl2::generic::EditHandle>::new());
@@ -56,10 +47,19 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
                 .viewport
                 .with_title("Rusty Local Alias Plugin")
                 .with_inner_size(egui::vec2(800.0, 600.0));
+            #[cfg(windows)]
+            {
+                options.event_loop_builder = Some(Box::new(|builder| {
+                    use winit::platform::windows::EventLoopBuilderExtWindows;
+                    builder.with_any_thread(true);
+                }));
+            }
+            log::info!("Starting egui UI thread...");
             if let Err(e) = eframe::run_native(
                 "Rusty Local Alias Plugin",
                 options,
                 Box::new(move |cc| {
+                    log::info!("egui context initialized");
                     if !egui::FontDefinitions::default()
                         .font_data
                         .contains_key("M+ 1")
@@ -87,20 +87,12 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
             }
         });
 
-        let (replace_flag_tx, replace_flag_rx) = std::sync::mpsc::channel();
-        let replace_thread = Self::spawn_replace_thread(Arc::clone(&edit_handle), replace_flag_rx);
-
         Ok(LocalAliasPlugin {
             ui_state,
             ui_repaint,
             _ui_thread: ui_thread,
             window_client,
             edit_handle,
-
-            dummy: SubPlugin::new_filter_plugin(info)?,
-
-            _replace_thread: replace_thread,
-            replace_flag: replace_flag_tx,
 
             aliases: Vec::new(),
         })
@@ -118,7 +110,6 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
         {
             log::error!("Failed to register window client: {e}");
         }
-        registry.register_filter_plugin(&self.dummy);
     }
 
     fn on_project_load(&mut self, project: &mut aviutl2::generic::ProjectFile) {
@@ -143,53 +134,6 @@ impl LocalAliasPlugin {
                 log::LevelFilter::Info
             })
             .init();
-    }
-
-    fn spawn_replace_thread(
-        edit_handle: Arc<OnceLock<aviutl2::generic::EditHandle>>,
-        replace_flag_rx: std::sync::mpsc::Receiver<()>,
-    ) -> std::thread::JoinHandle<()> {
-        std::thread::spawn(move || {
-            loop {
-                // Wait for a replace signal
-                if replace_flag_rx.recv().is_err() {
-                    break;
-                }
-
-                let current_alias = CURRENT_ALIAS.lock().unwrap().clone();
-                if let Some(alias) = current_alias {
-                    let _ = edit_handle.wait().call_edit_section(move |section| {
-                        for layer in section.layers() {
-                            for (_, obj) in layer.objects() {
-                                let obj = section.object(&obj);
-                                let res = obj.get_effect_item(
-                                    if cfg!(debug_assertions) {
-                                        "Rusty Local Alias (Debug)"
-                                    } else {
-                                        "Rusty Local Alias"
-                                    },
-                                    0,
-                                    "Marker",
-                                );
-                                if res.is_ok() {
-                                    let position = obj.get_layer_frame()?;
-                                    obj.delete_object()?;
-
-                                    section.create_object_from_alias(
-                                        &alias.alias,
-                                        position.layer,
-                                        position.start,
-                                        position.end - position.start + 1,
-                                    )?;
-                                }
-                            }
-                        }
-
-                        anyhow::Ok(())
-                    });
-                }
-            }
-        })
     }
 
     fn update_ui_aliases(&self) {
