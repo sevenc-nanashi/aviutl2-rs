@@ -1,0 +1,18 @@
+[package]
+name = "aviutl2-eframe"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+winit = "0.30.12"
+windows = { version = "0.58.0", features = [
+  "Win32_Foundation",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_WindowsAndMessaging",
+] }
+eframe = "0.33.3"
+raw-window-handle = "0.6.2"

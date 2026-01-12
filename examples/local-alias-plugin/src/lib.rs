@@ -83,7 +83,7 @@ impl LocalAliasPlugin {
             {
                 state.selected_index = None;
             }
-            ui::sync_current_alias(&state);
+            ui::sync_current_alias(state);
         });
         self.ui_handle.request_repaint();
     }

@@ -1,47 +1,44 @@
 use crate::{AliasEntry, CURRENT_ALIAS, LocalAliasPlugin};
 use aviutl2::generic::GenericPlugin;
+use aviutl2_eframe::eframe;
 use eframe::egui;
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use raw_window_handle::HasWindowHandle;
 use std::sync::{Arc, Mutex, OnceLock};
-use windows::Win32::{
-    Foundation::HWND,
-    UI::Input::KeyboardAndMouse::SetFocus,
-    UI::WindowsAndMessaging::{
-        GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE,
-        SWP_NOZORDER, SetWindowLongPtrW, SetWindowPos, WS_BORDER, WS_CAPTION, WS_CHILD,
-        WS_DLGFRAME, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME, WS_EX_STATICEDGE, WS_EX_WINDOWEDGE,
-        WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
-    },
-};
+use std::sync::atomic::{AtomicBool, Ordering};
+use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+use windows::Win32::System::Threading::GetCurrentThreadId;
+use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, PostThreadMessageW, WM_CLOSE, WM_QUIT};
 
 pub(crate) struct UiHandle {
     hwnd: Arc<OnceLock<isize>>,
+    thread_id: Arc<OnceLock<u32>>,
     state: Arc<Mutex<UiState>>,
     repaint_ctx: Arc<Mutex<Option<egui::Context>>>,
-    _ui_thread: std::thread::JoinHandle<()>,
+    shutdown: Arc<AtomicBool>,
+    ui_thread: Option<std::thread::JoinHandle<()>>,
 }
 
 impl UiHandle {
     pub(crate) fn new() -> Self {
         let hwnd = Arc::new(OnceLock::new());
+        let thread_id = Arc::new(OnceLock::new());
         let state = Arc::new(Mutex::new(UiState::new()));
         let repaint_ctx = Arc::new(Mutex::new(None));
+        let shutdown = Arc::new(AtomicBool::new(false));
         let state_clone = Arc::clone(&state);
         let repaint_clone = Arc::clone(&repaint_ctx);
         let hwnd_clone = Arc::clone(&hwnd);
+        let thread_id_clone = Arc::clone(&thread_id);
+        let shutdown_clone = Arc::clone(&shutdown);
         let ui_thread = std::thread::spawn(move || {
+            let _ = thread_id_clone.set(unsafe { GetCurrentThreadId() });
             let mut options = eframe::NativeOptions::default();
             options.viewport = options
                 .viewport
                 .with_title("Rusty Local Alias Plugin")
-                .with_inner_size(egui::vec2(800.0, 600.0))
-                .with_visible(false);
-            options.event_loop_builder = Some(Box::new(|builder| {
-                use winit::platform::windows::EventLoopBuilderExtWindows;
-                builder.with_any_thread(true);
-            }));
+                .with_inner_size(egui::vec2(800.0, 600.0));
             log::info!("Starting egui UI thread...");
-            if let Err(e) = eframe::run_native(
+            if let Err(e) = aviutl2_eframe::run_native(
                 "Rusty Local Alias Plugin",
                 options,
                 Box::new(move |cc| {
@@ -88,10 +85,13 @@ impl UiHandle {
                         }
                         cc.egui_ctx.set_fonts(fonts);
                     }
+                    cc.egui_ctx.style_mut(|s| {
+                        s.visuals = egui::Visuals::dark();
+                    });
                     Ok(Box::new(LocalAliasUiApp::new(
                         state_clone,
                         repaint_clone,
-                        hwnd.hwnd.into(),
+                        shutdown_clone,
                     )))
                 }),
             ) {
@@ -101,9 +101,11 @@ impl UiHandle {
 
         Self {
             hwnd,
+            thread_id,
             state,
             repaint_ctx,
-            _ui_thread: ui_thread,
+            shutdown,
+            ui_thread: Some(ui_thread),
         }
     }
 
@@ -128,17 +130,25 @@ impl UiHandle {
     }
 }
 
-fn add_windows_font(fonts: &mut egui::FontDefinitions, name: &str, path: &str) {
-    if fonts.font_data.contains_key(name) {
-        return;
-    }
-    if let Ok(bytes) = std::fs::read(path) {
-        fonts.font_data.insert(
-            name.to_owned(),
-            std::sync::Arc::new(egui::FontData::from_owned(bytes)),
-        );
+impl Drop for UiHandle {
+    fn drop(&mut self) {
+        log::info!("Shutting down egui UI thread...");
+        self.shutdown.store(true, Ordering::Relaxed);
+        let ctx = self
+            .repaint_ctx
+            .lock()
+            .ok()
+            .and_then(|slot| slot.clone());
+        if let Some(ctx) = ctx {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            ctx.request_repaint();
+        }
+        if let Some(handle) = self.ui_thread.take() {
+            let _ = handle.join();
+        }
     }
 }
+
 impl raw_window_handle::HasWindowHandle for UiHandle {
     fn window_handle(
         &self,
@@ -151,6 +161,18 @@ impl raw_window_handle::HasWindowHandle for UiHandle {
         );
         let raw = raw_window_handle::RawWindowHandle::Win32(raw);
         Ok(unsafe { raw_window_handle::WindowHandle::borrow_raw(raw) })
+    }
+}
+
+fn add_windows_font(fonts: &mut egui::FontDefinitions, name: &str, path: &str) {
+    if fonts.font_data.contains_key(name) {
+        return;
+    }
+    if let Ok(bytes) = std::fs::read(path) {
+        fonts.font_data.insert(
+            name.to_owned(),
+            std::sync::Arc::new(egui::FontData::from_owned(bytes)),
+        );
     }
 }
 
@@ -181,24 +203,20 @@ impl UiState {
 pub(crate) struct LocalAliasUiApp {
     state: Arc<Mutex<UiState>>,
     repaint_ctx: Arc<Mutex<Option<egui::Context>>>,
-    embedded: bool,
-    hwnd: isize,
+    shutdown: Arc<AtomicBool>,
 }
 
 impl LocalAliasUiApp {
     pub(crate) fn new(
         state: Arc<Mutex<UiState>>,
         repaint_ctx: Arc<Mutex<Option<egui::Context>>>,
-        hwnd: isize,
+        shutdown: Arc<AtomicBool>,
     ) -> Self {
-        let this = Self {
+        Self {
             state,
             repaint_ctx,
-            embedded: false,
-            hwnd,
-        };
-        this.ensure_child_window_style(HWND(this.hwnd as _));
-        this
+            shutdown,
+        }
     }
 
     fn set_repaint_context(&self, ctx: &egui::Context) {
@@ -480,76 +498,15 @@ impl LocalAliasUiApp {
             state.confirm_delete_index = None;
         }
     }
-
-    fn ensure_child_window_style(&self, hwnd: HWND) {
-        unsafe {
-            let style = GetWindowLongPtrW(hwnd, GWL_STYLE) as u32;
-            let new_style = (style
-                & !WS_POPUP.0
-                & !WS_BORDER.0
-                & !WS_DLGFRAME.0
-                & !WS_CAPTION.0
-                & !WS_THICKFRAME.0
-                & !WS_MINIMIZEBOX.0
-                & !WS_MAXIMIZEBOX.0
-                & !WS_SYSMENU.0)
-                | WS_CHILD.0;
-            if style != new_style {
-                SetWindowLongPtrW(hwnd, GWL_STYLE, new_style as isize);
-            }
-
-            let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
-            let new_ex_style = ex_style
-                & !WS_EX_CLIENTEDGE.0
-                & !WS_EX_WINDOWEDGE.0
-                & !WS_EX_DLGMODALFRAME.0
-                & !WS_EX_STATICEDGE.0;
-            if ex_style != new_ex_style {
-                SetWindowLongPtrW(hwnd, GWL_EXSTYLE, new_ex_style as isize);
-            }
-
-            if style != new_style || ex_style != new_ex_style {
-                let _ = SetWindowPos(
-                    hwnd,
-                    None,
-                    0,
-                    0,
-                    0,
-                    0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
-                );
-            }
-        }
-    }
-
-    fn embed_window_if_needed(&mut self, frame: &eframe::Frame) {
-        let Ok(handle) = frame.window_handle() else {
-            log::warn!("Failed to get window handle for embedding.");
-            return;
-        };
-        let RawWindowHandle::Win32(_handle) = handle.as_raw() else {
-            log::warn!("Unsupported window handle type for embedding.");
-            return;
-        };
-        self.embedded = true;
-    }
-
-    fn ensure_window_focus(&self, ctx: &egui::Context) {
-        let pressed = ctx.input(|input| input.pointer.any_pressed());
-        if pressed {
-            unsafe {
-                let _ = SetFocus(HWND(self.hwnd as _));
-            }
-        }
-    }
 }
 
 impl eframe::App for LocalAliasUiApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if self.shutdown.load(Ordering::Relaxed) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            return;
+        }
         self.set_repaint_context(ctx);
-        self.ensure_child_window_style(HWND(self.hwnd as _));
-        self.embed_window_if_needed(frame);
-        self.ensure_window_focus(ctx);
 
         let mut add_clicked = false;
         let mut info_clicked = false;
