@@ -1,6 +1,6 @@
 #![allow(non_snake_case, non_camel_case_types, non_upper_case_globals)]
 
-use std::ffi::c_void;
+use std::{ffi::c_void, mem::MaybeUninit};
 
 use crate::common::LPCWSTR;
 
@@ -121,7 +121,7 @@ pub struct FILTER_ITEM_DATA {
     /// 汎用データのサイズ（1024バイト以下）
     pub size: i32,
     /// デフォルト値（sizeで指定した長さまで有効）
-    pub default_value: [u8; 1024],
+    pub default_value: [MaybeUninit<u8>; 1024],
 }
 
 /// 設定グループ項目構造体

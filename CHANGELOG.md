@@ -7,10 +7,12 @@
 - **Breaking:** module: `IntoScriptModuleReturnValue` traitの返り値をanyhow::Errorから変更
 - **Breaking:** module: `&[T]`、`[T]`は`Vec<T>`として返すように変更
 - **Breaking:** filter: `FilterPluginTable::filter_type`、`as_object`を`FilterPluginTable::flags`に統合
-- **Breaking:** filter: `#[derive(FilterConfigItems)]`を`#[aviutl2::filter_config_items]`に変更
+- **Breaking:** filter: `#[derive(FilterConfigItems)]`を`#[aviutl2::filter::filter_config_items]`に変更
+- **Breaking:** filter: `#[aviutl2::filter::filter_config_items]`の`#[path]`が`std::path::PathBuf`を受け取るように変更
 - `log`クレートで本体のログに出力できるように
 - aviutl2-aliasを追加
 - filter: `ObjectInfo::effect_id`、`FilterProcVideo::get_image_texture2d`、`FilterProcVideo::get_framebuffer_texture2d`を追加
+- filter: `#[aviutl2::filter::filter_config_items]`に`#[data]`、`#[group]`、`#[string]`、`#[text]`、`#[folder]`属性を追加
 
 ### デモプラグイン
 
