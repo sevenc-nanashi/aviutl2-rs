@@ -1,3 +1,4 @@
+use std::mem::MaybeUninit;
 use std::{ffi::c_void, ptr::NonNull};
 
 use crate::common::LeakManager;
@@ -196,10 +197,19 @@ impl FilterConfigItem {
                     name: leak_manager.leak_as_wide_string(&item.name),
                     value: std::ptr::null_mut(),
                     size: item.size as i32,
-                    default_value: [0u8; 1024],
+                    default_value: [MaybeUninit::new(0); 1024],
                 };
                 assert!(item.size <= 1024, "FilterConfigData size must be <= 1024");
-                data.default_value[..item.size].copy_from_slice(item.default_value());
+                unsafe {
+                    // SAFETY:
+                    // - item.size <= 1024かつ、
+                    // - item.default_value()はitem.size分のデータを持っている
+                    std::ptr::copy_nonoverlapping(
+                        item.default_value().as_ptr(),
+                        data.default_value.as_mut_ptr() as *mut u8,
+                        item.size,
+                    );
+                }
 
                 aviutl2_sys::filter2::FILTER_ITEM { data }
             }
