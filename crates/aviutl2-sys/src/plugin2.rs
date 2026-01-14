@@ -300,6 +300,37 @@ pub struct EDIT_HANDLE {
     /// info : 編集情報の格納先へのポインタ
     /// info_size : 編集情報の格納先のサイズ ※EDIT_INFOと異なる場合はサイズ分のみ取得されます
     pub get_edit_info: unsafe extern "C" fn(info: *mut EDIT_INFO, info_size: i32),
+
+    /// ホストアプリケーションを再起動します
+    pub restart_host_app: unsafe extern "C" fn(),
+
+    /// エフェクト名の一覧をコールバック関数（func_proc_enum_effect）で取得します
+    /// param : 任意のユーザーデータのポインタ
+    /// func_proc_enum_effect : エフェクト名の取得処理のコールバック関数
+    pub enum_effect_name: unsafe extern "C" fn(
+        param: *mut c_void,
+        func_proc_enum_effect: unsafe extern "C" fn(
+            param: *mut c_void,
+            name: LPCWSTR,
+            r#type: i32,
+            flag: i32,
+        ),
+    ),
+}
+
+impl EDIT_HANDLE {
+    /// エフェクト種別：フィルタ効果 ※今後追加される可能性があります
+    pub const EFFECT_TYPE_FILTER: i32 = 1;
+    /// エフェクト種別：メディア入力 ※今後追加される可能性があります
+    pub const EFFECT_TYPE_INPUT: i32 = 2;
+    /// エフェクト種別：シーンチェンジ ※今後追加される可能性があります
+    pub const EFFECT_TYPE_TRANSITION: i32 = 3;
+    /// エフェクトフラグ：画像をサポート ※今後追加される可能性があります
+    pub const EFFECT_FLAG_VIDEO: i32 = 1;
+    /// エフェクトフラグ：音声をサポート ※今後追加される可能性があります
+    pub const EFFECT_FLAG_AUDIO: i32 = 2;
+    /// エフェクトフラグ：フィルタオブジェクトをサポート ※今後追加される可能性があります
+    pub const EFFECT_FLAG_FILTER: i32 = 4;
 }
 
 /// プロジェクトファイル構造体

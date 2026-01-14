@@ -498,7 +498,7 @@ impl EditHandle {
     ///
     /// # Note
     ///
-    /// 既に編集処理中（`call_edit_section` 内）である場合、失敗します。
+    /// 既に編集処理中（`call_edit_section` 内）である場合、デッドロックします。
     pub fn get_edit_info(&self) -> crate::generic::EditInfo {
         let mut raw_info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::EDIT_INFO>::uninit();
         unsafe {
@@ -508,6 +508,98 @@ impl EditHandle {
             );
             let edit_info = raw_info.assume_init();
             crate::generic::EditInfo::from_raw(&edit_info)
+        }
+    }
+
+    /// ホストアプリケーションを再起動します。
+    pub fn restart_host_app(&self) {
+        unsafe {
+            ((*self.internal).restart_host_app)();
+        }
+    }
+
+    /// エフェクト名の一覧をコールバック関数で取得します。
+    pub fn enumerate_effect_names<F>(&self, mut callback: F)
+    where
+        F: FnMut(Effect),
+    {
+        extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            name: aviutl2_sys::common::LPCWSTR,
+            r#type: i32,
+            flag: i32,
+        ) where
+            F: FnMut(Effect),
+        {
+            let callback = unsafe { &mut *(param as *mut F) };
+            let name_str = unsafe { crate::common::load_wide_string(name) };
+            let effect = Effect {
+                name: name_str,
+                effect_type: EffectType::from(r#type),
+                flag,
+            };
+            callback(effect);
+        }
+
+        let trampoline_static = trampoline::<F>
+            as extern "C" fn(*mut std::ffi::c_void, aviutl2_sys::common::LPCWSTR, i32, i32);
+        let user_data = &mut callback as *mut F as *mut std::ffi::c_void;
+        unsafe {
+            ((*self.internal).enum_effect_name)(user_data, trampoline_static);
+        }
+    }
+
+    /// エフェクト名の一覧を取得します。
+    pub fn get_effect_names(&self) -> Vec<Effect> {
+        let mut effects = Vec::new();
+        self.enumerate_effect_names(|effect| {
+            effects.push(effect);
+        });
+        effects
+    }
+}
+
+/// エフェクト。
+pub struct Effect {
+    /// エフェクト名。
+    pub name: String,
+    /// エフェクト種別。
+    pub effect_type: EffectType,
+    /// フラグ。
+    /// （TODO：フラグをbitflagにする）
+    pub flag: i32,
+}
+
+/// エフェクト種別。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EffectType {
+    /// フィルタ効果。
+    Filter,
+    /// メディア入力。
+    Input,
+    /// シーンチェンジ。
+    SceneChange,
+    /// その他。
+    Other(i32),
+}
+
+impl From<i32> for EffectType {
+    fn from(value: i32) -> Self {
+        match value {
+            0 => EffectType::Filter,
+            1 => EffectType::Input,
+            2 => EffectType::SceneChange,
+            other => EffectType::Other(other),
+        }
+    }
+}
+impl From<EffectType> for i32 {
+    fn from(value: EffectType) -> Self {
+        match value {
+            EffectType::Filter => 0,
+            EffectType::Input => 1,
+            EffectType::SceneChange => 2,
+            EffectType::Other(other) => other,
         }
     }
 }
