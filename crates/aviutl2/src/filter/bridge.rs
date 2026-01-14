@@ -4,6 +4,7 @@ use crate::{
         AudioObjectInfo, FilterConfigItem, FilterPlugin, FilterPluginTable, FilterProcAudio,
         FilterProcVideo, ObjectInfo, SceneInfo, VideoObjectInfo,
     },
+    utils::catch_unwind_with_panic_info,
 };
 
 impl FilterProcAudio {
@@ -203,13 +204,6 @@ pub unsafe fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::F
         plugin_info.information.clone()
     };
 
-    let flag = plugin_info.filter_type.to_bits()
-        | (if plugin_info.as_object {
-            aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_INPUT
-        } else {
-            0
-        });
-
     let config_items = plugin_info
         .config_items
         .iter()
@@ -234,7 +228,7 @@ pub unsafe fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::F
 
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
     let table = aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
-        flag,
+        flag: plugin_info.flags.to_bits(),
         name: plugin_state.global_leak_manager.leak_as_wide_string(&name),
         information: plugin_state
             .global_leak_manager
@@ -253,35 +247,52 @@ pub unsafe fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::F
 extern "C" fn func_proc_video<T: FilterSingleton>(
     video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
 ) -> bool {
-    let plugin_lock = T::__get_singleton_state();
-    update_configs::<T>(plugin_lock);
-    let plugin_state = plugin_lock.read().unwrap();
-    let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
+    match catch_unwind_with_panic_info(|| {
+        let plugin_lock = T::__get_singleton_state();
+        anyhow::ensure!(!plugin_lock.is_poisoned(), "Plugin state lock is poisoned");
+        update_configs::<T>(plugin_lock);
+        let plugin_state = plugin_lock.read().unwrap();
+        let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
 
-    plugin_state.leak_manager.free_leaked_memory();
-    let plugin = &plugin_state.instance;
-    let mut video = unsafe { FilterProcVideo::from_raw(video) };
-    if let Err(e) = plugin.proc_video(&plugin_state.config_items, &mut video) {
-        log::error!("Error in proc_video: {}", e);
-        return false;
+        plugin_state.leak_manager.free_leaked_memory();
+        let plugin = &plugin_state.instance;
+        let mut video = unsafe { FilterProcVideo::from_raw(video) };
+        plugin.proc_video(&plugin_state.config_items, &mut video)
+    }) {
+        Ok(Ok(())) => true,
+        Ok(Err(e)) => {
+            log::error!("Error in proc_video: {}", e);
+            false
+        }
+        Err(e) => {
+            log::error!("Panic in proc_video: {}", e);
+            false
+        }
     }
-    true
 }
 extern "C" fn func_proc_audio<T: FilterSingleton>(
     audio: *mut aviutl2_sys::filter2::FILTER_PROC_AUDIO,
 ) -> bool {
-    let plugin_lock = T::__get_singleton_state();
-    update_configs::<T>(plugin_lock);
-    let plugin_state = plugin_lock.read().unwrap();
-    let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
-    plugin_state.leak_manager.free_leaked_memory();
-    let plugin = &plugin_state.instance;
-    let mut audio = unsafe { FilterProcAudio::from_raw(audio) };
-    if let Err(e) = plugin.proc_audio(&plugin_state.config_items, &mut audio) {
-        log::error!("Error in proc_audio: {}", e);
-        return false;
+    match catch_unwind_with_panic_info(|| {
+        let plugin_lock = T::__get_singleton_state();
+        update_configs::<T>(plugin_lock);
+        let plugin_state = plugin_lock.read().unwrap();
+        let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
+        plugin_state.leak_manager.free_leaked_memory();
+        let plugin = &plugin_state.instance;
+        let mut audio = unsafe { FilterProcAudio::from_raw(audio) };
+        plugin.proc_audio(&plugin_state.config_items, &mut audio)
+    }) {
+        Ok(Ok(())) => true,
+        Ok(Err(e)) => {
+            log::error!("Error in proc_audio: {}", e);
+            false
+        }
+        Err(e) => {
+            log::error!("Panic in proc_audio: {}", e);
+            false
+        }
     }
-    true
 }
 
 /// フィルタプラグインを登録するマクロ。

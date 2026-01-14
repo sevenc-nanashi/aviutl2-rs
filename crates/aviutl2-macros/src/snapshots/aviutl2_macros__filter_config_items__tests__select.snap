@@ -2,6 +2,9 @@
 source: crates/aviutl2-macros/src/filter_config_items.rs
 expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
+struct Config {
+    mode: usize,
+}
 #[automatically_derived]
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
@@ -32,7 +35,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
                 ::aviutl2::filter::FilterConfigItem::Select(ref select) => {
                     (select.value as usize) as _
                 }
-                _ => panic!("Expected Select at index {}", 0usize),
+                _ => panic!("expected Select at index {}", 0usize),
             },
         }
     }

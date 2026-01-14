@@ -2,6 +2,9 @@
 source: crates/aviutl2-macros/src/filter_config_items.rs
 expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
+struct Config {
+    input_file: std::path::PathBuf,
+}
 #[automatically_derived]
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
@@ -26,13 +29,9 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
         Self {
             input_file: match items[0usize] {
                 ::aviutl2::filter::FilterConfigItem::File(ref file) => {
-                    if file.value.is_empty() {
-                        None
-                    } else {
-                        Some(std::path::PathBuf::from(&file.value))
-                    }
+                    std::path::PathBuf::from(&file.value)
                 }
-                _ => panic!("Expected File at index {}", 0usize),
+                _ => panic!("expected File at index {}", 0usize),
             },
         }
     }
@@ -40,6 +39,8 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
 #[automatically_derived]
 impl ::std::default::Default for Config {
     fn default() -> Self {
-        Self { input_file: None }
+        Self {
+            input_file: ::std::path::PathBuf::new(),
+        }
     }
 }

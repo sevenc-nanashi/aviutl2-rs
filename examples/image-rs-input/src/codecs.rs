@@ -93,13 +93,33 @@ pub fn read_webp_headers<R: std::io::Read + std::io::Seek>(
 
     while let Some((chunk_type, chunk_data)) = read_chunk(reader) {
         match chunk_type.as_str() {
-            "VP8 " | "VP8L" => {
+            "VP8 " => {
                 anyhow::ensure!(
                     chunk_data.len() >= 10,
                     "VP8 chunk too small to contain width and height"
                 );
-                width = u16::from_le_bytes(chunk_data[6..8].try_into().unwrap()) as u32;
-                height = u16::from_le_bytes(chunk_data[8..10].try_into().unwrap()) as u32;
+                width = (chunk_data[6] as u32 | ((chunk_data[7] as u32) << 8)) & 0x3FFF;
+                height = (chunk_data[8] as u32 | ((chunk_data[9] as u32) << 8)) & 0x3FFF;
+            }
+            "VP8L" => {
+                anyhow::ensure!(
+                    chunk_data.len() >= 5,
+                    "VP8L chunk too small to contain width and height"
+                );
+                let b0 = chunk_data[1];
+                let b1 = chunk_data[2];
+                let b2 = chunk_data[3];
+                let b3 = chunk_data[4];
+                width = 1 + (((b1 as u32 & 0x3F) << 8) | (b0 as u32));
+                height = 1 + (((b3 as u32 & 0x0F) << 10) | ((b2 as u32) << 2) | ((b1 as u32) >> 6));
+            }
+            "VP8X" => {
+                anyhow::ensure!(
+                    chunk_data.len() == 10,
+                    "VP8X chunk must be exactly 10 bytes long"
+                );
+                width = 1 + read_u24_le(&chunk_data[4..7]);
+                height = 1 + read_u24_le(&chunk_data[7..10]);
             }
             "ANIM" => {
                 anyhow::ensure!(
@@ -224,6 +244,35 @@ mod tests {
     #[test]
     fn test_read_static_webp_headers() {
         let data = include_bytes!("../test_data/static.webp");
+        let mut cursor = std::io::Cursor::new(data.as_ref());
+        let animation_info = read_webp_headers(&mut cursor).unwrap();
+
+        insta::assert_debug_snapshot!(animation_info);
+    }
+
+    #[test]
+    fn test_read_static_lossless_webp_headers() {
+        let data = include_bytes!("../test_data/dummy_static_lossless.webp");
+        let mut cursor = std::io::Cursor::new(data.as_ref());
+        let animation_info = read_webp_headers(&mut cursor).unwrap();
+
+        insta::assert_debug_snapshot!(animation_info);
+    }
+
+    #[test]
+    fn test_read_animated_lossy_webp_headers() {
+        // by sigma-axis: https://canary.discord.com/channels/1392018499072823327/1446412324851421255/1446418177096679568
+        let data = include_bytes!("../test_data/oklch_color_solid_1.webp");
+        let mut cursor = std::io::Cursor::new(data.as_ref());
+        let animation_info = read_webp_headers(&mut cursor).unwrap();
+
+        insta::assert_debug_snapshot!(animation_info);
+    }
+
+    #[test]
+    fn test_read_animated_lossless_webp_headers() {
+        // by sigma-axis: https://canary.discord.com/channels/1392018499072823327/1446412324851421255/1446425367857598676
+        let data = include_bytes!("../test_data/oklch_color_solid_lossless_1.webp");
         let mut cursor = std::io::Cursor::new(data.as_ref());
         let animation_info = read_webp_headers(&mut cursor).unwrap();
 

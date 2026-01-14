@@ -44,3 +44,5 @@ serde = { version = "1.0.228", optional = true }
 thiserror = "2.0.12"
 zerocopy = { version = "0.8.26", features = ["std"] }
 zstd = { version = "0.13.3", optional = true }
+dashmap = "6.1.0"
+parking_lot = "0.12.5"

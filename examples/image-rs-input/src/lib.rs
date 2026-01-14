@@ -231,7 +231,6 @@ impl InputPlugin for ImageInputPlugin {
                     .ok_or_else(|| anyhow::anyhow!("Failed to get frame {}", frame))?;
                 handle.current_frame += 1;
                 let img = frame.into_buffer();
-
                 returner.write(&img);
                 handle.reader = Some(ImageReader::Animated(frames));
             }
