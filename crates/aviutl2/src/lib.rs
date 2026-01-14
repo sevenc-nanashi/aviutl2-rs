@@ -46,8 +46,6 @@ pub use anyhow;
 pub use half;
 pub use log;
 
-#[cfg(feature = "aviutl2-alias")]
-pub use aviutl2_alias as alias;
 #[cfg(feature = "image")]
 pub use image;
 pub use num_rational;
