@@ -13,6 +13,8 @@ mod utils;
 
 /// `FilterConfigItems` を自動で実装するためのマクロ。
 ///
+/// このマクロは他の`derive`などのマクロより先に適用する必要があります。
+///
 /// # Attributes
 ///
 /// - structのフィールドはすべてちょうど1つの属性を持つ必要があります。
@@ -20,7 +22,7 @@ mod utils;
 /// ## `track`
 ///
 /// ```rust
-/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
 /// #[track(name = "サンプル整数", range = 0..=100, default = 50, step = 1.0)]
 /// int_field: i32,
@@ -40,7 +42,7 @@ mod utils;
 /// ## `check`
 ///
 /// ```rust
-/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
 /// #[check(name = "サンプルチェックボックス", default = true)]
 /// bool_field: bool,
@@ -55,7 +57,7 @@ mod utils;
 /// ## `color`
 ///
 /// ```rust
-/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
 /// #[color(name = "サンプルカラー", default = 0x48b0d5)]
 /// color_field: aviutl2::filter::FilterConfigColorValue,
@@ -74,7 +76,7 @@ mod utils;
 /// ## `select`
 ///
 /// ```rust
-/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
 /// #[select(
 ///     name = "サンプルセレクトボックス",
@@ -94,7 +96,7 @@ mod utils;
 ///    Fuga,
 /// }
 ///
-/// #[derive(aviutl2_macros::FilterConfigItems)]
+/// #[aviutl2_macros::filter_config_items]
 /// struct MyConfig {
 ///     #[select(
 ///         name = "サンプルセレクトボックス",
@@ -115,30 +117,159 @@ mod utils;
 /// ## `file`
 ///
 /// ```rust
-/// # #[derive(aviutl2_macros::FilterConfigItems)]
+/// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
 /// #[file(name = "サンプルファイル", filters = {
 ///     "テキストファイル" => ["txt"],
 ///     "すべてのファイル" => []
 /// })]
-/// file_field: Option<std::path::PathBuf>,
+/// file_field: std::path::PathBuf,
 /// # }
 /// ```
 ///
 /// - `name`: ファイル選択の名前。省略した場合、フィールド名が使用されます。
 /// - `filters`: ファイルフィルタのリスト。キーがフィルタ名、値が拡張子のリストです。
 ///
-/// - 値の型は`Option<std::path::PathBuf>`である必要があります。
+/// - 値の型は`std::path::PathBuf`である必要があります。
+///
+/// ## `string`
+///
+/// ```rust
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[string(name = "サンプル文字列", default = "初期値")]
+/// string_field: String,
+/// # }
+/// ```
+///
+/// - `name`: 文字列項目の名前。省略した場合、フィールド名が使用されます。
+/// - `default`: 文字列の初期値。省略した場合、空文字列になります。
+///
+/// - 値の型は`String`である必要があります。
+///
+/// ## `text`
+///
+/// ```rust
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[text(name = "サンプルテキスト", default = "複数行テキスト")]
+/// text_field: String,
+/// # }
+/// ```
+///
+/// - `name`: テキスト項目の名前。省略した場合、フィールド名が使用されます。
+/// - `default`: テキストの初期値。省略した場合、空文字列になります。
+///
+/// - 値の型は`String`である必要があります。
+///
+/// ## `folder`
+///
+/// ```rust
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[folder(name = "サンプルフォルダ", default = "C:\\\\")]
+/// folder_field: String,
+/// # }
+/// ```
+///
+/// - `name`: フォルダ選択の名前。省略した場合、フィールド名が使用されます。
+/// - `default`: フォルダの初期値。省略した場合、空文字列になります。
+///
+/// - 値の型は`String`である必要があります。
+///
+/// ## `data`
+///
+/// ```rust
+/// # use aviutl2::filter::FilterConfigDataHandle;
+/// # #[derive(Debug, Default, Clone, Copy)]
+/// # struct MyData {
+/// #    value: i32,
+/// # }
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[data(name = "サンプルデータ", default = MyData { value: 0 })]
+/// data_field: FilterConfigDataHandle<MyData>,
+/// # }
+/// ```
+///
+/// - `name`: データの名前。省略した場合、フィールド名が使用されます。
+/// - `default`: データの初期値。省略した場合、`Default::default()`が使用されます。
+///
+/// - 値の型は`aviutl2::filter::FilterConfigDataHandle<T>`である必要があります。
+///
+/// ## `group`
+///
+/// ```rust
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[group(name = "サンプルグループ", opened = true)]
+/// group: group! {
+///     // ...
+/// #   #[check(name = "フィールド", default = false)]
+/// #   field: bool,
+/// },
+/// # }
+/// ```
+///
+/// グループとしてフィールドをまとめます。
+///
+/// - `name`: グループの名前。省略した場合、フィールド名が使用されます。
+/// - `opened`: グループが初期状態で開いているかどうか。省略した場合、`true`になります。
+///
+/// - 型には`group! { ... }`と記述する必要があります。
+///   - `group! { ... }`の中には他のフィールドを同様に記述します。
+/// - このフィールドは削除されます。
+///
+/// ## `button`
+///
+/// ```rust,ignore
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[button(name = "サンプルボタン")]
+/// button: on_button_pressed,
+/// # }
+/// ```
+///
+/// <div class="warning">
+/// この属性はまだ実装されていません。
+/// </div>
+///
+/// `aviutl2::filter::FilterConfigItem::Button`を挿入します。
+///
+/// - `name`: ボタンの名前。省略した場合、フィールド名が使用されます。
+/// - 型には関数名を指定します。また、関数名とフィールド名が同じ場合は`fn()`と省略できます。
+/// - 関数のシグネチャは以下のようになります。
+///
+/// ```rust,ignore
+/// fn on_button_pressed(handle: &mut aviutl2::plugin::EditSection) { /* ... */ }
+/// ```
+///
+/// - このフィールドは削除されます。
 ///
 /// # Example
 ///
 /// ```rust
-/// #[derive(Debug, aviutl2::filter::FilterConfigItems)]
+/// use aviutl2::filter::FilterConfigDataHandle;
+///
+/// #[derive(Debug, Default, Clone, Copy)]
+/// struct MyData {
+///    value: i32,
+/// }
+///
+/// // fn my_button_handler(handle: &mut aviutl2::plugin::EditSection) {
+/// //     // ボタンが押されたときの処理
+/// // }
+///
+/// #[aviutl2_macros::filter_config_items]
+/// #[derive(Debug)]
 /// struct FilterConfig {
-///     #[track(name = "サンプル整数", range = -100..=100, default = 0, step = 1.0)]
-///     sample_integer: i32,
-///     #[track(name = "サンプル小数", range = -1.0..=1.0, default = 0.0, step = 0.01)]
-///     sample_float: f64,
+///     #[group(name = "サンプルグループ", opened = true)]
+///     sample_group: group! {
+///         #[track(name = "サンプル整数", range = -100..=100, default = 0, step = 1.0)]
+///         sample_integer: i32,
+///         #[track(name = "サンプル小数", range = -1.0..=1.0, default = 0.0, step = 0.01)]
+///         sample_float: f64,
+///     },
 ///     #[check(name = "サンプルチェックボックス", default = true)]
 ///     sample_checkbox: bool,
 ///     #[select(
@@ -153,15 +284,23 @@ mod utils;
 ///         "テキストファイル" => ["txt"],
 ///         "すべてのファイル" => [],
 ///     })]
-///     sample_file: Option<std::path::PathBuf>,
+///     sample_file: std::path::PathBuf,
+///     #[data(name = "サンプルデータ")]
+///     sample_data: FilterConfigDataHandle<MyData>,
+///
+///     // #[button(name = "サンプルボタン")]
+///     // on_button_pressed: my_button_handler,
 /// }
 /// ```
 ///
 /// # See Also
 ///
 /// - [`FilterConfigSelectItems`]
-#[proc_macro_derive(FilterConfigItems, attributes(track, check, color, select, file))]
-pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_attribute]
+pub fn filter_config_items(
+    _attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     filter_config_items::filter_config_items(item.into())
         .unwrap_or_else(|e| e)
         .into()
@@ -203,6 +342,66 @@ pub fn filter_config_items(item: proc_macro::TokenStream) -> proc_macro::TokenSt
 #[proc_macro_derive(FilterConfigSelectItems, attributes(item))]
 pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     filter_config_select_items::filter_config_select_items(item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// `FromScriptModuleParam` を自動で実装するためのマクロ。
+///
+/// このマクロを利用するには、構造体の各フィールドが `aviutl2::module::FromScriptModuleParamValue`
+/// トレイトを実装している必要があります。
+///
+/// # Example
+///
+/// ```rust
+/// #[derive(aviutl2::module::FromScriptModuleParam)]
+/// struct MyStruct {
+///     foo: i32,
+///     bar: String,
+/// }
+/// ```
+#[proc_macro_derive(FromScriptModuleParam)]
+pub fn from_script_module_param(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    from_script_module_param::from_script_module_param(item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// `IntoScriptModuleReturnValue` を自動で実装するためのマクロ。
+///
+/// このマクロを利用するには、
+///
+/// - 構造体のすべてのフィールドが同じ`T`または`Option<T>`型、かつ
+/// - `std::collections::HashMap<String, T>`が`IntoScriptModuleReturnValue`を実装している
+///
+/// 必要があります。
+///
+/// # Example
+///
+/// ```rust
+/// #[derive(aviutl2::module::IntoScriptModuleReturnValue)]
+/// struct MyStruct {
+///     foo: Option<String>,
+///     bar: String,
+/// }
+/// ```
+///
+/// 以下は動きません：
+///
+/// ```rust,compile_fail
+/// #[derive(aviutl2::module::IntoScriptModuleReturnValue)]
+/// struct MyBadStruct {
+///    foo: String,
+///    bar: i32, // 異なる型
+/// }
+/// ```
+///
+/// # See Also
+///
+/// - [`FromScriptModuleParam`]
+#[proc_macro_derive(IntoScriptModuleReturnValue)]
+pub fn into_script_module_return_value(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    into_script_module_return_value::into_script_module_return_value(item.into())
         .unwrap_or_else(|e| e)
         .into()
 }
@@ -284,66 +483,6 @@ pub fn module_functions(
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     module_functions::module_functions(item.into())
-        .unwrap_or_else(|e| e)
-        .into()
-}
-
-/// `FromScriptModuleParam` を自動で実装するためのマクロ。
-///
-/// このマクロを利用するには、構造体の各フィールドが `aviutl2::module::FromScriptModuleParamValue`
-/// トレイトを実装している必要があります。
-///
-/// # Example
-///
-/// ```rust
-/// #[derive(aviutl2::module::FromScriptModuleParam)]
-/// struct MyStruct {
-///     foo: i32,
-///     bar: String,
-/// }
-/// ```
-#[proc_macro_derive(FromScriptModuleParam)]
-pub fn from_script_module_param(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    from_script_module_param::from_script_module_param(item.into())
-        .unwrap_or_else(|e| e)
-        .into()
-}
-
-/// `IntoScriptModuleReturnValue` を自動で実装するためのマクロ。
-///
-/// このマクロを利用するには、
-///
-/// - 構造体のすべてのフィールドが同じ`T`または`Option<T>`型、かつ
-/// - `std::collections::HashMap<String, T>`が`IntoScriptModuleReturnValue`を実装している
-///
-/// 必要があります。
-///
-/// # Example
-///
-/// ```rust
-/// #[derive(aviutl2::module::IntoScriptModuleReturnValue)]
-/// struct MyStruct {
-///     foo: Option<String>,
-///     bar: String,
-/// }
-/// ```
-///
-/// 以下は動きません：
-///
-/// ```rust,compile_fail
-/// #[derive(aviutl2::module::IntoScriptModuleReturnValue)]
-/// struct MyBadStruct {
-///    foo: String,
-///    bar: i32, // 異なる型
-/// }
-/// ```
-///
-/// # See Also
-///
-/// - [`FromScriptModuleParam`]
-#[proc_macro_derive(IntoScriptModuleReturnValue)]
-pub fn into_script_module_return_value(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    into_script_module_return_value::into_script_module_return_value(item.into())
         .unwrap_or_else(|e| e)
         .into()
 }

@@ -1,6 +1,7 @@
+use parking_lot::lock_api::RawRwLock;
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
-use super::config;
+use super::{ErasedFilterConfigData, config};
 use crate::common::{AnyResult, AviUtl2Info, Rational32};
 
 /// 入力プラグインの情報を表す構造体。
@@ -15,39 +16,36 @@ pub struct FilterPluginTable {
     /// 「プラグイン情報」ダイアログで表示されます。
     pub information: String,
 
-    /// 入力の種類。
-    pub filter_type: FilterType,
-
-    /// カスタムオブジェクトにするかどうか。
-    /// `true` の場合、カスタムオブジェクトとして動作します。
-    /// `false` の場合、フィルタ効果として動作します。
-    pub as_object: bool,
+    /// 対応している機能のフラグ。
+    pub flags: FilterPluginFlags,
 
     /// 設定項目。
     pub config_items: Vec<config::FilterConfigItem>,
 }
-/// 動画・画像と音声の入力情報をまとめた構造体。
-/// 入力の種類を表す列挙型。
-#[derive(Debug, Clone)]
-pub enum FilterType {
-    /// 動画のみ。
-    Video,
-    /// 音声のみ。
-    Audio,
-    /// 動画と音声の両方。
-    Both,
-}
 
-impl FilterType {
-    pub(crate) fn to_bits(&self) -> i32 {
-        match self {
-            FilterType::Video => aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_VIDEO,
-            FilterType::Audio => aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_AUDIO,
-            FilterType::Both => {
-                aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_VIDEO
-                    | aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_AUDIO
-            }
-        }
+define_bitflag! {
+    /// フィルタプラグインのフラグ。
+    ///
+    /// # See Also
+    ///
+    /// - [`crate::bitflag!`]
+    #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[non_exhaustive]
+    pub struct FilterPluginFlags: i32 {
+        /// 画像フィルタをサポートするかどうか。
+        video: aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_VIDEO,
+
+        /// 音声フィルタをサポートするかどうか。
+        audio: aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_AUDIO,
+
+        /// カスタムオブジェクトにするかどうか。
+        /// `true` の場合、カスタムオブジェクトとして動作します。
+        /// `false` の場合、フィルタ効果として動作します。
+        as_object: aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_INPUT,
+
+        /// フィルタオブジェクトをサポートするかどうか。
+        /// `true` の場合、フィルタオブジェクトとして使えるようになります。
+        as_filter: aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_FILTER,
     }
 }
 
@@ -61,6 +59,10 @@ pub trait FilterPlugin: Send + Sync + Sized {
     fn plugin_info(&self) -> FilterPluginTable;
 
     /// 画像フィルタ処理関数。
+    ///
+    /// # Note
+    ///
+    /// フィルタオブジェクトの場合、画像サイズは変更できません。
     fn proc_video(
         &self,
         _config: &[config::FilterConfigItem],
@@ -176,7 +178,7 @@ impl FilterProcVideo {
     ///
     /// # Note
     ///
-    /// [`FilterPluginTable::as_object`] が `true` の場合、この関数は何もせずに 0 を返します。
+    /// [`FilterPluginFlags::video`] が `true` の場合、この関数は何もせずに 0 を返します。
     pub fn get_image_data<T>(&mut self, buffer: &mut [T]) -> usize
     where
         T: Copy + FromBytes + Immutable,
@@ -231,6 +233,26 @@ impl FilterProcVideo {
                 height as i32,
             )
         };
+    }
+
+    /// 現在のオブジェクトの画像データのポインタをID3D11Texture2Dのポインタとして取得する。
+    ///
+    /// # Warning
+    ///
+    /// [`Self::set_image_data`] によって現在の画像が変更されるかフィルタ処理の終了まで有効です。
+    pub fn get_image_texture2d(&mut self) -> *mut std::ffi::c_void {
+        let inner = unsafe { &*self.inner };
+        unsafe { (inner.get_image_texture2d)() }
+    }
+
+    /// 現在のフレームバッファの画像データのポインタをID3D11Texture2Dのポインタとして取得する。
+    ///
+    /// # Warning
+    ///
+    /// フィルタ処理の終了まで有効です。
+    pub fn get_framebuffer_texture2d(&mut self) -> *mut std::ffi::c_void {
+        let inner = unsafe { &*self.inner };
+        unsafe { (inner.get_framebuffer_texture2d)() }
     }
 }
 
@@ -309,5 +331,304 @@ impl FilterProcAudio {
         );
         let inner = unsafe { &*self.inner };
         unsafe { (inner.set_sample_data)(data.as_ptr(), channel.into()) };
+    }
+}
+
+/// フィルタプラグインでのデータを使うためのハンドル。
+/// RwLockのような仕組みで安全にデータを扱うことができます。
+#[derive(Debug)]
+pub struct FilterConfigDataHandle<T: Copy> {
+    pub(crate) inner: *mut T,
+}
+
+unsafe impl<T: Send + Sync + Copy> Send for FilterConfigDataHandle<T> {}
+unsafe impl<T: Send + Sync + Copy> Sync for FilterConfigDataHandle<T> {}
+
+static HANDLES: std::sync::LazyLock<dashmap::DashMap<usize, parking_lot::RawRwLock>> =
+    std::sync::LazyLock::new(dashmap::DashMap::new);
+static OWNED_REFERENCES: std::sync::LazyLock<
+    std::sync::Arc<dashmap::DashMap<usize, std::sync::atomic::AtomicUsize>>,
+> = std::sync::LazyLock::new(|| std::sync::Arc::new(dashmap::DashMap::new()));
+
+impl<T: Copy> Clone for FilterConfigDataHandle<T> {
+    fn clone(&self) -> Self {
+        if !self.inner.is_null() {
+            let addr = self.inner as usize;
+            if OWNED_REFERENCES.contains_key(&addr) {
+                let entry = OWNED_REFERENCES.get(&addr).unwrap();
+                entry.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+        Self { inner: self.inner }
+    }
+}
+impl<T: Copy> Drop for FilterConfigDataHandle<T> {
+    fn drop(&mut self) {
+        if !self.inner.is_null() {
+            let addr = self.inner as usize;
+            if let Some(entry) = OWNED_REFERENCES.get(&addr) {
+                let prev = entry.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+                if prev == 1 {
+                    unsafe {
+                        let _boxed = Box::from_raw(self.inner);
+                    }
+                    // NOTE: ここでdropしないとdeadlockする
+                    drop(entry);
+                    OWNED_REFERENCES.remove(&addr);
+                }
+            }
+        }
+    }
+}
+
+impl<T: Copy> FilterConfigDataHandle<T> {
+    #[doc(hidden)]
+    pub fn __generics_default_value() -> T
+    where
+        T: Default,
+    {
+        T::default()
+    }
+
+    #[doc(hidden)]
+    pub fn __from_erased(erased: &ErasedFilterConfigData) -> Self {
+        Self {
+            inner: erased.value.map_or(std::ptr::null_mut(), |v| v.as_ptr()) as *mut T,
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn __new_owned(value: T) -> Self {
+        let boxed = Box::new(value);
+        let pointer = Box::into_raw(boxed);
+        let addr = pointer as *mut () as usize;
+        OWNED_REFERENCES.insert(addr, std::sync::atomic::AtomicUsize::new(1));
+        Self { inner: pointer }
+    }
+
+    /// データを読み取るためのロックを取得する。
+    pub fn read<'handle>(&'handle self) -> FilterConfigDataReadGuard<'handle, T> {
+        let addr = self.inner as *mut () as usize;
+        let lock = HANDLES
+            .entry(addr)
+            .or_insert_with(|| parking_lot::RawRwLock::INIT);
+        let lock = lock.value();
+
+        lock.lock_shared();
+        FilterConfigDataReadGuard::new(self.inner)
+    }
+
+    /// データを読み取るためのロックの取得を試みる。
+    /// ロックが取得できなかった場合は `None` を返します。
+    pub fn try_read<'handle>(&'handle self) -> Option<FilterConfigDataReadGuard<'handle, T>> {
+        let addr = self.inner as *mut () as usize;
+        let lock = HANDLES
+            .entry(addr)
+            .or_insert_with(|| parking_lot::RawRwLock::INIT);
+        let lock = lock.value();
+
+        if lock.try_lock_shared() {
+            Some(FilterConfigDataReadGuard::new(self.inner))
+        } else {
+            None
+        }
+    }
+
+    /// データを書き込むためのロックを取得する。
+    pub fn write<'handle>(&'handle self) -> FilterConfigDataWriteGuard<'handle, T> {
+        let addr = self.inner as *mut () as usize;
+        let lock = HANDLES
+            .entry(addr)
+            .or_insert_with(|| parking_lot::RawRwLock::INIT);
+        let lock = lock.value();
+        lock.lock_exclusive();
+        FilterConfigDataWriteGuard::new(self.inner)
+    }
+
+    /// データを書き込むためのロックの取得を試みる。
+    /// ロックが取得できなかった場合は `None` を返します。
+    pub fn try_write<'handle>(&'handle self) -> Option<FilterConfigDataWriteGuard<'handle, T>> {
+        let addr = self.inner as *mut () as usize;
+        let lock = HANDLES
+            .entry(addr)
+            .or_insert_with(|| parking_lot::RawRwLock::INIT);
+        let lock = lock.value();
+        if lock.try_lock_exclusive() {
+            Some(FilterConfigDataWriteGuard::new(self.inner))
+        } else {
+            None
+        }
+    }
+
+    /// 内部のポインタを取得する。
+    ///
+    /// # Warning
+    ///
+    /// このポインタを直接操作するとデータ競合が発生する可能性があります。
+    pub fn as_ptr(&self) -> *mut T {
+        self.inner
+    }
+}
+
+/// フィルタプラグインのデータを読み取るためのガード。
+pub struct FilterConfigDataReadGuard<'handle, T: Copy> {
+    pub(crate) inner: *mut T,
+    _handle: std::marker::PhantomData<&'handle FilterConfigDataHandle<T>>,
+}
+unsafe impl<T: Send + Sync + Copy> Send for FilterConfigDataReadGuard<'_, T> {}
+unsafe impl<T: Send + Sync + Copy> Sync for FilterConfigDataReadGuard<'_, T> {}
+impl<T: Copy> FilterConfigDataReadGuard<'_, T> {
+    fn new<'handle>(inner: *mut T) -> FilterConfigDataReadGuard<'handle, T> {
+        FilterConfigDataReadGuard {
+            inner,
+            _handle: std::marker::PhantomData,
+        }
+    }
+}
+impl<T: Copy> Drop for FilterConfigDataReadGuard<'_, T> {
+    fn drop(&mut self) {
+        let addr = self.inner as *mut () as usize;
+        if let Some(entry) = HANDLES.get(&addr) {
+            let lock = entry.value();
+            unsafe { lock.unlock_shared() };
+        }
+    }
+}
+impl<T: Copy> std::convert::AsRef<T> for FilterConfigDataReadGuard<'_, T> {
+    fn as_ref(&self) -> &T {
+        unsafe { &*self.inner }
+    }
+}
+impl<T: Copy> std::ops::Deref for FilterConfigDataReadGuard<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
+}
+
+/// フィルタプラグインのデータを書き込むためのガード。
+pub struct FilterConfigDataWriteGuard<'handle, T: Copy> {
+    pub(crate) inner: *mut T,
+    _handle: std::marker::PhantomData<&'handle FilterConfigDataHandle<T>>,
+}
+
+unsafe impl<T: Send + Sync + Copy> Send for FilterConfigDataWriteGuard<'_, T> {}
+unsafe impl<T: Send + Sync + Copy> Sync for FilterConfigDataWriteGuard<'_, T> {}
+impl<T: Copy> FilterConfigDataWriteGuard<'_, T> {
+    fn new<'handle>(inner: *mut T) -> FilterConfigDataWriteGuard<'handle, T> {
+        FilterConfigDataWriteGuard {
+            inner,
+            _handle: std::marker::PhantomData,
+        }
+    }
+}
+impl<T: Copy> Drop for FilterConfigDataWriteGuard<'_, T> {
+    fn drop(&mut self) {
+        let addr = self.inner as *mut () as usize;
+        if let Some(entry) = HANDLES.get(&addr) {
+            let lock = entry.value();
+            unsafe { lock.unlock_exclusive() };
+        }
+    }
+}
+impl<T: Copy> std::convert::AsMut<T> for FilterConfigDataWriteGuard<'_, T> {
+    fn as_mut(&mut self) -> &mut T {
+        unsafe { &mut *self.inner }
+    }
+}
+impl<T: Copy> std::ops::Deref for FilterConfigDataWriteGuard<'_, T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.inner }
+    }
+}
+impl<T: Copy> std::ops::DerefMut for FilterConfigDataWriteGuard<'_, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_mut()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn filter_config_data_handle_reads_initial_value() {
+        let handle = FilterConfigDataHandle::<u32>::__new_owned(42);
+        let read_guard = handle.read();
+        assert_eq!(*read_guard, 42);
+    }
+
+    #[test]
+    fn filter_config_data_handle_writes_and_reads_updated_value() {
+        let handle = FilterConfigDataHandle::<u32>::__new_owned(42);
+        {
+            let mut write_guard = handle.write();
+            *write_guard = 100;
+        }
+        let read_guard = handle.read();
+        assert_eq!(*read_guard, 100);
+    }
+
+    #[test]
+    fn filter_config_data_handle_try_read_fails_when_locked_for_write() {
+        let handle = FilterConfigDataHandle::<u32>::__new_owned(42);
+        let _write_guard = handle.write();
+        let try_read_guard = handle.try_read();
+        assert!(try_read_guard.is_none());
+    }
+
+    #[test]
+    fn filter_config_data_handle_try_write_fails_when_locked_for_read() {
+        let handle = FilterConfigDataHandle::<u32>::__new_owned(42);
+        let _read_guard = handle.read();
+        let try_write_guard = handle.try_write();
+        assert!(try_write_guard.is_none());
+    }
+
+    #[test]
+    fn filter_config_data_handle_clone_shares_state() {
+        let handle = FilterConfigDataHandle::<u32>::__new_owned(42);
+        let cloned_handle = handle.clone();
+        {
+            let mut write_guard = handle.write();
+            *write_guard = 100;
+        }
+        let read_guard = cloned_handle.read();
+        assert_eq!(*read_guard, 100);
+    }
+
+    #[test]
+    fn filter_config_data_handle_never_drops_data_for_borrowed() {
+        let mut data =
+            crate::filter::ErasedFilterConfigData::with_default_value("test".to_string(), 42);
+        let data_ptr = Box::into_raw(Box::new(42u32));
+        data.value = Some(std::ptr::NonNull::new(data_ptr as _).unwrap());
+        let handle = FilterConfigDataHandle::<u32>::__from_erased(&data);
+        drop(handle);
+
+        assert_eq!(unsafe { *data_ptr }, 42);
+    }
+
+    #[test]
+    fn filter_config_data_handle_reads_value_from_erased_data() {
+        let boxed = Box::new(77u32);
+        let ptr = std::ptr::NonNull::from(boxed.as_ref());
+        let data = crate::filter::FilterConfigData {
+            name: "test".to_string(),
+            value: Some(ptr),
+            default_value: 0,
+        };
+        let erased = data.erase_type();
+        let handle = FilterConfigDataHandle::<u32>::__from_erased(&erased);
+        let read_guard = handle.read();
+
+        assert_eq!(*read_guard, 77);
+        assert_eq!(erased.value.unwrap().as_ptr() as *mut u32, ptr.as_ptr());
+
+        drop(read_guard);
+        drop(handle);
+        drop(boxed);
     }
 }

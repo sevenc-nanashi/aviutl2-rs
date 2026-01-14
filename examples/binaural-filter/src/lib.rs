@@ -4,7 +4,8 @@ use aviutl2::{
 };
 use ringbuffer::RingBuffer;
 
-#[derive(Debug, Clone, PartialEq, aviutl2::filter::FilterConfigItems)]
+#[aviutl2::filter::filter_config_items]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FilterConfig {
     #[track(name = "ゲイン", range = 0.0..=8.0, step = 0.01, default = 2.0)]
     gain: f32,
@@ -187,8 +188,7 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
                 "Binaural filter, powered by Steam Audio, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/equalizer-filter",
                 version = env!("CARGO_PKG_VERSION")
             ),
-            filter_type: aviutl2::filter::FilterType::Audio,
-            as_object: false,
+            flags: aviutl2::bitflag!(aviutl2::filter::FilterPluginFlags { audio: true }),
             config_items: FilterConfig::to_config_items(),
         }
     }

@@ -1,8 +1,11 @@
+use std::mem::MaybeUninit;
+use std::{ffi::c_void, ptr::NonNull};
+
 use crate::common::LeakManager;
 
 /// [`Vec<FilterConfigItem>`] と相互変換するためのトレイト。
 /// 基本的にはこのトレイトを手動で実装する必要はありません。
-/// [`derive@FilterConfigItems`] マクロを使用してください。
+/// [`macro@filter_config_items`] マクロを使用してください。
 ///
 /// <div class="warning">
 ///
@@ -13,7 +16,7 @@ use crate::common::LeakManager;
 ///
 /// # See Also
 ///
-/// [derive@FilterConfigItems]
+/// [`macro@filter_config_items`]
 pub trait FilterConfigItems: Sized {
     /// [`Vec<FilterConfigItem>`] に変換します。
     fn to_config_items() -> Vec<FilterConfigItem>;
@@ -26,7 +29,7 @@ pub trait FilterConfigItems: Sized {
     fn from_config_items(items: &[FilterConfigItem]) -> Self;
 }
 #[doc(inline)]
-pub use aviutl2_macros::FilterConfigItems;
+pub use aviutl2_macros::filter_config_items;
 
 /// `&[FilterConfigItem]` に対する拡張トレイト。
 pub trait FilterConfigItemSliceExt {
@@ -41,6 +44,7 @@ impl FilterConfigItemSliceExt for &[FilterConfigItem] {
 }
 
 /// フィルタの設定。
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum FilterConfigItem {
     /// トラックバー。
@@ -53,6 +57,16 @@ pub enum FilterConfigItem {
     Select(FilterConfigSelect),
     /// ファイル選択。
     File(FilterConfigFile),
+    /// 文字列。
+    String(FilterConfigString),
+    /// テキスト。
+    Text(FilterConfigText),
+    /// フォルダ選択。
+    Folder(FilterConfigFolder),
+    /// 汎用データ。
+    Data(ErasedFilterConfigData),
+    /// グループ。
+    Group(FilterConfigGroup),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -62,10 +76,22 @@ pub(crate) enum FilterConfigItemValue {
     Color(FilterConfigColorValue),
     Select(i32),
     File(String),
+    String(String),
+    Text(String),
+    Folder(String),
+    Data {
+        value: *mut std::ffi::c_void,
+        size: usize,
+    },
+    Group,
 }
 
 impl FilterConfigItem {
     /// 設定名を取得します。
+    ///
+    /// # Note
+    ///
+    /// `FilterConfigItem::Group` の場合、`name` が `None` のときは空文字列を返します。
     pub fn name(&self) -> &str {
         match self {
             FilterConfigItem::Track(item) => &item.name,
@@ -73,6 +99,11 @@ impl FilterConfigItem {
             FilterConfigItem::Color(item) => &item.name,
             FilterConfigItem::Select(item) => &item.name,
             FilterConfigItem::File(item) => &item.name,
+            FilterConfigItem::String(item) => &item.name,
+            FilterConfigItem::Text(item) => &item.name,
+            FilterConfigItem::Folder(item) => &item.name,
+            FilterConfigItem::Data(item) => &item.name,
+            FilterConfigItem::Group(item) => item.name.as_deref().unwrap_or(""),
         }
     }
 
@@ -139,6 +170,56 @@ impl FilterConfigItem {
                     },
                 }
             }
+            FilterConfigItem::String(item) => aviutl2_sys::filter2::FILTER_ITEM {
+                string: aviutl2_sys::filter2::FILTER_ITEM_STRING {
+                    r#type: leak_manager.leak_as_wide_string("string"),
+                    name: leak_manager.leak_as_wide_string(&item.name),
+                    value: leak_manager.leak_as_wide_string(&item.value),
+                },
+            },
+            FilterConfigItem::Text(item) => aviutl2_sys::filter2::FILTER_ITEM {
+                text: aviutl2_sys::filter2::FILTER_ITEM_TEXT {
+                    r#type: leak_manager.leak_as_wide_string("text"),
+                    name: leak_manager.leak_as_wide_string(&item.name),
+                    value: leak_manager.leak_as_wide_string(&item.value),
+                },
+            },
+            FilterConfigItem::Folder(item) => aviutl2_sys::filter2::FILTER_ITEM {
+                folder: aviutl2_sys::filter2::FILTER_ITEM_FOLDER {
+                    r#type: leak_manager.leak_as_wide_string("folder"),
+                    name: leak_manager.leak_as_wide_string(&item.name),
+                    value: leak_manager.leak_as_wide_string(&item.value),
+                },
+            },
+            FilterConfigItem::Data(item) => {
+                let mut data = aviutl2_sys::filter2::FILTER_ITEM_DATA {
+                    r#type: leak_manager.leak_as_wide_string("data"),
+                    name: leak_manager.leak_as_wide_string(&item.name),
+                    value: std::ptr::null_mut(),
+                    size: item.size as i32,
+                    default_value: [MaybeUninit::new(0); 1024],
+                };
+                assert!(item.size <= 1024, "FilterConfigData size must be <= 1024");
+                unsafe {
+                    // SAFETY:
+                    // - item.size <= 1024かつ、
+                    // - item.default_value()はitem.size分のデータを持っている
+                    std::ptr::copy_nonoverlapping(
+                        item.default_value().as_ptr(),
+                        data.default_value.as_mut_ptr() as *mut u8,
+                        item.size,
+                    );
+                }
+
+                aviutl2_sys::filter2::FILTER_ITEM { data }
+            }
+            FilterConfigItem::Group(item) => aviutl2_sys::filter2::FILTER_ITEM {
+                group: aviutl2_sys::filter2::FILTER_ITEM_GROUP {
+                    r#type: leak_manager.leak_as_wide_string("group"),
+                    name: leak_manager.leak_as_wide_string(item.name.as_deref().unwrap_or("")),
+                    default_visible: item.opened,
+                },
+            },
         }
     }
 
@@ -151,7 +232,7 @@ impl FilterConfigItem {
         let item_type = unsafe {
             crate::common::load_wide_string(
                 // SAFETY: aviutl2_sys::filter2::FILTER_ITEM の最初のメンバーはLPCWSTRなので問題ないはず
-                *(raw as *const aviutl2_sys::common::LPCWSTR),
+                *(raw.cast::<aviutl2_sys::common::LPCWSTR>()),
             )
         };
         match item_type.as_str() {
@@ -176,6 +257,38 @@ impl FilterConfigItem {
                 let value = unsafe { crate::common::load_wide_string(raw_file.value) };
                 FilterConfigItemValue::File(value)
             }
+            "string" => {
+                let raw_string = unsafe { &(*raw).string };
+                let value = unsafe { crate::common::load_wide_string(raw_string.value) };
+                FilterConfigItemValue::String(value)
+            }
+            "text" => {
+                let raw_text = unsafe { &(*raw).text };
+                let value = unsafe { crate::common::load_wide_string(raw_text.value) };
+                FilterConfigItemValue::Text(value)
+            }
+            "folder" => {
+                let raw_folder = unsafe { &(*raw).folder };
+                let value = unsafe { crate::common::load_wide_string(raw_folder.value) };
+                FilterConfigItemValue::Folder(value)
+            }
+            "data" => {
+                // NOTE:
+                // `&(*raw).data`だと最後の方がアクセス違反になりかねないメモリを指す可能性があるのでしない
+                let raw_size = unsafe { (*raw).data.size };
+                let raw_data = unsafe { (*raw).data.value };
+                let size =
+                    usize::try_from(raw_size).expect("FILTER_ITEM_DATA size must not be negative");
+                assert!(
+                    size <= 1024,
+                    "FILTER_ITEM_DATA size must be 1024 bytes or less"
+                );
+                FilterConfigItemValue::Data {
+                    value: raw_data,
+                    size,
+                }
+            }
+            "group" => FilterConfigItemValue::Group,
             _ => panic!("Unknown filter config item type: {}", item_type),
         }
     }
@@ -196,6 +309,20 @@ impl FilterConfigItem {
             (FilterConfigItem::Color(item), FilterConfigItemValue::Color(v)) => item.value != v,
             (FilterConfigItem::Select(item), FilterConfigItemValue::Select(v)) => item.value != v,
             (FilterConfigItem::File(item), FilterConfigItemValue::File(v)) => item.value != v,
+            (FilterConfigItem::String(item), FilterConfigItemValue::String(v)) => item.value != v,
+            (FilterConfigItem::Text(item), FilterConfigItemValue::Text(v)) => item.value != v,
+            (FilterConfigItem::Folder(item), FilterConfigItemValue::Folder(v)) => item.value != v,
+            (FilterConfigItem::Data(item), FilterConfigItemValue::Data { value, size }) => {
+                let size_changed = item.size != size;
+                let ptr_changed = match (item.value, NonNull::new(value)) {
+                    (Some(old), Some(new)) => old != new,
+                    (None, None) => false,
+                    _ => true,
+                };
+
+                size_changed || ptr_changed
+            }
+            (FilterConfigItem::Group(_), FilterConfigItemValue::Group) => false,
             _ => {
                 panic!("Mismatched filter config item type");
             }
@@ -222,6 +349,22 @@ impl FilterConfigItem {
             }
             (FilterConfigItem::File(item), FilterConfigItemValue::File(v)) => {
                 item.value = v;
+            }
+            (FilterConfigItem::String(item), FilterConfigItemValue::String(v)) => {
+                item.value = v;
+            }
+            (FilterConfigItem::Text(item), FilterConfigItemValue::Text(v)) => {
+                item.value = v;
+            }
+            (FilterConfigItem::Folder(item), FilterConfigItemValue::Folder(v)) => {
+                item.value = v;
+            }
+            (FilterConfigItem::Data(item), FilterConfigItemValue::Data { value, size }) => {
+                item.size = size;
+                item.value = NonNull::new(value);
+            }
+            (FilterConfigItem::Group(_), FilterConfigItemValue::Group) => {
+                // グループは値を持たないので何もしない
             }
             _ => {
                 panic!("Mismatched filter config item type");
@@ -425,4 +568,203 @@ pub struct FilterConfigFile {
     pub value: String,
     /// ファイルフィルタ。
     pub filters: Vec<crate::common::FileFilter>,
+}
+
+/// 文字列。
+#[derive(Debug, Clone)]
+pub struct FilterConfigString {
+    /// 設定名。
+    pub name: String,
+    /// 設定値。
+    pub value: String,
+}
+
+/// テキスト。
+#[derive(Debug, Clone)]
+pub struct FilterConfigText {
+    /// 設定名。
+    pub name: String,
+    /// 設定値。
+    pub value: String,
+}
+
+/// フォルダ選択。
+#[derive(Debug, Clone)]
+pub struct FilterConfigFolder {
+    /// 設定名。
+    pub name: String,
+    /// 設定値。
+    pub value: String,
+}
+
+/// 型を消去した汎用データ。
+///
+/// # Warning
+///
+/// この型は型が全くついていません。
+/// 基本的には[`FilterConfigData`]を使用してください。
+#[derive(Debug, Clone)]
+pub struct ErasedFilterConfigData {
+    /// 設定名。
+    pub name: String,
+    /// データのサイズ。
+    ///
+    /// # Note
+    ///
+    /// 1024バイトを超えることはできません。
+    pub size: usize,
+    /// 現在の値を指すポインタ。
+    pub value: Option<NonNull<std::ffi::c_void>>,
+    default_value: [u8; 1024],
+}
+
+impl ErasedFilterConfigData {
+    /// 新しく作成します。
+    /// `value` は `None` になります。
+    ///
+    /// # Panics
+    ///
+    /// Tが1024バイトを超える場合、パニックします。
+    pub fn new<T: Copy + Default + 'static>(name: String) -> Self {
+        Self::with_default_value(name, T::default())
+    }
+
+    /// デフォルト値を指定して新しく作成します。
+    /// `value` は `None` になります。
+    ///
+    /// # Panics
+    ///
+    /// Tが1024バイトを超える場合、パニックします。
+    pub fn with_default_value<T: Copy + 'static>(name: String, default_value: T) -> Self {
+        assert!(
+            std::mem::size_of::<T>() <= 1024,
+            "FilterConfigData<T> size must be <= 1024 bytes"
+        );
+        let size = std::mem::size_of::<T>();
+        let mut default_value_bytes = [0u8; 1024];
+        let default_value_ptr = (&raw const default_value).cast::<u8>();
+        default_value_bytes[..size]
+            .copy_from_slice(unsafe { std::slice::from_raw_parts(default_value_ptr, size) });
+
+        ErasedFilterConfigData {
+            name,
+            size,
+            value: None,
+            default_value: default_value_bytes,
+        }
+    }
+
+    /// デフォルト値のスライスを取得します。
+    pub fn default_value(&self) -> &[u8] {
+        &self.default_value[..self.size]
+    }
+
+    /// 型付きの汎用データに変換します。
+    ///
+    /// # Safety
+    ///
+    /// - `self` を消去する前の型Tと同じ型で呼び出す必要があります。
+    /// - Tのサイズが`self.size`と一致している必要があります。
+    /// - `self.value`が指すポインタが有効である必要があります。
+    /// - `self.default_value`はTとして有効なデータである必要があります。
+    pub unsafe fn into_typed<T: Copy + 'static>(self) -> FilterConfigData<T> {
+        let expected_size = std::mem::size_of::<T>();
+        assert_eq!(
+            self.size, expected_size,
+            "Size mismatch when converting ErasedFilterConfigData to FilterConfigData<T>"
+        );
+        let value = self
+            .value
+            .map(|v| NonNull::new(v.as_ptr().cast::<T>()).unwrap());
+        let default_value_ptr = self.default_value.as_ptr().cast::<T>();
+        let default_value = unsafe { *default_value_ptr };
+        FilterConfigData {
+            name: self.name,
+            value,
+            default_value,
+        }
+    }
+}
+
+/// 汎用データ。
+///
+/// # Note
+///
+/// Tのサイズが変わったとき、値はデフォルト値にリセットされます。
+#[derive(Debug, Clone)]
+pub struct FilterConfigData<T: Copy + 'static> {
+    /// 設定名。
+    pub name: String,
+    /// 設定値。
+    pub value: Option<NonNull<T>>,
+    /// デフォルト値。
+    pub default_value: T,
+}
+
+impl<T: Copy + 'static> FilterConfigData<T> {
+    /// 型を消去した汎用データに変換します。
+    ///
+    /// # Panics
+    ///
+    /// Tが1024バイトを超える場合、パニックします。
+    pub fn erase_type(&self) -> ErasedFilterConfigData {
+        assert!(
+            std::mem::size_of::<T>() <= 1024,
+            "FilterConfigData<T> size must be <= 1024 bytes"
+        );
+        let size = std::mem::size_of::<T>();
+        let mut default_value = [0u8; 1024];
+        let default_value_ptr = (&raw const self.default_value).cast::<u8>();
+        default_value[..size]
+            .copy_from_slice(unsafe { std::slice::from_raw_parts(default_value_ptr, size) });
+
+        ErasedFilterConfigData {
+            name: self.name.clone(),
+            size,
+            value: self
+                .value
+                .map(|v| NonNull::new(v.as_ptr().cast::<c_void>()).unwrap()),
+            default_value,
+        }
+    }
+}
+
+impl<T: Copy + 'static> From<FilterConfigData<T>> for ErasedFilterConfigData {
+    fn from(value: FilterConfigData<T>) -> Self {
+        value.erase_type()
+    }
+}
+
+/// グループ。
+#[derive(Debug, Clone)]
+pub struct FilterConfigGroup {
+    /// 設定名。
+    /// Noneの場合、グループの終端として扱われます。
+    pub name: Option<String>,
+
+    /// デフォルトで開いているかどうか。
+    pub opened: bool,
+}
+
+impl FilterConfigGroup {
+    /// グループの開始を表す設定を作成します。
+    pub fn start(name: String) -> Self {
+        Self::start_with_opened(name, true)
+    }
+
+    /// `opened` を指定してグループの開始を表す設定を作成します。
+    pub fn start_with_opened(name: String, opened: bool) -> Self {
+        FilterConfigGroup {
+            name: Some(name),
+            opened,
+        }
+    }
+
+    /// グループの終了を表す設定を作成します。
+    pub fn end() -> Self {
+        FilterConfigGroup {
+            name: None,
+            opened: false,
+        }
+    }
 }

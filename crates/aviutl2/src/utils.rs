@@ -84,6 +84,53 @@ pub fn bgra_to_rgba_bytes(data: &mut [u8]) {
     rgba_to_bgra_bytes(data);
 }
 
+/// bitflagを簡単に初期化するためのマクロ。
+///
+/// # Example
+///
+/// ```rust
+/// # use aviutl2::bitflag;
+///
+/// let flag = bitflag!(
+///     aviutl2::filter::FilterPluginFlags {
+///         video: true,
+///     }
+/// );
+///
+/// assert!(flag.video);
+/// assert_eq!(flag.to_bits(), aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_VIDEO);
+/// ```
+#[macro_export]
+macro_rules! bitflag {
+    ($ty:ty { $($name:ident : $bit:expr),* $(,)? }) => {
+        {
+            let mut value: $ty = ::std::default::Default::default();
+            $(
+                value.$name = $bit;
+            )*
+            value
+        }
+    }
+}
+
+pub(crate) fn catch_unwind_with_panic_info<F, R>(f: F) -> Result<R, String>
+where
+    F: FnOnce() -> R + std::panic::UnwindSafe,
+{
+    match std::panic::catch_unwind(f) {
+        Ok(result) => Ok(result),
+        Err(err) => {
+            if let Some(s) = err.downcast_ref::<&str>() {
+                Err(s.to_string())
+            } else if let Some(s) = err.downcast_ref::<String>() {
+                Err(s.clone())
+            } else {
+                Err("<unknown panic".to_string())
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

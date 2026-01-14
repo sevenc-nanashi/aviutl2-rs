@@ -1,6 +1,6 @@
 #![allow(non_snake_case, non_camel_case_types, non_upper_case_globals)]
 
-use std::ffi::c_void;
+use std::{ffi::c_void, mem::MaybeUninit};
 
 use crate::common::LPCWSTR;
 
@@ -11,6 +11,12 @@ pub union FILTER_ITEM {
     pub color: FILTER_ITEM_COLOR,
     pub select: FILTER_ITEM_SELECT,
     pub file: FILTER_ITEM_FILE,
+    pub data: FILTER_ITEM_DATA,
+    pub group: FILTER_ITEM_GROUP,
+    pub button: FILTER_ITEM_BUTTON,
+    pub string: FILTER_ITEM_STRING,
+    pub text: FILTER_ITEM_TEXT,
+    pub folder: FILTER_ITEM_FOLDER,
 }
 
 /// トラックバー項目構造体
@@ -101,6 +107,93 @@ pub struct FILTER_ITEM_FILE {
     pub filefilter: LPCWSTR,
 }
 
+/// 汎用データ項目構造体
+/// `default_value` は最大1024バイトまでの任意のデータを格納できます。
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_DATA {
+    /// 設定の種別（L"data"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// 設定値（フィルタ処理の呼び出し時に現在の値のポインタに更新されます）
+    pub value: *mut c_void,
+    /// 汎用データのサイズ（1024バイト以下）
+    pub size: i32,
+    /// デフォルト値（sizeで指定した長さまで有効）
+    pub default_value: [MaybeUninit<u8>; 1024],
+}
+
+/// 設定グループ項目構造体
+/// 自身以降の設定項目をグループ化することが出来ます
+/// ※設定名を空にするとグループの終端を定義することが出来ます
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_GROUP {
+    /// 設定の種別（L"group"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// デフォルトの表示状態
+    pub default_visible: bool,
+}
+
+/// ボタン項目構造体
+/// ボタンを押すとコールバック関数が呼ばれます
+/// ※plugin2.hの編集のコールバック関数と同様な形になります
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_BUTTON {
+    /// 設定の種別（L"button"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// コールバック関数
+    ///
+    /// # Note
+    ///
+    /// edit_sectionはEDIT_SECTION構造体へのポインタです（そのうち定義します）
+    pub callback: Option<extern "C" fn(edit_section: *mut c_void)>,
+}
+
+/// 文字列項目構造体
+/// ※1行の文字列
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_STRING {
+    /// 設定の種別（L"string"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// 設定値（フィルタ処理の呼び出し時に現在の値のポインタに更新されます）
+    pub value: LPCWSTR,
+}
+
+/// テキスト項目構造体
+/// ※複数行の文字列
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_TEXT {
+    /// 設定の種別（L"text"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// 設定値（フィルタ処理の呼び出し時に現在の値のポインタに更新されます）
+    pub value: LPCWSTR,
+}
+
+/// フォルダ選択項目構造体
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_FOLDER {
+    /// 設定の種別（L"folder"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// 設定値（フィルタ処理の呼び出し時に現在の値のポインタに更新されます）
+    pub value: LPCWSTR,
+}
+
 /// RGBA32bit構造体
 #[repr(C)]
 pub struct PIXEL_RGBA {
@@ -172,6 +265,16 @@ pub struct FILTER_PROC_VIDEO {
     /// buffer: 画像データへのポインタ
     /// width,height: 画像サイズ
     pub set_image_data: unsafe extern "C" fn(buffer: *const PIXEL_RGBA, width: i32, height: i32),
+
+    // 現在のオブジェクトの画像データのポインタを取得する (ID3D11Texture2Dのポインタを取得します)
+    // 戻り値		: オブジェクトの画像データへのポインタ
+    //				  ※現在の画像が変更(set_image_data)されるかフィルタ処理の終了まで有効
+    pub get_image_texture2d: unsafe extern "C" fn() -> *mut c_void,
+
+    // 現在のフレームバッファの画像データのポインタを取得する (ID3D11Texture2Dのポインタを取得します)
+    // 戻り値		: フレームバッファの画像データへのポインタ
+    //				  ※フィルタ処理の終了まで有効
+    pub get_framebuffer_texture2d: unsafe extern "C" fn() -> *mut c_void,
 }
 
 /// 音声フィルタ処理用構造体
@@ -199,8 +302,11 @@ impl FILTER_PLUGIN_TABLE {
     pub const FLAG_VIDEO: i32 = 1;
     /// 音声フィルタをサポートする
     pub const FLAG_AUDIO: i32 = 2;
-    /// オブジェクトの初期入力をする (メディアオブジェクトにする場合)
+    /// メディアオブジェクトの初期入力をする (メディアオブジェクトにする場合)
     pub const FLAG_INPUT: i32 = 4;
+    /// フィルタオブジェクトをサポートする (フィルタオブジェクトに対応する場合)
+    /// フィルタオブジェクトの場合は画像サイズの変更が出来ません
+    pub const FLAG_FILTER: i32 = 8;
 }
 
 /// フィルタプラグイン構造体

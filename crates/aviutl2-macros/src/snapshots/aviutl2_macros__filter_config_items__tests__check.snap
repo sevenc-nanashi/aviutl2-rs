@@ -2,6 +2,9 @@
 source: crates/aviutl2-macros/src/filter_config_items.rs
 expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
+struct Config {
+    enable: bool,
+}
 #[automatically_derived]
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
@@ -16,7 +19,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
         Self {
             enable: match items[0usize] {
                 ::aviutl2::filter::FilterConfigItem::Checkbox(ref check) => check.value,
-                _ => panic!("Expected Checkbox at index {}", 0usize),
+                _ => panic!("expected Checkbox at index {}", 0usize),
             },
         }
     }

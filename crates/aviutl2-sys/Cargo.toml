@@ -14,4 +14,9 @@ default-target = "x86_64-pc-windows-msvc"
 targets = []
 
 [dependencies]
-windows-sys = { version = "0.60.2", features = ["Win32", "Win32_Graphics_Gdi", "Win32_Media_Audio", "Win32_Media_Multimedia"] }
+windows-sys = { version = "0.61.2", features = [
+  "Win32",
+  "Win32_Graphics_Gdi",
+  "Win32_Media_Audio",
+  "Win32_Media_Multimedia",
+] }
