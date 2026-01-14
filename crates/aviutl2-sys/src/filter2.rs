@@ -13,6 +13,10 @@ pub union FILTER_ITEM {
     pub file: FILTER_ITEM_FILE,
     pub data: FILTER_ITEM_DATA,
     pub group: FILTER_ITEM_GROUP,
+    pub button: FILTER_ITEM_BUTTON,
+    pub string: FILTER_ITEM_STRING,
+    pub text: FILTER_ITEM_TEXT,
+    pub folder: FILTER_ITEM_FOLDER,
 }
 
 /// トラックバー項目構造体
@@ -104,9 +108,6 @@ pub struct FILTER_ITEM_FILE {
 }
 
 /// 汎用データ項目構造体
-///
-/// # Note
-///
 /// `default_value` は最大1024バイトまでの任意のデータを格納できます。
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -124,9 +125,6 @@ pub struct FILTER_ITEM_DATA {
 }
 
 /// 設定グループ項目構造体
-///
-/// # Note
-///
 /// 自身以降の設定項目をグループ化することが出来ます
 /// ※設定名を空にするとグループの終端を定義することが出来ます
 #[repr(C)]
@@ -138,6 +136,62 @@ pub struct FILTER_ITEM_GROUP {
     pub name: LPCWSTR,
     /// デフォルトの表示状態
     pub default_visible: bool,
+}
+
+/// ボタン項目構造体
+/// ボタンを押すとコールバック関数が呼ばれます
+/// ※plugin2.hの編集のコールバック関数と同様な形になります
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_BUTTON {
+    /// 設定の種別（L"button"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// コールバック関数
+    ///
+    /// # Note
+    ///
+    /// edit_sectionはEDIT_SECTION構造体へのポインタです（そのうち定義します）
+    pub callback: Option<extern "C" fn(edit_section: *mut c_void)>,
+}
+
+/// 文字列項目構造体
+/// ※1行の文字列
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_STRING {
+    /// 設定の種別（L"string"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// 設定値（フィルタ処理の呼び出し時に現在の値のポインタに更新されます）
+    pub value: LPCWSTR,
+}
+
+/// テキスト項目構造体
+/// ※複数行の文字列
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_TEXT {
+    /// 設定の種別（L"text"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// 設定値（フィルタ処理の呼び出し時に現在の値のポインタに更新されます）
+    pub value: LPCWSTR,
+}
+
+/// フォルダ選択項目構造体
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_FOLDER {
+    /// 設定の種別（L"folder"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// 設定値（フィルタ処理の呼び出し時に現在の値のポインタに更新されます）
+    pub value: LPCWSTR,
 }
 
 /// RGBA32bit構造体
