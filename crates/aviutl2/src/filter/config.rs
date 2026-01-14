@@ -273,15 +273,18 @@ impl FilterConfigItem {
                 FilterConfigItemValue::Folder(value)
             }
             "data" => {
-                let raw_data = unsafe { &(*raw).data };
-                let size = usize::try_from(raw_data.size)
-                    .expect("FILTER_ITEM_DATA size must not be negative");
+                // NOTE:
+                // `&(*raw).data`だと最後の方がアクセス違反になりかねないメモリを指す可能性があるのでしない
+                let raw_size = unsafe { (*raw).data.size };
+                let raw_data = unsafe { (*raw).data.value };
+                let size =
+                    usize::try_from(raw_size).expect("FILTER_ITEM_DATA size must not be negative");
                 assert!(
                     size <= 1024,
                     "FILTER_ITEM_DATA size must be 1024 bytes or less"
                 );
                 FilterConfigItemValue::Data {
-                    value: raw_data.value,
+                    value: raw_data,
                     size,
                 }
             }
