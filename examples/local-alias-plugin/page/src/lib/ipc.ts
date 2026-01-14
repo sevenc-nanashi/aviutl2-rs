@@ -58,10 +58,6 @@ export const ipc = {
     bridge.send("set_aliases", aliases);
   },
 
-  addAlias(): void {
-    bridge.send("add_alias", undefined);
-  },
-
   setCurrentAlias(alias: AliasEntry): void {
     bridge.send("set_current_alias", alias);
   },

@@ -19,9 +19,6 @@ onMounted(() => {
   ipc.getVersion().then((v) => (version.value = v));
 });
 
-const addAlias = () => {
-  ipc.addAlias();
-};
 const setCurrentAlias = (alias: AliasEntry, index: number) => {
   ipc.setCurrentAlias(alias);
   store.setSelectedIndex(index);
@@ -68,13 +65,12 @@ const moveAlias = (index: number, dir: -1 | 1) => {
     <header class="toolbar">
       <div class="title">Rusty Local Alias Plugin</div>
       <div class="spacer" />
-      <button class="btn primary" @click="addAlias">＋</button>
       <button class="btn" @click="showInfo = true">？</button>
     </header>
 
     <section class="grid">
       <p v-if="aliases.length === 0">
-        エイリアスがありません。オブジェクトを選択した後、＋ボタンで追加してください。
+        エイリアスがありません。オブジェクトを選択して「ローカルエイリアスに追加」メニューで追加してください。
       </p>
       <div
         v-for="(alias, i) in aliases"
@@ -134,8 +130,7 @@ const moveAlias = (index: number, dir: -1 | 1) => {
         <p>バージョン: {{ version }}</p>
         <p>
           プロジェクトローカルなエイリアスを管理するAviUtl2プラグイン。<br />
-          ここでエイリアスを選択した後、カスタムオブジェクト「Rusty Local
-          Alias」を配置し、その位置にシークバーを移動させてください。
+          ここでエイリアスを選択した後、「ローカルエイリアスを配置」メニューで配置してください。
         </p>
         <ul class="links">
           <li>
