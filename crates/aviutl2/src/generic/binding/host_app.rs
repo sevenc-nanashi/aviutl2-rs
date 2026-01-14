@@ -536,7 +536,7 @@ impl EditHandle {
             let effect = Effect {
                 name: name_str,
                 effect_type: EffectType::from(r#type),
-                flag,
+                flag: EffectFlag::from_bits(flag),
             };
             callback(effect);
         }
@@ -566,8 +566,7 @@ pub struct Effect {
     /// エフェクト種別。
     pub effect_type: EffectType,
     /// フラグ。
-    /// （TODO：フラグをbitflagにする）
-    pub flag: i32,
+    pub flag: EffectFlag,
 }
 
 /// エフェクト種別。
@@ -581,6 +580,22 @@ pub enum EffectType {
     SceneChange,
     /// その他。
     Other(i32),
+}
+
+define_bitflag! {
+    /// エフェクトのフラグ。
+    #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[non_exhaustive]
+    pub struct EffectFlag: i32 {
+        /// 画像フィルタをサポートするかどうか。
+        video: aviutl2_sys::plugin2::EDIT_HANDLE::EFFECT_FLAG_VIDEO,
+
+        /// 音声フィルタをサポートするかどうか。
+        audio: aviutl2_sys::plugin2::EDIT_HANDLE::EFFECT_FLAG_AUDIO,
+
+        /// フィルタオブジェクトをサポートするかどうか。
+        as_filter: aviutl2_sys::plugin2::EDIT_HANDLE::EFFECT_FLAG_FILTER,
+    }
 }
 
 impl From<i32> for EffectType {
