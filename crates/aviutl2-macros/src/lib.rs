@@ -123,14 +123,59 @@ mod utils;
 ///     "テキストファイル" => ["txt"],
 ///     "すべてのファイル" => []
 /// })]
-/// file_field: Option<std::path::PathBuf>,
+/// file_field: std::path::PathBuf,
 /// # }
 /// ```
 ///
 /// - `name`: ファイル選択の名前。省略した場合、フィールド名が使用されます。
 /// - `filters`: ファイルフィルタのリスト。キーがフィルタ名、値が拡張子のリストです。
 ///
-/// - 値の型は`Option<std::path::PathBuf>`である必要があります。
+/// - 値の型は`std::path::PathBuf`である必要があります。
+///
+/// ## `string`
+///
+/// ```rust
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[string(name = "サンプル文字列", default = "初期値")]
+/// string_field: String,
+/// # }
+/// ```
+///
+/// - `name`: 文字列項目の名前。省略した場合、フィールド名が使用されます。
+/// - `default`: 文字列の初期値。省略した場合、空文字列になります。
+///
+/// - 値の型は`String`である必要があります。
+///
+/// ## `text`
+///
+/// ```rust
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[text(name = "サンプルテキスト", default = "複数行テキスト")]
+/// text_field: String,
+/// # }
+/// ```
+///
+/// - `name`: テキスト項目の名前。省略した場合、フィールド名が使用されます。
+/// - `default`: テキストの初期値。省略した場合、空文字列になります。
+///
+/// - 値の型は`String`である必要があります。
+///
+/// ## `folder`
+///
+/// ```rust
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[folder(name = "サンプルフォルダ", default = "C:\\\\")]
+/// folder_field: String,
+/// # }
+/// ```
+///
+/// - `name`: フォルダ選択の名前。省略した場合、フィールド名が使用されます。
+/// - `default`: フォルダの初期値。省略した場合、空文字列になります。
+///
+/// - 値の型は`String`である必要があります。
 ///
 /// ## `data`
 ///
@@ -239,7 +284,7 @@ mod utils;
 ///         "テキストファイル" => ["txt"],
 ///         "すべてのファイル" => [],
 ///     })]
-///     sample_file: Option<std::path::PathBuf>,
+///     sample_file: std::path::PathBuf,
 ///     #[data(name = "サンプルデータ")]
 ///     sample_data: FilterConfigDataHandle<MyData>,
 ///

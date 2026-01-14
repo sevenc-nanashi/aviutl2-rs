@@ -201,6 +201,21 @@ enum FilterConfigField {
         name: String,
         filters: Vec<FileFilterEntry>,
     },
+    String {
+        id: String,
+        name: String,
+        default: Option<syn::Expr>,
+    },
+    Text {
+        id: String,
+        name: String,
+        default: Option<syn::Expr>,
+    },
+    Folder {
+        id: String,
+        name: String,
+        default: Option<syn::Expr>,
+    },
     Data {
         id: String,
         name: String,
@@ -436,6 +451,60 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     }
                 }
             }
+            FilterConfigField::String {
+                id: _,
+                name,
+                default,
+            } => {
+                let value = default.as_ref().map_or_else(
+                    || quote::quote! { ::std::string::String::new() },
+                    |expr| quote::quote! { (#expr).to_string() },
+                );
+                quote::quote! {
+                    ::aviutl2::filter::FilterConfigItem::String(
+                        ::aviutl2::filter::FilterConfigString {
+                            name: #name.to_string(),
+                            value: #value,
+                        }
+                    )
+                }
+            }
+            FilterConfigField::Text {
+                id: _,
+                name,
+                default,
+            } => {
+                let value = default.as_ref().map_or_else(
+                    || quote::quote! { ::std::string::String::new() },
+                    |expr| quote::quote! { (#expr).to_string() },
+                );
+                quote::quote! {
+                    ::aviutl2::filter::FilterConfigItem::Text(
+                        ::aviutl2::filter::FilterConfigText {
+                            name: #name.to_string(),
+                            value: #value,
+                        }
+                    )
+                }
+            }
+            FilterConfigField::Folder {
+                id: _,
+                name,
+                default,
+            } => {
+                let value = default.as_ref().map_or_else(
+                    || quote::quote! { ::std::string::String::new() },
+                    |expr| quote::quote! { (#expr).to_string() },
+                );
+                quote::quote! {
+                    ::aviutl2::filter::FilterConfigItem::Folder(
+                        ::aviutl2::filter::FilterConfigFolder {
+                            name: #name.to_string(),
+                            value: #value,
+                        }
+                    )
+                }
+            }
             FilterConfigField::GroupStart { name, opened} => {
                 if let Some(opened) = opened {
                     quote::quote! {
@@ -559,11 +628,7 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                 Some(quote::quote! {
                     #id_ident: match items[#i] {
                         ::aviutl2::filter::FilterConfigItem::File(ref file) =>
-                            if file.value.is_empty() {
-                                None
-                            } else {
-                                Some(std::path::PathBuf::from(&file.value))
-                            },
+                            std::path::PathBuf::from(&file.value),
                         _ => panic!("expected File at index {}", #i),
                     }
                 })
@@ -574,6 +639,33 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                     #id_ident: match items[#i] {
                         ::aviutl2::filter::FilterConfigItem::Data(ref data) => ::aviutl2::filter::FilterConfigDataHandle::__from_erased(data),
                         _ => panic!("expected Data at index {}", #i),
+                    }
+                })
+            }
+            FilterConfigField::String { id, .. } => {
+                let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+                Some(quote::quote! {
+                    #id_ident: match items[#i] {
+                        ::aviutl2::filter::FilterConfigItem::String(ref string) => string.value.clone(),
+                        _ => panic!("expected String at index {}", #i),
+                    }
+                })
+            }
+            FilterConfigField::Text { id, .. } => {
+                let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+                Some(quote::quote! {
+                    #id_ident: match items[#i] {
+                        ::aviutl2::filter::FilterConfigItem::Text(ref text) => text.value.clone(),
+                        _ => panic!("expected Text at index {}", #i),
+                    }
+                })
+            }
+            FilterConfigField::Folder { id, .. } => {
+                let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+                Some(quote::quote! {
+                    #id_ident: match items[#i] {
+                        ::aviutl2::filter::FilterConfigItem::Folder(ref folder) => folder.value.clone(),
+                        _ => panic!("expected Folder at index {}", #i),
                     }
                 })
             }
@@ -627,7 +719,7 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
         FilterConfigField::File { id, .. } => {
             let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
             Some(quote::quote! {
-                #id_ident: None
+                #id_ident: ::std::path::PathBuf::new()
             })
         }
         FilterConfigField::Data { id, default, .. } => {
@@ -639,6 +731,39 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
             };
             Some(quote::quote! {
                 #id_ident: ::aviutl2::filter::FilterConfigDataHandle::__new_owned(#value)
+            })
+        }
+        FilterConfigField::String { id, default, .. } => {
+            let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+            let value = if let Some(expr) = default {
+                quote::quote! { (#expr).to_string() }
+            } else {
+                quote::quote! { ::std::string::String::new() }
+            };
+            Some(quote::quote! {
+                #id_ident: #value
+            })
+        }
+        FilterConfigField::Text { id, default, .. } => {
+            let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+            let value = if let Some(expr) = default {
+                quote::quote! { (#expr).to_string() }
+            } else {
+                quote::quote! { ::std::string::String::new() }
+            };
+            Some(quote::quote! {
+                #id_ident: #value
+            })
+        }
+        FilterConfigField::Folder { id, default, .. } => {
+            let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+            let value = if let Some(expr) = default {
+                quote::quote! { (#expr).to_string() }
+            } else {
+                quote::quote! { ::std::string::String::new() }
+            };
+            Some(quote::quote! {
+                #id_ident: #value
             })
         }
         FilterConfigField::GroupStart { .. } | FilterConfigField::GroupEnd => None,
@@ -663,6 +788,9 @@ fn validate_filter_config(
             FilterConfigField::Color { name, .. } => name,
             FilterConfigField::Select { name, .. } => name,
             FilterConfigField::File { name, .. } => name,
+            FilterConfigField::String { name, .. } => name,
+            FilterConfigField::Text { name, .. } => name,
+            FilterConfigField::Folder { name, .. } => name,
             FilterConfigField::Data { name, .. } => name,
             FilterConfigField::GroupStart { name, .. } => name,
             FilterConfigField::GroupEnd => "__internal_group_end",
@@ -700,6 +828,9 @@ static RECOGNIZED_FIELDS: &[&str] = &[
     "color",
     "select",
     "file",
+    "string",
+    "text",
+    "folder",
     "data",
     "__internal_group_start",
     "__internal_group_end",
@@ -743,6 +874,9 @@ fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Err
         "color" => filter_config_field_color(field, recognized_attr),
         "select" => filter_config_field_select(field, recognized_attr),
         "file" => filter_config_field_file(field, recognized_attr),
+        "string" => filter_config_field_string(field, recognized_attr),
+        "text" => filter_config_field_text(field, recognized_attr),
+        "folder" => filter_config_field_folder(field, recognized_attr),
         "data" => filter_config_field_data(field, recognized_attr),
         "__internal_group_start" => filter_config_field_group_start(field, recognized_attr),
         "__internal_group_end" => filter_config_field_group_end(field, recognized_attr),
@@ -1197,6 +1331,84 @@ fn filter_config_field_data(
     })
 }
 
+fn filter_config_field_string(
+    field: &syn::Field,
+    recognized_attr: &syn::Attribute,
+) -> Result<FilterConfigField, syn::Error> {
+    let mut name = None;
+    let mut default = None;
+
+    let _ = recognized_attr.parse_nested_meta(|m| {
+        if m.path.is_ident("name") {
+            name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("default") {
+            default = Some(m.value()?.parse::<syn::Expr>()?);
+        } else {
+            return Err(m.error("Unknown attribute for string"));
+        }
+        Ok(())
+    });
+
+    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    Ok(FilterConfigField::String {
+        id: field.ident.as_ref().unwrap().to_string(),
+        name,
+        default,
+    })
+}
+
+fn filter_config_field_text(
+    field: &syn::Field,
+    recognized_attr: &syn::Attribute,
+) -> Result<FilterConfigField, syn::Error> {
+    let mut name = None;
+    let mut default = None;
+
+    let _ = recognized_attr.parse_nested_meta(|m| {
+        if m.path.is_ident("name") {
+            name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("default") {
+            default = Some(m.value()?.parse::<syn::Expr>()?);
+        } else {
+            return Err(m.error("Unknown attribute for text"));
+        }
+        Ok(())
+    });
+
+    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    Ok(FilterConfigField::Text {
+        id: field.ident.as_ref().unwrap().to_string(),
+        name,
+        default,
+    })
+}
+
+fn filter_config_field_folder(
+    field: &syn::Field,
+    recognized_attr: &syn::Attribute,
+) -> Result<FilterConfigField, syn::Error> {
+    let mut name = None;
+    let mut default = None;
+
+    let _ = recognized_attr.parse_nested_meta(|m| {
+        if m.path.is_ident("name") {
+            name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("default") {
+            default = Some(m.value()?.parse::<syn::Expr>()?);
+        } else {
+            return Err(m.error("Unknown attribute for folder"));
+        }
+        Ok(())
+    });
+
+    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    Ok(FilterConfigField::Folder {
+        id: field.ident.as_ref().unwrap().to_string(),
+        name,
+        default,
+    })
+}
+
 fn filter_config_field_group_start(
     field: &syn::Field,
     recognized_attr: &syn::Attribute,
@@ -1360,7 +1572,7 @@ mod tests {
         let input: proc_macro2::TokenStream = quote::quote! {
             struct Config {
                 #[file(name = "Input File", filters = { "Text Files" => ["*.txt"], "All Files" => ["*.*"] })]
-                input_file: Option<std::path::PathBuf>,
+                input_file: std::path::PathBuf,
             }
         };
         let output = filter_config_items(input).unwrap();

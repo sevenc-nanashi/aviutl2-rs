@@ -56,6 +56,12 @@ pub enum FilterConfigItem {
     Select(FilterConfigSelect),
     /// ファイル選択。
     File(FilterConfigFile),
+    /// 文字列。
+    String(FilterConfigString),
+    /// テキスト。
+    Text(FilterConfigText),
+    /// フォルダ選択。
+    Folder(FilterConfigFolder),
     /// 汎用データ。
     Data(ErasedFilterConfigData),
     /// グループ。
@@ -69,6 +75,9 @@ pub(crate) enum FilterConfigItemValue {
     Color(FilterConfigColorValue),
     Select(i32),
     File(String),
+    String(String),
+    Text(String),
+    Folder(String),
     Data {
         value: *mut std::ffi::c_void,
         size: usize,
@@ -89,6 +98,9 @@ impl FilterConfigItem {
             FilterConfigItem::Color(item) => &item.name,
             FilterConfigItem::Select(item) => &item.name,
             FilterConfigItem::File(item) => &item.name,
+            FilterConfigItem::String(item) => &item.name,
+            FilterConfigItem::Text(item) => &item.name,
+            FilterConfigItem::Folder(item) => &item.name,
             FilterConfigItem::Data(item) => &item.name,
             FilterConfigItem::Group(item) => item.name.as_deref().unwrap_or(""),
         }
@@ -157,6 +169,27 @@ impl FilterConfigItem {
                     },
                 }
             }
+            FilterConfigItem::String(item) => aviutl2_sys::filter2::FILTER_ITEM {
+                string: aviutl2_sys::filter2::FILTER_ITEM_STRING {
+                    r#type: leak_manager.leak_as_wide_string("string"),
+                    name: leak_manager.leak_as_wide_string(&item.name),
+                    value: leak_manager.leak_as_wide_string(&item.value),
+                },
+            },
+            FilterConfigItem::Text(item) => aviutl2_sys::filter2::FILTER_ITEM {
+                text: aviutl2_sys::filter2::FILTER_ITEM_TEXT {
+                    r#type: leak_manager.leak_as_wide_string("text"),
+                    name: leak_manager.leak_as_wide_string(&item.name),
+                    value: leak_manager.leak_as_wide_string(&item.value),
+                },
+            },
+            FilterConfigItem::Folder(item) => aviutl2_sys::filter2::FILTER_ITEM {
+                folder: aviutl2_sys::filter2::FILTER_ITEM_FOLDER {
+                    r#type: leak_manager.leak_as_wide_string("folder"),
+                    name: leak_manager.leak_as_wide_string(&item.name),
+                    value: leak_manager.leak_as_wide_string(&item.value),
+                },
+            },
             FilterConfigItem::Data(item) => {
                 let mut data = aviutl2_sys::filter2::FILTER_ITEM_DATA {
                     r#type: leak_manager.leak_as_wide_string("data"),
@@ -214,6 +247,21 @@ impl FilterConfigItem {
                 let value = unsafe { crate::common::load_wide_string(raw_file.value) };
                 FilterConfigItemValue::File(value)
             }
+            "string" => {
+                let raw_string = unsafe { &(*raw).string };
+                let value = unsafe { crate::common::load_wide_string(raw_string.value) };
+                FilterConfigItemValue::String(value)
+            }
+            "text" => {
+                let raw_text = unsafe { &(*raw).text };
+                let value = unsafe { crate::common::load_wide_string(raw_text.value) };
+                FilterConfigItemValue::Text(value)
+            }
+            "folder" => {
+                let raw_folder = unsafe { &(*raw).folder };
+                let value = unsafe { crate::common::load_wide_string(raw_folder.value) };
+                FilterConfigItemValue::Folder(value)
+            }
             "data" => {
                 let raw_data = unsafe { &(*raw).data };
                 let size = usize::try_from(raw_data.size)
@@ -248,6 +296,9 @@ impl FilterConfigItem {
             (FilterConfigItem::Color(item), FilterConfigItemValue::Color(v)) => item.value != v,
             (FilterConfigItem::Select(item), FilterConfigItemValue::Select(v)) => item.value != v,
             (FilterConfigItem::File(item), FilterConfigItemValue::File(v)) => item.value != v,
+            (FilterConfigItem::String(item), FilterConfigItemValue::String(v)) => item.value != v,
+            (FilterConfigItem::Text(item), FilterConfigItemValue::Text(v)) => item.value != v,
+            (FilterConfigItem::Folder(item), FilterConfigItemValue::Folder(v)) => item.value != v,
             (FilterConfigItem::Data(item), FilterConfigItemValue::Data { value, size }) => {
                 let size_changed = item.size != size;
                 let ptr_changed = match (item.value, NonNull::new(value)) {
@@ -284,6 +335,15 @@ impl FilterConfigItem {
                 item.value = v;
             }
             (FilterConfigItem::File(item), FilterConfigItemValue::File(v)) => {
+                item.value = v;
+            }
+            (FilterConfigItem::String(item), FilterConfigItemValue::String(v)) => {
+                item.value = v;
+            }
+            (FilterConfigItem::Text(item), FilterConfigItemValue::Text(v)) => {
+                item.value = v;
+            }
+            (FilterConfigItem::Folder(item), FilterConfigItemValue::Folder(v)) => {
                 item.value = v;
             }
             (FilterConfigItem::Data(item), FilterConfigItemValue::Data { value, size }) => {
@@ -495,6 +555,33 @@ pub struct FilterConfigFile {
     pub value: String,
     /// ファイルフィルタ。
     pub filters: Vec<crate::common::FileFilter>,
+}
+
+/// 文字列。
+#[derive(Debug, Clone)]
+pub struct FilterConfigString {
+    /// 設定名。
+    pub name: String,
+    /// 設定値。
+    pub value: String,
+}
+
+/// テキスト。
+#[derive(Debug, Clone)]
+pub struct FilterConfigText {
+    /// 設定名。
+    pub name: String,
+    /// 設定値。
+    pub value: String,
+}
+
+/// フォルダ選択。
+#[derive(Debug, Clone)]
+pub struct FilterConfigFolder {
+    /// 設定名。
+    pub name: String,
+    /// 設定値。
+    pub value: String,
 }
 
 /// 型を消去した汎用データ。
