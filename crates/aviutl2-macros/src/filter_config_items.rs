@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use quote::ToTokens;
-use syn::parse::Parse;
+use syn::{parse::Parse, spanned::Spanned};
 
 pub fn filter_config_items(
     item: proc_macro2::TokenStream,
@@ -222,6 +222,11 @@ enum FilterConfigField {
         default: Option<syn::Expr>,
         value_type: syn::Type,
     },
+    Button {
+        id: String,
+        name: String,
+        callback: syn::ExprPath,
+    },
     GroupStart {
         name: String,
         opened: Option<bool>,
@@ -300,6 +305,7 @@ impl syn::parse::Parse for FileFilterEntry {
 }
 
 fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
+    let mut button_callbacks = vec![];
     let to_filter_config_fields = fields
         .iter()
         .map(|f| match f {
@@ -532,14 +538,36 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     )
                 }
             }
+            FilterConfigField::Button { id, name, callback  } => {
+                let callback_id = syn::Ident::new(
+                    &format!("__filter_button_callback_{}", id),
+                    callback.span(),
+                );
+                button_callbacks.push(quote::quote! {
+                    extern "C" fn #callback_id(edit_section: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
+                        let mut edit_section = unsafe { ::aviutl2::generic::EditSection::from_raw(edit_section) };
+                        #callback(&mut edit_section);
+                    }
+                });
+                quote::quote! {
+                    ::aviutl2::filter::FilterConfigItem::Button(
+                        ::aviutl2::filter::FilterConfigButton {
+                            name: #name.to_string(),
+                            callback: #callback_id,
+                        }
+                    )
+                }
+            }
         })
         .collect::<Vec<_>>();
 
     quote::quote! {
         fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
-            vec![
+            return vec![
                 #(#to_filter_config_fields),*
-            ]
+            ];
+
+            #(#button_callbacks)*
         }
     }
 }
@@ -672,6 +700,9 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
             FilterConfigField::GroupStart { .. } | FilterConfigField::GroupEnd => {
                 None
             }
+            FilterConfigField::Button { .. } => {
+                None
+            }
         })
         .collect::<Vec<_>>();
     quote::quote! {
@@ -766,7 +797,9 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
                 #id_ident: #value
             })
         }
-        FilterConfigField::GroupStart { .. } | FilterConfigField::GroupEnd => None,
+        FilterConfigField::GroupStart { .. }
+        | FilterConfigField::GroupEnd
+        | FilterConfigField::Button { .. } => None,
     });
     quote::quote! {
         Self {
@@ -794,6 +827,10 @@ fn validate_filter_config(
             FilterConfigField::Data { name, .. } => name,
             FilterConfigField::GroupStart { name, .. } => name,
             FilterConfigField::GroupEnd => "__internal_group_end",
+            // NOTE:
+            // ボタンは他のフィールドと名前が重複しても問題ないが、ボタン同士では重複してはいけない
+            // 本来はformat!("button_{}", name)のようなキーで区別するべきだが、まぁ面倒なので...
+            FilterConfigField::Button { name, .. } => name,
         })
         .collect::<Vec<_>>();
 
@@ -834,6 +871,7 @@ static RECOGNIZED_FIELDS: &[&str] = &[
     "data",
     "__internal_group_start",
     "__internal_group_end",
+    "button",
 ];
 fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Error> {
     let recognized_fields = field
@@ -848,15 +886,18 @@ fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Err
         })
         .collect::<Vec<_>>();
     if recognized_fields.len() != 1 {
+        let recognized_fields_list_for_users = RECOGNIZED_FIELDS
+            .iter()
+            .filter(|s| !s.starts_with("__internal_"))
+            .chain(std::iter::once(&"group"))
+            .map(|s| format!("`#[{s}]`"))
+            .collect::<Vec<_>>()
+            .join(", ");
         return Err(syn::Error::new_spanned(
             field,
             format!(
                 "Exactly one of {} is required (found {})",
-                RECOGNIZED_FIELDS
-                    .iter()
-                    .map(|s| format!("`#[{s}]`"))
-                    .collect::<Vec<_>>()
-                    .join(", "),
+                recognized_fields_list_for_users,
                 recognized_fields.len()
             ),
         ));
@@ -880,6 +921,7 @@ fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Err
         "data" => filter_config_field_data(field, recognized_attr),
         "__internal_group_start" => filter_config_field_group_start(field, recognized_attr),
         "__internal_group_end" => filter_config_field_group_end(field, recognized_attr),
+        "button" => filter_config_field_button(field, recognized_attr),
 
         _ => unreachable!(),
     }
@@ -896,12 +938,8 @@ fn clean_fields(fields: &syn::Fields) -> syn::Fields {
                         false
                     }
                 });
-            let should_delete = recognized_attrs[0]
-                .path()
-                .get_ident()
-                .unwrap()
-                .to_string()
-                .starts_with("__internal_");
+            let attr_type = recognized_attrs[0].path().get_ident().unwrap().to_string();
+            let should_delete = attr_type.starts_with("__internal_") || attr_type == "button";
             if should_delete {
                 None
             } else {
@@ -1438,6 +1476,34 @@ fn filter_config_field_group_end(
     Ok(FilterConfigField::GroupEnd)
 }
 
+fn filter_config_field_button(
+    field: &syn::Field,
+    recognized_attr: &syn::Attribute,
+) -> Result<FilterConfigField, syn::Error> {
+    let mut name = None;
+
+    recognized_attr.parse_nested_meta(|m| {
+        if m.path.is_ident("name") {
+            name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else {
+            return Err(m.error("Unknown attribute for button"));
+        }
+        Ok(())
+    })?;
+
+    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    let callback = if let syn::Type::BareFn(_) = &field.ty {
+        syn::parse2(field.ident.to_token_stream())?
+    } else {
+        syn::parse2(field.ty.to_token_stream())?
+    };
+    Ok(FilterConfigField::Button {
+        id: field.ident.as_ref().unwrap().to_string(),
+        name,
+        callback,
+    })
+}
+
 fn parse_int_or_float(expr: &syn::Expr) -> Result<decimal_rs::Decimal, syn::Error> {
     let mut current = expr;
     let mut neg_count = 0;
@@ -1643,6 +1709,20 @@ mod tests {
                 },
                 #[check(name = "Outside Check", default = true)]
                 outside_check: bool,
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
+    fn test_button() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[button(name = "Reset")]
+                reset: fn(),
+                #[button(name = "Apply")]
+                apply: on_apply_clicked,
             }
         };
         let output = filter_config_items(input).unwrap();

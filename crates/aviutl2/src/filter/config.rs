@@ -67,6 +67,8 @@ pub enum FilterConfigItem {
     Data(ErasedFilterConfigData),
     /// グループ。
     Group(FilterConfigGroup),
+    /// ボタン。
+    Button(FilterConfigButton),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -84,6 +86,7 @@ pub(crate) enum FilterConfigItemValue {
         size: usize,
     },
     Group,
+    Button,
 }
 
 impl FilterConfigItem {
@@ -104,6 +107,7 @@ impl FilterConfigItem {
             FilterConfigItem::Folder(item) => &item.name,
             FilterConfigItem::Data(item) => &item.name,
             FilterConfigItem::Group(item) => item.name.as_deref().unwrap_or(""),
+            FilterConfigItem::Button(item) => &item.name,
         }
     }
 
@@ -220,6 +224,13 @@ impl FilterConfigItem {
                     default_visible: item.opened,
                 },
             },
+            FilterConfigItem::Button(item) => aviutl2_sys::filter2::FILTER_ITEM {
+                button: aviutl2_sys::filter2::FILTER_ITEM_BUTTON {
+                    r#type: leak_manager.leak_as_wide_string("button"),
+                    name: leak_manager.leak_as_wide_string(&item.name),
+                    callback: item.callback,
+                },
+            },
         }
     }
 
@@ -289,6 +300,7 @@ impl FilterConfigItem {
                 }
             }
             "group" => FilterConfigItemValue::Group,
+            "button" => FilterConfigItemValue::Button,
             _ => panic!("Unknown filter config item type: {}", item_type),
         }
     }
@@ -323,6 +335,7 @@ impl FilterConfigItem {
                 size_changed || ptr_changed
             }
             (FilterConfigItem::Group(_), FilterConfigItemValue::Group) => false,
+            (FilterConfigItem::Button(_), FilterConfigItemValue::Button) => false,
             _ => {
                 panic!("Mismatched filter config item type");
             }
@@ -365,6 +378,9 @@ impl FilterConfigItem {
             }
             (FilterConfigItem::Group(_), FilterConfigItemValue::Group) => {
                 // グループは値を持たないので何もしない
+            }
+            (FilterConfigItem::Button(_), FilterConfigItemValue::Button) => {
+                // ボタンは値を持たないので何もしない
             }
             _ => {
                 panic!("Mismatched filter config item type");
@@ -558,6 +574,7 @@ pub trait FilterConfigSelectItems {
 
 #[doc(inline)]
 pub use aviutl2_macros::FilterConfigSelectItems;
+use aviutl2_sys::plugin2::EDIT_SECTION;
 
 /// ファイル選択。
 #[derive(Debug, Clone)]
@@ -568,6 +585,15 @@ pub struct FilterConfigFile {
     pub value: String,
     /// ファイルフィルタ。
     pub filters: Vec<crate::common::FileFilter>,
+}
+
+/// ボタン。
+#[derive(Debug, Clone)]
+pub struct FilterConfigButton {
+    /// 設定名。
+    pub name: String,
+    /// コールバック関数。
+    pub callback: extern "C" fn(*mut EDIT_SECTION),
 }
 
 /// 文字列。

@@ -10,7 +10,7 @@ struct Config {
 #[automatically_derived]
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
-        vec![
+        return vec![
             ::aviutl2::filter::FilterConfigItem::Color(::aviutl2::filter::FilterConfigColor {
                 name: "IntColor".to_string(),
                 value: 16711935u32.into(),
@@ -23,7 +23,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
                 name: "TupleColor".to_string(),
                 value: 16711680u32.into(),
             }),
-        ]
+        ];
     }
     fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
         Self {

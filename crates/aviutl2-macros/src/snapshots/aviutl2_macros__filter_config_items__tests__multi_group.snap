@@ -10,7 +10,7 @@ struct Config {
 #[automatically_derived]
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
-        vec![
+        return vec![
             ::aviutl2::filter::FilterConfigItem::Group(
                 ::aviutl2::filter::FilterConfigGroup::start_with_opened("Test 1".to_string(), true),
             ),
@@ -39,7 +39,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
                     value: true,
                 },
             ),
-        ]
+        ];
     }
     fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
         Self {

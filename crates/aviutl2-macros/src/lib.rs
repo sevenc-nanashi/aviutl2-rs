@@ -231,18 +231,14 @@ mod utils;
 /// # }
 /// ```
 ///
-/// <div class="warning">
-/// この属性はまだ実装されていません。
-/// </div>
-///
 /// `aviutl2::filter::FilterConfigItem::Button`を挿入します。
 ///
 /// - `name`: ボタンの名前。省略した場合、フィールド名が使用されます。
 /// - 型には関数名を指定します。また、関数名とフィールド名が同じ場合は`fn()`と省略できます。
 /// - 関数のシグネチャは以下のようになります。
 ///
-/// ```rust,ignore
-/// fn on_button_pressed(handle: &mut aviutl2::plugin::EditSection) { /* ... */ }
+/// ```rust
+/// fn on_button_pressed(handle: &mut aviutl2::generic::EditSection) { /* ... */ }
 /// ```
 ///
 /// - このフィールドは削除されます。
@@ -257,9 +253,9 @@ mod utils;
 ///    value: i32,
 /// }
 ///
-/// // fn my_button_handler(handle: &mut aviutl2::plugin::EditSection) {
-/// //     // ボタンが押されたときの処理
-/// // }
+/// fn my_button_handler(handle: &mut aviutl2::generic::EditSection) {
+///     // ボタンが押されたときの処理
+/// }
 ///
 /// #[aviutl2_macros::filter_config_items]
 /// #[derive(Debug)]
@@ -289,8 +285,8 @@ mod utils;
 ///     #[data(name = "サンプルデータ")]
 ///     sample_data: FilterConfigDataHandle<MyData>,
 ///
-///     // #[button(name = "サンプルボタン")]
-///     // on_button_pressed: my_button_handler,
+///     #[button(name = "サンプルボタン")]
+///     on_button_pressed: my_button_handler,
 /// }
 /// ```
 ///

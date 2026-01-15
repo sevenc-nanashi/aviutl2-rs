@@ -8,14 +8,14 @@ struct Config {
 #[automatically_derived]
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
-        vec![::aviutl2::filter::FilterConfigItem::Track(
+        return vec![::aviutl2::filter::FilterConfigItem::Track(
             ::aviutl2::filter::FilterConfigTrack {
                 name: "Frequency".to_string(),
                 value: 440f64,
                 range: 20f64..=20000f64,
                 step: ::aviutl2::filter::FilterConfigTrackStep::One,
             },
-        )]
+        )];
     }
     fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
         Self {
