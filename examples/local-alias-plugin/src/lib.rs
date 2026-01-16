@@ -87,6 +87,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
     }
 
     fn on_project_load(&mut self, project: &mut aviutl2::generic::ProjectFile) {
+        CURRENT_ALIAS.lock().unwrap().take();
         self.aliases = project.deserialize("alias_entries").unwrap_or_else(|e| {
             log::warn!("Failed to load alias entries from project: {}", e);
             Vec::new()
