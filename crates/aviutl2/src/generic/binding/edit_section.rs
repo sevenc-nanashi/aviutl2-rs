@@ -361,7 +361,7 @@ impl EditSection {
         item: &str,
     ) -> EditSectionResult<String> {
         self.ensure_object_exists(object)?;
-        let c_effect_name = crate::common::CWString::new(&format!("{effect_name}:{effect_index}"))?;
+        let c_effect_name = crate::common::CWString::new(&effect_key(&effect_name, effect_index))?;
         let c_item = crate::common::CWString::new(item)?;
         let value_ptr = unsafe {
             ((*self.internal).get_object_item_value)(
@@ -396,7 +396,7 @@ impl EditSection {
         value: &str,
     ) -> EditSectionResult<()> {
         self.ensure_object_exists(object)?;
-        let c_effect_name = crate::common::CWString::new(&format!("{effect_name}:{effect_index}"))?;
+        let c_effect_name = crate::common::CWString::new(&effect_key(&effect_name, effect_index))?;
         let c_item = crate::common::CWString::new(item)?;
         let c_value = std::ffi::CString::new(value)?;
         let success = unsafe {
@@ -974,4 +974,8 @@ impl<'a> Iterator for EditSectionLayerObjectsIterator<'a> {
 
         Some((lf, handle))
     }
+}
+
+fn effect_key(effect_name: &str, effect_index: usize) -> String {
+    format!("{effect_name}:{effect_index}")
 }
