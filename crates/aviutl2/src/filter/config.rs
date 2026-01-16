@@ -1,7 +1,7 @@
+use crate::common::LeakManager;
+use aviutl2_sys::plugin2::EDIT_SECTION;
 use std::mem::MaybeUninit;
 use std::{ffi::c_void, ptr::NonNull};
-
-use crate::common::LeakManager;
 
 /// [`Vec<FilterConfigItem>`] と相互変換するためのトレイト。
 /// 基本的にはこのトレイトを手動で実装する必要はありません。
@@ -574,7 +574,6 @@ pub trait FilterConfigSelectItems {
 
 #[doc(inline)]
 pub use aviutl2_macros::FilterConfigSelectItems;
-use aviutl2_sys::plugin2::EDIT_SECTION;
 
 /// ファイル選択。
 #[derive(Debug, Clone)]
