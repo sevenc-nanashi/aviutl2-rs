@@ -18,6 +18,7 @@
 ### デモプラグイン
 
 - binaural、equalizer: effect_idに対応
+- wgpu: バグが多かったので削除
 
 ## [0.10.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.10.0)
 
