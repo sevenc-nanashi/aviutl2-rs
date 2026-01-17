@@ -83,25 +83,40 @@ fn create_bridge(
                     .inputs
                     .iter()
                     .any(|param| matches!(param, syn::FnArg::Receiver(_)));
+                // detect if receiver is &mut self
+                let mut_self = method
+                    .sig
+                    .inputs
+                    .iter()
+                    .find_map(|param| match param {
+                        syn::FnArg::Receiver(r) => Some(r.mutability.is_some()),
+                        _ => None,
+                    })
+                    .unwrap_or(false);
                 if has_self {
-                    quote::quote! {
-                        extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                            let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
-                            let __internal_self = <#impl_token as ::aviutl2::module::__bridge::ScriptModuleSingleton>::__get_singleton_state();
-                            let __internal_self = __internal_self
-                                .read()
-                                .expect("Plugin handle is not initialized");
-                            let __internal_self = &__internal_self
-                                .as_ref()
-                                .expect("Plugin instance is not initialized")
-                                .instance;
-                            let () = <#impl_token>::#method_name(__internal_self, &mut params);
+                    if mut_self {
+                        quote::quote! {
+                            extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
+                                let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+                                <#impl_token as ::aviutl2::module::ScriptModule>::with_instance_mut(|__internal_self| {
+                                    let () = <#impl_token>::#method_name(__internal_self, &mut params);
+                                });
+                            }
+                        }
+                    } else {
+                        quote::quote! {
+                            extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
+                                let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+                                <#impl_token as ::aviutl2::module::ScriptModule>::with_instance(|__internal_self| {
+                                    let () = <#impl_token>::#method_name(__internal_self, &mut params);
+                                });
+                            }
                         }
                     }
                 } else {
                     quote::quote! {
                         extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                            let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
+                            let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
                             let () = <#impl_token>::#method_name(&mut params);
                         }
                     }
@@ -111,6 +126,8 @@ fn create_bridge(
                 // Separate receiver and non-receiver parameters
                 let mut param_bridges = Vec::new();
                 let mut param_index: usize = 0;
+                let mut has_self = false;
+                let mut self_is_mut = false;
                 for param in params.iter() {
                     match param {
                         syn::FnArg::Receiver(r) => {
@@ -121,24 +138,8 @@ fn create_bridge(
                                 )
                                 .to_compile_error());
                             }
-                            if r.mutability.is_some() {
-                                return Err(syn::Error::new_spanned(
-                                    r,
-                                    "method receiver must be an immutable reference",
-                                )
-                                .to_compile_error());
-                            }
-
-                            param_bridges.push(quote::quote! {
-                                let __internal_self = <#impl_token as ::aviutl2::module::__bridge::ScriptModuleSingleton>::__get_singleton_state();
-                                let __internal_self = __internal_self
-                                    .read()
-                                    .expect("Plugin handle is not initialized");
-                                let __internal_self = &__internal_self
-                                    .as_ref()
-                                    .expect("Plugin instance is not initialized")
-                                    .instance;
-                            });
+                            has_self = true;
+                            self_is_mut = r.mutability.is_some();
                         }
                         syn::FnArg::Typed(pat_type) => {
                             let ty = &pat_type.ty;
@@ -159,19 +160,48 @@ fn create_bridge(
                         }
                     }
                 }
-                let param_names = params.iter().map(|param| match param {
-                    syn::FnArg::Receiver(_) => quote::quote! { __internal_self },
-                    syn::FnArg::Typed(pat_type) => {
-                        let pat = &pat_type.pat;
-                        quote::quote! { #pat }
+                let param_names_vec: Vec<proc_macro2::TokenStream> = params
+                    .iter()
+                    .map(|param| match param {
+                        syn::FnArg::Receiver(_) => quote::quote! { __internal_self },
+                        syn::FnArg::Typed(pat_type) => {
+                            let pat = &pat_type.pat;
+                            quote::quote! { #pat }
+                        }
+                    })
+                    .collect();
+                if has_self {
+                    if self_is_mut {
+                        quote::quote! {
+                            extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
+                                let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+                                <#impl_token as ::aviutl2::module::ScriptModule>::with_instance_mut(|__internal_self| {
+                                    #(#param_bridges)*
+                                    let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
+                                    ::aviutl2::module::__push_return_value(&mut params, fn_result);
+                                });
+                            }
+                        }
+                    } else {
+                        quote::quote! {
+                            extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
+                                let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+                                <#impl_token as ::aviutl2::module::ScriptModule>::with_instance(|__internal_self| {
+                                    #(#param_bridges)*
+                                    let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
+                                    ::aviutl2::module::__push_return_value(&mut params, fn_result);
+                                });
+                            }
+                        }
                     }
-                });
-                quote::quote! {
-                    extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                        let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
-                        #(#param_bridges)*
-                        let fn_result = <#impl_token>::#method_name(#(#param_names),*);
-                        ::aviutl2::module::__push_return_value(&mut params, fn_result);
+                } else {
+                    quote::quote! {
+                        extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
+                            let mut params = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+                            #(#param_bridges)*
+                            let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
+                            ::aviutl2::module::__push_return_value(&mut params, fn_result);
+                        }
                     }
                 }
             };

@@ -79,6 +79,30 @@ pub trait FilterPlugin: Send + Sync + Sized {
     ) -> AnyResult<()> {
         anyhow::bail!("proc_audio is not implemented");
     }
+
+    /// シングルトンインスタンスを参照するためのヘルパーメソッド。
+    ///
+    /// # Panics
+    ///
+    /// プラグインが初期化されていない場合や、二重に呼び出された場合にパニックします。
+    fn with_instance<R>(f: impl FnOnce(&Self) -> R) -> R
+    where
+        Self: crate::filter::__bridge::FilterSingleton,
+    {
+        <Self as crate::filter::__bridge::FilterSingleton>::with_instance(f)
+    }
+
+    /// シングルトンインスタンスを可変参照するためのヘルパーメソッド。
+    ///
+    /// # Panics
+    ///
+    /// プラグインが初期化されていない場合や、二重に呼び出された場合にパニックします。
+    fn with_instance_mut<R>(f: impl FnOnce(&mut Self) -> R) -> R
+    where
+        Self: crate::filter::__bridge::FilterSingleton,
+    {
+        <Self as crate::filter::__bridge::FilterSingleton>::with_instance_mut(f)
+    }
 }
 
 /// シーン情報。

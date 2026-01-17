@@ -54,7 +54,7 @@ impl InputPlugin for MidiPlayerPlugin {
                 "MIDI Files" => ["mid"]
             },
             information: format!(
-                "Midi Piano Player for AviUtl, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/midi-player-input",
+                "Midi Piano Player for AviUtl2, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/midi-player-input",
                 version = env!("CARGO_PKG_VERSION")
             ),
             concurrent: false,

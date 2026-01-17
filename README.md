@@ -32,6 +32,9 @@ AviUtl2 SDKのRust版です。
     - `./examples/random-color-filter`：ランダムな色を表示するサンプル。
   - スクリプトモジュール：
     - `./examples/username-module`：ユーザー名を取得するスクリプトモジュールのサンプル。
+  - 汎用プラグイン：
+    - `./examples/local-alias-plugin`：プロジェクトローカルにオブジェクトを保存する汎用プラグインのサンプル。
+    - `./examples/srt-file-plugin`：SRTファイルをインポート/エクスポートする汎用プラグインのサンプル。
 
 ## ライセンス
 

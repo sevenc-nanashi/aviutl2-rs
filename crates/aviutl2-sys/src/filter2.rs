@@ -2,7 +2,7 @@
 
 use std::{ffi::c_void, mem::MaybeUninit};
 
-use crate::common::LPCWSTR;
+use crate::{common::LPCWSTR, plugin2::EDIT_SECTION};
 
 #[repr(C)]
 pub union FILTER_ITEM {
@@ -149,11 +149,7 @@ pub struct FILTER_ITEM_BUTTON {
     /// 設定名
     pub name: LPCWSTR,
     /// コールバック関数
-    ///
-    /// # Note
-    ///
-    /// edit_sectionはEDIT_SECTION構造体へのポインタです（そのうち定義します）
-    pub callback: Option<extern "C" fn(edit_section: *mut c_void)>,
+    pub callback: extern "C" fn(edit_section: *mut EDIT_SECTION),
 }
 
 /// 文字列項目構造体

@@ -8,7 +8,7 @@ struct Config {
 #[automatically_derived]
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
-        vec![::aviutl2::filter::FilterConfigItem::Select(
+        return vec![::aviutl2::filter::FilterConfigItem::Select(
             ::aviutl2::filter::FilterConfigSelect {
                 name: "Mode".to_string(),
                 value: 1i32,
@@ -27,7 +27,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
                     },
                 ],
             },
-        )]
+        )];
     }
     fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
         Self {

@@ -6,6 +6,7 @@
 mod filter_config_items;
 mod filter_config_select_items;
 mod from_script_module_param;
+mod generic_menus;
 mod into_script_module_return_value;
 mod module_functions;
 mod plugin;
@@ -230,18 +231,14 @@ mod utils;
 /// # }
 /// ```
 ///
-/// <div class="warning">
-/// この属性はまだ実装されていません。
-/// </div>
-///
 /// `aviutl2::filter::FilterConfigItem::Button`を挿入します。
 ///
 /// - `name`: ボタンの名前。省略した場合、フィールド名が使用されます。
 /// - 型には関数名を指定します。また、関数名とフィールド名が同じ場合は`fn()`と省略できます。
 /// - 関数のシグネチャは以下のようになります。
 ///
-/// ```rust,ignore
-/// fn on_button_pressed(handle: &mut aviutl2::plugin::EditSection) { /* ... */ }
+/// ```rust
+/// fn on_button_pressed(handle: &mut aviutl2::generic::EditSection) { /* ... */ }
 /// ```
 ///
 /// - このフィールドは削除されます。
@@ -256,9 +253,9 @@ mod utils;
 ///    value: i32,
 /// }
 ///
-/// // fn my_button_handler(handle: &mut aviutl2::plugin::EditSection) {
-/// //     // ボタンが押されたときの処理
-/// // }
+/// fn my_button_handler(handle: &mut aviutl2::generic::EditSection) {
+///     // ボタンが押されたときの処理
+/// }
 ///
 /// #[aviutl2_macros::filter_config_items]
 /// #[derive(Debug)]
@@ -288,8 +285,8 @@ mod utils;
 ///     #[data(name = "サンプルデータ")]
 ///     sample_data: FilterConfigDataHandle<MyData>,
 ///
-///     // #[button(name = "サンプルボタン")]
-///     // on_button_pressed: my_button_handler,
+///     #[button(name = "サンプルボタン")]
+///     on_button_pressed: my_button_handler,
 /// }
 /// ```
 ///
@@ -419,7 +416,25 @@ pub fn into_script_module_return_value(item: proc_macro::TokenStream) -> proc_ma
 /// 関数のシグネチャは以下のようになります。
 ///
 /// ```rust
-/// fn function_name(params: &mut aviutl2::module::ScriptModuleCallHandle) { /* ... */ }
+/// # use aviutl2::module::IntoScriptModuleReturnValue;
+/// # #[aviutl2::plugin(ScriptModule)]
+/// # struct MyModule {
+/// #     counter: std::sync::atomic::AtomicI32,
+/// # }
+/// # impl aviutl2::module::ScriptModule for MyModule {
+/// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn plugin_info(&self) -> aviutl2::module::ScriptModuleTable {
+/// #         unimplemented!()
+/// #     }
+/// # }
+/// # #[aviutl2::module::functions]
+/// # impl MyModule {
+/// #     #[direct]
+/// fn function_name(params: &mut aviutl2::module::ScriptModuleCallHandle) -> ()
+/// #     {}
+/// # }
 /// ```
 ///
 /// # Example
@@ -491,7 +506,7 @@ pub fn module_functions(
 ///
 /// # Attributes
 ///
-/// - 引数には`InputPlugin`、`OutputPlugin`、`FilterPlugin`、`ScriptModule`のいずれかを指定します。
+/// - 引数には`InputPlugin`、`OutputPlugin`、`FilterPlugin`、`ScriptModule`、`GenericPlugin`のいずれかを指定します。
 ///
 /// # Example
 ///
@@ -524,6 +539,190 @@ pub fn plugin(
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     plugin::plugin(attr.into(), item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// 汎用プラグインのメニュー登録実装を生成するマクロ。
+///
+/// このマクロは`impl`ブロックに対して適用されます。
+/// `impl`ブロック内で定義された関数が汎用プラグインのメニューとして登録されます。
+///
+/// # Attributes
+///
+/// ### `import`
+///
+/// インポートメニューとして登録します。
+///
+/// - `name`: メニューに表示される名前を指定します。
+/// - `error`: エラー発生時のハンドリング方法を指定します。`"alert"`、`"log"`、`"ignore"`のいずれかを指定します。
+///   - `"alert"`: エラー発生時にアラートダイアログを表示します。（デフォルト）
+///   - `"log"`: エラー発生時にログにエラーメッセージを出力します。
+///   - `"ignore"`: エラー発生時に何も行いません。
+///
+/// 関数は以下のシグネチャのうちいずれかを持つ必要があります：
+/// ```rust
+/// # #[aviutl2::plugin(GenericPlugin)]
+/// # struct MyGenericPlugin;
+/// # impl aviutl2::generic::GenericPlugin for MyGenericPlugin {
+/// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn register(&mut self, _handle: &mut aviutl2::generic::HostAppHandle<'_>) {
+/// #         unimplemented!()
+/// #     }
+/// # }
+/// # type E = aviutl2::anyhow::Error;
+/// # #[aviutl2::generic::menus]
+/// # impl MyGenericPlugin {
+/// #     #[import(name = "")]
+/// fn func1(edit_handle: &mut aviutl2::generic::EditSection) -> ()
+/// #     {}
+/// #     #[export(name = "")]
+/// fn func2(edit_handle: &mut aviutl2::generic::EditSection) -> Result<(), E>
+/// #     { unimplemented!() }
+/// #     #[layer(name = "")]
+/// fn func3(&self, edit_handle: &mut aviutl2::generic::EditSection) -> ()
+/// #     {}
+/// #     #[object(name = "")]
+/// fn func4(&self, edit_handle: &mut aviutl2::generic::EditSection) -> Result<(), E>
+/// #     { unimplemented!() }
+/// #     #[edit(name = "")]
+/// fn func5(&mut self, edit_handle: &mut aviutl2::generic::EditSection) -> ()
+/// #     {}
+/// #     #[edit(name = "")]
+/// fn func6(&mut self, edit_handle: &mut aviutl2::generic::EditSection) -> Result<(), E>
+/// #     { unimplemented!() }
+/// # }
+/// # fn test<E>() -> Result<(), E>
+/// where
+///     Box<dyn std::error::Error>: From<E>,
+/// # { unimplemented!() }
+/// ```
+///
+/// ### `export`
+///
+/// エクスポートメニューとして登録します。
+/// パラメーター、シグネチャは`import`属性と同様です。
+///
+/// ### `layer`
+///
+/// レイヤーメニューとして登録します。
+/// パラメーター、シグネチャは`import`属性と同様です。
+///
+/// ### `object`
+///
+/// オブジェクトメニューとして登録します。
+/// パラメーター、シグネチャは`import`属性と同様です。
+///
+/// ### `edit`
+///
+/// 編集メニューとして登録します。
+/// パラメーター、シグネチャは`import`属性と同様です。
+///
+/// ### `config`
+///
+/// 設定メニューとして登録します。
+/// 設定メニューの登録後にウィンドウクライアントを登録するとシステムメニューに「設定」が追加されます。
+/// 関数は以下のシグネチャのうちいずれかを持つ必要があります：
+///
+/// ```rust
+/// # #[aviutl2::plugin(GenericPlugin)]
+/// # struct MyGenericPlugin;
+/// # impl aviutl2::generic::GenericPlugin for MyGenericPlugin {
+/// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn register(&mut self, _handle: &mut aviutl2::generic::HostAppHandle<'_>) {
+/// #         unimplemented!()
+/// #     }
+/// # }
+/// # type E = aviutl2::anyhow::Error;
+/// # #[aviutl2::generic::menus]
+/// # impl MyGenericPlugin {
+/// #     #[config(name = "")]
+/// fn func1(hwnd: aviutl2::Win32WindowHandle) -> ()
+/// #     {}
+/// #     #[config(name = "")]
+/// fn func2(hwnd: aviutl2::Win32WindowHandle) -> Result<(), E>
+/// #     { unimplemented!() }
+/// #     #[config(name = "")]
+/// fn func3(&self, hwnd: aviutl2::Win32WindowHandle) -> ()
+/// #     {}
+/// #     #[config(name = "")]
+/// fn func4(&self, hwnd: aviutl2::Win32WindowHandle) -> Result<(), E>
+/// #     { unimplemented!() }
+/// #     #[config(name = "")]
+/// fn func5(&mut self, hwnd: aviutl2::Win32WindowHandle) -> ()
+/// #     {}
+/// #     #[config(name = "")]
+/// fn func6(&mut self, hwnd: aviutl2::Win32WindowHandle) -> Result<(), E>
+/// #     { unimplemented!() }
+/// # }
+/// # fn test<E>() -> Result<(), E>
+/// where
+///     Box<dyn std::error::Error>: From<E>,
+/// # { unimplemented!() }
+/// ```
+///
+/// # Example
+///
+/// ```rust
+/// #[aviutl2::plugin(GenericPlugin)]
+/// struct MyGenericPlugin;
+/// # impl aviutl2::generic::GenericPlugin for MyGenericPlugin {
+/// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn register(&mut self, _handle: &mut aviutl2::generic::HostAppHandle<'_>) {
+/// #         unimplemented!()
+/// #     }
+/// # }
+///
+/// #[aviutl2::generic::menus]
+/// impl MyGenericPlugin {
+///     #[import(name = ".txtファイルをインポート")]
+///     fn import_text(edit_handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()> {
+///         // ...
+/// #       Ok(())
+///     }
+///
+///     #[export(name = ".txtファイルをエクスポート")]
+///     fn export_text(edit_handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()> {
+///         // ...
+/// #       Ok(())
+///     }
+///
+///     #[layer(name = "レイヤーを複製")]
+///     fn duplicate_layer(edit_handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()> {
+///         // ...
+/// #       Ok(())
+///     }
+///
+///     #[object(name = "オブジェクトを削除")]
+///     fn delete_object(edit_handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()> {
+///         // ...
+/// #       Ok(())
+///     }
+///
+///     #[edit(name = "BPMグリッドを消去")]
+///     fn register_edit_menu(edit_handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()> {
+///         // ...
+/// #       Ok(())
+///     }
+///
+///     #[config(name = "オブジェクトを削除")]
+///     fn show_config(hwnd: aviutl2::Win32WindowHandle) -> aviutl2::AnyResult<()> {
+///         // ...
+/// #       Ok(())
+///     }
+/// }
+#[proc_macro_attribute]
+pub fn generic_menus(
+    _attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    generic_menus::generic_menus(item.into())
         .unwrap_or_else(|e| e)
         .into()
 }

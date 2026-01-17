@@ -1,0 +1,24 @@
+name: Prepare Resources
+description: ページのレンダリングなど必要なリソースを準備する
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version-file: ".bun-version"
+
+    - name: Build Page (Statistics Output)
+      shell: bash
+      working-directory: examples/statistics-output/page
+      run: |
+        bun install --frozen-lockfile
+        bun run build
+
+    - name: Build Page (Local Alias Plugin)
+      shell: bash
+      working-directory: examples/local-alias-plugin/page
+      run: |
+        bun install --frozen-lockfile
+        bun run build

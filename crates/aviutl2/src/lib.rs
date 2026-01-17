@@ -9,6 +9,7 @@
 //! - [`output`][]：AviUtl2の出力プラグインを実装するためのモジュール。
 //! - [`filter`][]：AviUtl2のフィルタプラグインを実装するためのモジュール。
 //! - [`module`][]：AviUtl2のスクリプトモジュールプラグインを実装するためのモジュール。
+//! - [`generic`][]：AviUtl2の汎用プラグインを実装するためのモジュール。
 //! - [`logger`][]：AviUtl2のロガーへのインターフェースを提供するモジュール。
 //! - [`common`][]：共通の型や関数を提供するモジュール。（トップレベルに再エクスポートされています）
 //! - [`utils`][]：ユーティリティ関数を提供するモジュール。
@@ -21,7 +22,11 @@
 //! - `output`（デフォルト）：出力プラグイン機能を有効にします。
 //! - `filter`（デフォルト）：フィルタプラグイン機能を有効にします。
 //! - `module`（デフォルト）：スクリプトモジュールプラグイン機能を有効にします。
+//! - `generic`（デフォルト）：汎用プラグイン機能を有効にします。
 //! - `image`：`image`クレートを使用して画像の読み書きをサポートします。
+//! - `serde`：`serde`を使用してプロジェクトファイルへのデータの保存と読み込みをサポートします。
+//!
+//! ## Note
 //!
 //! ### 内部アイテムについて
 //!
@@ -40,11 +45,11 @@ pub use aviutl2_sys as sys;
 pub use anyhow;
 pub use half;
 pub use log;
-pub use num_rational;
-pub use raw_window_handle;
 
 #[cfg(feature = "image")]
 pub use image;
+pub use num_rational;
+pub use raw_window_handle;
 
 #[doc(inline)]
 pub use aviutl2_macros::plugin;
@@ -60,6 +65,9 @@ pub mod filter;
 
 #[cfg(feature = "module")]
 pub mod module;
+
+#[cfg(feature = "generic")]
+pub mod generic;
 
 #[doc(hidden)]
 #[path = "internal_base.rs"]

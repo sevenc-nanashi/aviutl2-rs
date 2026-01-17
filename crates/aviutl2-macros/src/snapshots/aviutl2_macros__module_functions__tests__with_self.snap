@@ -19,30 +19,26 @@ impl MyModule {
             extern "C" fn bridge_my_function(
                 smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
             ) {
-                let mut params = ::aviutl2::module::ScriptModuleCallHandle::from_ptr(smp);
-                let __internal_self = < MyModule as :: aviutl2 :: module :: __bridge :: ScriptModuleSingleton > :: __get_singleton_state () ;
-                let __internal_self = __internal_self
-                    .read()
-                    .expect("Plugin handle is not initialized");
-                let __internal_self = &__internal_self
-                    .as_ref()
-                    .expect("Plugin instance is not initialized")
-                    .instance;
-                let fuga: f64 = match <f64 as ::aviutl2::module::FromScriptModuleParam>::from_param(
-                    &params, 0usize,
-                ) {
-                    ::std::option::Option::Some(value) => value,
-                    ::std::option::Option::None => {
-                        let _ = params.set_error(&format!(
-                            "Failed to convert parameter #{} to {}",
-                            0usize,
-                            stringify!(f64)
-                        ));
-                        return;
-                    }
-                };
-                let fn_result = <MyModule>::my_function(__internal_self, fuga);
-                ::aviutl2::module::__push_return_value(&mut params, fn_result);
+                let mut params =
+                    unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+                <MyModule as ::aviutl2::module::ScriptModule>::with_instance(|__internal_self| {
+                    let fuga: f64 =
+                        match <f64 as ::aviutl2::module::FromScriptModuleParam>::from_param(
+                            &params, 0usize,
+                        ) {
+                            ::std::option::Option::Some(value) => value,
+                            ::std::option::Option::None => {
+                                let _ = params.set_error(&format!(
+                                    "Failed to convert parameter #{} to {}",
+                                    0usize,
+                                    stringify!(f64)
+                                ));
+                                return;
+                            }
+                        };
+                    let fn_result = <MyModule>::my_function(__internal_self, fuga);
+                    ::aviutl2::module::__push_return_value(&mut params, fn_result);
+                });
             }
         }
     }

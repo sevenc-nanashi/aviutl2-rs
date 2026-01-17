@@ -1,0 +1,43 @@
+---
+source: crates/aviutl2-macros/src/filter_config_items.rs
+expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
+---
+struct Config {}
+#[automatically_derived]
+impl ::aviutl2::filter::FilterConfigItems for Config {
+    fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
+        return vec![
+            ::aviutl2::filter::FilterConfigItem::Button(::aviutl2::filter::FilterConfigButton {
+                name: "Reset".to_string(),
+                callback: __filter_button_callback_reset,
+            }),
+            ::aviutl2::filter::FilterConfigItem::Button(::aviutl2::filter::FilterConfigButton {
+                name: "Apply".to_string(),
+                callback: __filter_button_callback_apply,
+            }),
+        ];
+        extern "C" fn __filter_button_callback_reset(
+            edit_section: *mut ::aviutl2::sys::plugin2::EDIT_SECTION,
+        ) {
+            let mut edit_section =
+                unsafe { ::aviutl2::generic::EditSection::from_raw(edit_section) };
+            reset(&mut edit_section);
+        }
+        extern "C" fn __filter_button_callback_apply(
+            edit_section: *mut ::aviutl2::sys::plugin2::EDIT_SECTION,
+        ) {
+            let mut edit_section =
+                unsafe { ::aviutl2::generic::EditSection::from_raw(edit_section) };
+            on_apply_clicked(&mut edit_section);
+        }
+    }
+    fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
+        Self {}
+    }
+}
+#[automatically_derived]
+impl ::std::default::Default for Config {
+    fn default() -> Self {
+        Self {}
+    }
+}
