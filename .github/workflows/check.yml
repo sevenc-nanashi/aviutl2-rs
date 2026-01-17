@@ -25,9 +25,9 @@ jobs:
       - name: Build Page
         uses: ./.github/actions/prepare-resources
 
-      - name: Run format
+      - name: Check format
         run: |
-          bundle exec rake format
+          bundle exec rake check_format
 
       - name: Run lint
         run: |
