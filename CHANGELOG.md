@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.11.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.11.0)
+
 - **Breaking:** APIからのResultはanyhow::Resultを使わないように変更
 - **Breaking:** `odbg!`、`oprintln!`を削除
 - **Breaking:** module: `IntoScriptModuleReturnValue` traitの返り値をanyhow::Errorから変更
