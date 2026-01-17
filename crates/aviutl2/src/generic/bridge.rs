@@ -109,14 +109,18 @@ pub unsafe fn register_plugin<T: GenericSingleton>(
         });
     }
 
-    extern "C" fn on_clear_cache<T: GenericSingleton>(edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION) {
+    extern "C" fn on_clear_cache<T: GenericSingleton>(
+        edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
+    ) {
         <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
             let edit_section = crate::generic::EditSection::from_raw(edit_section);
             instance.on_clear_cache(&edit_section);
         });
     }
 
-    extern "C" fn on_change_scene<T: GenericSingleton>(edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION) {
+    extern "C" fn on_change_scene<T: GenericSingleton>(
+        edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
+    ) {
         <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
             let edit_section = crate::generic::EditSection::from_raw(edit_section);
             instance.on_change_scene(&edit_section);
