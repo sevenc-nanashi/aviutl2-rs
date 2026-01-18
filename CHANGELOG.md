@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Breaking:** generic: ProjectFileのserdeの読み書きの戻り値をanyhow::Resultから変更
+- generic: ProjectFileのserdeの読み書きのzstdを削除
 
 ### デモプラグイン
 
