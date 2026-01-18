@@ -2,11 +2,11 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking:** generic: ProjectFileのserdeの読み書きの戻り値をanyhow::Resultから変更
 
 ### デモプラグイン
 
-（なし）
+- local-alias: トップページが表示されないバグを修正
 
 ## [0.11.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.11.0)
 
