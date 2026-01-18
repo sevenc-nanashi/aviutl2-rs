@@ -127,70 +127,161 @@ impl<'a> ProjectFile<'a> {
 }
 
 #[cfg(feature = "serde")]
-static NAMESPACE: &str = "--aviutl2-rs";
+const _: () = {
+    use std::io::Read;
 
-#[cfg(feature = "serde")]
-impl<'a> ProjectFile<'a> {
-    /// プロジェクトにデータをシリアライズして保存します。
-    ///
-    /// # Note
-    ///
-    /// 今現在の実装ではデータはMessagePackにシリアライズされた後にZstdで圧縮されています。
-    ///
-    /// # Errors
-    ///
-    /// - シリアライズに失敗した場合。
-    /// - 圧縮に失敗した場合。
-    pub fn serialize<T: serde::Serialize>(&mut self, key: &str, value: &T) -> crate::AnyResult<()> {
-        let bytes = rmp_serde::to_vec_named(value)?;
-        let bytes = zstd::encode_all(&bytes[..], 0)?;
-        let num_bytes = bytes.len();
-        self.set_param_string(key, &format!("{NAMESPACE}:serde-zstd-v1:{}", num_bytes))?;
-        for (i, chunk) in bytes.chunks(4096).enumerate() {
-            let chunk_key = format!("{NAMESPACE}:serde-zstd-v1:chunk:{}:{}", key, i);
-            self.set_param_binary(&chunk_key, chunk)?;
-        }
-        Ok(())
+    static NAMESPACE: &str = "--aviutl2-rs";
+
+    /// プロジェクトのシリアライズ・デシリアライズ関連のエラー。
+    #[derive(thiserror::Error, Debug)]
+    pub enum ProjectFileSerdeError {
+        #[error("serialization error: {0}")]
+        Serialization(#[from] rmp_serde::encode::Error),
+        #[error("deserialization error: {0}")]
+        Deserialization(#[from] rmp_serde::decode::Error),
+        #[error("zstd dompression error: {0}")]
+        Decompression(#[from] std::io::Error),
+        #[error("project file error: {0}")]
+        ProjectFile(#[from] ProjectFileError),
+        #[error("unsupported serialization format")]
+        UnsupportedFormat,
+        #[error("invalid header format: {0}")]
+        InvalidHeaderFormat(String),
+        #[error("incomplete data retrieved for key")]
+        IncompleteData,
     }
 
-    /// プロジェクトからデータをデシリアライズして取得します。
-    pub fn deserialize<T: serde::de::DeserializeOwned>(&self, key: &str) -> crate::AnyResult<T> {
-        let header = self.get_param_string(key)?;
-        let header_prefix = format!("{NAMESPACE}:serde-zstd-v1:");
-        let num_bytes = header
-            .strip_prefix(&header_prefix)
-            .ok_or_else(|| anyhow::anyhow!("invalid header for key {}", key))?;
-        let num_bytes: usize = num_bytes.parse()?;
-        if num_bytes == 0 {
-            anyhow::bail!("invalid data length 0 for key {}", key);
-        }
-        let mut bytes = Vec::with_capacity(num_bytes);
-        let mut read_bytes = 0;
-        let mut chunk = vec![0u8; 4096];
-        for i in 0.. {
-            let chunk_key = format!("{NAMESPACE}:serde-zstd-v1:chunk:{}:{}", key, i);
-            let to_read = std::cmp::min(4096, num_bytes - read_bytes);
-            chunk.resize(to_read, 0);
-            match self.get_param_binary(&chunk_key, &mut chunk) {
-                Ok(()) => {
-                    bytes.extend_from_slice(&chunk);
-                    read_bytes += to_read;
-                    if read_bytes >= num_bytes {
-                        break;
-                    }
-                }
-                Err(_) => break,
+    impl<'a> ProjectFile<'a> {
+        /// プロジェクトにデータをシリアライズして保存します。
+        ///
+        /// # Note
+        ///
+        /// 今現在の実装ではデータはMessagePackにシリアライズされています。
+        ///
+        /// # Errors
+        ///
+        /// - シリアライズに失敗した場合。
+        pub fn serialize<T: serde::Serialize>(
+            &mut self,
+            key: &str,
+            value: &T,
+        ) -> Result<(), ProjectFileSerdeError> {
+            let bytes = rmp_serde::to_vec_named(value)?;
+            let num_bytes = bytes.len();
+            self.set_param_string(key, &format!("{NAMESPACE}:serde-rmp-v1:{}", num_bytes))?;
+            for (i, chunk) in bytes.chunks(4096).enumerate() {
+                let chunk_key = format!("{NAMESPACE}:serde-chunk:{}:{}", key, i);
+                self.set_param_binary(&chunk_key, chunk)?;
             }
+            Ok(())
         }
-        anyhow::ensure!(
-            read_bytes == num_bytes,
-            "incomplete data for key {}, expected {} bytes, got {} bytes",
-            key,
-            num_bytes,
-            read_bytes
-        );
-        let decompressed_bytes = zstd::decode_all(&bytes[..])?;
-        let value: T = rmp_serde::from_slice(&decompressed_bytes)?;
-        Ok(value)
+
+        /// プロジェクトからデータをデシリアライズして取得します。
+        pub fn deserialize<T: serde::de::DeserializeOwned>(
+            &self,
+            key: &str,
+        ) -> Result<T, ProjectFileSerdeError> {
+            let header = self.get_param_string(key)?;
+            if let Ok(value) = self.decode_serde_zstd_v1(key, &header) {
+                return Ok(value);
+            }
+            self.decode_serde_rmp_v1(key, &header)
+        }
+
+        fn decode_serde_rmp_v1<T: serde::de::DeserializeOwned>(
+            &self,
+            key: &str,
+            header: &str,
+        ) -> Result<T, ProjectFileSerdeError> {
+            let header_prefix = format!("{NAMESPACE}:serde-rmp-v1:");
+            let num_bytes = header
+                .strip_prefix(&header_prefix)
+                .ok_or(ProjectFileSerdeError::UnsupportedFormat)?;
+            let num_bytes: usize = num_bytes
+                .parse()
+                .map_err(|_| ProjectFileSerdeError::InvalidHeaderFormat(header.to_string()))?;
+            if num_bytes == 0 {
+                return Err(ProjectFileSerdeError::InvalidHeaderFormat(
+                    header.to_string(),
+                ));
+            }
+            let chunks = self.collect_chunks(num_bytes, key)?;
+            let value: T = rmp_serde::from_slice(&chunks)?;
+            Ok(value)
+        }
+
+        fn collect_chunks(
+            &self,
+            num_bytes: usize,
+            key: &str,
+        ) -> Result<Vec<u8>, ProjectFileSerdeError> {
+            let mut bytes = Vec::with_capacity(num_bytes);
+            let mut read_bytes = 0;
+            let mut chunk = vec![0u8; 4096];
+            for i in 0.. {
+                let chunk_key = format!("{NAMESPACE}:serde-chunk:{}:{}", key, i);
+                let to_read = std::cmp::min(4096, num_bytes - read_bytes);
+                chunk.resize(to_read, 0);
+                match self.get_param_binary(&chunk_key, &mut chunk) {
+                    Ok(()) => {
+                        bytes.extend_from_slice(&chunk);
+                        read_bytes += to_read;
+                        if read_bytes >= num_bytes {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+            if read_bytes != num_bytes {
+                return Err(ProjectFileSerdeError::IncompleteData);
+            }
+            Ok(bytes)
+        }
+        fn decode_serde_zstd_v1<T: serde::de::DeserializeOwned>(
+            &self,
+            key: &str,
+            header: &str,
+        ) -> Result<T, ProjectFileSerdeError> {
+            let header_prefix = format!("{NAMESPACE}:serde-zstd-v1:");
+            let num_bytes = header
+                .strip_prefix(&header_prefix)
+                .ok_or(ProjectFileSerdeError::UnsupportedFormat)?;
+            let num_bytes: usize = num_bytes
+                .parse()
+                .map_err(|_| ProjectFileSerdeError::InvalidHeaderFormat(header.to_string()))?;
+            if num_bytes == 0 {
+                return Err(ProjectFileSerdeError::InvalidHeaderFormat(
+                    header.to_string(),
+                ));
+            }
+            let mut bytes = Vec::with_capacity(num_bytes);
+            let mut read_bytes = 0;
+            let mut chunk = vec![0u8; 4096];
+            for i in 0.. {
+                let chunk_key = format!("{NAMESPACE}:serde-zstd-v1:chunk:{}:{}", key, i);
+                let to_read = std::cmp::min(4096, num_bytes - read_bytes);
+                chunk.resize(to_read, 0);
+                match self.get_param_binary(&chunk_key, &mut chunk) {
+                    Ok(()) => {
+                        bytes.extend_from_slice(&chunk);
+                        read_bytes += to_read;
+                        if read_bytes >= num_bytes {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+            if read_bytes != num_bytes {
+                return Err(ProjectFileSerdeError::IncompleteData);
+            }
+            let mut decoder = ruzstd::decoding::StreamingDecoder::new(&bytes[..])
+                .map_err(|e| ProjectFileSerdeError::Decompression(std::io::Error::other(e)))?;
+            let mut decompressed_bytes = vec![];
+            decoder.read_to_end(&mut decompressed_bytes)?;
+            let value: T = rmp_serde::from_slice(&decompressed_bytes)?;
+            Ok(value)
+        }
     }
-}
+};

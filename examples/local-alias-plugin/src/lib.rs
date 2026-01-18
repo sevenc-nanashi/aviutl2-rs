@@ -96,6 +96,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
     }
 
     fn on_project_save(&mut self, project: &mut aviutl2::generic::ProjectFile) {
+        project.clear_params();
         let _ = project.serialize("alias_entries", &self.aliases);
     }
 }

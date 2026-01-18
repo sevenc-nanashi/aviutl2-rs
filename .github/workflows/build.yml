@@ -73,6 +73,4 @@ jobs:
           tag_name: ${{ github.event.inputs.name }}
           body_path: "./release/README.md"
           files: |
-            ./release/*.aui2
-            ./release/*.auo2
-            ./release/*.auf2
+            ./release/*.*2
