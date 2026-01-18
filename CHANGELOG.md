@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.11.1](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.11.1)
+
 - **Breaking:** generic: ProjectFileのserdeの読み書きの戻り値をanyhow::Resultから変更
 - generic: ProjectFileのserdeの読み書きのzstdを削除
 
