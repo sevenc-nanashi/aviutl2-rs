@@ -63,7 +63,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
                                     .unwrap()
                             }
                         })
-                        .with_url("app://index.html")
+                        .with_url("app://./index.html")
                 }
             })
             .build(&window)?;
