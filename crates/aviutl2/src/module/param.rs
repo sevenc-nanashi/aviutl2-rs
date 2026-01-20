@@ -85,14 +85,10 @@ impl ScriptModuleCallHandle {
     /// # Note
     ///
     /// 引数を取得できない場合は`None`を返します。
-    pub fn get_param_data<T>(&self, index: usize) -> Option<*mut T> {
+    pub fn get_param_data<T>(&self, index: usize) -> Option<NonNull<T>> {
         unsafe {
             let data_ptr = ((*self.internal).get_param_data)(index as i32);
-            if data_ptr.is_null() {
-                None
-            } else {
-                Some(data_ptr as *mut T)
-            }
+            NonNull::new(data_ptr as *mut T)
         }
     }
 
@@ -228,6 +224,13 @@ impl ScriptModuleCallHandle {
             ((*self.internal).push_result_string)(c_value.as_ptr());
         }
         Ok(())
+    }
+
+    /// 関数の返り値にデータポインタを追加する。
+    pub fn push_result_data<T>(&mut self, value: *const T) {
+        unsafe {
+            ((*self.internal).push_result_data)(value as *const std::ffi::c_void);
+        }
     }
 
     /// 関数の返り値に整数の連想配列を追加する。
@@ -374,6 +377,8 @@ impl From<*mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM> for ScriptModuleCallHa
 pub trait FromScriptModuleParam<'a>: Sized {
     fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self>;
 }
+use std::ptr::NonNull;
+
 pub use aviutl2_macros::FromScriptModuleParam;
 
 impl<'a> FromScriptModuleParam<'a> for i32 {
@@ -407,6 +412,15 @@ impl<'a> FromScriptModuleParam<'a> for String {
     fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
         if index < param.len() {
             param.get_param_str(index)
+        } else {
+            None
+        }
+    }
+}
+impl<'a, T> FromScriptModuleParam<'a> for NonNull<T> {
+    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
+        if index < param.len() {
+            param.get_param_data(index)
         } else {
             None
         }
@@ -611,6 +625,7 @@ pub enum ScriptModuleReturnValue {
     Float(f64),
     String(String),
     Boolean(bool),
+    Data(*const std::ffi::c_void),
     StringArray(Vec<String>),
     IntArray(Vec<i32>),
     FloatArray(Vec<f64>),
@@ -662,6 +677,9 @@ where
                 ScriptModuleReturnValue::Boolean(v) => {
                     param.push_result_boolean(v);
                 }
+                ScriptModuleReturnValue::Data(v) => {
+                    param.push_result_data(v);
+                }
                 ScriptModuleReturnValue::StringArray(v) => {
                     let strs: Vec<&str> = v.iter().map(|s| s.as_str()).collect();
                     param.push_result_array_str(&strs)?
@@ -686,6 +704,16 @@ where
     }
 }
 pub use aviutl2_macros::IntoScriptModuleReturnValue;
+
+impl<T> IntoScriptModuleReturnValue for *const T {
+    type Err = std::convert::Infallible;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        Ok(vec![ScriptModuleReturnValue::Data(
+            self as *const std::ffi::c_void,
+        )])
+    }
+}
 
 impl IntoScriptModuleReturnValue for i32 {
     type Err = std::convert::Infallible;
