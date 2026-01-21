@@ -1,0 +1,28 @@
+---
+source: crates/aviutl2-macros/src/generic_menus.rs
+assertion_line: 322
+expression: format_tokens(output)
+---
+impl MyPlugin {
+    fn config_menu(rwh: ::aviutl2::generic::RawWindowHandle) -> Result<(), ()> {
+        let _ = rwh;
+        Ok(())
+    }
+}
+::aviutl2::__internal_module! {
+    impl ::aviutl2::generic::GenericPluginMenus for MyPlugin {
+        fn register_menus(host: &mut ::aviutl2::generic::HostAppHandle) {
+            host.register_config_menu("config_menu", bridge_config_menu);
+            return;
+            extern "C" fn bridge_config_menu(
+                hwnd: ::aviutl2::sys::plugin2::HWND,
+                hinstance: ::aviutl2::sys::plugin2::HINSTANCE,
+            ) {
+                let mut rwh =
+                    unsafe { ::aviutl2::generic::__internal_rwh_from_raw(hwnd, hinstance) };
+                let ret = <MyPlugin>::config_menu(rwh);
+                let _ = ret;
+            }
+        }
+    }
+}

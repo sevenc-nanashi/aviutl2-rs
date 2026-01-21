@@ -285,3 +285,49 @@ fn find_menu_attr(
     }
     Ok(found)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use super::*;
+
+    #[test]
+    fn test_export_with_self_mut_log() {
+        let input = quote::quote! {
+            impl MyPlugin {
+                #[export(name = "MyExport", error = "log")]
+                fn export_menu(&mut self, edit: &mut ::aviutl2::generic::EditSection) -> Result<(), ()> {
+                    let _ = edit;
+                    Ok(())
+                }
+            }
+        };
+        let output = generic_menus(input).unwrap();
+        insta::assert_snapshot!(format_tokens(output));
+    }
+
+    #[test]
+    fn test_config_no_self_ignore() {
+        let input = quote::quote! {
+            impl MyPlugin {
+                #[config(error = "ignore")]
+                fn config_menu(rwh: ::aviutl2::generic::RawWindowHandle) -> Result<(), ()> {
+                    let _ = rwh;
+                    Ok(())
+                }
+            }
+        };
+        let output = generic_menus(input).unwrap();
+        insta::assert_snapshot!(format_tokens(output));
+    }
+
+    fn format_tokens(tokens: proc_macro2::TokenStream) -> String {
+        let replaced = tokens
+            .to_string()
+            .replace(":: aviutl2 :: __internal_module !", "mod __internal_module");
+        let replaced = proc_macro2::TokenStream::from_str(&replaced).unwrap();
+        let formatted = rustfmt_wrapper::rustfmt(replaced).unwrap();
+        formatted.replace("mod __internal_module", "::aviutl2::__internal_module!")
+    }
+}

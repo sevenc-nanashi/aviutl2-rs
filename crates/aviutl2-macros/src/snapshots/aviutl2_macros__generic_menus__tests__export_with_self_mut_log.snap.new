@@ -1,0 +1,26 @@
+---
+source: crates/aviutl2-macros/src/generic_menus.rs
+assertion_line: 307
+expression: format_tokens(output)
+---
+impl MyPlugin {
+    fn export_menu(&mut self, edit: &mut ::aviutl2::generic::EditSection) -> Result<(), ()> {
+        let _ = edit;
+        Ok(())
+    }
+}
+::aviutl2::__internal_module! {
+    impl ::aviutl2::generic::GenericPluginMenus for MyPlugin {
+        fn register_menus(host: &mut ::aviutl2::generic::HostAppHandle) {
+            host.register_export_menu("MyExport", bridge_export_menu);
+            return;
+            extern "C" fn bridge_export_menu(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
+                let mut edit = unsafe { ::aviutl2::generic::EditSection::from_raw(edit) };
+                <MyPlugin as ::aviutl2::generic::GenericPlugin>::with_instance_mut(|__self| {
+                    let ret = <MyPlugin>::export_menu(__self, &mut edit);
+                    ::aviutl2::generic::__output_log_if_error(ret);
+                });
+            }
+        }
+    }
+}
