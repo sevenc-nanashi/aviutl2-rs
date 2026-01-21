@@ -35,6 +35,7 @@ AviUtl2 SDKのRust版です。
   - 汎用プラグイン：
     - `./examples/local-alias-plugin`：プロジェクトローカルにオブジェクトを保存する汎用プラグインのサンプル。
     - `./examples/srt-file-plugin`：SRTファイルをインポート/エクスポートする汎用プラグインのサンプル。
+    - `./examples/restart-shortcut-plugin`：AviUtl2を再起動する編集メニューを追加する汎用プラグインのサンプル。
 
 ## ライセンス
 

@@ -1,0 +1,20 @@
+[package]
+name = "example-restart-shortcut-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "rusty_restart_shortcut_plugin"
+crate-type = ["cdylib"]
+
+[dependencies]
+aviutl2.workspace = true
+native-dialog = "0.9.4"
+process_path = "0.1.4"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+windows = { version = "0.62.2", features = ["Win32_UI_Input_KeyboardAndMouse"] }
