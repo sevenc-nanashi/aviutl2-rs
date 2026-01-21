@@ -2115,7 +2115,7 @@ dependencies = [
 
 [[package]]
 name = "example-restart-shortcut-plugin"
-version = "0.11.1"
+version = "0.11.2"
 dependencies = [
  "aviutl2",
  "native-dialog",
