@@ -19,14 +19,14 @@ impl MyModule {
             extern "C" fn bridge_my_function(
                 smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
             ) {
-                let mut params =
+                let mut __handle =
                     unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
                 let hoge: i32 = match <i32 as ::aviutl2::module::FromScriptModuleParam>::from_param(
-                    &params, 0usize,
+                    &__handle, 0usize,
                 ) {
                     ::std::option::Option::Some(value) => value,
                     ::std::option::Option::None => {
-                        let _ = params.set_error(&format!(
+                        let _ = __handle.set_error(&format!(
                             "Failed to convert parameter #{} to {}",
                             0usize,
                             stringify!(i32)
@@ -35,7 +35,7 @@ impl MyModule {
                     }
                 };
                 let fn_result = <MyModule>::my_function(hoge);
-                ::aviutl2::module::__push_return_value(&mut params, fn_result);
+                ::aviutl2::module::__push_return_value(&mut __handle, fn_result);
             }
         }
     }

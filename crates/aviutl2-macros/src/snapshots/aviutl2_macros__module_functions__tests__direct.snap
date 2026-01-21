@@ -17,10 +17,10 @@ impl MyModule {
             extern "C" fn bridge_my_function(
                 smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
             ) {
-                let mut params =
+                let mut __handle =
                     unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
                 <MyModule as ::aviutl2::module::ScriptModule>::with_instance(|__internal_self| {
-                    let () = <MyModule>::my_function(__internal_self, &mut params);
+                    let () = <MyModule>::my_function(__internal_self, &mut __handle);
                 });
             }
         }
