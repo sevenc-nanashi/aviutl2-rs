@@ -8,6 +8,14 @@
 
 （なし）
 
+## [0.11.3](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.11.3)
+
+（なし）
+
+### デモプラグイン
+
+（なし）
+
 ## [0.11.2](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.11.2)
 
 - module: ユーザーポインタを取得・返却できるように
