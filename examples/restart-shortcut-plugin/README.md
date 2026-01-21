@@ -8,4 +8,4 @@ AviUtl2を再起動する編集メニューを追加します。
 
 ## インストール
 
-`C:\ProgramData\aviutl2\Script` に `rusty_restart_shortcut.aux2` を配置してください。
+`C:\ProgramData\aviutl2\Plugin` に `rusty_restart_shortcut.aux2` を配置してください。
