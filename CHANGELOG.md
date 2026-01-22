@@ -10,11 +10,11 @@
 
 ## [0.11.3](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.11.3)
 
-（なし）
+- module: functionsでparamsという引数名が使えなかったのを修正
 
 ### デモプラグイン
 
-（なし）
+- Restart Shortcut Pluginを追加
 
 ## [0.11.2](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.11.2)
 
