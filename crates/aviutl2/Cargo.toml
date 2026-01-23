@@ -15,12 +15,13 @@ targets = []
 all-features = true
 
 [features]
-default = ["input", "output", "filter", "module", "generic", "aviutl2-alias"]
+default = ["input", "output", "filter", "module", "generic", "aviutl2-alias", "wrap_log"]
 input = []
 output = []
 filter = []
 module = []
 generic = []
+wrap_log = ["dep:process_path"]
 image = ["dep:image"]
 serde = ["dep:serde", "dep:rmp-serde", "dep:ruzstd"]
 aviutl2-alias = ["dep:aviutl2-alias"]
@@ -46,3 +47,4 @@ zerocopy = { version = "0.8.26", features = ["std"] }
 dashmap = "6.1.0"
 parking_lot = "0.12.5"
 ruzstd = { version = "0.8.2", optional = true }
+process_path = { version = "0.1.4", optional = true }

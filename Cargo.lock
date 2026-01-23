@@ -634,6 +634,7 @@ dependencies = [
  "num-rational",
  "parking_lot",
  "pastey",
+ "process_path",
  "raw-window-handle",
  "rmp-serde",
  "ruzstd",

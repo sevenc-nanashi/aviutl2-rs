@@ -184,6 +184,40 @@ macro_rules! lprintln {
     };
 }
 
+#[cfg(feature = "wrap_log")]
+fn log_length_limit(kind_length: usize) -> usize {
+    static DLL_LENGTH: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    let dll_length = *DLL_LENGTH.get_or_init(|| {
+        process_path::get_dylib_path()
+            .map_or(0, |path| path.file_name().unwrap().to_string_lossy().len())
+    });
+    // [01/23 08:43:47] [VERBOSE] [Plugin::vi5.aux2] ...
+    1023 - 35 - dll_length - kind_length
+}
+#[cfg(not(feature = "wrap_log"))]
+fn log_length_limit(_kind_length: usize) -> usize {
+    // wrap_logが無効な場合は制限なし
+    usize::MAX
+}
+
+fn split_into_chunks(message: &str, kind_length: usize) -> Vec<String> {
+    // 二分探索みたいなことをすればもっと効率的にできるけど面倒なので...
+    let log_length_limit = log_length_limit(kind_length);
+    let mut chunks = Vec::with_capacity(message.len() / log_length_limit + 1);
+    let mut current_chunk = String::new();
+    for letter in message.chars() {
+        let letter_len = letter.len_utf8();
+        if current_chunk.len() + letter_len > log_length_limit {
+            chunks.push(std::mem::take(&mut current_chunk));
+        }
+        current_chunk.push(letter);
+    }
+    if !current_chunk.is_empty() {
+        chunks.push(current_chunk);
+    }
+    chunks
+}
+
 /// プラグイン用ログにメッセージを書き込みます。
 ///
 /// # Note
@@ -196,8 +230,10 @@ macro_rules! lprintln {
 /// - [`lprintln!`]
 pub fn write_plugin_log(message: &str) -> Result<(), NullByteError> {
     with_logger_handle(|handle| unsafe {
-        let wide_message = CWString::new(message)?;
-        ((*handle).log)(handle, wide_message.as_ptr());
+        for chunk in split_into_chunks(message, "PLUGIN".len()) {
+            let wide_message = CWString::new(&chunk)?;
+            ((*handle).log)(handle, wide_message.as_ptr());
+        }
         Ok(())
     })
     .unwrap_or(Ok(()))
@@ -222,8 +258,10 @@ pub fn write_plugin_log(message: &str) -> Result<(), NullByteError> {
 /// - [`lprintln!`]
 pub fn function_name(message: &str) -> Result<(), NullByteError> {
     with_logger_handle(|handle| unsafe {
-        let wide_message = CWString::new(message)?;
-        ((*handle).log_method)(handle, wide_message.as_ptr());
+        for chunk in split_into_chunks(message, level.len()) {
+            let wide_message = CWString::new(&chunk)?;
+            ((*handle).log_method)(handle, wide_message.as_ptr());
+        }
         Ok(())
     })
     .unwrap_or(Ok(()))
@@ -286,5 +324,38 @@ mod tests {
         ldbg!();
         ldbg!(x);
         ldbg!(x + 1, x * 2);
+    }
+
+    #[test]
+    fn test_can_compile_lprintln() {
+        lprintln!("This is a test log message.");
+        lprintln!(info, "This is an info log message.");
+        lprintln!(warn, "This is a warning log message.");
+        lprintln!(error, "This is an error log message.");
+        lprintln!(verbose, "This is a verbose log message.");
+    }
+
+    #[test]
+    #[cfg(feature = "wrap_log")]
+    fn test_split_into_chunks() {
+        let message = "a".repeat(5000);
+        let chunks = super::split_into_chunks(&message, "VERBOSE".len());
+        let dylib_name = process_path::get_dylib_path()
+            .and_then(|path| {
+                path.file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+            })
+            .unwrap();
+        for chunk in chunks {
+            assert!(chunk.len() <= super::log_length_limit("VERBOSE".len()));
+            assert!(
+                format!(
+                    "[01/23 08:43:47] [VERBOSE] [Plugin::{}] {}",
+                    dylib_name, chunk
+                )
+                .len()
+                    <= 1023
+            );
+        }
     }
 }
