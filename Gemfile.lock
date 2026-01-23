@@ -5,6 +5,7 @@ GEM
     prettier_print (1.2.1)
     racc (1.8.1)
     rake (13.3.1)
+    rubyzip (3.2.2)
     syntax_tree (6.3.0)
       prettier_print (>= 1.2.0)
     tomlrb (2.0.3)
@@ -16,6 +17,7 @@ DEPENDENCIES
   lefthook (~> 2.0)
   racc (~> 1.8)
   rake (~> 13.3)
+  rubyzip (~> 3.2)
   syntax_tree (~> 6.3)
   tomlrb (~> 2.0, >= 2.0.3)
 

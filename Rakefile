@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+require "bundler/setup"
 require "syntax_tree/rake_tasks"
 require "tomlrb"
 require "fileutils"
@@ -62,18 +63,37 @@ task :install, %w[target dest] do |task, args|
     end
 end
 
-desc "C:/ProgramData/AviUtl2/Pluginまたは指定したディレクトリにビルドしたプラグインのシンボリックリンクを作成します"
-task :link, %w[target dest] do |task, args|
-  if !(target = args.target)
-    puts "Usage: rake link[target[,dest]]"
-    puts "Example: rake link[debug]"
-    exit 1
+desc "./test_environment下にAviUtl2をセットアップし、debugビルドへのシンボリックリンクを作成します"
+task :debug_setup do |task, args|
+  require "zip"
+
+  unless File.exist?("./test_environment/aviutl2.exe")
+    zip_path = "./test_environment/aviutl2_latest.zip"
+    mkdir_p("./test_environment") unless Dir.exist?("./test_environment")
+    File.open(zip_path, "wb") do |file|
+      require "open-uri"
+      URI.open(
+        "https://api.aviutl2.jp/download?version=latest&type=zip"
+      ) { |uri| file.write(uri.read) }
+    end
+    Zip::File.open(zip_path) do |zip_file|
+      zip_file.each do |entry|
+        dest_path = File.join("./test_environment", entry.name)
+        unless Dir.exist?(File.dirname(dest_path))
+          mkdir_p(File.dirname(dest_path))
+        end
+        rm_rf(dest_path) if File.exist?(dest_path)
+        zip_file.extract(entry, dest_path)
+      end
+    end
+    rm(zip_path)
   end
 
-  dest_dir = args.dest || "C:/ProgramData/AviUtl2/Plugin"
+  dest_dir = "./test_environment/data/Plugin"
   script_dir = dest_dir + "/../Script"
-  Dir.mkdir(dest_dir) unless Dir.exist?(dest_dir)
-  Dir.mkdir(script_dir) unless Dir.exist?(script_dir)
+  target = "debug"
+  FileUtils.mkdir_p(dest_dir) unless Dir.exist?(dest_dir)
+  FileUtils.mkdir_p(script_dir) unless Dir.exist?(script_dir)
   Dir
     .glob("./examples/*/Cargo.toml")
     .each do |manifest|
@@ -94,7 +114,7 @@ task :link, %w[target dest] do |task, args|
         else
           File.join(dest_dir, dest_name)
         end
-      if File.exist?(dest_path)
+      if File.exist?(dest_path) || File.symlink?(dest_path)
         puts "Skip: #{dest_path} already exists"
         next
       else

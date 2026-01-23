@@ -4,3 +4,4 @@
 /release
 .wrangler
 node_modules
+test_environment
