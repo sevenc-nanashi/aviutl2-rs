@@ -121,6 +121,22 @@ pub unsafe fn initialize_plugin_c<T: InputSingleton>(version: u32) -> bool {
     }
 }
 
+pub unsafe fn initialize_plugin_c_unwind<T: InputSingleton>(version: u32) -> bool {
+    match crate::utils::catch_unwind_with_panic_info(|| unsafe {
+        initialize_plugin_c::<T>(version)
+    }) {
+        Ok(result) => result,
+        Err(panic_info) => {
+            log::error!(
+                "Panic occurred during plugin initialization: {}",
+                panic_info
+            );
+            alert_error(&panic_info);
+            false
+        }
+    }
+}
+
 pub(crate) fn initialize_plugin<T: InputSingleton>(version: u32) -> AnyResult<()> {
     let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
@@ -139,7 +155,24 @@ pub unsafe fn uninitialize_plugin<T: InputSingleton>() {
     *plugin_state = None;
 }
 
-pub unsafe fn create_table<T: InputSingleton>() -> *mut aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
+pub unsafe fn uninitialize_plugin_c_unwind<T: InputSingleton>() {
+    match crate::utils::catch_unwind_with_panic_info(|| unsafe {
+        uninitialize_plugin::<T>()
+    }) {
+        Ok(()) => {}
+        Err(panic_info) => {
+            log::error!(
+                "Panic occurred during plugin uninitialization: {}",
+                panic_info
+            );
+            alert_error(&panic_info);
+        }
+    }
+}
+
+fn create_table_impl<T: InputSingleton>(
+    unwind: bool,
+) -> *mut aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
     let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
@@ -163,6 +196,47 @@ pub unsafe fn create_table<T: InputSingleton>() -> *mut aviutl2_sys::input2::INP
     }
     flag |= aviutl2_sys::input2::INPUT_PLUGIN_TABLE::FLAG_MULTI_TRACK;
 
+    let func_open = if unwind {
+        func_open_unwind::<T>
+    } else {
+        func_open::<T>
+    };
+    let func_close = if unwind {
+        func_close_unwind::<T>
+    } else {
+        func_close::<T>
+    };
+    let func_info_get = if unwind {
+        func_info_get_unwind::<T>
+    } else {
+        func_info_get::<T>
+    };
+    let func_read_video = if unwind {
+        func_read_video_unwind::<T>
+    } else {
+        func_read_video::<T>
+    };
+    let func_read_audio = if unwind {
+        func_read_audio_unwind::<T>
+    } else {
+        func_read_audio::<T>
+    };
+    let func_config = if unwind {
+        func_config_unwind::<T>
+    } else {
+        func_config::<T>
+    };
+    let func_set_track = if unwind {
+        func_set_track_unwind::<T>
+    } else {
+        func_set_track::<T>
+    };
+    let func_time_to_frame = if unwind {
+        func_time_to_frame_unwind::<T>
+    } else {
+        func_time_to_frame::<T>
+    };
+
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
     let table = aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
         flag,
@@ -173,17 +247,33 @@ pub unsafe fn create_table<T: InputSingleton>() -> *mut aviutl2_sys::input2::INP
         information: plugin_state
             .global_leak_manager
             .leak_as_wide_string(&information),
-        func_open: Some(func_open::<T>),
-        func_close: Some(func_close::<T>),
-        func_info_get: Some(func_info_get::<T>),
-        func_read_video: Some(func_read_video::<T>),
-        func_read_audio: Some(func_read_audio::<T>),
-        func_config: plugin_info.can_config.then_some(func_config::<T>),
-        func_set_track: Some(func_set_track::<T>),
-        func_time_to_frame: Some(func_time_to_frame::<T>),
+        func_open: Some(func_open),
+        func_close: Some(func_close),
+        func_info_get: Some(func_info_get),
+        func_read_video: Some(func_read_video),
+        func_read_audio: Some(func_read_audio),
+        func_config: plugin_info.can_config.then_some(func_config),
+        func_set_track: Some(func_set_track),
+        func_time_to_frame: Some(func_time_to_frame),
     };
     let table = Box::new(table);
     Box::leak(table)
+}
+
+pub unsafe fn create_table<T: InputSingleton>() -> *mut aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
+    create_table_impl::<T>(false)
+}
+
+pub unsafe fn create_table_unwind<T: InputSingleton>()
+-> *mut aviutl2_sys::input2::INPUT_PLUGIN_TABLE {
+    match crate::utils::catch_unwind_with_panic_info(|| create_table_impl::<T>(true)) {
+        Ok(table) => table,
+        Err(panic_info) => {
+            log::error!("Panic occurred during create_table: {}", panic_info);
+            alert_error(&panic_info);
+            std::ptr::null_mut()
+        }
+    }
 }
 
 extern "C" fn func_open<T: InputSingleton>(
@@ -214,6 +304,18 @@ extern "C" fn func_open<T: InputSingleton>(
         }
     }
 }
+extern "C" fn func_open_unwind<T: InputSingleton>(
+    file: aviutl2_sys::common::LPCWSTR,
+) -> aviutl2_sys::input2::INPUT_HANDLE {
+    match crate::utils::catch_unwind_with_panic_info(|| func_open::<T>(file)) {
+        Ok(handle) => handle,
+        Err(panic_info) => {
+            log::error!("Panic occurred during func_open: {}", panic_info);
+            alert_error(&panic_info);
+            std::ptr::null_mut()
+        }
+    }
+}
 extern "C" fn func_close<T: InputSingleton>(ih: aviutl2_sys::input2::INPUT_HANDLE) -> bool {
     let plugin_state = T::__get_singleton_state();
     let plugin_state = plugin_state.read().unwrap();
@@ -225,6 +327,18 @@ extern "C" fn func_close<T: InputSingleton>(ih: aviutl2_sys::input2::INPUT_HANDL
         Ok(()) => true,
         Err(e) => {
             log::error!("Error during func_close: {}", e);
+            false
+        }
+    }
+}
+extern "C" fn func_close_unwind<T: InputSingleton>(
+    ih: aviutl2_sys::input2::INPUT_HANDLE,
+) -> bool {
+    match crate::utils::catch_unwind_with_panic_info(|| func_close::<T>(ih)) {
+        Ok(result) => result,
+        Err(panic_info) => {
+            log::error!("Panic occurred during func_close: {}", panic_info);
+            alert_error(&panic_info);
             false
         }
     }
@@ -298,6 +412,19 @@ extern "C" fn func_info_get<T: InputSingleton>(
         }
     }
 }
+extern "C" fn func_info_get_unwind<T: InputSingleton>(
+    ih: aviutl2_sys::input2::INPUT_HANDLE,
+    iip: *mut aviutl2_sys::input2::INPUT_INFO,
+) -> bool {
+    match crate::utils::catch_unwind_with_panic_info(|| func_info_get::<T>(ih, iip)) {
+        Ok(result) => result,
+        Err(panic_info) => {
+            log::error!("Panic occurred during func_info_get: {}", panic_info);
+            alert_error(&panic_info);
+            false
+        }
+    }
+}
 extern "C" fn func_read_video<T: InputSingleton>(
     ih: aviutl2_sys::input2::INPUT_HANDLE,
     frame: i32,
@@ -338,6 +465,21 @@ extern "C" fn func_read_video<T: InputSingleton>(
         }
         Err(e) => {
             log::error!("Error during func_read_video: {}", e);
+            0
+        }
+    }
+}
+
+extern "C" fn func_read_video_unwind<T: InputSingleton>(
+    ih: aviutl2_sys::input2::INPUT_HANDLE,
+    frame: i32,
+    buf: *mut std::ffi::c_void,
+) -> i32 {
+    match crate::utils::catch_unwind_with_panic_info(|| func_read_video::<T>(ih, frame, buf)) {
+        Ok(result) => result,
+        Err(panic_info) => {
+            log::error!("Panic occurred during func_read_video: {}", panic_info);
+            alert_error(&panic_info);
             0
         }
     }
@@ -389,6 +531,24 @@ extern "C" fn func_read_audio<T: InputSingleton>(
     }
 }
 
+extern "C" fn func_read_audio_unwind<T: InputSingleton>(
+    ih: aviutl2_sys::input2::INPUT_HANDLE,
+    start: i32,
+    length: i32,
+    buf: *mut std::ffi::c_void,
+) -> i32 {
+    match crate::utils::catch_unwind_with_panic_info(|| {
+        func_read_audio::<T>(ih, start, length, buf)
+    }) {
+        Ok(result) => result,
+        Err(panic_info) => {
+            log::error!("Panic occurred during func_read_audio: {}", panic_info);
+            alert_error(&panic_info);
+            0
+        }
+    }
+}
+
 extern "C" fn func_config<T: InputSingleton>(
     hwnd: aviutl2_sys::input2::HWND,
     dll_hinst: aviutl2_sys::input2::HINSTANCE,
@@ -406,6 +566,19 @@ extern "C" fn func_config<T: InputSingleton>(
         Err(e) => {
             log::error!("Error during func_config: {}", e);
             alert_error(&e);
+            false
+        }
+    }
+}
+extern "C" fn func_config_unwind<T: InputSingleton>(
+    hwnd: aviutl2_sys::input2::HWND,
+    dll_hinst: aviutl2_sys::input2::HINSTANCE,
+) -> bool {
+    match crate::utils::catch_unwind_with_panic_info(|| func_config::<T>(hwnd, dll_hinst)) {
+        Ok(result) => result,
+        Err(panic_info) => {
+            log::error!("Panic occurred during func_config: {}", panic_info);
+            alert_error(&panic_info);
             false
         }
     }
@@ -501,6 +674,22 @@ extern "C" fn func_set_track<T: InputSingleton>(
         }
     }
 }
+extern "C" fn func_set_track_unwind<T: InputSingleton>(
+    ih: aviutl2_sys::input2::INPUT_HANDLE,
+    track_type: i32,
+    track: i32,
+) -> i32 {
+    match crate::utils::catch_unwind_with_panic_info(|| {
+        func_set_track::<T>(ih, track_type, track)
+    }) {
+        Ok(result) => result,
+        Err(panic_info) => {
+            log::error!("Panic occurred during func_set_track: {}", panic_info);
+            alert_error(&panic_info);
+            -1
+        }
+    }
+}
 extern "C" fn func_time_to_frame<T: InputSingleton>(
     ih: aviutl2_sys::input2::INPUT_HANDLE,
     time: f64,
@@ -521,6 +710,19 @@ extern "C" fn func_time_to_frame<T: InputSingleton>(
         Ok(frame) => frame as i32,
         Err(e) => {
             log::error!("Error during func_time_to_frame: {}", e);
+            0
+        }
+    }
+}
+extern "C" fn func_time_to_frame_unwind<T: InputSingleton>(
+    ih: aviutl2_sys::input2::INPUT_HANDLE,
+    time: f64,
+) -> i32 {
+    match crate::utils::catch_unwind_with_panic_info(|| func_time_to_frame::<T>(ih, time)) {
+        Ok(result) => result,
+        Err(panic_info) => {
+            log::error!("Panic occurred during func_time_to_frame: {}", panic_info);
+            alert_error(&panic_info);
             0
         }
     }
@@ -546,30 +748,99 @@ where
 }
 
 /// 入力プラグインを登録するマクロ。
+///
+/// # Example
+///
+/// ```rs
+/// # use aviutl2::register_input_plugin;
+/// # struct MyInputPlugin;
+/// # impl aviutl2::input::InputPlugin for MyInputPlugin {
+/// #     type InputHandle = ();
+/// #     fn new(_info: aviutl2::common::AviUtl2Info) -> aviutl2::common::AnyResult<Self> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn plugin_info(&self) -> aviutl2::input::InputPluginTable {
+/// #         unimplemented!()
+/// #     }
+/// #     fn open(&self, _path: std::path::PathBuf) -> aviutl2::common::AnyResult<Self::InputHandle> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn close(&self, _handle: Self::InputHandle) -> aviutl2::common::AnyResult<()> {
+/// #         unimplemented!()
+/// #     }
+/// # }
+/// aviutl2::register_input_plugin!(MyInputPlugin, unwind = false);
+/// ```
+///
+/// # Arguments
+///
+/// - `unwind`: panic時にunwindするかどうか。デフォルトは`true`。
 #[macro_export]
 macro_rules! register_input_plugin {
-    ($struct:ident) => {
+    ($struct:ident, $($key:ident = $value:expr),* $(,)?) => {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializeLogger(logger: *mut $crate::sys::logger2::LOG_HANDLE) {
-                $crate::logger::__initialize_logger(logger)
+                $crate::__macro_if! {
+                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                        if let Err(panic_info) = $crate::__catch_unwind_with_panic_info(|| {
+                            $crate::logger::__initialize_logger(logger)
+                        }) {
+                            $crate::log::error!(
+                                "Panic occurred during InitializeLogger: {}",
+                                panic_info
+                            );
+                            $crate::__alert_error(&panic_info);
+                        }
+                    } else {
+                        $crate::logger::__initialize_logger(logger)
+                    }
+                }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                unsafe { $crate::input::__bridge::initialize_plugin_c::<$struct>(version) }
+                unsafe {
+                    $crate::__macro_if! {
+                        if unwind in (unwind = true, $( $key = $value ),* ) {
+                            $crate::input::__bridge::initialize_plugin_c_unwind::<$struct>(version)
+                        } else {
+                            $crate::input::__bridge::initialize_plugin_c::<$struct>(version)
+                        }
+                    }
+                }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                unsafe { $crate::input::__bridge::uninitialize_plugin::<$struct>() }
+                unsafe {
+                    $crate::__macro_if! {
+                        if unwind in (unwind = true, $( $key = $value ),* ) {
+                            $crate::input::__bridge::uninitialize_plugin_c_unwind::<$struct>()
+                        } else {
+                            $crate::input::__bridge::uninitialize_plugin::<$struct>()
+                        }
+                    }
+                }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetInputPluginTable()
             -> *mut aviutl2::sys::input2::INPUT_PLUGIN_TABLE {
-                unsafe { $crate::input::__bridge::create_table::<$struct>() }
+                $crate::__macro_if! {
+                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                        unsafe { $crate::input::__bridge::create_table_unwind::<$struct>() }
+                    } else {
+                        unsafe { $crate::input::__bridge::create_table::<$struct>() }
+                    }
+                }
             }
         }
+    };
+    ($struct:ident, $($key:ident),* $(,)?) => {
+        $crate::register_input_plugin!($struct, $( $key = true ),* );
+    };
+    ($struct:ident) => {
+        $crate::register_input_plugin!($struct, );
     };
 }

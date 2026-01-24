@@ -171,6 +171,20 @@ pub unsafe fn initialize_plugin_c<T: FilterSingleton>(version: u32) -> bool {
     }
 }
 
+pub unsafe fn initialize_plugin_c_unwind<T: FilterSingleton>(version: u32) -> bool {
+    match catch_unwind_with_panic_info(|| unsafe { initialize_plugin_c::<T>(version) }) {
+        Ok(result) => result,
+        Err(panic_info) => {
+            log::error!(
+                "Panic occurred during plugin initialization: {}",
+                panic_info
+            );
+            alert_error(&panic_info);
+            false
+        }
+    }
+}
+
 pub(crate) fn initialize_plugin<T: FilterSingleton>(version: u32) -> AnyResult<()> {
     let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
@@ -187,7 +201,24 @@ pub unsafe fn uninitialize_plugin<T: FilterSingleton>() {
     let mut plugin_state = plugin_state.write().unwrap();
     *plugin_state = None;
 }
-pub unsafe fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
+
+pub unsafe fn uninitialize_plugin_c_unwind<T: FilterSingleton>() {
+    match crate::utils::catch_unwind_with_panic_info(|| unsafe {
+        uninitialize_plugin::<T>()
+    }) {
+        Ok(()) => {}
+        Err(panic_info) => {
+            log::error!(
+                "Panic occurred during plugin uninitialization: {}",
+                panic_info
+            );
+            alert_error(&panic_info);
+        }
+    }
+}
+fn create_table_impl<T: FilterSingleton>(
+    unwind: bool,
+) -> *mut aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
     let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
@@ -226,6 +257,17 @@ pub unsafe fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::F
             .collect(),
     );
 
+    let func_proc_video = if unwind {
+        func_proc_video_unwind::<T>
+    } else {
+        func_proc_video::<T>
+    };
+    let func_proc_audio = if unwind {
+        func_proc_audio_unwind::<T>
+    } else {
+        func_proc_audio::<T>
+    };
+
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
     let table = aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
         flag: plugin_info.flags.to_bits(),
@@ -237,28 +279,72 @@ pub unsafe fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::F
             plugin_state.global_leak_manager.leak_as_wide_string(s)
         }),
         items: config_items as _,
-        func_proc_video: Some(func_proc_video::<T>),
-        func_proc_audio: Some(func_proc_audio::<T>),
+        func_proc_video: Some(func_proc_video),
+        func_proc_audio: Some(func_proc_audio),
     };
     let table = Box::new(table);
     Box::leak(table)
 }
 
+pub unsafe fn create_table<T: FilterSingleton>() -> *mut aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
+    create_table_impl::<T>(false)
+}
+
+pub unsafe fn create_table_unwind<T: FilterSingleton>()
+-> *mut aviutl2_sys::filter2::FILTER_PLUGIN_TABLE {
+    match crate::utils::catch_unwind_with_panic_info(|| create_table_impl::<T>(true)) {
+        Ok(table) => table,
+        Err(panic_info) => {
+            log::error!("Panic occurred during create_table: {}", panic_info);
+            alert_error(&panic_info);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+fn proc_video_impl<T: FilterSingleton>(
+    video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
+) -> AnyResult<()> {
+    let plugin_lock = T::__get_singleton_state();
+    anyhow::ensure!(!plugin_lock.is_poisoned(), "Plugin state lock is poisoned");
+    update_configs::<T>(plugin_lock);
+    let plugin_state = plugin_lock.read().unwrap();
+    let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
+
+    plugin_state.leak_manager.free_leaked_memory();
+    let plugin = &plugin_state.instance;
+    let mut video = unsafe { FilterProcVideo::from_raw(video) };
+    plugin.proc_video(&plugin_state.config_items, &mut video)
+}
+
+fn proc_audio_impl<T: FilterSingleton>(
+    audio: *mut aviutl2_sys::filter2::FILTER_PROC_AUDIO,
+) -> AnyResult<()> {
+    let plugin_lock = T::__get_singleton_state();
+    update_configs::<T>(plugin_lock);
+    let plugin_state = plugin_lock.read().unwrap();
+    let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
+    plugin_state.leak_manager.free_leaked_memory();
+    let plugin = &plugin_state.instance;
+    let mut audio = unsafe { FilterProcAudio::from_raw(audio) };
+    plugin.proc_audio(&plugin_state.config_items, &mut audio)
+}
+
 extern "C" fn func_proc_video<T: FilterSingleton>(
     video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
 ) -> bool {
-    match catch_unwind_with_panic_info(|| {
-        let plugin_lock = T::__get_singleton_state();
-        anyhow::ensure!(!plugin_lock.is_poisoned(), "Plugin state lock is poisoned");
-        update_configs::<T>(plugin_lock);
-        let plugin_state = plugin_lock.read().unwrap();
-        let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
-
-        plugin_state.leak_manager.free_leaked_memory();
-        let plugin = &plugin_state.instance;
-        let mut video = unsafe { FilterProcVideo::from_raw(video) };
-        plugin.proc_video(&plugin_state.config_items, &mut video)
-    }) {
+    match proc_video_impl::<T>(video) {
+        Ok(()) => true,
+        Err(e) => {
+            log::error!("Error in proc_video: {}", e);
+            false
+        }
+    }
+}
+extern "C" fn func_proc_video_unwind<T: FilterSingleton>(
+    video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
+) -> bool {
+    match catch_unwind_with_panic_info(|| proc_video_impl::<T>(video)) {
         Ok(Ok(())) => true,
         Ok(Err(e)) => {
             log::error!("Error in proc_video: {}", e);
@@ -273,16 +359,18 @@ extern "C" fn func_proc_video<T: FilterSingleton>(
 extern "C" fn func_proc_audio<T: FilterSingleton>(
     audio: *mut aviutl2_sys::filter2::FILTER_PROC_AUDIO,
 ) -> bool {
-    match catch_unwind_with_panic_info(|| {
-        let plugin_lock = T::__get_singleton_state();
-        update_configs::<T>(plugin_lock);
-        let plugin_state = plugin_lock.read().unwrap();
-        let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
-        plugin_state.leak_manager.free_leaked_memory();
-        let plugin = &plugin_state.instance;
-        let mut audio = unsafe { FilterProcAudio::from_raw(audio) };
-        plugin.proc_audio(&plugin_state.config_items, &mut audio)
-    }) {
+    match proc_audio_impl::<T>(audio) {
+        Ok(()) => true,
+        Err(e) => {
+            log::error!("Error in proc_audio: {}", e);
+            false
+        }
+    }
+}
+extern "C" fn func_proc_audio_unwind<T: FilterSingleton>(
+    audio: *mut aviutl2_sys::filter2::FILTER_PROC_AUDIO,
+) -> bool {
+    match catch_unwind_with_panic_info(|| proc_audio_impl::<T>(audio)) {
         Ok(Ok(())) => true,
         Ok(Err(e)) => {
             log::error!("Error in proc_audio: {}", e);
@@ -296,30 +384,76 @@ extern "C" fn func_proc_audio<T: FilterSingleton>(
 }
 
 /// フィルタプラグインを登録するマクロ。
+///
+/// # Arguments
+///
+/// - `unwind`: panic時にunwindするかどうか。デフォルトは`true`。
 #[macro_export]
 macro_rules! register_filter_plugin {
-    ($struct:ident) => {
+    ($struct:ident, $($key:ident = $value:expr),* $(,)?) => {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializeLogger(logger: *mut $crate::sys::logger2::LOG_HANDLE) {
-                $crate::logger::__initialize_logger(logger)
+                $crate::__macro_if! {
+                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                        if let Err(panic_info) = $crate::__catch_unwind_with_panic_info(|| {
+                            $crate::logger::__initialize_logger(logger)
+                        }) {
+                            $crate::log::error!(
+                                "Panic occurred during InitializeLogger: {}",
+                                panic_info
+                            );
+                            $crate::__alert_error(&panic_info);
+                        }
+                    } else {
+                        $crate::logger::__initialize_logger(logger)
+                    }
+                }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                unsafe { $crate::filter::__bridge::initialize_plugin_c::<$struct>(version) }
+                unsafe {
+                    $crate::__macro_if! {
+                        if unwind in (unwind = true, $( $key = $value ),* ) {
+                            $crate::filter::__bridge::initialize_plugin_c_unwind::<$struct>(version)
+                        } else {
+                            $crate::filter::__bridge::initialize_plugin_c::<$struct>(version)
+                        }
+                    }
+                }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                unsafe { $crate::filter::__bridge::uninitialize_plugin::<$struct>() }
+                unsafe {
+                    $crate::__macro_if! {
+                        if unwind in (unwind = true, $( $key = $value ),* ) {
+                            $crate::filter::__bridge::uninitialize_plugin_c_unwind::<$struct>()
+                        } else {
+                            $crate::filter::__bridge::uninitialize_plugin::<$struct>()
+                        }
+                    }
+                }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetFilterPluginTable()
             -> *mut aviutl2::sys::filter2::FILTER_PLUGIN_TABLE {
-                unsafe { $crate::filter::__bridge::create_table::<$struct>() }
+                $crate::__macro_if! {
+                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                        unsafe { $crate::filter::__bridge::create_table_unwind::<$struct>() }
+                    } else {
+                        unsafe { $crate::filter::__bridge::create_table::<$struct>() }
+                    }
+                }
             }
         }
+    };
+    ($struct:ident, $($key:ident),* $(,)?) => {
+        $crate::register_filter_plugin!($struct, $( $key = true ),* );
+    };
+    ($struct:ident) => {
+        $crate::register_filter_plugin!($struct, );
     };
 }

@@ -54,6 +54,22 @@ pub unsafe fn initialize_plugin_c<T: ScriptModuleSingleton>(version: u32) -> boo
     }
 }
 
+pub unsafe fn initialize_plugin_c_unwind<T: ScriptModuleSingleton>(version: u32) -> bool {
+    match crate::utils::catch_unwind_with_panic_info(|| unsafe {
+        initialize_plugin_c::<T>(version)
+    }) {
+        Ok(result) => result,
+        Err(panic_info) => {
+            log::error!(
+                "Panic occurred during plugin initialization: {}",
+                panic_info
+            );
+            alert_error(&panic_info);
+            false
+        }
+    }
+}
+
 pub(crate) fn initialize_plugin<T: ScriptModuleSingleton>(version: u32) -> AnyResult<()> {
     let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
@@ -68,6 +84,21 @@ pub(crate) fn initialize_plugin<T: ScriptModuleSingleton>(version: u32) -> AnyRe
 pub unsafe fn uninitialize_plugin<T: ScriptModuleSingleton>() {
     let plugin_state = T::__get_singleton_state();
     *plugin_state.write().unwrap() = None;
+}
+
+pub unsafe fn uninitialize_plugin_c_unwind<T: ScriptModuleSingleton>() {
+    match crate::utils::catch_unwind_with_panic_info(|| unsafe {
+        uninitialize_plugin::<T>()
+    }) {
+        Ok(()) => {}
+        Err(panic_info) => {
+            log::error!(
+                "Panic occurred during plugin uninitialization: {}",
+                panic_info
+            );
+            alert_error(&panic_info);
+        }
+    }
 }
 
 pub unsafe fn create_table<T: ScriptModuleSingleton>()
@@ -113,35 +144,93 @@ pub unsafe fn create_table<T: ScriptModuleSingleton>()
     Box::leak(table)
 }
 
+pub unsafe fn create_table_unwind<T: ScriptModuleSingleton>()
+-> *mut aviutl2_sys::module2::SCRIPT_MODULE_TABLE {
+    match crate::utils::catch_unwind_with_panic_info(|| unsafe { create_table::<T>() }) {
+        Ok(table) => table,
+        Err(panic_info) => {
+            log::error!("Panic occurred during create_table: {}", panic_info);
+            alert_error(&panic_info);
+            std::ptr::null_mut()
+        }
+    }
+}
+
 extern "C" fn unreachable_function(_: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM) {
     unreachable!("This function should never be called");
 }
 
 /// スクリプトモジュールを登録するマクロ。
+///
+/// # Arguments
+///
+/// - `unwind`: panic時にunwindするかどうか。デフォルトは`true`。
 #[macro_export]
 macro_rules! register_script_module {
-    ($struct:ident) => {
+    ($struct:ident, $($key:ident = $value:expr),* $(,)?) => {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializeLogger(logger: *mut $crate::sys::logger2::LOG_HANDLE) {
-                $crate::logger::__initialize_logger(logger)
+                $crate::__macro_if! {
+                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                        if let Err(panic_info) = $crate::__catch_unwind_with_panic_info(|| {
+                            $crate::logger::__initialize_logger(logger)
+                        }) {
+                            $crate::log::error!(
+                                "Panic occurred during InitializeLogger: {}",
+                                panic_info
+                            );
+                            $crate::__alert_error(&panic_info);
+                        }
+                    } else {
+                        $crate::logger::__initialize_logger(logger)
+                    }
+                }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                unsafe { $crate::module::__bridge::initialize_plugin_c::<$struct>(version) }
+                unsafe {
+                    $crate::__macro_if! {
+                        if unwind in (unwind = true, $( $key = $value ),* ) {
+                            $crate::module::__bridge::initialize_plugin_c_unwind::<$struct>(version)
+                        } else {
+                            $crate::module::__bridge::initialize_plugin_c::<$struct>(version)
+                        }
+                    }
+                }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                unsafe { $crate::module::__bridge::uninitialize_plugin::<$struct>() }
+                unsafe {
+                    $crate::__macro_if! {
+                        if unwind in (unwind = true, $( $key = $value ),* ) {
+                            $crate::module::__bridge::uninitialize_plugin_c_unwind::<$struct>()
+                        } else {
+                            $crate::module::__bridge::uninitialize_plugin::<$struct>()
+                        }
+                    }
+                }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetScriptModuleTable()
             -> *mut aviutl2::sys::module2::SCRIPT_MODULE_TABLE {
-                unsafe { $crate::module::__bridge::create_table::<$struct>() }
+                $crate::__macro_if! {
+                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                        unsafe { $crate::module::__bridge::create_table_unwind::<$struct>() }
+                    } else {
+                        unsafe { $crate::module::__bridge::create_table::<$struct>() }
+                    }
+                }
             }
         }
+    };
+    ($struct:ident, $($key:ident),* $(,)?) => {
+        $crate::register_script_module!($struct, $( $key = true ),* );
+    };
+    ($struct:ident) => {
+        $crate::register_script_module!($struct, );
     };
 }

@@ -46,7 +46,7 @@ pub use aviutl2_sys as sys;
 
 pub use anyhow;
 pub use half;
-pub use log;
+pub extern crate log as log;
 
 #[cfg(feature = "image")]
 pub use image;
@@ -88,4 +88,20 @@ macro_rules! __internal_module {
             $($item)*
         };
     }
+}
+
+#[doc(hidden)]
+pub use aviutl2_macros::__macro_if;
+
+#[doc(hidden)]
+pub fn __catch_unwind_with_panic_info<F, R>(f: F) -> Result<R, String>
+where
+    F: FnOnce() -> R + std::panic::UnwindSafe,
+{
+    utils::catch_unwind_with_panic_info(f)
+}
+
+#[doc(hidden)]
+pub fn __alert_error<T: std::fmt::Display>(error: T) {
+    common::alert_error(error);
 }

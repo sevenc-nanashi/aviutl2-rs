@@ -58,6 +58,22 @@ pub unsafe fn initialize_plugin_c<T: GenericSingleton>(version: u32) -> bool {
     }
 }
 
+pub unsafe fn initialize_plugin_c_unwind<T: GenericSingleton>(version: u32) -> bool {
+    match crate::utils::catch_unwind_with_panic_info(|| unsafe {
+        initialize_plugin_c::<T>(version)
+    }) {
+        Ok(result) => result,
+        Err(panic_info) => {
+            log::error!(
+                "Panic occurred during plugin initialization: {}",
+                panic_info
+            );
+            alert_error(&panic_info);
+            false
+        }
+    }
+}
+
 pub(crate) fn initialize_plugin<T: GenericSingleton>(version: u32) -> AnyResult<()> {
     let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
@@ -69,8 +85,9 @@ pub(crate) fn initialize_plugin<T: GenericSingleton>(version: u32) -> AnyResult<
 
     Ok(())
 }
-pub unsafe fn register_plugin<T: GenericSingleton>(
+fn register_plugin_impl<T: GenericSingleton>(
     host: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
+    unwind: bool,
 ) {
     let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
@@ -85,13 +102,20 @@ pub unsafe fn register_plugin<T: GenericSingleton>(
             &mut plugin_state.plugin_registry,
         )
     };
-    handle.register_project_load_handler(on_project_load::<T>);
-    handle.register_project_save_handler(on_project_save::<T>);
-    handle.register_clear_cache_handler(on_clear_cache::<T>);
-    handle.register_change_scene_handler(on_change_scene::<T>);
+    if unwind {
+        handle.register_project_load_handler(on_project_load_unwind::<T>);
+        handle.register_project_save_handler(on_project_save_unwind::<T>);
+        handle.register_clear_cache_handler(on_clear_cache_unwind::<T>);
+        handle.register_change_scene_handler(on_change_scene_unwind::<T>);
+    } else {
+        handle.register_project_load_handler(on_project_load::<T>);
+        handle.register_project_save_handler(on_project_save::<T>);
+        handle.register_clear_cache_handler(on_clear_cache::<T>);
+        handle.register_change_scene_handler(on_change_scene::<T>);
+    }
     T::register(&mut plugin_state.instance, &mut handle);
 
-    extern "C" fn on_project_load<T: GenericSingleton>(
+    fn on_project_load_impl<T: GenericSingleton>(
         project: *mut aviutl2_sys::plugin2::PROJECT_FILE,
     ) {
         <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
@@ -99,8 +123,23 @@ pub unsafe fn register_plugin<T: GenericSingleton>(
             instance.on_project_load(&mut project);
         });
     }
+    extern "C" fn on_project_load<T: GenericSingleton>(
+        project: *mut aviutl2_sys::plugin2::PROJECT_FILE,
+    ) {
+        on_project_load_impl::<T>(project);
+    }
+    extern "C" fn on_project_load_unwind<T: GenericSingleton>(
+        project: *mut aviutl2_sys::plugin2::PROJECT_FILE,
+    ) {
+        if let Err(panic_info) =
+            crate::utils::catch_unwind_with_panic_info(|| on_project_load_impl::<T>(project))
+        {
+            log::error!("Panic occurred during on_project_load: {}", panic_info);
+            alert_error(&panic_info);
+        }
+    }
 
-    extern "C" fn on_project_save<T: GenericSingleton>(
+    fn on_project_save_impl<T: GenericSingleton>(
         project: *mut aviutl2_sys::plugin2::PROJECT_FILE,
     ) {
         <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
@@ -108,8 +147,23 @@ pub unsafe fn register_plugin<T: GenericSingleton>(
             instance.on_project_save(&mut project);
         });
     }
+    extern "C" fn on_project_save<T: GenericSingleton>(
+        project: *mut aviutl2_sys::plugin2::PROJECT_FILE,
+    ) {
+        on_project_save_impl::<T>(project);
+    }
+    extern "C" fn on_project_save_unwind<T: GenericSingleton>(
+        project: *mut aviutl2_sys::plugin2::PROJECT_FILE,
+    ) {
+        if let Err(panic_info) =
+            crate::utils::catch_unwind_with_panic_info(|| on_project_save_impl::<T>(project))
+        {
+            log::error!("Panic occurred during on_project_save: {}", panic_info);
+            alert_error(&panic_info);
+        }
+    }
 
-    extern "C" fn on_clear_cache<T: GenericSingleton>(
+    fn on_clear_cache_impl<T: GenericSingleton>(
         edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
     ) {
         <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
@@ -117,8 +171,23 @@ pub unsafe fn register_plugin<T: GenericSingleton>(
             instance.on_clear_cache(&edit_section);
         });
     }
+    extern "C" fn on_clear_cache<T: GenericSingleton>(
+        edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
+    ) {
+        on_clear_cache_impl::<T>(edit_section);
+    }
+    extern "C" fn on_clear_cache_unwind<T: GenericSingleton>(
+        edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
+    ) {
+        if let Err(panic_info) =
+            crate::utils::catch_unwind_with_panic_info(|| on_clear_cache_impl::<T>(edit_section))
+        {
+            log::error!("Panic occurred during on_clear_cache: {}", panic_info);
+            alert_error(&panic_info);
+        }
+    }
 
-    extern "C" fn on_change_scene<T: GenericSingleton>(
+    fn on_change_scene_impl<T: GenericSingleton>(
         edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
     ) {
         <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
@@ -126,36 +195,129 @@ pub unsafe fn register_plugin<T: GenericSingleton>(
             instance.on_change_scene(&edit_section);
         });
     }
+    extern "C" fn on_change_scene<T: GenericSingleton>(
+        edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
+    ) {
+        on_change_scene_impl::<T>(edit_section);
+    }
+    extern "C" fn on_change_scene_unwind<T: GenericSingleton>(
+        edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
+    ) {
+        if let Err(panic_info) = crate::utils::catch_unwind_with_panic_info(|| {
+            on_change_scene_impl::<T>(edit_section)
+        }) {
+            log::error!("Panic occurred during on_change_scene: {}", panic_info);
+            alert_error(&panic_info);
+        }
+    }
+}
+
+pub unsafe fn register_plugin<T: GenericSingleton>(
+    host: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
+) {
+    register_plugin_impl::<T>(host, false);
+}
+
+pub unsafe fn register_plugin_unwind<T: GenericSingleton>(
+    host: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
+) {
+    if let Err(panic_info) = crate::utils::catch_unwind_with_panic_info(|| {
+        register_plugin_impl::<T>(host, true)
+    }) {
+        log::error!("Panic occurred during register_plugin: {}", panic_info);
+        alert_error(&panic_info);
+    }
 }
 pub unsafe fn uninitialize_plugin<T: GenericSingleton>() {
     let plugin_state = T::__get_singleton_state();
     *plugin_state.write().unwrap() = None;
 }
 
+pub unsafe fn uninitialize_plugin_c_unwind<T: GenericSingleton>() {
+    match crate::utils::catch_unwind_with_panic_info(|| unsafe {
+        uninitialize_plugin::<T>()
+    }) {
+        Ok(()) => {}
+        Err(panic_info) => {
+            log::error!(
+                "Panic occurred during plugin uninitialization: {}",
+                panic_info
+            );
+            alert_error(&panic_info);
+        }
+    }
+}
+
 /// 汎用プラグインを登録するマクロ。
+///
+/// # Arguments
+///
+/// - `unwind`: panic時にunwindするかどうか。デフォルトは`true`。
 #[macro_export]
 macro_rules! register_generic_plugin {
-    ($struct:ident) => {
+    ($struct:ident, $($key:ident = $value:expr),* $(,)?) => {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializeLogger(logger: *mut $crate::sys::logger2::LOG_HANDLE) {
-                $crate::logger::__initialize_logger(logger)
+                $crate::__macro_if! {
+                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                        if let Err(panic_info) = $crate::__catch_unwind_with_panic_info(|| {
+                            $crate::logger::__initialize_logger(logger)
+                        }) {
+                            $crate::log::error!(
+                                "Panic occurred during InitializeLogger: {}",
+                                panic_info
+                            );
+                            $crate::__alert_error(&panic_info);
+                        }
+                    } else {
+                        $crate::logger::__initialize_logger(logger)
+                    }
+                }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
-                unsafe { $crate::generic::__bridge::initialize_plugin_c::<$struct>(version) }
+                unsafe {
+                    $crate::__macro_if! {
+                        if unwind in (unwind = true, $( $key = $value ),* ) {
+                            $crate::generic::__bridge::initialize_plugin_c_unwind::<$struct>(version)
+                        } else {
+                            $crate::generic::__bridge::initialize_plugin_c::<$struct>(version)
+                        }
+                    }
+                }
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                unsafe { $crate::generic::__bridge::uninitialize_plugin::<$struct>() };
+                unsafe {
+                    $crate::__macro_if! {
+                        if unwind in (unwind = true, $( $key = $value ),* ) {
+                            $crate::generic::__bridge::uninitialize_plugin_c_unwind::<$struct>()
+                        } else {
+                            $crate::generic::__bridge::uninitialize_plugin::<$struct>()
+                        }
+                    }
+                };
             }
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn RegisterPlugin(host: *mut aviutl2::sys::plugin2::HOST_APP_TABLE) {
-                unsafe { $crate::generic::__bridge::register_plugin::<$struct>(host) };
+                $crate::__macro_if! {
+                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                        unsafe { $crate::generic::__bridge::register_plugin_unwind::<$struct>(host) };
+                    } else {
+                        unsafe { $crate::generic::__bridge::register_plugin::<$struct>(host) };
+                    }
+                }
             }
         }
+    };
+    ($struct:ident, $($key:ident),* $(,)?) => {
+        $crate::register_generic_plugin!($struct, $( $key = true ),* );
+    };
+    ($struct:ident) => {
+        $crate::register_generic_plugin!($struct, );
     };
 }

@@ -427,7 +427,7 @@ pub(crate) unsafe fn load_wide_string(ptr: *const u16) -> String {
     unsafe { String::from_utf16_lossy(std::slice::from_raw_parts(ptr, len)) }
 }
 
-pub(crate) fn alert_error(error: &anyhow::Error) {
+pub(crate) fn alert_error<T: std::fmt::Display>(error: T) {
     let _ = native_dialog::DialogBuilder::message()
         .set_title("エラー")
         .set_level(native_dialog::MessageLevel::Error)

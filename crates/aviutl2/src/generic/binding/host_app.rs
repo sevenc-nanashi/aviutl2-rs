@@ -365,6 +365,17 @@ macro_rules! impl_plugin_registry {
                     handle: &SubPlugin<T>,
                 ) {
                     self.assert_not_killed();
+                    unsafe { ((*self.internal).$register_method)(crate::$module::__bridge::create_table_unwind::<T>()) };
+                    self.plugin_registry
+                        .[<$name s>]
+                        .push(std::sync::Arc::clone(&handle.internal));
+                }
+                #[doc = concat!("unwindなしで", $description, "を登録します。")]
+                pub fn [<register_ $name _nounwind>]<T: $PluginTrait + $SingletonTrait + 'static>(
+                    &mut self,
+                    handle: &SubPlugin<T>,
+                ) {
+                    self.assert_not_killed();
                     unsafe { ((*self.internal).$register_method)(crate::$module::__bridge::create_table::<T>()) };
                     self.plugin_registry
                         .[<$name s>]
@@ -642,7 +653,7 @@ pub fn __output_log_if_error<T: MenuCallbackReturn>(result: T) {
 #[expect(private_bounds)]
 pub fn __alert_if_error<T: MenuCallbackReturn>(result: T) {
     if let Some(err_msg) = result.into_optional_error() {
-        crate::common::alert_error(&anyhow::anyhow!(err_msg));
+        crate::common::alert_error(err_msg);
     }
 }
 

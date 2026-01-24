@@ -125,7 +125,7 @@ where
             } else if let Some(s) = err.downcast_ref::<String>() {
                 Err(s.clone())
             } else {
-                Err("<unknown panic".to_string())
+                Err("<unknown panic>".to_string())
             }
         }
     }
