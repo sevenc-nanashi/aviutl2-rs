@@ -1,0 +1,17 @@
+[package]
+name = "aviutl2-egui"
+description = "AviUtl2とegui/eframeをつなぐユーティリティ"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = true
+categories = ["gui"]
+
+[dependencies]
+anyhow = "1.0.98"
+aviutl2.workspace = true
+eframe = "0.32.0"
+winit = "0.30.9"
+windows = { version = "0.61.3", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse"] }
