@@ -125,6 +125,8 @@ end
 
 desc "リリースアセットを作成します"
 task :release, ["tag"] do |task, args|
+  require "zip"
+
   if !(tag = args.tag)
     puts "Usage: rake release[tag]"
     puts "Example: rake release[0.1.0]"
@@ -133,6 +135,7 @@ task :release, ["tag"] do |task, args|
   dest_dir = "./release"
   FileUtils.mkdir_p(dest_dir) unless Dir.exist?(dest_dir)
   plugins = {}
+  plugin_files = {}
   Dir
     .glob("./examples/*")
     .each do |dir|
@@ -144,12 +147,21 @@ task :release, ["tag"] do |task, args|
       lib_name = cargo_toml["lib"]["name"]
       plugin_name = replace_suffix(lib_name, "release", suffixes)
       plugins[plugin_name] = dir
-      FileUtils.cp(
-        File.join("target/release", "#{lib_name}.dll"),
-        File.join(dest_dir, plugin_name),
-        verbose: true
-      )
+      source_path = File.join("target/release", "#{lib_name}.dll")
+      plugin_files[plugin_name] = source_path
+      cp(source_path, File.join(dest_dir, plugin_name))
     end
+  zip_path = File.join(dest_dir, "aviutl2-rs.au2pkg.zip")
+  rm_f(zip_path)
+  puts "Creating zip: #{zip_path}"
+  Zip::File.open(zip_path, create: true) do |zip|
+    zip.mkdir("Plugin")
+    zip.mkdir("Script")
+    plugin_files.each do |plugin_name, source_path|
+      dest_dir_name = plugin_name.end_with?("mod2") ? "Script" : "Plugin"
+      zip.add(File.join(dest_dir_name, plugin_name), source_path)
+    end
+  end
 
   description = +<<~MARKDOWN
     # AviUtl2-rs Demo Plugins
