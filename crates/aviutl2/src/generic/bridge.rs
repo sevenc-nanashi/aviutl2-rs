@@ -115,9 +115,7 @@ fn register_plugin_impl<T: GenericSingleton>(
     }
     T::register(&mut plugin_state.instance, &mut handle);
 
-    fn on_project_load_impl<T: GenericSingleton>(
-        project: *mut aviutl2_sys::plugin2::PROJECT_FILE,
-    ) {
+    fn on_project_load_impl<T: GenericSingleton>(project: *mut aviutl2_sys::plugin2::PROJECT_FILE) {
         <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
             let mut project = ProjectFile::from_raw(project);
             instance.on_project_load(&mut project);
@@ -139,9 +137,7 @@ fn register_plugin_impl<T: GenericSingleton>(
         }
     }
 
-    fn on_project_save_impl<T: GenericSingleton>(
-        project: *mut aviutl2_sys::plugin2::PROJECT_FILE,
-    ) {
+    fn on_project_save_impl<T: GenericSingleton>(project: *mut aviutl2_sys::plugin2::PROJECT_FILE) {
         <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
             let mut project = ProjectFile::from_raw(project);
             instance.on_project_save(&mut project);
@@ -203,9 +199,9 @@ fn register_plugin_impl<T: GenericSingleton>(
     extern "C" fn on_change_scene_unwind<T: GenericSingleton>(
         edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
     ) {
-        if let Err(panic_info) = crate::utils::catch_unwind_with_panic_info(|| {
-            on_change_scene_impl::<T>(edit_section)
-        }) {
+        if let Err(panic_info) =
+            crate::utils::catch_unwind_with_panic_info(|| on_change_scene_impl::<T>(edit_section))
+        {
             log::error!("Panic occurred during on_change_scene: {}", panic_info);
             alert_error(&panic_info);
         }
@@ -221,9 +217,9 @@ pub unsafe fn register_plugin<T: GenericSingleton>(
 pub unsafe fn register_plugin_unwind<T: GenericSingleton>(
     host: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
 ) {
-    if let Err(panic_info) = crate::utils::catch_unwind_with_panic_info(|| {
-        register_plugin_impl::<T>(host, true)
-    }) {
+    if let Err(panic_info) =
+        crate::utils::catch_unwind_with_panic_info(|| register_plugin_impl::<T>(host, true))
+    {
         log::error!("Panic occurred during register_plugin: {}", panic_info);
         alert_error(&panic_info);
     }
@@ -234,9 +230,7 @@ pub unsafe fn uninitialize_plugin<T: GenericSingleton>() {
 }
 
 pub unsafe fn uninitialize_plugin_c_unwind<T: GenericSingleton>() {
-    match crate::utils::catch_unwind_with_panic_info(|| unsafe {
-        uninitialize_plugin::<T>()
-    }) {
+    match crate::utils::catch_unwind_with_panic_info(|| unsafe { uninitialize_plugin::<T>() }) {
         Ok(()) => {}
         Err(panic_info) => {
             log::error!(

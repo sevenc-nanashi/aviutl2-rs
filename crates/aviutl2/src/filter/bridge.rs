@@ -203,9 +203,7 @@ pub unsafe fn uninitialize_plugin<T: FilterSingleton>() {
 }
 
 pub unsafe fn uninitialize_plugin_c_unwind<T: FilterSingleton>() {
-    match crate::utils::catch_unwind_with_panic_info(|| unsafe {
-        uninitialize_plugin::<T>()
-    }) {
+    match crate::utils::catch_unwind_with_panic_info(|| unsafe { uninitialize_plugin::<T>() }) {
         Ok(()) => {}
         Err(panic_info) => {
             log::error!(

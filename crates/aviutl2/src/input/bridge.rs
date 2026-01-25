@@ -156,9 +156,7 @@ pub unsafe fn uninitialize_plugin<T: InputSingleton>() {
 }
 
 pub unsafe fn uninitialize_plugin_c_unwind<T: InputSingleton>() {
-    match crate::utils::catch_unwind_with_panic_info(|| unsafe {
-        uninitialize_plugin::<T>()
-    }) {
+    match crate::utils::catch_unwind_with_panic_info(|| unsafe { uninitialize_plugin::<T>() }) {
         Ok(()) => {}
         Err(panic_info) => {
             log::error!(
@@ -331,9 +329,7 @@ extern "C" fn func_close<T: InputSingleton>(ih: aviutl2_sys::input2::INPUT_HANDL
         }
     }
 }
-extern "C" fn func_close_unwind<T: InputSingleton>(
-    ih: aviutl2_sys::input2::INPUT_HANDLE,
-) -> bool {
+extern "C" fn func_close_unwind<T: InputSingleton>(ih: aviutl2_sys::input2::INPUT_HANDLE) -> bool {
     match crate::utils::catch_unwind_with_panic_info(|| func_close::<T>(ih)) {
         Ok(result) => result,
         Err(panic_info) => {
@@ -679,9 +675,8 @@ extern "C" fn func_set_track_unwind<T: InputSingleton>(
     track_type: i32,
     track: i32,
 ) -> i32 {
-    match crate::utils::catch_unwind_with_panic_info(|| {
-        func_set_track::<T>(ih, track_type, track)
-    }) {
+    match crate::utils::catch_unwind_with_panic_info(|| func_set_track::<T>(ih, track_type, track))
+    {
         Ok(result) => result,
         Err(panic_info) => {
             log::error!("Panic occurred during func_set_track: {}", panic_info);
