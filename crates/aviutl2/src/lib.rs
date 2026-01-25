@@ -78,6 +78,7 @@ pub mod __internal_base;
 
 pub mod common;
 pub mod logger;
+pub mod config;
 pub mod utils;
 pub use common::*;
 
