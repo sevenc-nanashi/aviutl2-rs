@@ -4,6 +4,7 @@
 
 - module: i32・f64以外にもFromScriptModuleParamを実装
 - ログを自動で折り返すように
+- デフォルトでpanicしたときにunwindするように
 
 ### デモプラグイン
 
