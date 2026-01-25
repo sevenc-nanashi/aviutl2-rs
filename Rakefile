@@ -149,10 +149,7 @@ task :release, ["tag"] do |task, args|
       plugins[plugin_name] = dir
       source_path = File.join("target/release", "#{lib_name}.dll")
       plugin_files[plugin_name] = source_path
-      cp(
-        source_path,
-        File.join(dest_dir, plugin_name),
-      )
+      cp(source_path, File.join(dest_dir, plugin_name))
     end
   zip_path = File.join(dest_dir, "aviutl2-rs.au2pkg.zip")
   rm_f(zip_path)
