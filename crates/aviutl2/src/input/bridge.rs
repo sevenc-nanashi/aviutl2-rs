@@ -778,15 +778,7 @@ macro_rules! register_input_plugin {
             unsafe extern "C" fn InitializeLogger(logger: *mut $crate::sys::logger2::LOG_HANDLE) {
                 $crate::comptime_if::comptime_if! {
                     if unwind where (unwind = true, $( $key = $value ),* ) {
-                        if let Err(panic_info) = $crate::__catch_unwind_with_panic_info(|| {
-                            $crate::logger::__initialize_logger(logger)
-                        }) {
-                            $crate::log::error!(
-                                "Panic occurred during InitializeLogger: {}",
-                                panic_info
-                            );
-                            $crate::__alert_error(&panic_info);
-                        }
+                        $crate::logger::__initialize_logger_unwind(logger)
                     } else {
                         $crate::logger::__initialize_logger(logger)
                     }

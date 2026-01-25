@@ -492,12 +492,17 @@ pub fn into_script_module_return_value(item: proc_macro::TokenStream) -> proc_ma
 /// }
 /// # fn main() {}
 /// ```
+///
+/// ### `unwind`
+///
+/// 関数呼び出し時のpanicを捕捉するかどうかを指定します。
+/// デフォルトは`true`です。
 #[proc_macro_attribute]
 pub fn module_functions(
-    _attr: proc_macro::TokenStream,
+    attr: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    module_functions::module_functions(item.into())
+    module_functions::module_functions(attr.into(), item.into())
         .unwrap_or_else(|e| e)
         .into()
 }
@@ -717,12 +722,18 @@ pub fn plugin(
 /// #       Ok(())
 ///     }
 /// }
+/// ```
+///
+/// ### `unwind`
+///
+/// 関数呼び出し時のpanicを捕捉するかどうかを指定します。
+/// デフォルトは`true`です。
 #[proc_macro_attribute]
 pub fn generic_menus(
-    _attr: proc_macro::TokenStream,
+    attr: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    generic_menus::generic_menus(item.into())
+    generic_menus::generic_menus(attr.into(), item.into())
         .unwrap_or_else(|e| e)
         .into()
 }

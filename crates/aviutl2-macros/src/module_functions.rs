@@ -1,8 +1,35 @@
 use quote::ToTokens;
+use syn::parse::Parser;
+
+fn parse_unwind_attr(
+    attr: proc_macro2::TokenStream,
+) -> Result<bool, proc_macro2::TokenStream> {
+    let mut unwind = true;
+    if attr.is_empty() {
+        return Ok(unwind);
+    }
+    let parser = syn::meta::parser(|meta| {
+        if meta.path.is_ident("unwind") {
+            if meta.input.is_empty() {
+                unwind = true;
+                return Ok(());
+            }
+            let value: syn::LitBool = meta.value()?.parse()?;
+            unwind = value.value;
+            Ok(())
+        } else {
+            Err(meta.error("expected `unwind`"))
+        }
+    });
+    parser.parse2(attr).map_err(|e| e.to_compile_error())?;
+    Ok(unwind)
+}
 
 pub fn module_functions(
+    attr: proc_macro2::TokenStream,
     item: proc_macro2::TokenStream,
 ) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
+    let unwind = parse_unwind_attr(attr)?;
     let mut item: syn::ItemImpl = syn::parse2(item).map_err(|e| e.to_compile_error())?;
     if item.trait_.is_some() {
         return Err(syn::Error::new_spanned(
@@ -33,7 +60,7 @@ pub fn module_functions(
     ) = item
         .items
         .iter_mut()
-        .map(|item| create_bridge(&impl_token, item))
+        .map(|item| create_bridge(&impl_token, item, unwind))
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
         .unzip();
@@ -58,6 +85,7 @@ pub fn module_functions(
 fn create_bridge(
     impl_token: &proc_macro2::TokenStream,
     item: &mut syn::ImplItem,
+    unwind: bool,
 ) -> Result<(proc_macro2::TokenStream, proc_macro2::TokenStream), proc_macro2::TokenStream> {
     match item {
         syn::ImplItem::Fn(method) => {
@@ -76,7 +104,7 @@ fn create_bridge(
                 .attrs
                 .iter()
                 .position(|attr| attr.path().is_ident("direct"));
-            let func_impl = if let Some(direct_index) = direct_index {
+            let func_body = if let Some(direct_index) = direct_index {
                 method.attrs.remove(direct_index);
                 let has_self = method
                     .sig
@@ -96,29 +124,23 @@ fn create_bridge(
                 if has_self {
                     if mut_self {
                         quote::quote! {
-                            extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                                let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
-                                <#impl_token as ::aviutl2::module::ScriptModule>::with_instance_mut(|__internal_self| {
-                                    let () = <#impl_token>::#method_name(__internal_self, &mut __handle);
-                                });
-                            }
+                            let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+                            <#impl_token as ::aviutl2::module::ScriptModule>::with_instance_mut(|__internal_self| {
+                                let () = <#impl_token>::#method_name(__internal_self, &mut __handle);
+                            });
                         }
                     } else {
                         quote::quote! {
-                            extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                                let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
-                                <#impl_token as ::aviutl2::module::ScriptModule>::with_instance(|__internal_self| {
-                                    let () = <#impl_token>::#method_name(__internal_self, &mut __handle);
-                                });
-                            }
+                            let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+                            <#impl_token as ::aviutl2::module::ScriptModule>::with_instance(|__internal_self| {
+                                let () = <#impl_token>::#method_name(__internal_self, &mut __handle);
+                            });
                         }
                     }
                 } else {
                     quote::quote! {
-                        extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                            let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
-                            let () = <#impl_token>::#method_name(&mut __handle);
-                        }
+                        let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+                        let () = <#impl_token>::#method_name(&mut __handle);
                     }
                 }
             } else {
@@ -173,35 +195,52 @@ fn create_bridge(
                 if has_self {
                     if self_is_mut {
                         quote::quote! {
-                            extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                                let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
-                                <#impl_token as ::aviutl2::module::ScriptModule>::with_instance_mut(|__internal_self| {
-                                    #(#param_bridges)*
-                                    let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
-                                    ::aviutl2::module::__push_return_value(&mut __handle, fn_result);
-                                });
-                            }
+                            let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+                            <#impl_token as ::aviutl2::module::ScriptModule>::with_instance_mut(|__internal_self| {
+                                #(#param_bridges)*
+                                let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
+                                ::aviutl2::module::__push_return_value(&mut __handle, fn_result);
+                            });
                         }
                     } else {
                         quote::quote! {
-                            extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                                let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
-                                <#impl_token as ::aviutl2::module::ScriptModule>::with_instance(|__internal_self| {
-                                    #(#param_bridges)*
-                                    let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
-                                    ::aviutl2::module::__push_return_value(&mut __handle, fn_result);
-                                });
-                            }
+                            let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+                            <#impl_token as ::aviutl2::module::ScriptModule>::with_instance(|__internal_self| {
+                                #(#param_bridges)*
+                                let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
+                                ::aviutl2::module::__push_return_value(&mut __handle, fn_result);
+                            });
                         }
                     }
                 } else {
                     quote::quote! {
-                        extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
-                            let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
-                            #(#param_bridges)*
-                            let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
-                            ::aviutl2::module::__push_return_value(&mut __handle, fn_result);
+                        let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+                        #(#param_bridges)*
+                        let fn_result = <#impl_token>::#method_name(#(#param_names_vec),*);
+                        ::aviutl2::module::__push_return_value(&mut __handle, fn_result);
+                    }
+                }
+            };
+
+            let func_impl = if unwind {
+                quote::quote! {
+                    extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
+                        if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
+                            #func_body
+                        }) {
+                            ::aviutl2::log::error!(
+                                "Panic occurred during {}: {}",
+                                #method_name_str,
+                                panic_info
+                            );
+                            ::aviutl2::__alert_error(&panic_info);
                         }
+                    }
+                }
+            } else {
+                quote::quote! {
+                    extern "C" fn #internal_method_name(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
+                        #func_body
                     }
                 }
             };
@@ -231,7 +270,7 @@ mod tests {
                 }
             }
         };
-        let output = module_functions(input).unwrap();
+        let output = module_functions(proc_macro2::TokenStream::new(), input).unwrap();
         insta::assert_snapshot!(format_tokens(output));
     }
 
@@ -244,7 +283,7 @@ mod tests {
                 }
             }
         };
-        let output = module_functions(input).unwrap();
+        let output = module_functions(proc_macro2::TokenStream::new(), input).unwrap();
         insta::assert_snapshot!(format_tokens(output));
     }
 
@@ -258,7 +297,7 @@ mod tests {
                 }
             }
         };
-        let output = module_functions(input).unwrap();
+        let output = module_functions(proc_macro2::TokenStream::new(), input).unwrap();
         insta::assert_snapshot!(format_tokens(output));
     }
 
@@ -272,7 +311,21 @@ mod tests {
                 }
             }
         };
-        let output = module_functions(input).unwrap();
+        let output = module_functions(proc_macro2::TokenStream::new(), input).unwrap();
+        insta::assert_snapshot!(format_tokens(output));
+    }
+
+    #[test]
+    fn test_unwind_meta() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            impl MyModule {
+                fn my_function(hoge: i32) -> i32 {
+                    hoge + 1
+                }
+            }
+        };
+        let attr = quote::quote! { unwind = true };
+        let output = module_functions(attr, input).unwrap();
         insta::assert_snapshot!(format_tokens(output));
     }
 

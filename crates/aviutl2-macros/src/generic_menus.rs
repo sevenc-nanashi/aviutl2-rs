@@ -1,4 +1,29 @@
 use quote::ToTokens;
+use syn::parse::Parser;
+
+fn parse_unwind_attr(
+    attr: proc_macro2::TokenStream,
+) -> Result<bool, proc_macro2::TokenStream> {
+    let mut unwind = true;
+    if attr.is_empty() {
+        return Ok(unwind);
+    }
+    let parser = syn::meta::parser(|meta| {
+        if meta.path.is_ident("unwind") {
+            if meta.input.is_empty() {
+                unwind = true;
+                return Ok(());
+            }
+            let value: syn::LitBool = meta.value()?.parse()?;
+            unwind = value.value;
+            Ok(())
+        } else {
+            Err(meta.error("expected `unwind`"))
+        }
+    });
+    parser.parse2(attr).map_err(|e| e.to_compile_error())?;
+    Ok(unwind)
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ErrorMode {
@@ -74,8 +99,10 @@ fn analyze_receiver(sig: &syn::Signature) -> Result<(bool, bool), proc_macro2::T
 }
 
 pub fn generic_menus(
+    attr: proc_macro2::TokenStream,
     item: proc_macro2::TokenStream,
 ) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
+    let unwind = parse_unwind_attr(attr)?;
     let mut item: syn::ItemImpl = syn::parse2(item).map_err(|e| e.to_compile_error())?;
 
     // Validate impl target
@@ -178,7 +205,7 @@ pub fn generic_menus(
             ErrorMode::Alert => quote::quote! { ::aviutl2::generic::__alert_if_error(ret); },
         };
 
-        let wrapper = if e.has_self {
+        let wrapper_body = if e.has_self {
             let with_fn = if e.self_is_mut {
                 quote::quote!(with_instance_mut)
             } else {
@@ -186,39 +213,77 @@ pub fn generic_menus(
             };
             if e.entry_type == EntryType::Config {
                 quote::quote! {
+                    let mut rwh = unsafe { ::aviutl2::generic::__internal_rwh_from_raw(hwnd, hinstance) };
+                    <#impl_token as ::aviutl2::generic::GenericPlugin>::#with_fn(|__self| {
+                        let ret = <#impl_token>::#method_ident(__self, rwh);
+                        #call_on_error
+                    });
+                }
+            } else {
+                quote::quote! {
+                    let mut edit = unsafe { ::aviutl2::generic::EditSection::from_raw(edit) };
+                    <#impl_token as ::aviutl2::generic::GenericPlugin>::#with_fn(|__self| {
+                        let ret = <#impl_token>::#method_ident(__self, &mut edit);
+                        #call_on_error
+                    });
+                }
+            }
+        } else if e.entry_type == EntryType::Config {
+            quote::quote! {
+                let mut rwh = unsafe { ::aviutl2::generic::__internal_rwh_from_raw(hwnd, hinstance) };
+                let ret = <#impl_token>::#method_ident(rwh);
+                #call_on_error
+            }
+        } else {
+            quote::quote! {
+                let mut edit = unsafe { ::aviutl2::generic::EditSection::from_raw(edit) };
+                let ret = <#impl_token>::#method_ident(&mut edit);
+                #call_on_error
+            }
+        };
+        let wrapper = if unwind {
+            let method_name_str = method_ident.to_string();
+            if e.entry_type == EntryType::Config {
+                quote::quote! {
                     extern "C" fn #wrapper_ident(hwnd: ::aviutl2::sys::plugin2::HWND, hinstance: ::aviutl2::sys::plugin2::HINSTANCE) {
-                        let mut rwh = unsafe { ::aviutl2::generic::__internal_rwh_from_raw(hwnd, hinstance) };
-                        <#impl_token as ::aviutl2::generic::GenericPlugin>::#with_fn(|__self| {
-                            let ret = <#impl_token>::#method_ident(__self, rwh);
-                            #call_on_error
-                        });
+                        if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
+                            #wrapper_body
+                        }) {
+                            ::aviutl2::log::error!(
+                                "Panic occurred during {}: {}",
+                                #method_name_str,
+                                panic_info
+                            );
+                            ::aviutl2::__alert_error(&panic_info);
+                        }
                     }
                 }
             } else {
                 quote::quote! {
                     extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
-                        let mut edit = unsafe { ::aviutl2::generic::EditSection::from_raw(edit) };
-                        <#impl_token as ::aviutl2::generic::GenericPlugin>::#with_fn(|__self| {
-                            let ret = <#impl_token>::#method_ident(__self, &mut edit);
-                            #call_on_error
-                        });
+                        if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
+                            #wrapper_body
+                        }) {
+                            ::aviutl2::log::error!(
+                                "Panic occurred during {}: {}",
+                                #method_name_str,
+                                panic_info
+                            );
+                            ::aviutl2::__alert_error(&panic_info);
+                        }
                     }
                 }
             }
         } else if e.entry_type == EntryType::Config {
             quote::quote! {
                 extern "C" fn #wrapper_ident(hwnd: ::aviutl2::sys::plugin2::HWND, hinstance: ::aviutl2::sys::plugin2::HINSTANCE) {
-                    let mut rwh = unsafe { ::aviutl2::generic::__internal_rwh_from_raw(hwnd, hinstance) };
-                    let ret = <#impl_token>::#method_ident(rwh);
-                    #call_on_error
+                    #wrapper_body
                 }
             }
         } else {
             quote::quote! {
                 extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
-                    let mut edit = unsafe { ::aviutl2::generic::EditSection::from_raw(edit) };
-                    let ret = <#impl_token>::#method_ident(&mut edit);
-                    #call_on_error
+                    #wrapper_body
                 }
             }
         };
@@ -303,7 +368,7 @@ mod tests {
                 }
             }
         };
-        let output = generic_menus(input).unwrap();
+        let output = generic_menus(proc_macro2::TokenStream::new(), input).unwrap();
         insta::assert_snapshot!(format_tokens(output));
     }
 
@@ -318,7 +383,23 @@ mod tests {
                 }
             }
         };
-        let output = generic_menus(input).unwrap();
+        let output = generic_menus(proc_macro2::TokenStream::new(), input).unwrap();
+        insta::assert_snapshot!(format_tokens(output));
+    }
+
+    #[test]
+    fn test_unwind_meta() {
+        let input = quote::quote! {
+            impl MyPlugin {
+                #[export(name = "MyExport", error = "log")]
+                fn export_menu(&mut self, edit: &mut ::aviutl2::generic::EditSection) -> Result<(), ()> {
+                    let _ = edit;
+                    Ok(())
+                }
+            }
+        };
+        let attr = quote::quote! { unwind = true };
+        let output = generic_menus(attr, input).unwrap();
         insta::assert_snapshot!(format_tokens(output));
     }
 

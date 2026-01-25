@@ -17,10 +17,19 @@ impl MyPlugin {
                 hwnd: ::aviutl2::sys::plugin2::HWND,
                 hinstance: ::aviutl2::sys::plugin2::HINSTANCE,
             ) {
-                let mut rwh =
-                    unsafe { ::aviutl2::generic::__internal_rwh_from_raw(hwnd, hinstance) };
-                let ret = <MyPlugin>::config_menu(rwh);
-                let _ = ret;
+                if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
+                    let mut rwh =
+                        unsafe { ::aviutl2::generic::__internal_rwh_from_raw(hwnd, hinstance) };
+                    let ret = <MyPlugin>::config_menu(rwh);
+                    let _ = ret;
+                }) {
+                    ::aviutl2::log::error!(
+                        "Panic occurred during {}: {}",
+                        "config_menu",
+                        panic_info
+                    );
+                    ::aviutl2::__alert_error(&panic_info);
+                }
             }
         }
     }
