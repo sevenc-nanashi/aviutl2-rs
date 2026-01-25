@@ -77,8 +77,8 @@ pub mod generic;
 pub mod __internal_base;
 
 pub mod common;
-pub mod logger;
 pub mod config;
+pub mod logger;
 pub mod utils;
 pub use common::*;
 

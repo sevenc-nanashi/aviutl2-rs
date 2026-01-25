@@ -30,8 +30,11 @@ pub struct CONFIG_HANDLE {
     /// text : 元のテキスト(.aul2ファイルのキー名)
     /// 戻り値 : 定義されているテキストへのポインタ (未定義の場合は引数のテキストのポインタが返却されます)
     ///         ※言語設定が更新されるまで有効
-    pub get_language_text:
-        unsafe extern "C" fn(handle: *mut CONFIG_HANDLE, section: LPCWSTR, text: LPCWSTR) -> LPCWSTR,
+    pub get_language_text: unsafe extern "C" fn(
+        handle: *mut CONFIG_HANDLE,
+        section: LPCWSTR,
+        text: LPCWSTR,
+    ) -> LPCWSTR,
 
     /// 設定ファイルで定義されているフォント情報を取得します
     /// key : 設定ファイル(style.conf)の[Font]のキー名
