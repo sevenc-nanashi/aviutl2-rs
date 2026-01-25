@@ -8,7 +8,6 @@ mod filter_config_select_items;
 mod from_script_module_param;
 mod generic_menus;
 mod into_script_module_return_value;
-mod macro_if;
 mod module_functions;
 mod plugin;
 mod utils;
@@ -724,24 +723,6 @@ pub fn generic_menus(
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     generic_menus::generic_menus(item.into())
-        .unwrap_or_else(|e| e)
-        .into()
-}
-
-/// 内部用：
-/// ```rs
-/// macro_if!(
-///     if (hoge) in (hoge = true, fuga = false) {
-///         // このブロックが展開される
-///     } else {
-///         // このブロックは展開されない
-///     }
-/// )
-/// ```
-#[proc_macro]
-#[doc(hidden)]
-pub fn __macro_if(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    macro_if::macro_if(input.into())
         .unwrap_or_else(|e| e)
         .into()
 }

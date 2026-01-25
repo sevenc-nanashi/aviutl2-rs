@@ -307,8 +307,8 @@ macro_rules! register_output_plugin {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializeLogger(logger: *mut $crate::sys::logger2::LOG_HANDLE) {
-                $crate::__macro_if! {
-                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                $crate::comptime_if::comptime_if! {
+                    if unwind where (unwind = true, $( $key = $value ),* ) {
                         if let Err(panic_info) = $crate::__catch_unwind_with_panic_info(|| {
                             $crate::logger::__initialize_logger(logger)
                         }) {
@@ -327,8 +327,8 @@ macro_rules! register_output_plugin {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
                 unsafe {
-                    $crate::__macro_if! {
-                        if unwind in (unwind = true, $( $key = $value ),* ) {
+                    $crate::comptime_if::comptime_if! {
+                        if unwind where (unwind = true, $( $key = $value ),* ) {
                             $crate::output::__bridge::initialize_plugin_c_unwind::<$struct>(version)
                         } else {
                             $crate::output::__bridge::initialize_plugin_c::<$struct>(version)
@@ -339,8 +339,8 @@ macro_rules! register_output_plugin {
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                $crate::__macro_if! {
-                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                $crate::comptime_if::comptime_if! {
+                    if unwind where (unwind = true, $( $key = $value ),* ) {
                         $crate::output::__bridge::uninitialize_plugin_c_unwind::<$struct>()
                     } else {
                         $crate::output::__bridge::uninitialize_plugin::<$struct>()
@@ -351,8 +351,8 @@ macro_rules! register_output_plugin {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetOutputPluginTable()
             -> *mut aviutl2::sys::output2::OUTPUT_PLUGIN_TABLE {
-                $crate::__macro_if! {
-                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                $crate::comptime_if::comptime_if! {
+                    if unwind where (unwind = true, $( $key = $value ),* ) {
                         unsafe { $crate::output::__bridge::create_table_unwind::<$struct>() }
                     } else {
                         unsafe { $crate::output::__bridge::create_table::<$struct>() }

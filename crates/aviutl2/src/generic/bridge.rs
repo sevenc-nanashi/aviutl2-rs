@@ -259,8 +259,8 @@ macro_rules! register_generic_plugin {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializeLogger(logger: *mut $crate::sys::logger2::LOG_HANDLE) {
-                $crate::__macro_if! {
-                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                $crate::comptime_if::comptime_if! {
+                    if unwind where (unwind = true, $( $key = $value ),* ) {
                         if let Err(panic_info) = $crate::__catch_unwind_with_panic_info(|| {
                             $crate::logger::__initialize_logger(logger)
                         }) {
@@ -279,8 +279,8 @@ macro_rules! register_generic_plugin {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
                 unsafe {
-                    $crate::__macro_if! {
-                        if unwind in (unwind = true, $( $key = $value ),* ) {
+                    $crate::comptime_if::comptime_if! {
+                        if unwind where (unwind = true, $( $key = $value ),* ) {
                             $crate::generic::__bridge::initialize_plugin_c_unwind::<$struct>(version)
                         } else {
                             $crate::generic::__bridge::initialize_plugin_c::<$struct>(version)
@@ -292,8 +292,8 @@ macro_rules! register_generic_plugin {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
                 unsafe {
-                    $crate::__macro_if! {
-                        if unwind in (unwind = true, $( $key = $value ),* ) {
+                    $crate::comptime_if::comptime_if! {
+                        if unwind where (unwind = true, $( $key = $value ),* ) {
                             $crate::generic::__bridge::uninitialize_plugin_c_unwind::<$struct>()
                         } else {
                             $crate::generic::__bridge::uninitialize_plugin::<$struct>()
@@ -304,8 +304,8 @@ macro_rules! register_generic_plugin {
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn RegisterPlugin(host: *mut aviutl2::sys::plugin2::HOST_APP_TABLE) {
-                $crate::__macro_if! {
-                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                $crate::comptime_if::comptime_if! {
+                    if unwind where (unwind = true, $( $key = $value ),* ) {
                         unsafe { $crate::generic::__bridge::register_plugin_unwind::<$struct>(host) };
                     } else {
                         unsafe { $crate::generic::__bridge::register_plugin::<$struct>(host) };

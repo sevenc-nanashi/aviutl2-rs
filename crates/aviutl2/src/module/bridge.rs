@@ -171,8 +171,8 @@ macro_rules! register_script_module {
         ::aviutl2::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializeLogger(logger: *mut $crate::sys::logger2::LOG_HANDLE) {
-                $crate::__macro_if! {
-                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                $crate::comptime_if::comptime_if! {
+                    if unwind where (unwind = true, $( $key = $value ),* ) {
                         if let Err(panic_info) = $crate::__catch_unwind_with_panic_info(|| {
                             $crate::logger::__initialize_logger(logger)
                         }) {
@@ -191,8 +191,8 @@ macro_rules! register_script_module {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
                 unsafe {
-                    $crate::__macro_if! {
-                        if unwind in (unwind = true, $( $key = $value ),* ) {
+                    $crate::comptime_if::comptime_if! {
+                        if unwind where (unwind = true, $( $key = $value ),* ) {
                             $crate::module::__bridge::initialize_plugin_c_unwind::<$struct>(version)
                         } else {
                             $crate::module::__bridge::initialize_plugin_c::<$struct>(version)
@@ -204,8 +204,8 @@ macro_rules! register_script_module {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
                 unsafe {
-                    $crate::__macro_if! {
-                        if unwind in (unwind = true, $( $key = $value ),* ) {
+                    $crate::comptime_if::comptime_if! {
+                        if unwind where (unwind = true, $( $key = $value ),* ) {
                             $crate::module::__bridge::uninitialize_plugin_c_unwind::<$struct>()
                         } else {
                             $crate::module::__bridge::uninitialize_plugin::<$struct>()
@@ -217,8 +217,8 @@ macro_rules! register_script_module {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn GetScriptModuleTable()
             -> *mut aviutl2::sys::module2::SCRIPT_MODULE_TABLE {
-                $crate::__macro_if! {
-                    if unwind in (unwind = true, $( $key = $value ),* ) {
+                $crate::comptime_if::comptime_if! {
+                    if unwind where (unwind = true, $( $key = $value ),* ) {
                         unsafe { $crate::module::__bridge::create_table_unwind::<$struct>() }
                     } else {
                         unsafe { $crate::module::__bridge::create_table::<$struct>() }

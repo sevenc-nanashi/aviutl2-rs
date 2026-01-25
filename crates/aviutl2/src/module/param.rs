@@ -1,3 +1,9 @@
+use std::num::{
+    NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128, NonZeroIsize, NonZeroU8,
+    NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize,
+};
+use std::ptr::NonNull;
+
 /// 関数の引数・返り値を扱うための型とトレイト。
 #[derive(Debug)]
 pub struct ScriptModuleCallHandle {
@@ -377,7 +383,6 @@ impl From<*mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM> for ScriptModuleCallHa
 pub trait FromScriptModuleParam<'a>: Sized {
     fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self>;
 }
-use std::ptr::NonNull;
 
 pub use aviutl2_macros::FromScriptModuleParam;
 
@@ -390,10 +395,49 @@ impl<'a> FromScriptModuleParam<'a> for i32 {
         }
     }
 }
+#[duplicate::duplicate_item(
+    Integer Failable;
+    [i8]    [true];
+    [i16]   [true];
+    [i64]   [false];
+    [i128]  [false];
+    [isize] [false];
+    [u8]    [true];
+    [u16]   [true];
+    [u32]   [true];
+    [u64]   [false];
+    [u128]  [false];
+    [usize] [false];
+)]
+impl<'a> FromScriptModuleParam<'a> for Integer {
+    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
+        if index < param.len() {
+            let value = param.get_param_int(index);
+            comptime_if::comptime_if!(
+                if failable where (failable = Failable) {
+                    value.try_into().ok()
+                } else {
+                    Some(value as Integer)
+                }
+            )
+        } else {
+            None
+        }
+    }
+}
 impl<'a> FromScriptModuleParam<'a> for f64 {
     fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
         if index < param.len() {
             Some(param.get_param_float(index))
+        } else {
+            None
+        }
+    }
+}
+impl<'a> FromScriptModuleParam<'a> for f32 {
+    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
+        if index < param.len() {
+            Some(param.get_param_float(index) as f32)
         } else {
             None
         }
@@ -421,6 +465,45 @@ impl<'a, T> FromScriptModuleParam<'a> for NonNull<T> {
     fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
         if index < param.len() {
             param.get_param_data(index)
+        } else {
+            None
+        }
+    }
+}
+#[duplicate::duplicate_item(
+    Integer     NonZero        Failable;
+    [i8]        [NonZeroI8]    [true];
+    [i16]       [NonZeroI16]   [true];
+    [i64]       [NonZeroI64]   [false];
+    [i128]      [NonZeroI128]  [false];
+    [isize]     [NonZeroIsize] [false];
+    [u8]        [NonZeroU8]    [true];
+    [u16]       [NonZeroU16]   [true];
+    [u32]       [NonZeroU32]   [true];
+    [u64]       [NonZeroU64]   [false];
+    [u128]      [NonZeroU128]  [false];
+    [usize]     [NonZeroUsize] [false];
+)]
+impl<'a> FromScriptModuleParam<'a> for NonZero {
+    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
+        if index < param.len() {
+            let value: Integer = comptime_if::comptime_if!(
+                if failable where (failable = Failable) {
+                    param.get_param_int(index).try_into().ok()?
+                } else {
+                    param.get_param_int(index) as Integer
+                }
+            );
+            NonZero::new(value)
+        } else {
+            None
+        }
+    }
+}
+impl<'a> FromScriptModuleParam<'a> for NonZeroI32 {
+    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
+        if index < param.len() {
+            NonZeroI32::new(param.get_param_int(index))
         } else {
             None
         }

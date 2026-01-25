@@ -45,6 +45,7 @@ pub use aviutl2_alias as alias;
 pub use aviutl2_sys as sys;
 
 pub use anyhow;
+pub use comptime_if;
 pub use half;
 pub extern crate log as log;
 
@@ -89,9 +90,6 @@ macro_rules! __internal_module {
         };
     }
 }
-
-#[doc(hidden)]
-pub use aviutl2_macros::__macro_if;
 
 #[doc(hidden)]
 pub fn __catch_unwind_with_panic_info<F, R>(f: F) -> Result<R, String>
