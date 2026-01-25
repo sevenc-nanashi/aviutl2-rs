@@ -75,6 +75,7 @@ pub unsafe fn initialize_plugin_c_unwind<T: GenericSingleton>(version: u32) -> b
 }
 
 pub(crate) fn initialize_plugin<T: GenericSingleton>(version: u32) -> AnyResult<()> {
+    crate::common::ensure_minimum_aviutl2_version(version.into())?;
     let plugin_state = T::__get_singleton_state();
     let info = crate::common::AviUtl2Info {
         version: version.into(),

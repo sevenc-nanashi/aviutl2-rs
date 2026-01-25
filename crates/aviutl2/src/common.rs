@@ -12,6 +12,20 @@ pub struct AviUtl2Info {
     pub version: AviUtl2Version,
 }
 
+/// 対応する最小のAviUtl2バージョン。
+pub const MINIMUM_AVIUTL2_VERSION: AviUtl2Version = AviUtl2Version(2003000);
+
+/// AviUtl2のバージョンがサポート範囲かを確認します。
+pub fn ensure_minimum_aviutl2_version(version: AviUtl2Version) -> AnyResult<()> {
+    let current: u32 = version.into();
+    let minimum: u32 = MINIMUM_AVIUTL2_VERSION.into();
+    anyhow::ensure!(
+        current >= minimum,
+        "AviUtl2 version {current} is not supported. {minimum} or later is required."
+    );
+    Ok(())
+}
+
 /// AviUtl2のバージョン。
 ///
 /// # Note
