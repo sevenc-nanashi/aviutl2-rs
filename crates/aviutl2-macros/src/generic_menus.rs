@@ -1,9 +1,7 @@
 use quote::ToTokens;
 use syn::parse::Parser;
 
-fn parse_unwind_attr(
-    attr: proc_macro2::TokenStream,
-) -> Result<bool, proc_macro2::TokenStream> {
+fn parse_unwind_attr(attr: proc_macro2::TokenStream) -> Result<bool, proc_macro2::TokenStream> {
     let mut unwind = true;
     if attr.is_empty() {
         return Ok(unwind);

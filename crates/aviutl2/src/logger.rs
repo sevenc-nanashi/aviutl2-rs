@@ -288,10 +288,7 @@ pub fn __initialize_logger_unwind(handle: *mut aviutl2_sys::logger2::LOG_HANDLE)
     if let Err(panic_info) =
         crate::utils::catch_unwind_with_panic_info(|| __initialize_logger(handle))
     {
-        crate::log::error!(
-            "Panic occurred during InitializeLogger: {}",
-            panic_info
-        );
+        crate::log::error!("Panic occurred during InitializeLogger: {}", panic_info);
         crate::__alert_error(&panic_info);
     }
 }
