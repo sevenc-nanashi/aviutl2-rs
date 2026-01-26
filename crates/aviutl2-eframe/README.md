@@ -24,9 +24,12 @@ impl eframe::App for MyApp {
 
 impl aviutl2::generic::GenericPlugin for MyPlugin {
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
-        let window = aviutl2_eframe::EguiWindow::new(move |cc| {
-            Ok(Box::new(MyApp))
-        })?;
+        let window = aviutl2_eframe::EguiWindow::new(
+            "MyPlugin",
+            move |cc| {
+                Ok(Box::new(MyApp))
+            }
+        )?;
 
         Ok(MyPlugin { window })
     }

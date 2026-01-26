@@ -19,7 +19,7 @@ use winit::{platform::windows::EventLoopBuilderExtWindows, raw_window_handle::Ha
 /// ウィンドウのハンドル（HWND）やeguiのコンテキストへのアクセスを提供します。
 pub struct EframeWindow {
     hwnd: NonZeroIsize,
-    thread: Option<std::thread::JoinHandle<AnyResult<()>>>,
+    thread: Option<std::thread::JoinHandle<()>>,
     egui_ctx: egui::Context,
 }
 
@@ -86,7 +86,7 @@ impl EframeWindow {
     /// 新しいEframeWindowを作成する。
     ///
     /// `app_creator`は`eframe::run_native`と同様のclosureです。
-    pub fn new<F>(app_creator: F) -> AnyResult<Self>
+    pub fn new<F>(name: &str, app_creator: F) -> AnyResult<Self>
     where
         F: 'static
             + Send
@@ -95,7 +95,10 @@ impl EframeWindow {
             )
                 -> Result<Box<dyn eframe::App>, Box<dyn std::error::Error + Send + Sync>>,
     {
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = mpsc::channel::<
+            Result<(isize, egui::Context), Box<dyn std::error::Error + Send + Sync>>,
+        >();
+        let name = name.to_string();
         let thread = std::thread::spawn({
             move || {
                 let native_options = eframe::NativeOptions {
@@ -107,8 +110,8 @@ impl EframeWindow {
                         .with_icon(egui::IconData::default()),
                     ..Default::default()
                 };
-                eframe::run_native(
-                    "Egui Window",
+                let result = eframe::run_native(
+                    &name,
                     native_options,
                     Box::new(|cc| {
                         let raw_window_handle::RawWindowHandle::Win32(hwnd) = cc
@@ -127,35 +130,46 @@ impl EframeWindow {
                                 (WS_CLIPSIBLINGS.0 | WS_POPUP.0) as isize,
                             );
                             if res_style == 0 {
-                                log::warn!(
-                                    "Failed to set window style: {}",
-                                    windows::core::Error::from_win32()
-                                );
+                                let err = windows::core::Error::from_win32();
+                                return Err(anyhow::anyhow!("Failed to set window style: {}", err)
+                                    .into_boxed_dyn_error());
                             }
                             let res_exstyle = SetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE, 0);
                             if res_exstyle == 0 {
-                                log::warn!(
+                                let err = windows::core::Error::from_win32();
+                                return Err(anyhow::anyhow!(
                                     "Failed to set window exstyle: {}",
-                                    windows::core::Error::from_win32()
-                                );
+                                    err
+                                )
+                                .into_boxed_dyn_error());
                             }
                         }
-                        tx.send((hwnd.hwnd.get(), cc.egui_ctx.clone()))
-                            .context("Failed to send HWND")?;
                         let app = app_creator(cc)?;
+                        tx.send(Ok((hwnd.hwnd.get(), cc.egui_ctx.clone())))
+                            .context("Failed to send HWND")?;
                         log::debug!("Egui app created, with HWND: 0x{:016x}", hwnd.hwnd);
                         Ok(Box::new(WrappedApp {
                             hwnd: NonZeroIsize::new(hwnd.hwnd.get()).context("HWND is null")?,
                             internal_app: app,
                         }) as Box<dyn eframe::App>)
                     }),
-                )
-                .map_err(|e| anyhow::anyhow!("Eframe error: {}", e))
+                );
+
+                if let Err(e) = result {
+                    let _ = tx.send(Err(anyhow::anyhow!(
+                        "Egui thread encountered an error: {}",
+                        e
+                    )
+                    .into_boxed_dyn_error()));
+                }
             }
         });
         let (hwnd, egui_ctx) = rx
             .recv()
-            .context("Failed to receive HWND from Egui thread")?;
+            .context("Failed to receive HWND from Egui thread")?
+            .map_err(|e| {
+                anyhow::anyhow!("Egui thread reported an error during initialization: {}", e)
+            })?;
 
         let hwnd = NonZeroIsize::new(hwnd).context("Received null HWND from Egui thread")?;
 
