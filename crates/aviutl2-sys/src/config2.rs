@@ -37,19 +37,19 @@ pub struct CONFIG_HANDLE {
     ) -> LPCWSTR,
 
     /// 設定ファイルで定義されているフォント情報を取得します
-    /// key : 設定ファイル(style.conf)の[Font]のキー名
+    /// key : 設定ファイル(style.conf)の`[Font]`のキー名
     /// 戻り値 : フォント情報構造体へのポインタ (取得出来ない場合はデフォルトのフォントが返却されます)
     ///         ※次にこの関数を呼び出すまで有効
     pub get_font_info:
         unsafe extern "C" fn(handle: *mut CONFIG_HANDLE, key: LPCSTR) -> *mut FONT_INFO,
 
     /// 設定ファイルで定義されている色コードを取得します
-    /// key : 設定ファイル(style.conf)の[Color]のキー名
+    /// key : 設定ファイル(style.conf)の`[Color]`のキー名
     /// 戻り値 : 定義されている色コードの値 (取得出来ない場合は0が返却されます)
     pub get_color_code: unsafe extern "C" fn(handle: *mut CONFIG_HANDLE, key: LPCSTR) -> i32,
 
     /// 設定ファイルで定義されているレイアウトサイズを取得します
-    /// key : 設定ファイル(style.conf)の[Layout]のキー名
+    /// key : 設定ファイル(style.conf)の`[Layout]`のキー名
     /// 戻り値 : 定義されているサイズ (取得出来ない場合は0が返却されます)
     pub get_layout_size: unsafe extern "C" fn(handle: *mut CONFIG_HANDLE, key: LPCSTR) -> i32,
 }
