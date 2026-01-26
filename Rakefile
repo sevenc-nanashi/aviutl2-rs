@@ -18,7 +18,13 @@ suffixes = {
   "_module" => ".mod2",
   "_plugin" => ".aux2"
 }
-main_crates = %w[aviutl2 aviutl2-sys aviutl2-macros aviutl2-alias avuitl2-eframe]
+main_crates = %w[
+  aviutl2
+  aviutl2-sys
+  aviutl2-macros
+  aviutl2-alias
+  aviutl2-eframe
+]
 
 def replace_suffix(name, target, suffixes)
   target_suffix = target == "release" ? "" : "_#{target}"
@@ -234,4 +240,3 @@ task :doc do
       / /aviutl2/ 308
     TEXT
 end
-
