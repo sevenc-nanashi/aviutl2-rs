@@ -1824,7 +1824,6 @@ dependencies = [
  "anyhow",
  "aviutl2",
  "aviutl2-eframe",
- "eframe",
  "log",
  "mplus",
  "serde",

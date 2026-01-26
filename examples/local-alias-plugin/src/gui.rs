@@ -1,6 +1,5 @@
 use crate::{AliasEntry, AliasState};
-use aviutl2_eframe::AviUtl2EframeHandle;
-use eframe::egui;
+use aviutl2_eframe::{AviUtl2EframeHandle, eframe, egui};
 use std::sync::{Arc, Mutex};
 
 pub(crate) struct LocalAliasApp {
