@@ -49,13 +49,14 @@ impl eframe::App for WrappedApp {
 
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
         // なぜかフォーカスがされないので、クリックされたら強制的にフォーカスを当てる
+        // （こうしないとキーボードが使えない）
         if !raw_input.focused {
             let is_clicked = raw_input
                 .events
                 .iter()
                 .any(|event| matches!(event, egui::Event::PointerButton { .. }));
             if is_clicked {
-                log::debug!("Egui window clicked while unfocused, forcing focus");
+                log::trace!("Egui window clicked while unfocused, forcing focus");
                 let focus_result = unsafe {
                     windows::Win32::UI::Input::KeyboardAndMouse::SetFocus(Some(HWND(
                         self.hwnd.get() as *mut std::ffi::c_void,
@@ -63,7 +64,7 @@ impl eframe::App for WrappedApp {
                 };
                 match focus_result {
                     Ok(_) => {
-                        log::debug!("SetFocus succeeded");
+                        log::trace!("SetFocus succeeded");
                     }
                     Err(e) => {
                         log::warn!("SetFocus failed: {:?}", e);
