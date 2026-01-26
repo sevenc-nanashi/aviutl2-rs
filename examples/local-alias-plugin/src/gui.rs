@@ -1,5 +1,4 @@
 use crate::{AliasEntry, AliasState};
-use aviutl2::raw_window_handle::HasWindowHandle;
 use eframe::egui;
 use std::sync::{Arc, Mutex};
 
@@ -46,20 +45,12 @@ impl LocalAliasApp {
 
         cc.egui_ctx.set_fonts(fonts);
 
-        let hwnd = cc
-            .window_handle()
-            .ok()
-            .and_then(|handle| match handle.as_raw() {
-                aviutl2::raw_window_handle::RawWindowHandle::Win32(handle) => Some(handle.hwnd),
-                _ => None,
-            });
         Self {
             state,
             show_info: false,
             rename_dialog: None,
             delete_dialog: None,
             version: env!("CARGO_PKG_VERSION").to_string(),
-            hwnd,
         }
     }
 
