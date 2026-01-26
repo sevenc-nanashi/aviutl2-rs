@@ -219,7 +219,7 @@ impl AviUtl2EframeHandle {
     ///
     /// # Example
     ///
-    /// ```rs
+    /// ```rust
     /// # use aviutl2_eframe::AviUtl2EframeHandle;
     /// # struct YourAppStruct { handle: AviUtl2EframeHandle }
     /// # let self: YourAppStruct = unimplemented!();
