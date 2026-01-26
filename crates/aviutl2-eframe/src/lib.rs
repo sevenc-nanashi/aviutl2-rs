@@ -164,6 +164,9 @@ impl Drop for EframeWindow {
     fn drop(&mut self) {
         // ウィンドウスレッドが終了するのを待つ
         if let Some(thread) = self.thread.take() {
+            self.egui_ctx
+                .send_viewport_cmd(egui::ViewportCommand::Close);
+            self.egui_ctx.request_repaint(); // ウィンドウを閉じるトリガー
             let _ = thread.join();
         }
     }
