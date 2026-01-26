@@ -109,7 +109,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
         log::info!("Initializing Rusty Local Alias Plugin...");
         let state = Arc::new(Mutex::new(AliasState::default()));
         let ui_state = Arc::clone(&state);
-        let window = aviutl2_eframe::EframeWindow::new(move |cc| {
+        let window = aviutl2_eframe::EframeWindow::new("RustyLocalAliasPlugin", move |cc| {
             Ok(Box::new(gui::LocalAliasApp::new(cc, ui_state)))
         })?;
 
