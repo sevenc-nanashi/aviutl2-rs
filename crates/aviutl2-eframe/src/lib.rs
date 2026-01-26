@@ -121,12 +121,24 @@ impl EframeWindow {
                         unsafe {
                             // Set window styles
                             let hwnd = hwnd.hwnd.get() as _;
-                            SetWindowLongPtrW(
+                            let res_style = SetWindowLongPtrW(
                                 HWND(hwnd),
                                 GWL_STYLE,
                                 (WS_CLIPSIBLINGS.0 | WS_POPUP.0) as isize,
                             );
-                            SetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE, 0);
+                            if res_style == 0 {
+                                log::warn!(
+                                    "Failed to set window style: {}",
+                                    windows::core::Error::from_win32()
+                                );
+                            }
+                            let res_exstyle = SetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE, 0);
+                            if res_exstyle == 0 {
+                                log::warn!(
+                                    "Failed to set window exstyle: {}",
+                                    windows::core::Error::from_win32()
+                                );
+                            }
                         }
                         tx.send((hwnd.hwnd.get(), cc.egui_ctx.clone()))
                             .context("Failed to send HWND")?;
