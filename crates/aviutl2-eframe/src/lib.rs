@@ -159,4 +159,3 @@ impl raw_window_handle::HasWindowHandle for EguiWindow {
         })
     }
 }
-
