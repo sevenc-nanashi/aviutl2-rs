@@ -1,4 +1,6 @@
-//! # avuitl2-eframe
+//! # aviutl2-eframe
+//!
+//! AviUtl2の汎用プラグインでegui/eframeを扱うためのライブラリ。
 use anyhow::Context;
 use aviutl2::{AnyResult, log, raw_window_handle};
 use eframe::egui;
@@ -11,9 +13,13 @@ use windows::Win32::{
 };
 use winit::{platform::windows::EventLoopBuilderExtWindows, raw_window_handle::HasWindowHandle};
 
-pub struct EguiWindow {
+/// eframeのウィンドウを表す構造体。
+///
+/// この構造体は、別スレッドで動作するegui/eframeウィンドウを管理します。
+/// ウィンドウのハンドル（HWND）やeguiのコンテキストへのアクセスを提供します。
+pub struct EframeWindow {
     hwnd: NonZeroIsize,
-    _thread: std::thread::JoinHandle<AnyResult<()>>,
+    thread: Option<std::thread::JoinHandle<AnyResult<()>>>,
     egui_ctx: egui::Context,
 }
 
@@ -76,7 +82,10 @@ impl eframe::App for WrappedApp {
     }
 }
 
-impl EguiWindow {
+impl EframeWindow {
+    /// 新しいEframeWindowを作成する。
+    ///
+    /// `app_creator`は`eframe::run_native`と同様のclosureです。
     pub fn new<F>(app_creator: F) -> AnyResult<Self>
     where
         F: 'static
@@ -140,17 +149,27 @@ impl EguiWindow {
 
         Ok(Self {
             hwnd,
-            _thread: thread,
+            thread: Some(thread),
             egui_ctx,
         })
     }
 
+    /// eguiのコンテキストへの参照を取得する。
     pub fn egui_ctx(&self) -> &egui::Context {
         &self.egui_ctx
     }
 }
 
-impl raw_window_handle::HasWindowHandle for EguiWindow {
+impl Drop for EframeWindow {
+    fn drop(&mut self) {
+        // ウィンドウスレッドが終了するのを待つ
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
+impl raw_window_handle::HasWindowHandle for EframeWindow {
     fn window_handle(
         &self,
     ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
