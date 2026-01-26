@@ -2,7 +2,7 @@ use anyhow::Context;
 use aviutl2::{AnyResult, raw_window_handle};
 use eframe::egui;
 use std::{num::NonZeroIsize, sync::mpsc};
-use windows::Win32::UI::WindowsAndMessaging::WS_CLIPSIBLINGS;
+use windows::Win32::UI::WindowsAndMessaging::{WS_CLIPSIBLINGS, WS_TABSTOP};
 use windows::Win32::{
     Foundation::HWND,
     UI::WindowsAndMessaging::{GWL_EXSTYLE, GWL_STYLE, SetWindowLongPtrW, WS_POPUP},
@@ -30,8 +30,26 @@ impl EguiWindow {
         let thread = std::thread::spawn(move || {
             let native_options = eframe::NativeOptions {
                 event_loop_builder: Some(Box::new(|builder| {
-                    builder.with_any_thread(true);
+                    builder.with_any_thread(true).with_msg_hook(|msg| {
+                        let msg = msg as *const windows::Win32::UI::WindowsAndMessaging::MSG;
+                        let translated = unsafe {
+                            windows::Win32::UI::WindowsAndMessaging::TranslateMessage(&*msg).0 != 0
+                        };
+                        aviutl2::lprintln!(
+                            verbose,
+                            "with_msg_hook: msg={:?}, translated={}",
+                            msg,
+                            translated
+                        );
+                        if !msg.is_null() {
+                            aviutl2::lprintln!(verbose, "with_msg_hook: msg={:?}", unsafe {
+                                *msg
+                            },);
+                        }
+                        false
+                    });
                 })),
+                window_builder: Some(Box::new(|wb| wb.with_visible(false))),
                 ..Default::default()
             };
             eframe::run_native(
@@ -45,6 +63,11 @@ impl EguiWindow {
                     else {
                         unreachable!("Not a Win32 window handle");
                     };
+                    aviutl2::lprintln!(
+                        verbose,
+                        "Egui window created with HWND: 0x{:016X}",
+                        hwnd.hwnd,
+                    );
                     tx.send((hwnd.hwnd.get(), cc.egui_ctx.clone()))
                         .context("Failed to send HWND")?;
                     app_creator(cc)
@@ -63,7 +86,7 @@ impl EguiWindow {
             SetWindowLongPtrW(
                 HWND(hwnd),
                 GWL_STYLE,
-                (WS_CLIPSIBLINGS.0 | WS_POPUP.0) as isize,
+                (WS_CLIPSIBLINGS.0 | WS_POPUP.0 | WS_TABSTOP.0) as isize,
             );
             SetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE, 0);
         }
