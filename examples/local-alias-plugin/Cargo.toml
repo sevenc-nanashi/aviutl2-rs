@@ -18,3 +18,4 @@ aviutl2-egui.workspace = true
 eframe = "0.32.0"
 serde = { version = "1.0.228", features = ["derive"] }
 log = "0.4.28"
+mplus.workspace = true

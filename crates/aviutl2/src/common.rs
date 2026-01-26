@@ -17,11 +17,9 @@ pub const MINIMUM_AVIUTL2_VERSION: AviUtl2Version = AviUtl2Version(2003000);
 
 /// AviUtl2のバージョンがサポート範囲かを確認します。
 pub fn ensure_minimum_aviutl2_version(version: AviUtl2Version) -> AnyResult<()> {
-    let current: u32 = version.into();
-    let minimum: u32 = MINIMUM_AVIUTL2_VERSION.into();
     anyhow::ensure!(
-        current >= minimum,
-        "AviUtl2 version {current} is not supported. {minimum} or later is required."
+        version >= MINIMUM_AVIUTL2_VERSION,
+        "AviUtl2 version {version} is not supported. {MINIMUM_AVIUTL2_VERSION} or higher is required.",
     );
     Ok(())
 }
@@ -87,6 +85,26 @@ impl AviUtl2Version {
     /// ビルドバージョンを取得します。
     pub fn build(self) -> u32 {
         self.0 % 100
+    }
+}
+impl std::fmt::Display for AviUtl2Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let build_str = if self.build() > 0 {
+            ('a'..='z')
+                .nth((self.build() - 1) as usize)
+                .map(|c| c.to_string())
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
+        write!(
+            f,
+            "{}.{:0>2}beta{}{}",
+            self.major(),
+            self.minor(),
+            self.patch(),
+            build_str
+        )
     }
 }
 #[cfg(feature = "aviutl2-alias")]

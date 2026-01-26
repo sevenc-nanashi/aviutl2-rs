@@ -67,27 +67,25 @@ desc "./test_environment下にAviUtl2をセットアップし、debugビルド�
 task :debug_setup do |task, args|
   require "zip"
 
-  unless File.exist?("./test_environment/aviutl2.exe")
-    zip_path = "./test_environment/aviutl2_latest.zip"
-    mkdir_p("./test_environment") unless Dir.exist?("./test_environment")
-    File.open(zip_path, "wb") do |file|
-      require "open-uri"
-      URI.open(
-        "https://api.aviutl2.jp/download?version=latest&type=zip"
-      ) { |uri| file.write(uri.read) }
-    end
-    Zip::File.open(zip_path) do |zip_file|
-      zip_file.each do |entry|
-        dest_path = File.join("./test_environment", entry.name)
-        unless Dir.exist?(File.dirname(dest_path))
-          mkdir_p(File.dirname(dest_path))
-        end
-        rm_rf(dest_path) if File.exist?(dest_path)
-        zip_file.extract(entry, dest_path)
-      end
-    end
-    rm(zip_path)
+  zip_path = "./test_environment/aviutl2_latest.zip"
+  mkdir_p("./test_environment") unless Dir.exist?("./test_environment")
+  File.open(zip_path, "wb") do |file|
+    require "open-uri"
+    URI.open(
+      "https://api.aviutl2.jp/download?version=latest&type=zip"
+    ) { |uri| file.write(uri.read) }
   end
+  Zip::File.open(zip_path) do |zip_file|
+    zip_file.each do |entry|
+      dest_path = File.join("./test_environment", entry.name)
+      unless Dir.exist?(File.dirname(dest_path))
+        mkdir_p(File.dirname(dest_path))
+      end
+      rm_rf(dest_path) if File.exist?(dest_path)
+      zip_file.extract(entry, dest_path)
+    end
+  end
+  rm(zip_path)
 
   dest_dir = "./test_environment/data/Plugin"
   script_dir = dest_dir + "/../Script"

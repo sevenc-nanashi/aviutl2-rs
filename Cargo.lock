@@ -1008,7 +1008,7 @@ checksum = "3791e1bd24380070bf94476a39069274411ff04c5e5a47ce060b27853a55a989"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.114",
+ "syn",
 ]
 
 [[package]]
@@ -1826,6 +1826,7 @@ dependencies = [
  "aviutl2-egui",
  "eframe",
  "log",
+ "mplus",
  "serde",
 ]
 
