@@ -1,4 +1,5 @@
 use crate::{AliasEntry, AliasState};
+use aviutl2_eframe::AviUtl2EframeHandle;
 use eframe::egui;
 use std::sync::{Arc, Mutex};
 
@@ -8,6 +9,7 @@ pub(crate) struct LocalAliasApp {
     rename_dialog: Option<RenameDialog>,
     delete_dialog: Option<DeleteDialog>,
     version: String,
+    handle: AviUtl2EframeHandle,
 }
 
 struct RenameDialog {
@@ -21,7 +23,11 @@ struct DeleteDialog {
 }
 
 impl LocalAliasApp {
-    pub(crate) fn new(cc: &eframe::CreationContext<'_>, state: Arc<Mutex<AliasState>>) -> Self {
+    pub(crate) fn new(
+        cc: &eframe::CreationContext<'_>,
+        state: Arc<Mutex<AliasState>>,
+        handle: AviUtl2EframeHandle,
+    ) -> Self {
         let mut fonts = egui::FontDefinitions::default();
         fonts.font_data.insert(
             "M+ 1".to_owned(),
@@ -51,6 +57,7 @@ impl LocalAliasApp {
             rename_dialog: None,
             delete_dialog: None,
             version: env!("CARGO_PKG_VERSION").to_string(),
+            handle,
         }
     }
 
@@ -85,9 +92,15 @@ impl eframe::App for LocalAliasApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let (aliases, selected_index) = self.snapshot();
 
+        // TODO: toolbarの右クリックイベントに右クリックメニューを割り当てる
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.heading("Rusty Local Alias Plugin");
+                let clicked = ui
+                    .heading("Rusty Local Alias Plugin")
+                    .interact(egui::Sense::click());
+                if clicked.secondary_clicked() {
+                    let _ = self.handle.show_context_menu();
+                }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("?").clicked() {
                         self.show_info = true;

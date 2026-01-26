@@ -3,7 +3,6 @@
 //! AviUtl2の汎用プラグインでegui/eframeを扱うためのライブラリ。
 use anyhow::Context;
 use aviutl2::{AnyResult, log, raw_window_handle};
-use eframe::egui;
 use std::{num::NonZeroIsize, sync::mpsc};
 use windows::Win32::{
     Foundation::HWND,
@@ -12,6 +11,10 @@ use windows::Win32::{
     },
 };
 use winit::{platform::windows::EventLoopBuilderExtWindows, raw_window_handle::HasWindowHandle};
+
+pub use eframe;
+pub use eframe::egui;
+pub use windows;
 
 /// eframeのウィンドウを表す構造体。
 ///
@@ -92,6 +95,7 @@ impl EframeWindow {
             + Send
             + FnOnce(
                 &eframe::CreationContext<'_>,
+                AviUtl2EframeHandle,
             )
                 -> Result<Box<dyn eframe::App>, Box<dyn std::error::Error + Send + Sync>>,
     {
@@ -144,7 +148,10 @@ impl EframeWindow {
                                 .into_boxed_dyn_error());
                             }
                         }
-                        let app = app_creator(cc)?;
+                        let app_handle = AviUtl2EframeHandle {
+                            hwnd: NonZeroIsize::new(hwnd.hwnd.get()).context("HWND is null")?,
+                        };
+                        let app = app_creator(cc, app_handle)?;
                         tx.send(Ok((hwnd.hwnd.get(), cc.egui_ctx.clone())))
                             .context("Failed to send HWND")?;
                         log::debug!("Egui app created, with HWND: 0x{:016x}", hwnd.hwnd);
@@ -186,6 +193,65 @@ impl EframeWindow {
     }
 }
 
+/// aviutl2-eframeでウィンドウ内から呼び出される関数のハンドル。
+pub struct AviUtl2EframeHandle {
+    hwnd: NonZeroIsize,
+}
+impl raw_window_handle::HasWindowHandle for AviUtl2EframeHandle {
+    fn window_handle(
+        &self,
+    ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
+        let handle = raw_window_handle::Win32WindowHandle::new(self.hwnd);
+        Ok(unsafe {
+            raw_window_handle::WindowHandle::borrow_raw(raw_window_handle::RawWindowHandle::Win32(
+                handle,
+            ))
+        })
+    }
+}
+
+impl AviUtl2EframeHandle {
+    /// 親ウィンドウのコンテキストメニューを表示する。
+    ///
+    /// # Note
+    ///
+    /// 「ウィンドウ配置」メニューを表示するために使用します。
+    ///
+    /// # Example
+    ///
+    /// ```rs
+    /// # use aviutl2_eframe::AviUtl2EframeHandle;
+    /// # struct YourAppStruct { handle: AviUtl2EframeHandle }
+    /// # let self: YourAppStruct = unimplemented!();
+    /// egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+    ///     let clicked = ui
+    ///         .heading("My Plugin")
+    ///         .interact(egui::Sense::click());
+    ///     if clicked.secondary_clicked() {
+    ///         let _ = self.handle.show_context_menu();
+    ///     }
+    /// });
+    /// ```
+    pub fn show_context_menu(&self) -> AnyResult<()> {
+        let parent_window = unsafe {
+            windows::Win32::UI::WindowsAndMessaging::GetParent(HWND(
+                self.hwnd.get() as *mut std::ffi::c_void
+            ))
+        }?;
+        unsafe {
+            let mut cursor_pos = windows::Win32::Foundation::POINT::default();
+            windows::Win32::UI::WindowsAndMessaging::GetCursorPos(&mut cursor_pos)?;
+            windows::Win32::UI::WindowsAndMessaging::PostMessageW(
+                Some(parent_window),
+                windows::Win32::UI::WindowsAndMessaging::WM_CONTEXTMENU,
+                windows::Win32::Foundation::WPARAM(self.hwnd.get() as _),
+                windows::Win32::Foundation::LPARAM(makelparam(cursor_pos.x, cursor_pos.y) as _),
+            )?;
+        }
+        Ok(())
+    }
+}
+
 impl Drop for EframeWindow {
     fn drop(&mut self) {
         // ウィンドウスレッドが終了するのを待つ
@@ -209,4 +275,9 @@ impl raw_window_handle::HasWindowHandle for EframeWindow {
             ))
         })
     }
+}
+
+#[inline]
+fn makelparam(low: i32, high: i32) -> isize {
+    ((high as isize) << 16) | ((low as isize) & 0xFFFF)
 }
