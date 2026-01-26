@@ -1,7 +1,5 @@
 use aviutl2::AnyResult;
-use std::{
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 mod gui;
 

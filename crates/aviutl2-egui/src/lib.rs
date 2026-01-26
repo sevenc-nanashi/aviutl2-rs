@@ -1,19 +1,77 @@
 use anyhow::Context;
-use aviutl2::{AnyResult, raw_window_handle};
+use aviutl2::{AnyResult, log, raw_window_handle};
 use eframe::egui;
 use std::{num::NonZeroIsize, sync::mpsc};
-use windows::Win32::UI::WindowsAndMessaging::{WS_CLIPSIBLINGS, WS_TABSTOP};
 use windows::Win32::{
     Foundation::HWND,
-    UI::WindowsAndMessaging::{GWL_EXSTYLE, GWL_STYLE, SetWindowLongPtrW, WS_POPUP},
+    UI::WindowsAndMessaging::{
+        GWL_EXSTYLE, GWL_STYLE, SetWindowLongPtrW, WS_CLIPSIBLINGS, WS_POPUP, WS_VISIBLE,
+    },
 };
-use winit::platform::windows::EventLoopBuilderExtWindows;
-use winit::raw_window_handle::HasWindowHandle;
+use winit::{platform::windows::EventLoopBuilderExtWindows, raw_window_handle::HasWindowHandle};
 
 pub struct EguiWindow {
     hwnd: NonZeroIsize,
     _thread: std::thread::JoinHandle<AnyResult<()>>,
     egui_ctx: egui::Context,
+}
+
+struct WrappedApp {
+    hwnd: NonZeroIsize,
+    internal_app: Box<dyn eframe::App>,
+}
+
+impl eframe::App for WrappedApp {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        self.internal_app.update(ctx, frame);
+    }
+
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        self.internal_app.save(storage);
+    }
+
+    fn on_exit(&mut self, gl: Option<&eframe::glow::Context>) {
+        self.internal_app.on_exit(gl);
+    }
+
+    fn auto_save_interval(&self) -> std::time::Duration {
+        self.internal_app.auto_save_interval()
+    }
+
+    fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
+        self.internal_app.clear_color(visuals)
+    }
+
+    fn persist_egui_memory(&self) -> bool {
+        self.internal_app.persist_egui_memory()
+    }
+
+    fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        // なぜかフォーカスがされないので、クリックされたら強制的にフォーカスを当てる
+        if !raw_input.focused {
+            let is_clicked = raw_input
+                .events
+                .iter()
+                .any(|event| matches!(event, egui::Event::PointerButton { .. }));
+            if is_clicked {
+                log::debug!("Egui window clicked while unfocused, forcing focus");
+                let focus_result = unsafe {
+                    windows::Win32::UI::Input::KeyboardAndMouse::SetFocus(Some(HWND(
+                        self.hwnd.get() as *mut std::ffi::c_void,
+                    )))
+                };
+                match focus_result {
+                    Ok(_) => {
+                        log::debug!("SetFocus succeeded");
+                    }
+                    Err(e) => {
+                        log::warn!("SetFocus failed: {:?}", e);
+                    }
+                }
+            }
+        }
+        self.internal_app.raw_input_hook(ctx, raw_input);
+    }
 }
 
 impl EguiWindow {
@@ -27,66 +85,51 @@ impl EguiWindow {
                 -> Result<Box<dyn eframe::App>, Box<dyn std::error::Error + Send + Sync>>,
     {
         let (tx, rx) = mpsc::channel();
-        let thread = std::thread::spawn(move || {
-            let native_options = eframe::NativeOptions {
-                event_loop_builder: Some(Box::new(|builder| {
-                    builder.with_any_thread(true).with_msg_hook(|msg| {
-                        let msg = msg as *const windows::Win32::UI::WindowsAndMessaging::MSG;
-                        let translated = unsafe {
-                            windows::Win32::UI::WindowsAndMessaging::TranslateMessage(&*msg).0 != 0
+        let thread = std::thread::spawn({
+            move || {
+                let native_options = eframe::NativeOptions {
+                    event_loop_builder: Some(Box::new(move |builder| {
+                        builder.with_any_thread(true);
+                    })),
+                    window_builder: Some(Box::new(|wb| wb.with_visible(false))),
+                    ..Default::default()
+                };
+                eframe::run_native(
+                    "Egui Window",
+                    native_options,
+                    Box::new(|cc| {
+                        let raw_window_handle::RawWindowHandle::Win32(hwnd) = cc
+                            .window_handle()
+                            .expect("Failed to get window handle")
+                            .as_raw()
+                        else {
+                            unreachable!("Not a Win32 window handle");
                         };
-                        aviutl2::lprintln!(
-                            verbose,
-                            "with_msg_hook: msg={:?}, translated={}",
-                            msg,
-                            translated
-                        );
-                        if !msg.is_null() {
-                            aviutl2::lprintln!(verbose, "with_msg_hook: msg={:?}", unsafe {
-                                *msg
-                            },);
-                        }
-                        false
-                    });
-                })),
-                window_builder: Some(Box::new(|wb| wb.with_visible(false))),
-                ..Default::default()
-            };
-            eframe::run_native(
-                "Egui Window",
-                native_options,
-                Box::new(|cc| {
-                    let raw_window_handle::RawWindowHandle::Win32(hwnd) = cc
-                        .window_handle()
-                        .expect("Failed to get window handle")
-                        .as_raw()
-                    else {
-                        unreachable!("Not a Win32 window handle");
-                    };
-                    aviutl2::lprintln!(
-                        verbose,
-                        "Egui window created with HWND: 0x{:016X}",
-                        hwnd.hwnd,
-                    );
-                    tx.send((hwnd.hwnd.get(), cc.egui_ctx.clone()))
-                        .context("Failed to send HWND")?;
-                    app_creator(cc)
-                }),
-            )
-            .map_err(|e| anyhow::anyhow!("Eframe error: {}", e))
+                        tx.send((hwnd.hwnd.get(), cc.egui_ctx.clone()))
+                            .context("Failed to send HWND")?;
+                        let app = app_creator(cc)?;
+                        log::debug!("Egui app created, with HWND: 0x{:016x}", hwnd.hwnd);
+                        Ok(Box::new(WrappedApp {
+                            hwnd: NonZeroIsize::new(hwnd.hwnd.get()).context("HWND is null")?,
+                            internal_app: app,
+                        }) as Box<dyn eframe::App>)
+                    }),
+                )
+                .map_err(|e| anyhow::anyhow!("Eframe error: {}", e))
+            }
         });
         let (hwnd, egui_ctx) = rx
             .recv()
             .context("Failed to receive HWND from Egui thread")?;
 
         let hwnd = NonZeroIsize::new(hwnd).context("Received null HWND from Egui thread")?;
-        // Set window styles
         unsafe {
+            // Set window styles
             let hwnd = hwnd.get() as *mut std::ffi::c_void;
             SetWindowLongPtrW(
                 HWND(hwnd),
                 GWL_STYLE,
-                (WS_CLIPSIBLINGS.0 | WS_POPUP.0 | WS_TABSTOP.0) as isize,
+                (WS_CLIPSIBLINGS.0 | WS_POPUP.0 | WS_VISIBLE.0) as isize,
             );
             SetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE, 0);
         }
