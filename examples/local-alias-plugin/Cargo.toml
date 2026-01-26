@@ -14,8 +14,9 @@ crate-type = ["cdylib"]
 [dependencies]
 anyhow = "1.0.98"
 aviutl2 = { workspace = true, features = ["serde"] }
-aviutl2-egui.workspace = true
+avuitl2-eframe.workspace = true
 eframe = "0.32.0"
 serde = { version = "1.0.228", features = ["derive"] }
 log = "0.4.28"
 mplus.workspace = true
+

@@ -589,7 +589,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "aviutl2-egui"
+name = "avuitl2-eframe"
 version = "0.11.3"
 dependencies = [
  "anyhow",
@@ -1823,7 +1823,7 @@ version = "0.11.3"
 dependencies = [
  "anyhow",
  "aviutl2",
- "aviutl2-egui",
+ "avuitl2-eframe",
  "eframe",
  "log",
  "mplus",
@@ -6709,3 +6709,4 @@ dependencies = [
  "syn",
  "winnow 0.7.14",
 ]
+

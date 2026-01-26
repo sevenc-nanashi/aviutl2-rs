@@ -1,3 +1,4 @@
+//! # avuitl2-eframe
 use anyhow::Context;
 use aviutl2::{AnyResult, log, raw_window_handle};
 use eframe::egui;
@@ -5,7 +6,7 @@ use std::{num::NonZeroIsize, sync::mpsc};
 use windows::Win32::{
     Foundation::HWND,
     UI::WindowsAndMessaging::{
-        GWL_EXSTYLE, GWL_STYLE, SetWindowLongPtrW, WS_CLIPSIBLINGS, WS_POPUP, WS_VISIBLE,
+        GWL_EXSTYLE, GWL_STYLE, SetWindowLongPtrW, WS_CLIPSIBLINGS, WS_POPUP,
     },
 };
 use winit::{platform::windows::EventLoopBuilderExtWindows, raw_window_handle::HasWindowHandle};
@@ -91,7 +92,7 @@ impl EguiWindow {
                     event_loop_builder: Some(Box::new(move |builder| {
                         builder.with_any_thread(true);
                     })),
-                    window_builder: Some(Box::new(|wb| wb.with_visible(false))),
+                    window_builder: Some(Box::new(|wb| wb.with_visible(false).with_active(false))),
                     ..Default::default()
                 };
                 eframe::run_native(
@@ -105,6 +106,16 @@ impl EguiWindow {
                         else {
                             unreachable!("Not a Win32 window handle");
                         };
+                        unsafe {
+                            // Set window styles
+                            let hwnd = hwnd.hwnd.get() as _;
+                            SetWindowLongPtrW(
+                                HWND(hwnd),
+                                GWL_STYLE,
+                                (WS_CLIPSIBLINGS.0 | WS_POPUP.0) as isize,
+                            );
+                            SetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE, 0);
+                        }
                         tx.send((hwnd.hwnd.get(), cc.egui_ctx.clone()))
                             .context("Failed to send HWND")?;
                         let app = app_creator(cc)?;
@@ -123,16 +134,6 @@ impl EguiWindow {
             .context("Failed to receive HWND from Egui thread")?;
 
         let hwnd = NonZeroIsize::new(hwnd).context("Received null HWND from Egui thread")?;
-        unsafe {
-            // Set window styles
-            let hwnd = hwnd.get() as *mut std::ffi::c_void;
-            SetWindowLongPtrW(
-                HWND(hwnd),
-                GWL_STYLE,
-                (WS_CLIPSIBLINGS.0 | WS_POPUP.0 | WS_VISIBLE.0) as isize,
-            );
-            SetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE, 0);
-        }
 
         Ok(Self {
             hwnd,
@@ -158,3 +159,4 @@ impl raw_window_handle::HasWindowHandle for EguiWindow {
         })
     }
 }
+
