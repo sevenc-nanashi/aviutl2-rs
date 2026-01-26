@@ -113,19 +113,20 @@ pub fn get_language_text(section: &str, text: &str) -> Result<String, NullByteEr
 /// - `key`: 設定ファイル(style.conf)の[Font]のキー名
 pub fn get_font_info(key: &str) -> Result<FontInfo, std::ffi::NulError> {
     let c_key = std::ffi::CString::new(key)?;
-    let font_info_ptr = unsafe {
+    let font_info = unsafe {
         let handle = CONFIG_HANDLE
             .get()
             .expect("Config handle not initialized")
             .lock()
             .unwrap();
-        (handle
+        let font_info_ptr = (handle
             .raw
             .as_ref()
             .expect("Config handle raw pointer is null")
-            .get_font_info)(handle.raw, c_key.as_ptr())
+            .get_font_info)(handle.raw, c_key.as_ptr());
+        FontInfo::from_raw(font_info_ptr)
     };
-    Ok(unsafe { FontInfo::from_raw(font_info_ptr) })
+    Ok(font_info)
 }
 
 /// 設定ファイルで定義されている色コードを取得する。
