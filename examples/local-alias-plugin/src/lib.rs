@@ -97,7 +97,7 @@ pub static CURRENT_ALIAS: Mutex<Option<AliasEntry>> = Mutex::new(None);
 
 #[aviutl2::plugin(GenericPlugin)]
 pub struct LocalAliasPlugin {
-    window: aviutl2_egui::EguiWindow,
+    window: aviutl2_eframe::EguiWindow,
     state: Arc<Mutex<AliasState>>,
 }
 unsafe impl Send for LocalAliasPlugin {}
@@ -109,7 +109,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
         log::info!("Initializing Rusty Local Alias Plugin...");
         let state = Arc::new(Mutex::new(AliasState::default()));
         let ui_state = Arc::clone(&state);
-        let window = aviutl2_egui::EguiWindow::new(move |cc| {
+        let window = aviutl2_eframe::EguiWindow::new(move |cc| {
             Ok(Box::new(gui::LocalAliasApp::new(cc, ui_state)))
         })?;
 

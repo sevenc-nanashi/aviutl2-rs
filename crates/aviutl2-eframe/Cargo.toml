@@ -1,5 +1,5 @@
 [package]
-name = "avuitl2-eframe"
+name = "aviutl2-eframe"
 description = "AviUtl2とegui/eframeをつなぐユーティリティ"
 version.workspace = true
 edition.workspace = true
