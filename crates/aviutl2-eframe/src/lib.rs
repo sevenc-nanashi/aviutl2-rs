@@ -92,7 +92,9 @@ impl EguiWindow {
                     event_loop_builder: Some(Box::new(move |builder| {
                         builder.with_any_thread(true);
                     })),
-                    window_builder: Some(Box::new(|wb| wb.with_visible(false).with_active(false))),
+                    viewport: egui::ViewportBuilder::default()
+                        .with_visible(false)
+                        .with_icon(egui::IconData::default()),
                     ..Default::default()
                 };
                 eframe::run_native(
