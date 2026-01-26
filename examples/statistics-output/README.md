@@ -5,4 +5,4 @@
 
 ## インストール
 
-`C:\ProgramData\aviutl2\Plugin` に `rusty_statistics.aui2` を配置してください。
+`C:\ProgramData\aviutl2\Plugin` に `rusty_statistics.auo2` を配置してください。
