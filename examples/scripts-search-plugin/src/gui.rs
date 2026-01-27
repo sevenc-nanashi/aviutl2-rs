@@ -64,6 +64,14 @@ impl ScriptsSearchApp {
 
 impl eframe::App for ScriptsSearchApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.render_toolbar(ctx);
+        self.render_main_panel(ctx);
+        self.render_info_window(ctx);
+    }
+}
+
+impl ScriptsSearchApp {
+    fn render_toolbar(&mut self, ctx: &egui::Context) {
         // TODO: toolbarの右クリックイベントに右クリックメニューを割り当てる
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -80,7 +88,9 @@ impl eframe::App for ScriptsSearchApp {
                 });
             });
         });
+    }
 
+    fn render_main_panel(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| match crate::EFFECTS.get() {
             None => {
                 ui.label("エフェクト情報を読み込み中...");
@@ -96,77 +106,97 @@ impl eframe::App for ScriptsSearchApp {
                     .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        if self.needle.is_empty() {
-                            for effect in effects.iter() {
-                                ui.add_space(4.0);
-                                self.render_effect_card(ui, effect, &[]);
-                            }
-                        } else {
-                            let needle = self.needle.trim();
-                            let needle = nucleo_matcher::Utf32String::from(needle);
-                            let mut sorted_effects = effects
-                                .iter()
-                                .filter_map(|effect| {
-                                    let mut indices = vec![];
-                                    let score = self.matcher.fuzzy_indices(
-                                        effect.u32_label.slice(..),
-                                        needle.slice(..),
-                                        &mut indices,
-                                    );
-                                    score.map(|score| (score, effect, indices))
-                                })
-                                .collect::<Vec<_>>();
-                            if sorted_effects.is_empty() {
-                                ui.add_space(4.0);
-                                ui.label("一致するエフェクトが見つかりませんでした。");
-                            } else {
-                                sorted_effects.sort_by(|a, b| a.0.cmp(&b.0));
-                                for (_score, effect, indices) in sorted_effects.iter().take(100) {
-                                    ui.add_space(4.0);
-                                    self.render_effect_card(ui, effect, indices);
-                                }
-                            }
-                        }
+                        self.render_effects_list(ui, effects);
                     });
             }
         });
+    }
 
-        if self.show_info {
-            let mut open = true;
-            egui::Window::new("Rusty Scripts Search Plugin")
-                .collapsible(false)
-                .resizable(false)
-                .open(&mut open)
-                .show(ctx, |ui| {
-                    ui.label(format!("バージョン: {}", self.version));
-                    ui.label(
-                        "オブジェクト・エフェクトを検索するプラグイン。",
-                    );
-                    ui.add_space(8.0);
-                    ui.label("Developed by");
-                    ui.hyperlink_to("Nanashi.", "https://sevenc7c.com");
-                    ui.add_space(4.0);
-                    ui.label("Source Code:");
-                    ui.hyperlink_to(
-                        "sevenc-nanashi/aviutl2-rs",
-                        "https://github.com/sevenc-nanashi/aviutl2-rs",
-                    );
-                    ui.hyperlink_to(
-                        "examples/objects-search-plugin",
-                        format!(
-                            "https://github.com/sevenc-nanashi/aviutl2-rs/tree/{}/examples/objects-search-plugin",
-                            self.version
-                        ),
-                    );
-                });
-            if !open {
-                self.show_info = false;
+    fn render_effects_list(&mut self, ui: &mut egui::Ui, effects: &[crate::EffectData]) {
+        if self.needle.is_empty() {
+            self.render_all_effects(ui, effects);
+        } else {
+            self.render_filtered_effects(ui, effects);
+        }
+    }
+
+    fn render_all_effects(&self, ui: &mut egui::Ui, effects: &[crate::EffectData]) {
+        for effect in effects.iter() {
+            ui.add_space(4.0);
+            self.render_effect_card(ui, effect, &[]);
+        }
+    }
+
+    fn render_filtered_effects(&mut self, ui: &mut egui::Ui, effects: &[crate::EffectData]) {
+        let needle = self.needle.trim();
+        let needle = nucleo_matcher::Utf32String::from(needle);
+        let mut sorted_effects = effects
+            .iter()
+            .filter_map(|effect| {
+                let mut indices = vec![];
+                let score = self.matcher.fuzzy_indices(
+                    effect.u32_label.slice(..),
+                    needle.slice(..),
+                    &mut indices,
+                );
+                score.map(|score| (score, effect, indices))
+            })
+            .collect::<Vec<_>>();
+        if sorted_effects.is_empty() {
+            ui.add_space(4.0);
+            ui.label("一致するエフェクトが見つかりませんでした。");
+        } else {
+            sorted_effects.sort_by(|a, b| b.0.cmp(&a.0));
+            ui.add_space(4.0);
+            ui.label(format!(
+                "エフェクト数: {}",
+                if sorted_effects.len() > 100 {
+                    "100+".to_string()
+                } else {
+                    sorted_effects.len().to_string()
+                }
+            ));
+            for (_score, effect, indices) in sorted_effects.iter().take(100) {
+                ui.add_space(4.0);
+                self.render_effect_card(ui, effect, indices);
             }
         }
     }
-}
 
-impl ScriptsSearchApp {
+    fn render_info_window(&mut self, ctx: &egui::Context) {
+        if !self.show_info {
+            return;
+        }
+        let mut open = true;
+        egui::Window::new("Rusty Scripts Search Plugin")
+            .collapsible(false)
+            .resizable(false)
+            .open(&mut open)
+            .show(ctx, |ui| {
+                ui.label(format!("バージョン: {}", self.version));
+                ui.label("オブジェクト・エフェクトを検索するプラグイン。");
+                ui.add_space(8.0);
+                ui.label("Developed by");
+                ui.hyperlink_to("Nanashi.", "https://sevenc7c.com");
+                ui.add_space(4.0);
+                ui.label("Source Code:");
+                ui.hyperlink_to(
+                    "sevenc-nanashi/aviutl2-rs",
+                    "https://github.com/sevenc-nanashi/aviutl2-rs",
+                );
+                ui.hyperlink_to(
+                    "examples/scripts-search-plugin",
+                    format!(
+                        "https://github.com/sevenc-nanashi/aviutl2-rs/tree/{}/examples/scripts-search-plugin",
+                        self.version
+                    ),
+                );
+            });
+        if !open {
+            self.show_info = false;
+        }
+    }
+
     fn render_effect_card(
         &self,
         ui: &mut egui::Ui,
@@ -193,35 +223,8 @@ impl ScriptsSearchApp {
                             )
                             .on_hover_text(name);
 
-                            let mut colored_label = egui::text::LayoutJob::default();
-                            let chunks = effect
-                                .label
-                                .chars()
-                                .enumerate()
-                                .chunk_by(|(i, _)| match_indicies.contains(&(*i as u32)));
-
-                            let chunks = chunks
-                                .into_iter()
-                                .map(|(is_matched, chunk)| {
-                                    let (_, s): (Vec<_>, Vec<char>) = chunk.unzip();
-                                    (is_matched, s.into_iter().collect::<String>())
-                                })
-                                .collect::<Vec<_>>();
-                            for (is_matched, chunk) in chunks {
-                                colored_label.append(
-                                    &chunk,
-                                    0.0,
-                                    egui::TextFormat {
-                                        color: if is_matched {
-                                            ui.visuals().selection.bg_fill
-                                        } else {
-                                            ui.visuals().text_color()
-                                        },
-                                        ..Default::default()
-                                    },
-                                );
-                            }
-
+                            let colored_label =
+                                Self::build_highlighted_label(ui, effect, match_indicies);
                             ui.label(colored_label);
                         });
                     })
@@ -233,112 +236,173 @@ impl ScriptsSearchApp {
             .interact(egui::Sense::click())
             .on_hover_cursor(egui::CursorIcon::PointingHand);
         if effect.effect.effect_type == aviutl2::generic::EffectType::Filter {
-            egui::containers::Popup::menu(&response)
-                .width(f32::INFINITY)
-                .show(|ui| {
-                    if ui.button("現在のオブジェクトに追加").clicked() {
-                        let res = crate::EDIT_HANDLE.get().unwrap().call_edit_section(|edit| {
-                            // フィルターを追加するAPIがないため、エイリアスを編集して対応する
-                            let focused_object = edit.get_focused_object()?.ok_or_else(|| {
-                                anyhow::anyhow!("オブジェクトが選択されていません。")
-                            })?;
-                            let alias_str = edit.object(&focused_object).get_alias()?;
-                            let mut alias: aviutl2::alias::Table = alias_str
-                                .parse()
-                                .map_err(|e| anyhow::anyhow!("Failed to parse alias: {}", e))?;
-                            let alias_table = alias.get_table_mut("Object").ok_or_else(|| {
-                                anyhow::anyhow!("Failed to get Object table from alias")
-                            })?;
-                            let last_table = alias_table.subtables().last().ok_or_else(|| {
-                                anyhow::anyhow!("Failed to get last subtable from Object table")
-                            })?;
-                            let effect_index = last_table.0.parse::<u32>().map_err(|e| {
-                                anyhow::anyhow!("Failed to parse last subtable index: {}", e)
-                            })? + 1;
-                            alias_table.insert_table(&effect_index.to_string(), {
-                                let mut table = aviutl2::alias::Table::new();
-                                table.insert_value("effect.name", &effect.effect.name);
-                                table
-                            });
-                            let base_position = edit.object(&focused_object).get_layer_frame()?;
-                            edit.object(&focused_object).delete_object()?;
-                            match edit.create_object_from_alias(
-                                &alias.to_string(),
-                                base_position.layer,
-                                base_position.start,
-                                0,
-                            ) {
-                                Ok(created) => {
-                                    edit.focus_object(&created)?;
-                                    anyhow::Ok(())
-                                }
-                                Err(err) => {
-                                    edit.create_object_from_alias(
-                                        &alias_str,
-                                        base_position.layer,
-                                        base_position.start,
-                                        0,
-                                    )?;
-                                    Err(err.into())
-                                }
-                            }
-                        });
-                        log::debug!("Effect added to focused object: {:?}", res);
-                        ui.close_kind(egui::UiKind::Menu);
-                    }
-                    if ui.button("フィルタ効果として追加").clicked() {
-                        let res = crate::EDIT_HANDLE.get().unwrap().call_edit_section(|e| {
-                            e.create_object(&effect.effect.name, e.info.layer, e.info.frame, None)
-                        });
-                        log::debug!("Effect added as scene change: {:?}", res);
-                        ui.close_kind(egui::UiKind::Menu);
-                    }
-                    if effect.effect.flag.as_filter
-                        && ui.button("フィルタオブジェクトとして追加").clicked()
-                    {
-                        let res = crate::EDIT_HANDLE.get().unwrap().call_edit_section(|e| {
-                            let filter = e.create_object(
-                                "フィルタオブジェクト",
-                                e.info.layer,
-                                e.info.frame,
-                                None,
-                            )?;
-                            let mut filter_alias = e.object(&filter).get_alias_parsed()?;
-                            e.object(&filter).delete_object()?;
-                            filter_alias
-                                .get_table_mut("Object")
-                                .expect("Failed to get Object table")
-                                .insert_table("1", {
-                                    let mut table = aviutl2::alias::Table::new();
-                                    table.insert_value("effect.name", &effect.effect.name);
-                                    table
-                                });
-                            let created = e.create_object_from_alias(
-                                &filter_alias.to_string(),
-                                e.info.layer,
-                                e.info.frame,
-                                0,
-                            )?;
-                            e.focus_object(&created)?;
-
-                            anyhow::Ok(())
-                        });
-                        log::debug!("Effect added as scene change: {:?}", res);
-                        ui.close_kind(egui::UiKind::Menu);
-                    }
-                });
+            Self::render_filter_popup(ui, effect, &response);
         } else {
             // シーンチェンジと入力は直接追加する
-            if response.clicked() {
-                let res = crate::EDIT_HANDLE.get().unwrap().call_edit_section(|e| {
-                    let created =
-                        e.create_object(&effect.effect.name, e.info.layer, e.info.frame, None)?;
-                    e.focus_object(&created)?;
-                    anyhow::Ok(())
-                });
-                log::debug!("Effect added: {:?}", res);
-            }
+            Self::handle_non_filter_click(effect, &response);
         }
+    }
+
+    fn build_highlighted_label(
+        ui: &egui::Ui,
+        effect: &crate::EffectData,
+        match_indicies: &[u32],
+    ) -> egui::text::LayoutJob {
+        let mut colored_label = egui::text::LayoutJob::default();
+        let chunks = effect
+            .label
+            .chars()
+            .enumerate()
+            .chunk_by(|(i, _)| match_indicies.contains(&(*i as u32)));
+
+        let chunks = chunks
+            .into_iter()
+            .map(|(is_matched, chunk)| {
+                let (_, s): (Vec<_>, Vec<char>) = chunk.unzip();
+                (is_matched, s.into_iter().collect::<String>())
+            })
+            .collect::<Vec<_>>();
+        for (is_matched, chunk) in chunks {
+            colored_label.append(
+                &chunk,
+                0.0,
+                egui::TextFormat {
+                    color: if is_matched {
+                        ui.visuals().selection.bg_fill
+                    } else {
+                        ui.visuals().text_color()
+                    },
+                    ..Default::default()
+                },
+            );
+        }
+        colored_label
+    }
+
+    fn render_filter_popup(
+        _ui: &mut egui::Ui,
+        effect: &crate::EffectData,
+        response: &egui::Response,
+    ) {
+        egui::containers::Popup::menu(response)
+            .width(f32::INFINITY)
+            .show(|ui| {
+                if ui.button("現在のオブジェクトに追加").clicked() {
+                    let res = Self::add_filter_to_focused_object(effect);
+                    log::debug!("Effect added to focused object: {:?}", res);
+                    ui.close_kind(egui::UiKind::Menu);
+                }
+                if ui.button("フィルタ効果として追加").clicked() {
+                    let res = Self::add_filter_as_object(effect);
+                    log::debug!("Effect added as scene change: {:?}", res);
+                    ui.close_kind(egui::UiKind::Menu);
+                }
+                if effect.effect.flag.as_filter
+                    && ui.button("フィルタオブジェクトとして追加").clicked()
+                {
+                    let res = Self::add_filter_as_filter_object(effect);
+                    log::debug!("Effect added as scene change: {:?}", res);
+                    ui.close_kind(egui::UiKind::Menu);
+                }
+            });
+    }
+
+    fn handle_non_filter_click(effect: &crate::EffectData, response: &egui::Response) {
+        if response.clicked() {
+            let res = crate::EDIT_HANDLE.get().unwrap().call_edit_section(|e| {
+                let created =
+                    e.create_object(&effect.effect.name, e.info.layer, e.info.frame, None)?;
+                e.focus_object(&created)?;
+                anyhow::Ok(())
+            });
+            log::debug!("Effect added: {:?}", res);
+        }
+    }
+
+    fn add_filter_to_focused_object(effect: &crate::EffectData) -> anyhow::Result<()> {
+        crate::EDIT_HANDLE
+            .get()
+            .unwrap()
+            .call_edit_section(|edit| {
+                // フィルターを追加するAPIがないため、エイリアスを編集して対応する
+                let focused_object = edit
+                    .get_focused_object()?
+                    .ok_or_else(|| anyhow::anyhow!("オブジェクトが選択されていません。"))?;
+                let alias_str = edit.object(&focused_object).get_alias()?;
+                let mut alias: aviutl2::alias::Table = alias_str
+                    .parse()
+                    .map_err(|e| anyhow::anyhow!("Failed to parse alias: {}", e))?;
+                let alias_table = alias
+                    .get_table_mut("Object")
+                    .ok_or_else(|| anyhow::anyhow!("Failed to get Object table from alias"))?;
+                let last_table = alias_table.subtables().last().ok_or_else(|| {
+                    anyhow::anyhow!("Failed to get last subtable from Object table")
+                })?;
+                let effect_index =
+                    last_table.0.parse::<u32>().map_err(|e| {
+                        anyhow::anyhow!("Failed to parse last subtable index: {}", e)
+                    })? + 1;
+                alias_table.insert_table(&effect_index.to_string(), {
+                    let mut table = aviutl2::alias::Table::new();
+                    table.insert_value("effect.name", &effect.effect.name);
+                    table
+                });
+                let base_position = edit.object(&focused_object).get_layer_frame()?;
+                edit.object(&focused_object).delete_object()?;
+                match edit.create_object_from_alias(
+                    &alias.to_string(),
+                    base_position.layer,
+                    base_position.start,
+                    0,
+                ) {
+                    Ok(created) => {
+                        edit.focus_object(&created)?;
+                        anyhow::Ok(())
+                    }
+                    Err(err) => {
+                        edit.create_object_from_alias(
+                            &alias_str,
+                            base_position.layer,
+                            base_position.start,
+                            0,
+                        )?;
+                        Err(err.into())
+                    }
+                }
+            })?
+    }
+
+    fn add_filter_as_object(effect: &crate::EffectData) -> anyhow::Result<()> {
+        crate::EDIT_HANDLE.get().unwrap().call_edit_section(|e| {
+            e.create_object(&effect.effect.name, e.info.layer, e.info.frame, None)?;
+            anyhow::Ok(())
+        })?
+    }
+
+    fn add_filter_as_filter_object(effect: &crate::EffectData) -> anyhow::Result<()> {
+        crate::EDIT_HANDLE.get().unwrap().call_edit_section(|e| {
+            let filter =
+                e.create_object("フィルタオブジェクト", e.info.layer, e.info.frame, None)?;
+            let mut filter_alias = e.object(&filter).get_alias_parsed()?;
+            e.object(&filter).delete_object()?;
+            filter_alias
+                .get_table_mut("Object")
+                .expect("Failed to get Object table")
+                .insert_table("1", {
+                    let mut table = aviutl2::alias::Table::new();
+                    table.insert_value("effect.name", &effect.effect.name);
+                    table
+                });
+            let created = e.create_object_from_alias(
+                &filter_alias.to_string(),
+                e.info.layer,
+                e.info.frame,
+                0,
+            )?;
+            e.focus_object(&created)?;
+
+            anyhow::Ok(())
+        })?
     }
 
     fn effect_type_display(
