@@ -16,6 +16,7 @@ aviutl2 = { path = "./crates/aviutl2", version = "0.11.3" }
 aviutl2-sys = { path = "./crates/aviutl2-sys", version = "0.11.3" }
 aviutl2-macros = { path = "./crates/aviutl2-macros", version = "0.11.3" }
 aviutl2-alias = { path = "./crates/aviutl2-alias", version = "0.11.3" }
+aviutl2-eframe = { path = "./crates/aviutl2-eframe", version = "0.11.3" }
 
 mplus = { path = "./examples/mplus" }
 

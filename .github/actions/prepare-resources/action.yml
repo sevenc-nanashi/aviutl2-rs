@@ -15,10 +15,3 @@ runs:
       run: |
         bun install --frozen-lockfile
         bun run build
-
-    - name: Build Page (Local Alias Plugin)
-      shell: bash
-      working-directory: examples/local-alias-plugin/page
-      run: |
-        bun install --frozen-lockfile
-        bun run build

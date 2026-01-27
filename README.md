@@ -13,6 +13,7 @@ AviUtl2 SDKのRust版です。
   - `./crates/aviutl2-sys`：AviUtl2 SDKのRustバインディング。ほぼ1:1の対応です。
   - `./crates/aviutl2-macros`：`aviutl2`で使用するマクロを提供します。
   - `./crates/aviutl2-alias`：プロジェクトファイル（`*.aup2`）とエイリアスファイル（`*.object`、`*.effect`）で使われているデータ構造を読み書きするクレート。
+  - `./crates/aviutl2-eframe`：汎用プラグインでeframe（egui）を使用するためのクレート。
 
 - `./examples/`：AviUtl2 SDKを使用したサンプルコード。
   - 入力プラグイン：
