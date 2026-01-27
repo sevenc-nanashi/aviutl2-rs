@@ -343,11 +343,13 @@ macro_rules! register_output_plugin {
 
             #[unsafe(no_mangle)]
             unsafe extern "C" fn UninitializePlugin() {
-                $crate::comptime_if::comptime_if! {
-                    if unwind where (unwind = true, $( $key = $value ),* ) {
-                        $crate::output::__bridge::uninitialize_plugin_c_unwind::<$struct>()
-                    } else {
-                        $crate::output::__bridge::uninitialize_plugin::<$struct>()
+                unsafe {
+                    $crate::comptime_if::comptime_if! {
+                        if unwind where (unwind = true, $( $key = $value ),* ) {
+                            $crate::output::__bridge::uninitialize_plugin_c_unwind::<$struct>()
+                        } else {
+                            $crate::output::__bridge::uninitialize_plugin::<$struct>()
+                        }
                     }
                 }
             }
