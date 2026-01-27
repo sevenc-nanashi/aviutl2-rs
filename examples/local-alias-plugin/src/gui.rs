@@ -48,7 +48,9 @@ impl LocalAliasApp {
             .expect("Failed to get Monospace font family")
             .insert(0, "M+ 1 Code".to_owned());
 
-        cc.egui_ctx.set_visuals(aviutl2_eframe::aviutl2_visual());
+        cc.egui_ctx.all_styles_mut(|style| {
+            style.visuals = aviutl2_eframe::aviutl2_visuals();
+        });
         cc.egui_ctx.set_fonts(fonts);
 
         Self {
@@ -90,9 +92,6 @@ impl LocalAliasApp {
 
 impl eframe::App for LocalAliasApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // TODO: なぜかnewでの上書きが反映されないのでここで毎回設定する
-        ctx.set_visuals(aviutl2_eframe::aviutl2_visual());
-
         let (aliases, selected_index) = self.snapshot();
 
         // TODO: toolbarの右クリックイベントに右クリックメニューを割り当てる

@@ -284,7 +284,19 @@ impl raw_window_handle::HasWindowHandle for EframeWindow {
     }
 }
 
-pub fn aviutl2_visual() -> eframe::egui::Visuals {
+/// AviUtl2のテーマに基づいたeguiのVisualsを取得する。
+///
+/// # Example
+///
+/// ```rust
+/// # use aviutl2_eframe::{self, eframe};
+/// # fn test(cc: &eframe::CreationContext<'_>) {
+/// cc.egui_ctx.all_styles_mut(|style| {
+///     style.visuals = aviutl2_eframe::aviutl2_visuals();
+/// });
+/// # }
+/// ```
+pub fn aviutl2_visuals() -> eframe::egui::Visuals {
     let mut visuals = eframe::egui::Visuals::dark().clone();
 
     let background = load_color("Background");
