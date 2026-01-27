@@ -35,7 +35,7 @@ impl LocalAliasApp {
         fonts
             .families
             .get_mut(&egui::FontFamily::Proportional)
-            .unwrap()
+            .expect("Failed to get Proportional font family")
             .insert(0, "M+ 1".to_owned());
 
         fonts.font_data.insert(
@@ -45,7 +45,7 @@ impl LocalAliasApp {
         fonts
             .families
             .get_mut(&egui::FontFamily::Monospace)
-            .unwrap()
+            .expect("Failed to get Monospace font family")
             .insert(0, "M+ 1 Code".to_owned());
 
         cc.egui_ctx.set_fonts(fonts);
