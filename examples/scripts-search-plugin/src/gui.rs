@@ -102,6 +102,7 @@ impl ScriptsSearchApp {
                     .desired_width(f32::INFINITY)
                     .hint_text("検索...")
                     .show(ui);
+                ui.add_space(8.0);
                 egui::ScrollArea::vertical()
                     .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
                     .auto_shrink([false, false])
@@ -142,20 +143,11 @@ impl ScriptsSearchApp {
                 score.map(|score| (score, effect, indices))
             })
             .collect::<Vec<_>>();
+        ui.add_space(4.0);
         if sorted_effects.is_empty() {
-            ui.add_space(4.0);
             ui.label("一致するエフェクトが見つかりませんでした。");
         } else {
             sorted_effects.sort_by(|a, b| b.0.cmp(&a.0));
-            ui.add_space(4.0);
-            ui.label(format!(
-                "エフェクト数: {}",
-                if sorted_effects.len() > 100 {
-                    "100+".to_string()
-                } else {
-                    sorted_effects.len().to_string()
-                }
-            ));
             for (_score, effect, indices) in sorted_effects.iter().take(100) {
                 ui.add_space(4.0);
                 self.render_effect_card(ui, effect, indices);
