@@ -1,0 +1,22 @@
+[package]
+name = "example-scripts-search-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "rusty_scripts_search_plugin"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.98"
+aviutl2 = { workspace = true, features = ["serde"] }
+aviutl2-eframe.workspace = true
+serde = { version = "1.0.228", features = ["derive"] }
+log = "0.4.28"
+mplus.workspace = true
+nucleo-matcher = "0.3.1"
+

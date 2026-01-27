@@ -607,6 +607,7 @@ impl EditHandle {
 }
 
 /// エフェクト情報。
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Effect {
     /// エフェクト名。
     pub name: String,
@@ -648,9 +649,9 @@ define_bitflag! {
 impl From<i32> for EffectType {
     fn from(value: i32) -> Self {
         match value {
-            0 => EffectType::Filter,
-            1 => EffectType::Input,
-            2 => EffectType::SceneChange,
+            1 => EffectType::Filter,
+            2 => EffectType::Input,
+            3 => EffectType::SceneChange,
             other => EffectType::Other(other),
         }
     }
@@ -658,15 +659,16 @@ impl From<i32> for EffectType {
 impl From<EffectType> for i32 {
     fn from(value: EffectType) -> Self {
         match value {
-            EffectType::Filter => 0,
-            EffectType::Input => 1,
-            EffectType::SceneChange => 2,
+            EffectType::Filter => 1,
+            EffectType::Input => 2,
+            EffectType::SceneChange => 3,
             EffectType::Other(other) => other,
         }
     }
 }
 
 /// モジュール情報。
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleInfo {
     /// モジュール種別。
     pub module_type: ModuleType,
