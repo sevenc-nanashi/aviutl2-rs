@@ -5,7 +5,7 @@ use anyhow::Context;
 use aviutl2::{AnyResult, log, raw_window_handle};
 use std::{num::NonZeroIsize, sync::mpsc};
 use windows::Win32::{
-    Foundation::HWND,
+    Foundation::{HWND, SetLastError},
     UI::WindowsAndMessaging::{
         GWL_EXSTYLE, GWL_STYLE, SetWindowLongPtrW, WS_CLIPSIBLINGS, WS_POPUP,
     },
@@ -128,18 +128,22 @@ impl EframeWindow {
                         unsafe {
                             // Set window styles
                             let hwnd = hwnd.hwnd.get() as _;
+                            SetLastError(windows::Win32::Foundation::WIN32_ERROR(0));
                             let res_style = SetWindowLongPtrW(
                                 HWND(hwnd),
                                 GWL_STYLE,
                                 (WS_CLIPSIBLINGS.0 | WS_POPUP.0) as isize,
                             );
-                            if res_style == 0 {
+                            if res_style == 0 && windows::Win32::Foundation::GetLastError().0 != 0 {
                                 let err = windows::core::Error::from_win32();
                                 return Err(anyhow::anyhow!("Failed to set window style: {}", err)
                                     .into_boxed_dyn_error());
                             }
+
+                            SetLastError(windows::Win32::Foundation::WIN32_ERROR(0));
                             let res_exstyle = SetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE, 0);
-                            if res_exstyle == 0 {
+                            if res_exstyle == 0 && windows::Win32::Foundation::GetLastError().0 != 0
+                            {
                                 let err = windows::core::Error::from_win32();
                                 return Err(anyhow::anyhow!(
                                     "Failed to set window exstyle: {}",
