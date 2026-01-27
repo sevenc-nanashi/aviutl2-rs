@@ -332,28 +332,28 @@ pub fn aviutl2_visuals() -> eframe::egui::Visuals {
 
     visuals.widgets.noninteractive.bg_fill = background;
     visuals.widgets.noninteractive.weak_bg_fill = background;
-    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, border);
-    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, text);
+    visuals.widgets.noninteractive.bg_stroke.color = border;
+    visuals.widgets.noninteractive.fg_stroke.color = text;
 
     visuals.widgets.inactive.bg_fill = button_body;
     visuals.widgets.inactive.weak_bg_fill = button_body;
-    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, border);
-    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, text);
+    visuals.widgets.inactive.bg_stroke.color = border;
+    visuals.widgets.inactive.fg_stroke.color = text;
 
     visuals.widgets.hovered.bg_fill = button_body_hover;
     visuals.widgets.hovered.weak_bg_fill = button_body_hover;
-    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, border_focus);
-    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.5, text);
+    visuals.widgets.hovered.bg_stroke.color = border_focus;
+    visuals.widgets.hovered.fg_stroke.color = text;
 
     visuals.widgets.active.bg_fill = button_body_press;
     visuals.widgets.active.weak_bg_fill = button_body_press;
-    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, border_select);
-    visuals.widgets.active.fg_stroke = egui::Stroke::new(2.0, text);
+    visuals.widgets.active.bg_stroke.color = border_select;
+    visuals.widgets.active.fg_stroke.color = text;
 
     visuals.widgets.open.bg_fill = button_body_select;
     visuals.widgets.open.weak_bg_fill = button_body_select;
-    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, border_select);
-    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, text);
+    visuals.widgets.open.bg_stroke.color = border_select;
+    visuals.widgets.open.fg_stroke.color = text;
 
     visuals
 }
