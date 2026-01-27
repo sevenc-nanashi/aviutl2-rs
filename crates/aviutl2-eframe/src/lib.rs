@@ -284,6 +284,72 @@ impl raw_window_handle::HasWindowHandle for EframeWindow {
     }
 }
 
+pub fn aviutl2_visual() -> eframe::egui::Visuals {
+    let mut visuals = eframe::egui::Visuals::dark().clone();
+
+    let background = load_color("Background");
+    let window_border = load_color("WindowBorder");
+    let window_separator = load_color("WindowSeparator");
+    let grouping = load_color("Grouping");
+    let grouping_hover = load_color("GroupingHover");
+    let grouping_select = load_color("GroupingSelect");
+    let border = load_color("Border");
+    let border_focus = load_color("BorderFocus");
+    let border_select = load_color("BorderSelect");
+    let text = load_color("Text");
+    let text_disable = load_color("TextDisable");
+    let text_select = load_color("TextSelect");
+    let button_body = load_color("ButtonBody");
+    let button_body_hover = load_color("ButtonBodyHover");
+    let button_body_press = load_color("ButtonBodyPress");
+    let button_body_select = load_color("ButtonBodySelect");
+
+    visuals.override_text_color = Some(text);
+    visuals.weak_text_color = Some(text_disable);
+    visuals.selection = egui::style::Selection {
+        bg_fill: text_select,
+        stroke: egui::Stroke::new(1.0, border_select),
+    };
+    visuals.window_fill = background;
+    visuals.window_stroke = egui::Stroke::new(1.0, window_border);
+    visuals.panel_fill = background;
+    visuals.faint_bg_color = grouping;
+    visuals.extreme_bg_color = window_separator;
+    visuals.text_edit_bg_color = Some(grouping_hover);
+    visuals.code_bg_color = grouping_select;
+
+    visuals.widgets.noninteractive.bg_fill = background;
+    visuals.widgets.noninteractive.weak_bg_fill = background;
+    visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, border);
+    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, text);
+
+    visuals.widgets.inactive.bg_fill = button_body;
+    visuals.widgets.inactive.weak_bg_fill = button_body;
+    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, border);
+    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, text);
+
+    visuals.widgets.hovered.bg_fill = button_body_hover;
+    visuals.widgets.hovered.weak_bg_fill = button_body_hover;
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, border_focus);
+    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.5, text);
+
+    visuals.widgets.active.bg_fill = button_body_press;
+    visuals.widgets.active.weak_bg_fill = button_body_press;
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, border_select);
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(2.0, text);
+
+    visuals.widgets.open.bg_fill = button_body_select;
+    visuals.widgets.open.weak_bg_fill = button_body_select;
+    visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, border_select);
+    visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, text);
+
+    visuals
+}
+
+fn load_color(key: &str) -> egui::Color32 {
+    let (r, g, b) = aviutl2::config::get_color_code(key).expect("Key contains null byte");
+    egui::Color32::from_rgb(r, g, b)
+}
 #[inline]
 fn makelparam(low: i32, high: i32) -> isize {
     ((high as isize) << 16) | ((low as isize) & 0xFFFF)

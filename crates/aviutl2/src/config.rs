@@ -133,12 +133,12 @@ pub fn get_font_info(key: &str) -> Result<FontInfo, std::ffi::NulError> {
 ///
 /// # Note
 ///
-/// 取得出来ない場合は0が返却されます。
+/// 取得出来ない場合は(0, 0, 0)が返却されます。
 ///
 /// # Arguments
 ///
 /// - `key`: 設定ファイル(style.conf)の`[Color]`のキー名
-pub fn get_color_code(key: &str) -> Result<i32, std::ffi::NulError> {
+pub fn get_color_code(key: &str) -> Result<(u8, u8, u8), std::ffi::NulError> {
     let c_key = std::ffi::CString::new(key)?;
     let color_code = unsafe {
         let handle = CONFIG_HANDLE
@@ -152,7 +152,10 @@ pub fn get_color_code(key: &str) -> Result<i32, std::ffi::NulError> {
             .expect("Config handle raw pointer is null")
             .get_color_code)(handle.raw, c_key.as_ptr())
     };
-    Ok(color_code)
+    let r = ((color_code >> 16) & 0xFF) as u8;
+    let g = ((color_code >> 8) & 0xFF) as u8;
+    let b = (color_code & 0xFF) as u8;
+    Ok((r, g, b))
 }
 
 /// 設定ファイルで定義されているレイアウトサイズを取得する。
