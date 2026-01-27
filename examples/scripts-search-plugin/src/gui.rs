@@ -1,11 +1,23 @@
-use aviutl2::generic::Effect;
+use aviutl2::anyhow;
 use aviutl2_eframe::{AviUtl2EframeHandle, eframe, egui};
-use std::sync::{Arc, Mutex};
+use itertools::Itertools;
 
 pub(crate) struct ScriptsSearchApp {
     show_info: bool,
     version: String,
     handle: AviUtl2EframeHandle,
+
+    matcher: nucleo_matcher::Matcher,
+    needle: String,
+}
+
+macro_rules! include_iconify {
+    ($icon:expr) => {
+        egui::ImageSource::Bytes {
+            uri: (concat!("iconify://", $icon, ".svg")).into(),
+            bytes: egui::load::Bytes::Static(iconify::svg!($icon, color = "white").as_bytes()),
+        }
+    };
 }
 
 impl ScriptsSearchApp {
@@ -35,11 +47,17 @@ impl ScriptsSearchApp {
             style.visuals = aviutl2_eframe::aviutl2_visuals();
         });
         cc.egui_ctx.set_fonts(fonts);
+        let mut config = nucleo_matcher::Config::DEFAULT.clone();
+        config.ignore_case = true;
+        config.prefer_prefix = true;
+        egui_extras::install_image_loaders(&cc.egui_ctx);
 
         Self {
             show_info: false,
             version: env!("CARGO_PKG_VERSION").to_string(),
             handle,
+            matcher: nucleo_matcher::Matcher::new(config),
+            needle: String::new(),
         }
     }
 }
@@ -70,20 +88,46 @@ impl eframe::App for ScriptsSearchApp {
             Some(effects) => {
                 ui.label(format!("登録されているエフェクト数: {}", effects.len()));
                 ui.add_space(8.0);
-                let mut search_text = String::new();
-                egui::TextEdit::singleline(&mut search_text)
+                egui::TextEdit::singleline(&mut self.needle)
+                    .desired_width(f32::INFINITY)
                     .hint_text("検索...")
                     .show(ui);
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    for effect in effects.iter() {
-                        ui.group(|ui| {
-                            ui.label(format!("名前: {}", effect.name));
-                            ui.label(format!("フラグ: {:?}", effect.flag));
-                            ui.label(format!("タイプ: {:?}", effect.effect_type));
-                        });
-                        ui.add_space(4.0);
-                    }
-                });
+                egui::ScrollArea::vertical()
+                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        if self.needle.is_empty() {
+                            for effect in effects.iter() {
+                                ui.add_space(4.0);
+                                self.render_effect_card(ui, effect, &[]);
+                            }
+                        } else {
+                            let needle = self.needle.trim();
+                            let needle = nucleo_matcher::Utf32String::from(needle);
+                            let mut sorted_effects = effects
+                                .iter()
+                                .filter_map(|effect| {
+                                    let mut indices = vec![];
+                                    let score = self.matcher.fuzzy_indices(
+                                        effect.u32_label.slice(..),
+                                        needle.slice(..),
+                                        &mut indices,
+                                    );
+                                    score.map(|score| (score, effect, indices))
+                                })
+                                .collect::<Vec<_>>();
+                            if sorted_effects.is_empty() {
+                                ui.add_space(4.0);
+                                ui.label("一致するエフェクトが見つかりませんでした。");
+                            } else {
+                                sorted_effects.sort_by(|a, b| a.0.cmp(&b.0));
+                                for (_score, effect, indices) in sorted_effects.iter().take(100) {
+                                    ui.add_space(4.0);
+                                    self.render_effect_card(ui, effect, indices);
+                                }
+                            }
+                        }
+                    });
             }
         });
 
@@ -118,6 +162,242 @@ impl eframe::App for ScriptsSearchApp {
             if !open {
                 self.show_info = false;
             }
+        }
+    }
+}
+
+impl ScriptsSearchApp {
+    fn render_effect_card(
+        &self,
+        ui: &mut egui::Ui,
+        effect: &crate::EffectData,
+        match_indicies: &[u32],
+    ) {
+        let frame = egui::Frame::group(ui.style())
+            .fill(ui.visuals().faint_bg_color)
+            .stroke(ui.visuals().widgets.noninteractive.bg_stroke);
+        let available_width = ui.available_width();
+        let response = ui.allocate_ui_with_layout(
+            egui::vec2(available_width, 0.0),
+            egui::Layout::top_down(egui::Align::Min),
+            |ui| {
+                frame
+                    .show(ui, |ui| {
+                        ui.set_width(ui.available_width());
+                        ui.horizontal(|ui| {
+                            let (name, icon) = Self::effect_type_display(effect);
+                            ui.add(
+                                egui::Image::new(icon)
+                                    .max_size(egui::vec2(32.0, 32.0))
+                                    .tint(ui.visuals().text_color()),
+                            )
+                            .on_hover_text(name);
+
+                            let mut colored_label = egui::text::LayoutJob::default();
+                            let chunks = effect
+                                .label
+                                .chars()
+                                .enumerate()
+                                .chunk_by(|(i, _)| match_indicies.contains(&(*i as u32)));
+
+                            let chunks = chunks
+                                .into_iter()
+                                .map(|(is_matched, chunk)| {
+                                    let (_, s): (Vec<_>, Vec<char>) = chunk.unzip();
+                                    (is_matched, s.into_iter().collect::<String>())
+                                })
+                                .collect::<Vec<_>>();
+                            for (is_matched, chunk) in chunks {
+                                colored_label.append(
+                                    &chunk,
+                                    0.0,
+                                    egui::TextFormat {
+                                        color: if is_matched {
+                                            ui.visuals().selection.bg_fill
+                                        } else {
+                                            ui.visuals().text_color()
+                                        },
+                                        ..Default::default()
+                                    },
+                                );
+                            }
+
+                            ui.label(colored_label);
+                        });
+                    })
+                    .response
+            },
+        );
+        let response = response
+            .inner
+            .interact(egui::Sense::click())
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+        if effect.effect.effect_type == aviutl2::generic::EffectType::Filter {
+            egui::containers::Popup::menu(&response)
+                .width(f32::INFINITY)
+                .show(|ui| {
+                    if ui.button("現在のオブジェクトに追加").clicked() {
+                        let res = crate::EDIT_HANDLE.get().unwrap().call_edit_section(|edit| {
+                            // フィルターを追加するAPIがないため、エイリアスを編集して対応する
+                            let focused_object = edit.get_focused_object()?.ok_or_else(|| {
+                                anyhow::anyhow!("オブジェクトが選択されていません。")
+                            })?;
+                            let alias_str = edit.object(&focused_object).get_alias()?;
+                            let mut alias: aviutl2::alias::Table = alias_str
+                                .parse()
+                                .map_err(|e| anyhow::anyhow!("Failed to parse alias: {}", e))?;
+                            let alias_table = alias.get_table_mut("Object").ok_or_else(|| {
+                                anyhow::anyhow!("Failed to get Object table from alias")
+                            })?;
+                            let last_table = alias_table.subtables().last().ok_or_else(|| {
+                                anyhow::anyhow!("Failed to get last subtable from Object table")
+                            })?;
+                            let effect_index = last_table.0.parse::<u32>().map_err(|e| {
+                                anyhow::anyhow!("Failed to parse last subtable index: {}", e)
+                            })? + 1;
+                            alias_table.insert_table(&effect_index.to_string(), {
+                                let mut table = aviutl2::alias::Table::new();
+                                table.insert_value("effect.name", &effect.effect.name);
+                                table
+                            });
+                            let base_position = edit.object(&focused_object).get_layer_frame()?;
+                            edit.object(&focused_object).delete_object()?;
+                            match edit.create_object_from_alias(
+                                &alias.to_string(),
+                                base_position.layer,
+                                base_position.start,
+                                0,
+                            ) {
+                                Ok(created) => {
+                                    edit.focus_object(&created)?;
+                                    anyhow::Ok(())
+                                }
+                                Err(err) => {
+                                    edit.create_object_from_alias(
+                                        &alias_str,
+                                        base_position.layer,
+                                        base_position.start,
+                                        0,
+                                    )?;
+                                    Err(err.into())
+                                }
+                            }
+                        });
+                        log::debug!("Effect added to focused object: {:?}", res);
+                        ui.close_kind(egui::UiKind::Menu);
+                    }
+                    if ui.button("フィルタ効果として追加").clicked() {
+                        let res = crate::EDIT_HANDLE.get().unwrap().call_edit_section(|e| {
+                            e.create_object(&effect.effect.name, e.info.layer, e.info.frame, None)
+                        });
+                        log::debug!("Effect added as scene change: {:?}", res);
+                        ui.close_kind(egui::UiKind::Menu);
+                    }
+                    if effect.effect.flag.as_filter
+                        && ui.button("フィルタオブジェクトとして追加").clicked()
+                    {
+                        let res = crate::EDIT_HANDLE.get().unwrap().call_edit_section(|e| {
+                            let filter = e.create_object(
+                                "フィルタオブジェクト",
+                                e.info.layer,
+                                e.info.frame,
+                                None,
+                            )?;
+                            let mut filter_alias = e.object(&filter).get_alias_parsed()?;
+                            e.object(&filter).delete_object()?;
+                            filter_alias
+                                .get_table_mut("Object")
+                                .expect("Failed to get Object table")
+                                .insert_table("1", {
+                                    let mut table = aviutl2::alias::Table::new();
+                                    table.insert_value("effect.name", &effect.effect.name);
+                                    table
+                                });
+                            let created = e.create_object_from_alias(
+                                &filter_alias.to_string(),
+                                e.info.layer,
+                                e.info.frame,
+                                0,
+                            )?;
+                            e.focus_object(&created)?;
+
+                            anyhow::Ok(())
+                        });
+                        log::debug!("Effect added as scene change: {:?}", res);
+                        ui.close_kind(egui::UiKind::Menu);
+                    }
+                });
+        } else {
+            // シーンチェンジと入力は直接追加する
+            if response.clicked() {
+                let res = crate::EDIT_HANDLE.get().unwrap().call_edit_section(|e| {
+                    let created =
+                        e.create_object(&effect.effect.name, e.info.layer, e.info.frame, None)?;
+                    e.focus_object(&created)?;
+                    anyhow::Ok(())
+                });
+                log::debug!("Effect added: {:?}", res);
+            }
+        }
+    }
+
+    fn effect_type_display(
+        effect: &crate::EffectData,
+    ) -> (&'static str, egui::ImageSource<'static>) {
+        match effect.effect.effect_type {
+            aviutl2::generic::EffectType::Input => match effect.effect.flag {
+                aviutl2::generic::EffectFlag {
+                    video: true,
+                    audio: true,
+                    ..
+                } => (
+                    "入力（映像・音声）",
+                    include_iconify!("material-symbols:movie"),
+                ),
+                aviutl2::generic::EffectFlag {
+                    video: true,
+                    audio: false,
+                    ..
+                } => ("入力（映像）", include_iconify!("material-symbols:image")),
+                aviutl2::generic::EffectFlag {
+                    video: false,
+                    audio: true,
+                    ..
+                } => (
+                    "入力（音声）",
+                    include_iconify!("material-symbols:audio-file"),
+                ),
+                _ => ("入力", include_iconify!("mdi:file")),
+            },
+            aviutl2::generic::EffectType::Filter => match effect.effect.flag {
+                aviutl2::generic::EffectFlag {
+                    video: true,
+                    audio: true,
+                    ..
+                } => (
+                    "フィルタ（映像・音声）",
+                    include_iconify!("material-symbols:sliders"),
+                ),
+                aviutl2::generic::EffectFlag {
+                    video: true,
+                    audio: false,
+                    ..
+                } => ("フィルタ（映像）", include_iconify!("mdi:paint")),
+                aviutl2::generic::EffectFlag {
+                    video: false,
+                    audio: true,
+                    ..
+                } => (
+                    "フィルタ（音声）",
+                    include_iconify!("material-symbols:equalizer"),
+                ),
+                _ => ("フィルタ", include_iconify!("mdi:tune-vertical")),
+            },
+            aviutl2::generic::EffectType::SceneChange => (
+                "シーンチェンジ",
+                include_iconify!("material-symbols:transition-chop"),
+            ),
+            _ => ("その他", include_iconify!("mdi:puzzle-outline")),
         }
     }
 }

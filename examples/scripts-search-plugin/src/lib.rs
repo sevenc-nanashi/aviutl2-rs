@@ -6,9 +6,14 @@ mod gui;
 pub struct ScriptsSearchPlugin {
     window: aviutl2_eframe::EframeWindow,
 }
-pub static EFFECTS: std::sync::OnceLock<Vec<aviutl2::generic::Effect>> = std::sync::OnceLock::new();
+pub struct EffectData {
+    effect: aviutl2::generic::Effect,
+    u32_label: nucleo_matcher::Utf32String,
+    label: String,
+}
+pub static EFFECTS: std::sync::OnceLock<Vec<EffectData>> = std::sync::OnceLock::new();
 
-static EDIT_HANDLE: std::sync::OnceLock<aviutl2::generic::EditHandle> = std::sync::OnceLock::new();
+pub static EDIT_HANDLE: std::sync::OnceLock<aviutl2::generic::EditHandle> = std::sync::OnceLock::new();
 
 impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
@@ -35,7 +40,21 @@ impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
     }
 
     fn on_project_load(&mut self, _project: &mut aviutl2::generic::ProjectFile) {
-        EFFECTS.get_or_init(|| EDIT_HANDLE.get().unwrap().get_effects());
+        EFFECTS.get_or_init(|| {
+            let effects = EDIT_HANDLE.get().unwrap().get_effects();
+            effects
+                .into_iter()
+                .map(|effect| {
+                    let label = aviutl2::config::get_language_text(&effect.name, &effect.name)
+                        .expect("effect name contains null byte");
+                    EffectData {
+                        effect,
+                        u32_label: nucleo_matcher::Utf32String::from(label.as_str()),
+                        label,
+                    }
+                })
+                .collect()
+        });
     }
 }
 
