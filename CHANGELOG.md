@@ -2,8 +2,11 @@
 
 ## Unreleased
 
-- **Breaking**: beta30未満を明示的に弾くように
+- **Breaking**: beta30a未満を明示的に弾くように
+- **Breaking**: generic: get_effect_namesをget_effectsに変更
 - module: i32・f64以外にもFromScriptModuleParamを実装
+- generic: enumerate_modulesを追加
+- config2.h相当を実装
 - ログを自動で折り返すように
 - デフォルトでpanicしたときにunwindするように
 

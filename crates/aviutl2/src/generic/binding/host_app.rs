@@ -529,8 +529,8 @@ impl EditHandle {
         }
     }
 
-    /// エフェクト名の一覧をコールバック関数で取得します。
-    pub fn enumerate_effect_names<F>(&self, mut callback: F)
+    /// エフェクトの一覧をコールバック関数で取得します。
+    pub fn enumerate_effects<F>(&self, mut callback: F)
     where
         F: FnMut(Effect),
     {
@@ -560,17 +560,53 @@ impl EditHandle {
         }
     }
 
-    /// エフェクト名の一覧を取得します。
-    pub fn get_effect_names(&self) -> Vec<Effect> {
+    /// エフェクトの一覧を取得します。
+    pub fn get_effects(&self) -> Vec<Effect> {
         let mut effects = Vec::new();
-        self.enumerate_effect_names(|effect| {
+        self.enumerate_effects(|effect| {
             effects.push(effect);
         });
         effects
     }
+
+    /// モジュールの一覧をコールバック関数で取得します。
+    pub fn enumerate_modules<F>(&self, mut callback: F)
+    where
+        F: FnMut(ModuleInfo),
+    {
+        extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            module: *mut aviutl2_sys::plugin2::MODULE_INFO,
+        ) where
+            F: FnMut(ModuleInfo),
+        {
+            let callback = unsafe { &mut *(param as *mut F) };
+            let module_info = ModuleInfo {
+                module_type: ModuleType::from(unsafe { (*module).r#type }),
+                name: unsafe { crate::common::load_wide_string((*module).name) },
+                information: unsafe { crate::common::load_wide_string((*module).information) },
+            };
+            callback(module_info);
+        }
+        let trampoline_static = trampoline::<F>
+            as unsafe extern "C" fn(*mut std::ffi::c_void, *mut aviutl2_sys::plugin2::MODULE_INFO);
+        let user_data = &mut callback as *mut F as *mut std::ffi::c_void;
+        unsafe {
+            ((*self.internal).enum_module_info)(user_data, trampoline_static);
+        }
+    }
+
+    /// モジュールの一覧を取得します。
+    pub fn get_modules(&self) -> Vec<ModuleInfo> {
+        let mut modules = Vec::new();
+        self.enumerate_modules(|module| {
+            modules.push(module);
+        });
+        modules
+    }
 }
 
-/// エフェクト。
+/// エフェクト情報。
 pub struct Effect {
     /// エフェクト名。
     pub name: String,
@@ -626,6 +662,75 @@ impl From<EffectType> for i32 {
             EffectType::Input => 1,
             EffectType::SceneChange => 2,
             EffectType::Other(other) => other,
+        }
+    }
+}
+
+/// モジュール情報。
+pub struct ModuleInfo {
+    /// モジュール種別。
+    pub module_type: ModuleType,
+    /// 名前。
+    pub name: String,
+    /// 情報。
+    pub information: String,
+}
+
+/// モジュール種別。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModuleType {
+    /// フィルタスクリプト。
+    ScriptFilter,
+    /// オブジェクトスクリプト。
+    ScriptObject,
+    /// カメラスクリプト。
+    ScriptCamera,
+    /// トラックバースクリプト。
+    ScriptTrack,
+    /// スクリプトモジュール。
+    ScriptModule,
+    /// 入力プラグイン。
+    PluginInput,
+    /// 出力プラグイン。
+    PluginOutput,
+    /// フィルタプラグイン。
+    PluginFilter,
+    /// 汎用プラグイン。
+    PluginGeneric,
+
+    /// その他。
+    Other(i32),
+}
+
+impl From<i32> for ModuleType {
+    fn from(value: i32) -> Self {
+        match value {
+            1 => ModuleType::ScriptFilter,
+            2 => ModuleType::ScriptObject,
+            3 => ModuleType::ScriptCamera,
+            4 => ModuleType::ScriptTrack,
+            5 => ModuleType::ScriptModule,
+            6 => ModuleType::PluginInput,
+            7 => ModuleType::PluginOutput,
+            8 => ModuleType::PluginFilter,
+            9 => ModuleType::PluginGeneric,
+            other => ModuleType::Other(other),
+        }
+    }
+}
+impl From<ModuleType> for i32 {
+    fn from(value: ModuleType) -> Self {
+        match value {
+            ModuleType::ScriptFilter => 1,
+            ModuleType::ScriptObject => 2,
+            ModuleType::ScriptCamera => 3,
+            ModuleType::ScriptTrack => 4,
+            ModuleType::ScriptModule => 5,
+            ModuleType::PluginInput => 6,
+            ModuleType::PluginOutput => 7,
+            ModuleType::PluginFilter => 8,
+            ModuleType::PluginGeneric => 9,
+            ModuleType::Other(other) => other,
         }
     }
 }

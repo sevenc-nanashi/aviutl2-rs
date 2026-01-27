@@ -42,6 +42,35 @@ pub struct MEDIA_INFO {
     pub height: i32,
 }
 
+/// モジュール情報構造体
+#[repr(C)]
+pub struct MODULE_INFO {
+    pub r#type: i32,
+    pub name: LPCWSTR,
+    pub information: LPCWSTR,
+}
+
+impl MODULE_INFO {
+    /// フィルタスクリプト
+    pub const TYPE_SCRIPT_FILTER: i32 = 1;
+    /// オブジェクトスクリプト
+    pub const TYPE_SCRIPT_OBJECT: i32 = 2;
+    /// カメラスクリプト
+    pub const TYPE_SCRIPT_CAMERA: i32 = 3;
+    /// トラックバースクリプト
+    pub const TYPE_SCRIPT_TRACK: i32 = 4;
+    /// スクリプトモジュール
+    pub const TYPE_SCRIPT_MODULE: i32 = 5;
+    /// 入力プラグイン
+    pub const TYPE_PLUGIN_INPUT: i32 = 6;
+    /// 出力プラグイン
+    pub const TYPE_PLUGIN_OUTPUT: i32 = 7;
+    /// フィルタプラグイン
+    pub const TYPE_PLUGIN_FILTER: i32 = 8;
+    /// 汎用プラグイン
+    pub const TYPE_PLUGIN_COMMON: i32 = 9;
+}
+
 /// 編集情報構造体
 /// フレーム番号、レイヤー番号が0からの番号になります ※UI表示と異なります
 #[repr(C)]
@@ -103,6 +132,7 @@ pub struct EDIT_SECTION {
     ///      フレーム数に0を指定した場合は長さや追加位置が自動調整されます
     /// 戻り値 : 作成したオブジェクトのハンドル (失敗した場合はnullptrを返却)
     ///      既に存在するオブジェクトに重なったり、エイリアスデータが不正な場合に失敗します
+    ///      複数オブジェクトのエイリアスデータの場合は先頭のオブジェクトのハンドルが返却されます ※オブジェクトは全て作成されます
     pub create_object_from_alias:
         unsafe extern "C" fn(alias: LPCSTR, layer: i32, frame: i32, length: i32) -> OBJECT_HANDLE,
 
@@ -146,7 +176,7 @@ pub struct EDIT_SECTION {
     /// object : オブジェクトのハンドル
     /// effect : 対象のエフェクト名 (エイリアスファイルのeffect.nameの値)
     ///          同じエフェクトが複数ある場合は":n"のサフィックスでインデックス指定出来ます (nは0からの番号)
-    ///          get_object_item_value(object, L"ぼかし:1", L"範囲"); // 2個目のぼかしを対象とする
+    ///          set_object_item_value(object, L"ぼかし:1", L"範囲", "1"); // 2個目のぼかしを対象とする
     /// item  : 対象の設定項目の名称 (エイリアスファイルのキーの名称)
     /// value : 設定値(UTF8)
     ///      エイリアスファイルの設定値と同じフォーマットになります
@@ -315,6 +345,14 @@ pub struct EDIT_HANDLE {
             r#type: i32,
             flag: i32,
         ),
+    ),
+
+    /// モジュール情報の一覧をコールバック関数（func_proc_enum_module）で取得します
+    /// param : 任意のユーザーデータのポインタ
+    /// func_proc_enum_module : モジュール情報の取得処理のコールバック関数
+    pub enum_module_info: unsafe extern "C" fn(
+        param: *mut c_void,
+        func_proc_enum_module: unsafe extern "C" fn(param: *mut c_void, info: *mut MODULE_INFO),
     ),
 }
 
