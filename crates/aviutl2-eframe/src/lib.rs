@@ -297,7 +297,7 @@ impl raw_window_handle::HasWindowHandle for EframeWindow {
 /// # }
 /// ```
 pub fn aviutl2_visuals() -> eframe::egui::Visuals {
-    let mut visuals = eframe::egui::Visuals::dark().clone();
+    let mut visuals = eframe::egui::Visuals::dark();
 
     let background = load_color("Background");
     let window_border = load_color("WindowBorder");
