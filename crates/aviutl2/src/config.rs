@@ -110,7 +110,7 @@ pub fn get_language_text(section: &str, text: &str) -> Result<String, NullByteEr
 ///
 /// # Arguments
 ///
-/// - `key`: 設定ファイル(style.conf)の[Font]のキー名
+/// - `key`: 設定ファイル(style.conf)の`[Font]`のキー名
 pub fn get_font_info(key: &str) -> Result<FontInfo, std::ffi::NulError> {
     let c_key = std::ffi::CString::new(key)?;
     let font_info = unsafe {
@@ -137,7 +137,7 @@ pub fn get_font_info(key: &str) -> Result<FontInfo, std::ffi::NulError> {
 ///
 /// # Arguments
 ///
-/// - `key`: 設定ファイル(style.conf)の[Color]のキー名
+/// - `key`: 設定ファイル(style.conf)の`[Color]`のキー名
 pub fn get_color_code(key: &str) -> Result<i32, std::ffi::NulError> {
     let c_key = std::ffi::CString::new(key)?;
     let color_code = unsafe {
@@ -163,7 +163,7 @@ pub fn get_color_code(key: &str) -> Result<i32, std::ffi::NulError> {
 ///
 /// # Arguments
 ///
-/// - `key`: 設定ファイル(style.conf)の[Layout]のキー名
+/// - `key`: 設定ファイル(style.conf)の`[Layout]`のキー名
 pub fn get_layout_size(key: &str) -> Result<i32, std::ffi::NulError> {
     let c_key = std::ffi::CString::new(key)?;
     let layout_size = unsafe {
