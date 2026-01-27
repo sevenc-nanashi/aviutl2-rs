@@ -48,6 +48,9 @@ impl LocalAliasApp {
             .expect("Failed to get Monospace font family")
             .insert(0, "M+ 1 Code".to_owned());
 
+        cc.egui_ctx.all_styles_mut(|style| {
+            style.visuals = aviutl2_eframe::aviutl2_visuals();
+        });
         cc.egui_ctx.set_fonts(fonts);
 
         Self {
@@ -284,7 +287,7 @@ impl eframe::App for LocalAliasApp {
         }
     }
 
-    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
-        egui::Color32::from_rgb(20, 24, 33).to_normalized_gamma_f32()
+    fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
+        visuals.window_fill.to_normalized_gamma_f32()
     }
 }

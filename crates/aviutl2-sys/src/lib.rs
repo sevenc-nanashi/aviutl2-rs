@@ -5,6 +5,7 @@
 //! - [`input2`][]：`input2.h`相当。
 //! - [`output2`][]：`output2.h`相当。
 //! - [`filter2`][]：`filter2.h`相当。
+//! - [`config2`][]：`config2.h`相当。
 //! - [`module2`][]：`module2.h`相当。
 //! - [`plugin2`][]：`plugin2.h`相当。
 //! - [`logger2`][]：`logger2.h`相当。
@@ -14,6 +15,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod common;
+pub mod config2;
 pub mod filter2;
 pub mod input2;
 pub mod logger2;

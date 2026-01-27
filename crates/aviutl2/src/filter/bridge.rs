@@ -403,6 +403,19 @@ macro_rules! register_filter_plugin {
             }
 
             #[unsafe(no_mangle)]
+            unsafe extern "C" fn InitializeConfig(
+                config: *mut $crate::sys::config2::CONFIG_HANDLE
+            ) {
+                $crate::comptime_if::comptime_if! {
+                    if unwind where (unwind = true, $( $key = $value ),* ) {
+                        $crate::config::__initialize_config_handle_unwind(config)
+                    } else {
+                        $crate::config::__initialize_config_handle(config)
+                    }
+                }
+            }
+
+            #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
                 unsafe {
                     $crate::comptime_if::comptime_if! {
