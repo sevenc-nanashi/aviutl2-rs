@@ -13,7 +13,8 @@ pub struct EffectData {
 }
 pub static EFFECTS: std::sync::OnceLock<Vec<EffectData>> = std::sync::OnceLock::new();
 
-pub static EDIT_HANDLE: std::sync::OnceLock<aviutl2::generic::EditHandle> = std::sync::OnceLock::new();
+pub static EDIT_HANDLE: std::sync::OnceLock<aviutl2::generic::EditHandle> =
+    std::sync::OnceLock::new();
 
 impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
