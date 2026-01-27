@@ -220,9 +220,10 @@ impl AviUtl2EframeHandle {
     /// # Example
     ///
     /// ```rust
-    /// # use aviutl2_eframe::AviUtl2EframeHandle;
+    /// # use aviutl2_eframe::{AviUtl2EframeHandle, egui};
     /// # struct YourAppStruct { handle: AviUtl2EframeHandle }
-    /// # let self: YourAppStruct = unimplemented!();
+    /// # impl YourAppStruct {
+    /// # fn ui(&self, ctx: &egui::Context) {
     /// egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
     ///     let clicked = ui
     ///         .heading("My Plugin")
@@ -231,6 +232,8 @@ impl AviUtl2EframeHandle {
     ///         let _ = self.handle.show_context_menu();
     ///     }
     /// });
+    /// # }
+    /// # }
     /// ```
     pub fn show_context_menu(&self) -> AnyResult<()> {
         let parent_window = unsafe {
