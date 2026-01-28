@@ -50,7 +50,6 @@ impl ScriptsSearchApp {
         cc.egui_ctx.set_fonts(fonts);
         let mut config = nucleo_matcher::Config::DEFAULT.clone();
         config.ignore_case = true;
-        config.prefer_prefix = true;
         egui_extras::install_image_loaders(&cc.egui_ctx);
 
         Self {
@@ -142,18 +141,40 @@ impl ScriptsSearchApp {
     }
 
     fn render_filtered_effects(&mut self, ui: &mut egui::Ui, effects: &[crate::EffectData]) {
-        let needle = self.needle.trim();
-        let needle = nucleo_matcher::Utf32String::from(needle);
+        let needle_raw_str = self.needle.trim();
+        let needle_normalized_str = Self::normalize_kana_for_search(needle_raw_str);
+        let needle_raw = nucleo_matcher::Utf32String::from(needle_raw_str);
+        let needle_normalized = if needle_normalized_str == needle_raw_str {
+            None
+        } else {
+            Some(nucleo_matcher::Utf32String::from(needle_normalized_str))
+        };
         let mut sorted_effects = effects
             .iter()
             .filter_map(|effect| {
-                let mut indices = vec![];
-                let score = self.matcher.fuzzy_indices(
+                let mut indices_raw = vec![];
+                let score_raw = self.matcher.fuzzy_indices(
                     effect.u32_label.slice(..),
-                    needle.slice(..),
-                    &mut indices,
+                    needle_raw.slice(..),
+                    &mut indices_raw,
                 );
-                score.map(|score| (score, effect, indices))
+                let Some(needle_normalized) = needle_normalized.as_ref() else {
+                    return score_raw.map(|score| (score, effect, indices_raw));
+                };
+                let mut indices_normalized = vec![];
+                let score_normalized = self.matcher.fuzzy_indices(
+                    effect.u32_label.slice(..),
+                    needle_normalized.slice(..),
+                    &mut indices_normalized,
+                );
+                match (score_raw, score_normalized) {
+                    (Some(raw), Some(normalized)) if normalized > raw => {
+                        Some((normalized, effect, indices_normalized))
+                    }
+                    (Some(raw), _) => Some((raw, effect, indices_raw)),
+                    (None, Some(normalized)) => Some((normalized, effect, indices_normalized)),
+                    (None, None) => None,
+                }
             })
             .collect::<Vec<_>>();
         if sorted_effects.is_empty() {
@@ -334,6 +355,23 @@ impl ScriptsSearchApp {
             );
         }
         colored_label
+    }
+
+    fn normalize_kana_for_search(input: &str) -> String {
+        if input.is_empty() {
+            return String::new();
+        }
+        input
+            .chars()
+            .map(|c| {
+                if ('\u{3041}'..='\u{3096}').contains(&c) {
+                    let code = u32::from(c) + 0x60;
+                    char::from_u32(code).unwrap_or(c)
+                } else {
+                    c
+                }
+            })
+            .collect()
     }
 
     fn render_filter_actions_overlay(
