@@ -110,10 +110,13 @@ impl ScriptsSearchApp {
             Some(effects) => {
                 ui.label(format!("登録されているエフェクト数: {}", effects.len()));
                 ui.add_space(8.0);
-                egui::TextEdit::singleline(&mut self.needle)
+                let search_response = egui::TextEdit::singleline(&mut self.needle)
                     .desired_width(f32::INFINITY)
                     .hint_text("検索...")
                     .show(ui);
+                if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    search_response.response.request_focus();
+                }
                 ui.add_space(8.0);
                 egui::ScrollArea::vertical()
                     .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
