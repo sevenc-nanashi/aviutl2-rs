@@ -40,35 +40,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 })
             },
         );
-        c.bench_function(
-            &format!(
-                "luminances file={}",
-                path.file_name().unwrap().to_str().unwrap()
-            ),
-            |b| {
-                let img = img.clone();
-                b.iter(|| {
-                    rusty_pixelsort_filter::calc_luminances(std::hint::black_box(&img));
-                })
-            },
-        );
-        c.bench_function(
-            &format!(
-                "threshold default file={}",
-                path.file_name().unwrap().to_str().unwrap()
-            ),
-            |b| {
-                let img = img.clone();
-                let luminances =
-                    rusty_pixelsort_filter::calc_luminances(std::hint::black_box(&img));
-                b.iter(|| {
-                    rusty_pixelsort_filter::over_threshold(
-                        std::hint::black_box(&luminances),
-                        32768,
-                    );
-                })
-            },
-        );
         for (label, threshold) in &[
             ("above", rusty_pixelsort_filter::ThresholdType::Above),
             ("below", rusty_pixelsort_filter::ThresholdType::Below),
@@ -81,13 +52,13 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 ),
                 |b| {
                     b.iter(|| {
-                        let img = img.clone();
+                        let mut img = img.clone();
                         pixelsort(
                             &FilterConfig {
                                 threshold_type: *threshold,
                                 ..Default::default()
                             },
-                            std::hint::black_box(img),
+                            std::hint::black_box(&mut img),
                             width,
                             height,
                         );
