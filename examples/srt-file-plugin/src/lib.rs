@@ -9,20 +9,20 @@ impl srtlib::Timestamp {
 }
 
 #[aviutl2::plugin(GenericPlugin)]
-struct SrtImportPlugin {}
+struct SrtFilePlugin {}
 
-impl aviutl2::generic::GenericPlugin for SrtImportPlugin {
+impl aviutl2::generic::GenericPlugin for SrtFilePlugin {
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
-        Ok(SrtImportPlugin {})
+        Ok(SrtFilePlugin {})
     }
 
     fn register(&mut self, registry: &mut aviutl2::generic::HostAppHandle) {
-        registry.register_menus::<SrtImportPlugin>();
+        registry.register_menus::<SrtFilePlugin>();
     }
 }
 
 #[aviutl2::generic::menus]
-impl SrtImportPlugin {
+impl SrtFilePlugin {
     #[import(name = "SRTファイル（*.srt）")]
     fn import_menu(&mut self, edit_section: &mut aviutl2::generic::EditSection) -> AnyResult<()> {
         let current_object = edit_section.get_focused_object()?;
@@ -170,4 +170,4 @@ impl SrtImportPlugin {
     }
 }
 
-aviutl2::register_generic_plugin!(SrtImportPlugin);
+aviutl2::register_generic_plugin!(SrtFilePlugin);

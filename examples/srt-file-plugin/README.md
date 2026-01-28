@@ -5,4 +5,4 @@ SRTファイルのインポート/エクスポートを行います。
 
 ## インストール
 
-`C:\ProgramData\aviutl2\Script` に `rusty_srt_file.aux2` を配置してください。
+`C:\ProgramData\aviutl2\Plugin` に `rusty_srt_file.aux2` を配置してください。
