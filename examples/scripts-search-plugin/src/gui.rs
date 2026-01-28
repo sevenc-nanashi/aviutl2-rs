@@ -230,7 +230,7 @@ impl ScriptsSearchApp {
         &self,
         ui: &mut egui::Ui,
         effect: &crate::EffectData,
-        match_indicies: &[u32],
+        match_indices: &[u32],
     ) {
         let frame = egui::Frame::group(ui.style())
             .fill(ui.visuals().faint_bg_color)
@@ -255,7 +255,7 @@ impl ScriptsSearchApp {
                             .on_hover_text(name);
 
                             let colored_label =
-                                Self::build_highlighted_label(ui, effect, match_indicies);
+                                Self::build_highlighted_label(ui, effect, match_indices);
                             ui.add(egui::Label::new(colored_label).selectable(false));
                         });
                     })
@@ -303,14 +303,14 @@ impl ScriptsSearchApp {
     fn build_highlighted_label(
         ui: &egui::Ui,
         effect: &crate::EffectData,
-        match_indicies: &[u32],
+        match_indices: &[u32],
     ) -> egui::text::LayoutJob {
         let mut colored_label = egui::text::LayoutJob::default();
         let chunks = effect
             .label
             .chars()
             .enumerate()
-            .chunk_by(|(i, _)| match_indicies.contains(&(*i as u32)));
+            .chunk_by(|(i, _)| match_indices.contains(&(*i as u32)));
 
         let chunks = chunks
             .into_iter()
