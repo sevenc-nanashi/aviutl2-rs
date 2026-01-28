@@ -6,13 +6,16 @@
 - **Breaking**: generic: get_effect_namesをget_effectsに変更
 - module: i32・f64以外にもFromScriptModuleParamを実装
 - generic: enumerate_modulesを追加
+- aviutl2-eframeを追加
 - config2.h相当を実装
 - ログを自動で折り返すように
 - デフォルトでpanicしたときにunwindするように
 
 ### デモプラグイン
 
-（なし）
+- pixelsort: ソートを高速化
+- Scripts Search Pluginを追加
+- aviutl2-rs.au2pkg.zipを追加
 
 ## [0.11.3](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.11.3)
 
