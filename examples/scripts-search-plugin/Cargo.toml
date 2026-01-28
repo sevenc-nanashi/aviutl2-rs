@@ -1,0 +1,26 @@
+[package]
+name = "example-scripts-search-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "rusty_scripts_search_plugin"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.98"
+aviutl2 = { workspace = true, features = ["serde"] }
+aviutl2-eframe.workspace = true
+serde = { version = "1.0.228", features = ["derive"] }
+log = "0.4.28"
+mplus.workspace = true
+nucleo-matcher = "0.3.1"
+# lindera = { version = "2.0.1", features = ["embed-ipadic"] }
+itertools = "0.14.0"
+egui_extras = { version = "0.32.0", features = ["svg"] }
+iconify = "0.3.1"
+
