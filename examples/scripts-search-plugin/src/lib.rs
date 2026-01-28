@@ -19,7 +19,7 @@ pub static EDIT_HANDLE: std::sync::OnceLock<aviutl2::generic::EditHandle> =
 impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
         Self::init_logging();
-        log::info!("Initializing Rusty Local Alias Plugin...");
+        log::info!("Initializing Rusty Scripts Search Plugin...");
         let window =
             aviutl2_eframe::EframeWindow::new("RustyScriptsSearchPlugin", move |cc, handle| {
                 Ok(Box::new(gui::ScriptsSearchApp::new(cc, handle)))
