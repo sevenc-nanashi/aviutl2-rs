@@ -10,7 +10,7 @@ use aviutl2::{
 };
 
 pub use rotate::{Rotate, rotate_image};
-pub use sort::{calc_luminances, over_threshold, pixelsort};
+pub use sort::pixelsort;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FilterConfigSelectItems)]
 pub enum ThresholdType {
@@ -94,8 +94,8 @@ impl FilterPlugin for PixelSortFilter {
         );
         let mut image: Vec<RgbaPixel> = vec![RgbaPixel::default(); width * height];
         video.get_image_data(&mut image);
-        let pixels = sort::pixelsort(&config, image, width, height);
-        video.set_image_data(&pixels, video.video_object.width, video.video_object.height);
+        sort::pixelsort(&config, &mut image, width, height);
+        video.set_image_data(&image, video.video_object.width, video.video_object.height);
         Ok(())
     }
 }

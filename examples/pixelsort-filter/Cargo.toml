@@ -32,6 +32,7 @@ rayon-threshold = []
 aviutl2.workspace = true
 cfg-elif = "0.6.5"
 duplicate = "2.0.0"
+ndarray = { version = "0.17.2", features = ["rayon"] }
 rayon = "1.11.0"
 wide = "0.8.0"
 
