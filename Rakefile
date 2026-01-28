@@ -198,6 +198,8 @@ task :release, ["tag"] do |task, args|
 
     MARKDOWN
   File.write(File.join(dest_dir, "CHANGELOG.md"), changelog)
+
+  sh "cargo about generate ./about.hbs -o #{File.join(dest_dir, 'THIRD_PARTY_NOTICES.md')}"
 end
 
 desc "コードをフォーマットします"

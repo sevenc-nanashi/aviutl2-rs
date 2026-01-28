@@ -74,3 +74,4 @@ jobs:
           body_path: "./release/README.md"
           files: |
             ./release/*.*2
+            ./release/THIRD_PARTY_NOTICES.md

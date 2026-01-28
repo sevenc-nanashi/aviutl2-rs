@@ -4,11 +4,6 @@ description: ページのレンダリングなど必要なリソースを準備�
 runs:
   using: "composite"
   steps:
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
-      with:
-        bun-version-file: ".bun-version"
-
     - name: Build Page (Statistics Output)
       shell: bash
       working-directory: examples/statistics-output/page

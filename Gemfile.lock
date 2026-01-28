@@ -1,14 +1,14 @@
 GEM
   remote: https://rubygems.org/
   specs:
-    lefthook (2.0.1)
+    lefthook (2.0.16)
     prettier_print (1.2.1)
     racc (1.8.1)
     rake (13.3.1)
     rubyzip (3.2.2)
     syntax_tree (6.3.0)
       prettier_print (>= 1.2.0)
-    tomlrb (2.0.3)
+    tomlrb (2.0.4)
 
 PLATFORMS
   x64-mingw-ucrt
@@ -22,7 +22,7 @@ DEPENDENCIES
   tomlrb (~> 2.0, >= 2.0.3)
 
 RUBY VERSION
-   ruby 3.4.2p28
+  ruby 4.0.1
 
 BUNDLED WITH
-   2.6.2
+  4.0.3
