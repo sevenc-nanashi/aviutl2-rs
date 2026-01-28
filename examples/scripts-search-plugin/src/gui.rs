@@ -4,6 +4,7 @@ use itertools::Itertools;
 
 pub(crate) struct ScriptsSearchApp {
     show_info: bool,
+    suppress_info_close_once: bool,
     version: String,
     handle: AviUtl2EframeHandle,
 
@@ -54,6 +55,7 @@ impl ScriptsSearchApp {
 
         Self {
             show_info: false,
+            suppress_info_close_once: false,
             version: env!("CARGO_PKG_VERSION").to_string(),
             handle,
             matcher: nucleo_matcher::Matcher::new(config),
@@ -82,8 +84,19 @@ impl ScriptsSearchApp {
                     let _ = self.handle.show_context_menu();
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("?").clicked() {
+                    let resp = ui
+                        .add_sized(
+                            egui::vec2(
+                                ui.text_style_height(&egui::TextStyle::Heading),
+                                ui.text_style_height(&egui::TextStyle::Heading),
+                            ),
+                            egui::Button::image(include_iconify!("mdi:information-outline")),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .on_hover_text("プラグイン情報");
+                    if resp.clicked() {
                         self.show_info = true;
+                        self.suppress_info_close_once = true;
                     }
                 });
             });
@@ -143,7 +156,6 @@ impl ScriptsSearchApp {
                 score.map(|score| (score, effect, indices))
             })
             .collect::<Vec<_>>();
-        ui.add_space(4.0);
         if sorted_effects.is_empty() {
             ui.label("一致するエフェクトが見つかりませんでした。");
         } else {
@@ -159,11 +171,27 @@ impl ScriptsSearchApp {
         if !self.show_info {
             return;
         }
+        let screen_rect = ctx.screen_rect();
+        let dim_color = egui::Color32::from_black_alpha(128);
+        let dim_response = egui::Area::new(egui::Id::new("info_window_dim_layer"))
+            .order(egui::Order::Middle)
+            .fixed_pos(screen_rect.min)
+            .show(ctx, |ui| {
+                ui.set_min_size(screen_rect.size());
+                let (rect, response) =
+                    ui.allocate_exact_size(screen_rect.size(), egui::Sense::click());
+                ui.painter().rect_filled(rect, 0.0, dim_color);
+                response
+            })
+            .inner;
         let mut open = true;
-        egui::Window::new("Rusty Scripts Search Plugin")
+        let response = egui::Window::new("Rusty Scripts Search Plugin")
             .collapsible(false)
+            .movable(false)
             .resizable(false)
             .open(&mut open)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+            .order(egui::Order::Foreground)
             .show(ctx, |ui| {
                 ui.label(format!("バージョン: {}", self.version));
                 ui.label("オブジェクト・エフェクトを検索するプラグイン。");
@@ -184,6 +212,15 @@ impl ScriptsSearchApp {
                     ),
                 );
             });
+        if self.suppress_info_close_once {
+            self.suppress_info_close_once = false;
+        } else if dim_response.clicked() {
+            self.show_info = false;
+        } else if let Some(response) = response
+            && response.response.clicked_elsewhere()
+        {
+            self.show_info = false;
+        }
         if !open {
             self.show_info = false;
         }
@@ -197,7 +234,8 @@ impl ScriptsSearchApp {
     ) {
         let frame = egui::Frame::group(ui.style())
             .fill(ui.visuals().faint_bg_color)
-            .stroke(ui.visuals().widgets.noninteractive.bg_stroke);
+            .stroke(ui.visuals().widgets.noninteractive.bg_stroke)
+            .inner_margin(egui::Margin::symmetric(8, 4));
         let available_width = ui.available_width();
         let response = ui.allocate_ui_with_layout(
             egui::vec2(available_width, 0.0),
@@ -206,31 +244,58 @@ impl ScriptsSearchApp {
                 frame
                     .show(ui, |ui| {
                         ui.set_width(ui.available_width());
-                        ui.horizontal(|ui| {
+                        ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                            ui.set_min_height(24.0);
                             let (name, icon) = Self::effect_type_display(effect);
                             ui.add(
                                 egui::Image::new(icon)
-                                    .max_size(egui::vec2(32.0, 32.0))
+                                    .max_size(egui::vec2(24.0, 24.0))
                                     .tint(ui.visuals().text_color()),
                             )
                             .on_hover_text(name);
 
                             let colored_label =
                                 Self::build_highlighted_label(ui, effect, match_indicies);
-                            ui.label(colored_label);
+                            ui.add(egui::Label::new(colored_label).selectable(false));
                         });
                     })
                     .response
             },
         );
         let response = response
-            .inner
+            .response
             .interact(egui::Sense::click())
             .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+        // フィルターエフェクトの場合、ホバー時にオーバーレイを表示
         if effect.effect.effect_type == aviutl2::generic::EffectType::Filter {
-            Self::render_filter_popup(ui, effect, &response);
+            if !self.show_info {
+                let clip_rect = ui.clip_rect();
+                let hovered = ui.ctx().pointer_hover_pos().is_some_and(|pos| {
+                    Self::is_filter_actions_hovered(ui.ctx(), response.rect, clip_rect, effect, pos)
+                });
+                if hovered || response.hovered() {
+                    Self::render_filter_actions_overlay(
+                        ui.ctx(),
+                        response.id,
+                        response.rect,
+                        clip_rect,
+                        effect,
+                    );
+                }
+            }
+            if response.clicked() {
+                let modifiers = response.ctx.input(|i| i.modifiers);
+                let res = if modifiers.alt && effect.effect.flag.as_filter {
+                    Self::add_filter_as_filter_object(effect)
+                } else if modifiers.shift {
+                    Self::add_filter_to_focused_object(effect)
+                } else {
+                    Self::add_filter_as_object(effect)
+                };
+                log::debug!("Filter card clicked: {:?}", res);
+            }
         } else {
-            // シーンチェンジと入力は直接追加する
             Self::handle_non_filter_click(effect, &response);
         }
     }
@@ -271,32 +336,100 @@ impl ScriptsSearchApp {
         colored_label
     }
 
-    fn render_filter_popup(
-        _ui: &mut egui::Ui,
+    fn render_filter_actions_overlay(
+        ctx: &egui::Context,
+        id: egui::Id,
+        rect: egui::Rect,
+        clip_rect: egui::Rect,
         effect: &crate::EffectData,
-        response: &egui::Response,
     ) {
-        egui::containers::Popup::menu(response)
-            .width(f32::INFINITY)
-            .show(|ui| {
-                if ui.button("現在のオブジェクトに追加").clicked() {
-                    let res = Self::add_filter_to_focused_object(effect);
-                    log::debug!("Effect added to focused object: {:?}", res);
-                    ui.close_kind(egui::UiKind::Menu);
-                }
-                if ui.button("フィルタ効果として追加").clicked() {
-                    let res = Self::add_filter_as_object(effect);
-                    log::debug!("Effect added as scene change: {:?}", res);
-                    ui.close_kind(egui::UiKind::Menu);
-                }
-                if effect.effect.flag.as_filter
-                    && ui.button("フィルタオブジェクトとして追加").clicked()
-                {
-                    let res = Self::add_filter_as_filter_object(effect);
-                    log::debug!("Effect added as scene change: {:?}", res);
-                    ui.close_kind(egui::UiKind::Menu);
-                }
+        let button_size = egui::vec2(20.0, 20.0);
+        let button_margin = egui::vec2(12.0, 4.0);
+        let gap = 4.0;
+        let button_count = if effect.effect.flag.as_filter { 3 } else { 2 };
+        let total_width = button_size.x * button_count as f32 + gap * (button_count - 1) as f32;
+        let inner_rect = rect.shrink2(button_margin);
+        let top_left = egui::pos2(
+            inner_rect.right() - total_width,
+            inner_rect.top() + inner_rect.height() / 2.0 - button_size.y / 2.0,
+        );
+        let actions_rect =
+            egui::Rect::from_min_size(top_left, egui::vec2(total_width, button_size.y));
+        if !clip_rect.contains(actions_rect.min) || !clip_rect.contains(actions_rect.max) {
+            return;
+        }
+        let actions_id = id.with("filter_actions_overlay");
+
+        egui::Area::new(actions_id)
+            .order(egui::Order::Middle)
+            .fixed_pos(top_left)
+            .show(ctx, |ui| {
+                ui.spacing_mut().item_spacing.x = gap;
+                ui.set_min_size(egui::vec2(total_width, button_size.y));
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    ui.spacing_mut().button_padding = egui::vec2(2.0, 2.0);
+                    let mut action_button = |icon: egui::ImageSource<'static>,
+                                             tooltip: &str,
+                                             action: fn(
+                        &crate::EffectData,
+                    )
+                        -> anyhow::Result<()>| {
+                        let response = ui
+                            .add_sized(button_size, egui::Button::image(icon))
+                            .on_hover_text(tooltip)
+                            .on_hover_cursor(egui::CursorIcon::PointingHand);
+                        if response.clicked() {
+                            let res = action(effect);
+                            log::debug!("Filter action {}: {:?}", tooltip, res);
+                        }
+                    };
+
+                    if effect.effect.flag.as_filter {
+                        action_button(
+                            include_iconify!("mdi:card-multiple"),
+                            "フィルタオブジェクトとして追加",
+                            Self::add_filter_as_filter_object,
+                        );
+                    }
+                    action_button(
+                        include_iconify!("material-symbols:add-row-below"),
+                        "選択中のオブジェクトに追加",
+                        Self::add_filter_to_focused_object,
+                    );
+                    action_button(
+                        include_iconify!("material-symbols:view-timeline"),
+                        "オブジェクトとして追加",
+                        Self::add_filter_as_object,
+                    );
+                });
             });
+    }
+
+    fn is_filter_actions_hovered(
+        _ctx: &egui::Context,
+        rect: egui::Rect,
+        clip_rect: egui::Rect,
+        effect: &crate::EffectData,
+        pos: egui::Pos2,
+    ) -> bool {
+        if rect.contains(pos) {
+            return true;
+        }
+        let button_size = egui::vec2(16.0, 16.0);
+        let button_padding = egui::vec2(14.0, 4.0);
+        let gap = 4.0;
+        let button_count = if effect.effect.flag.as_filter { 3 } else { 2 };
+        let total_width = button_size.x * button_count as f32 + gap * (button_count - 1) as f32;
+        let inner_rect = rect.shrink2(egui::vec2(8.0, 4.0));
+        let top_left = egui::pos2(
+            inner_rect.right() - total_width - button_padding.x,
+            inner_rect.top() + button_padding.y,
+        );
+        let actions_rect =
+            egui::Rect::from_min_size(top_left, egui::vec2(total_width, button_size.y));
+        clip_rect.contains(actions_rect.min)
+            && clip_rect.contains(actions_rect.max)
+            && actions_rect.contains(pos)
     }
 
     fn handle_non_filter_click(effect: &crate::EffectData, response: &egui::Response) {
@@ -414,7 +547,10 @@ impl ScriptsSearchApp {
                     video: true,
                     audio: false,
                     ..
-                } => ("入力（映像）", include_iconify!("material-symbols:image")),
+                } => (
+                    "入力（映像）",
+                    include_iconify!("material-symbols:animated-images"),
+                ),
                 aviutl2::generic::EffectFlag {
                     video: false,
                     audio: true,
