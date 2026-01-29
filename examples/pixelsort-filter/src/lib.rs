@@ -1,4 +1,3 @@
-mod rotate;
 mod sort;
 use aviutl2::{
     AnyResult, AviUtl2Info,
@@ -9,7 +8,6 @@ use aviutl2::{
     log,
 };
 
-pub use rotate::{Rotate, rotate_image};
 pub use sort::pixelsort;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FilterConfigSelectItems)]

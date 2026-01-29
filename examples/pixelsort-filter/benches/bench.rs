@@ -23,23 +23,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 a: p[3],
             })
             .collect::<Vec<_>>();
-        c.bench_function(
-            &format!(
-                "rotate file={}",
-                path.file_name().unwrap().to_str().unwrap()
-            ),
-            |b| {
-                let img = img.clone();
-                b.iter(|| {
-                    rusty_pixelsort_filter::rotate_image(
-                        std::hint::black_box(&img),
-                        width,
-                        height,
-                        rusty_pixelsort_filter::Rotate::Ninety,
-                    );
-                })
-            },
-        );
         for (label, threshold) in &[
             ("above", rusty_pixelsort_filter::ThresholdType::Above),
             ("below", rusty_pixelsort_filter::ThresholdType::Below),
