@@ -8,6 +8,14 @@
 
 （なし）
 
+## [0.12.2](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.12.2)
+
+（なし）
+
+### デモプラグイン
+
+（なし）
+
 ## [0.12.1](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.12.1)
 
 - **Breaking**: beta30a未満を明示的に弾くように
