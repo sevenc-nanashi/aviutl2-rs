@@ -25,24 +25,24 @@ impl ScriptsSearchApp {
     pub(crate) fn new(cc: &eframe::CreationContext<'_>, handle: AviUtl2EframeHandle) -> Self {
         let mut fonts = egui::FontDefinitions::default();
         fonts.font_data.insert(
-            "M+ 1".to_owned(),
-            std::sync::Arc::new(egui::FontData::from_static(mplus::MPLUS1_REGULAR)),
+            "M+ 1p".to_owned(),
+            std::sync::Arc::new(egui::FontData::from_static(mplus::MPLUS_1P_REGULAR)),
         );
         fonts
             .families
             .get_mut(&egui::FontFamily::Proportional)
             .expect("Failed to get Proportional font family")
-            .insert(0, "M+ 1".to_owned());
+            .insert(0, "M+ 1p".to_owned());
 
         fonts.font_data.insert(
-            "M+ 1 Code".to_owned(),
-            std::sync::Arc::new(egui::FontData::from_static(mplus::MPLUS1CODE_MEDIUM)),
+            "M+ 1m".to_owned(),
+            std::sync::Arc::new(egui::FontData::from_static(mplus::MPLUS_1M_REGULAR)),
         );
         fonts
             .families
             .get_mut(&egui::FontFamily::Monospace)
             .expect("Failed to get Monospace font family")
-            .insert(0, "M+ 1 Code".to_owned());
+            .insert(0, "M+ 1m".to_owned());
 
         cc.egui_ctx.all_styles_mut(|style| {
             style.visuals = aviutl2_eframe::aviutl2_visuals();
