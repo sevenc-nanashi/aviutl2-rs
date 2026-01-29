@@ -280,7 +280,7 @@ impl ScriptsSearchApp {
 
                             let colored_label =
                                 Self::build_highlighted_label(ui, effect, match_indices);
-                            ui.add(egui::Label::new(colored_label).selectable(false));
+                            ui.add(egui::Label::new(colored_label).selectable(false).truncate());
                         });
                     })
                     .response
@@ -607,10 +607,7 @@ impl ScriptsSearchApp {
                     video: true,
                     audio: true,
                     ..
-                } => (
-                    "フィルタ（映像・音声）",
-                    include_iconify!("material-symbols:sliders"),
-                ),
+                } => ("フィルタ（映像・音声）", include_iconify!("mdi:wand")),
                 aviutl2::generic::EffectFlag {
                     video: true,
                     audio: false,
