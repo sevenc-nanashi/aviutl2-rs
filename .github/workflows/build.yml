@@ -24,11 +24,6 @@ jobs:
       - name: Setup Environment
         uses: ./.github/actions/setup-environment
 
-      - name: Set up cargo-edit
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-edit
-
       - name: Update Cargo.toml
         run: |
           cargo set-version ${{ github.event.inputs.name }}

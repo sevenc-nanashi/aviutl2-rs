@@ -11,6 +11,11 @@ runs:
         rustup component add clippy
         rustup component add rustfmt
 
+    - name: Set up cargo-binstall
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-binstall
+
     - name: Cache rust
       uses: Swatinem/rust-cache@v2
 
