@@ -3,7 +3,7 @@ members = ["./crates/*", "./examples/*"]
 resolver = "3"
 
 [workspace.package]
-version = "0.11.3"
+version = "0.12.1"
 edition = "2024"
 license = "MIT"
 authors = ["Nanashi. <sevenc7c.com>"]
@@ -12,11 +12,11 @@ repository = "https://github.com/sevenc-nanashi/aviutl2-rs"
 publish = false
 
 [workspace.dependencies]
-aviutl2 = { path = "./crates/aviutl2", version = "0.11.3" }
-aviutl2-sys = { path = "./crates/aviutl2-sys", version = "0.11.3" }
-aviutl2-macros = { path = "./crates/aviutl2-macros", version = "0.11.3" }
-aviutl2-alias = { path = "./crates/aviutl2-alias", version = "0.11.3" }
-aviutl2-eframe = { path = "./crates/aviutl2-eframe", version = "0.11.3" }
+aviutl2 = { path = "./crates/aviutl2", version = "0.12.1" }
+aviutl2-sys = { path = "./crates/aviutl2-sys", version = "0.12.1" }
+aviutl2-macros = { path = "./crates/aviutl2-macros", version = "0.12.1" }
+aviutl2-alias = { path = "./crates/aviutl2-alias", version = "0.12.1" }
+aviutl2-eframe = { path = "./crates/aviutl2-eframe", version = "0.12.1" }
 
 mplus = { path = "./examples/mplus" }
 

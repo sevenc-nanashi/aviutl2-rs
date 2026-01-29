@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.12.1](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.12.1)
+
 - **Breaking**: beta30a未満を明示的に弾くように
 - **Breaking**: generic: get_effect_namesをget_effectsに変更
 - module: i32・f64以外にもFromScriptModuleParamを実装
