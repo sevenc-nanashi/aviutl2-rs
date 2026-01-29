@@ -19,3 +19,8 @@ runs:
       with:
         install: true
         experimental: true
+
+    - name: Set up Ruby
+      shell: bash
+      run: |
+        bundle install
