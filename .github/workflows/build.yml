@@ -68,5 +68,6 @@ jobs:
           tag_name: ${{ github.event.inputs.name }}
           body_path: "./release/README.md"
           files: |
+            ./release/aviutl2-rs.au2pkg.zip
             ./release/*.*2
             ./release/THIRD_PARTY_NOTICES.md
