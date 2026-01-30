@@ -26,7 +26,7 @@ runs:
         experimental: true
 
     - name: Set up Ruby
-      shell: pwsh
+      shell: bash
       run: |
         # jsonのビルドがうまくいかないのでplatformを強制的にrubyにする
         BUNDLE_FORCE_RUBY_PLATFORM=true bundle install
