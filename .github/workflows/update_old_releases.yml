@@ -13,11 +13,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.4'
-          bundler-cache: false
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
 
       - name: Update old releases
         env:

@@ -1,6 +1,12 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+# 古いリリースの説明文に最新リリースへのリンクを追加するスクリプト
+#
+# ```sh
+# GITHUB_TOKEN=your_token DRY_RUN=true ruby update_old_releases.rb
+# ```
+
 require "json"
 require "net/http"
 require "uri"
@@ -12,9 +18,10 @@ def get_releases
   request["Authorization"] = "Bearer #{ENV["GITHUB_TOKEN"]}"
   request["X-GitHub-Api-Version"] = "2022-11-28"
 
-  response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
-    http.request(request)
-  end
+  response =
+    Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+      http.request(request)
+    end
 
   unless response.is_a?(Net::HTTPSuccess)
     puts "Failed to fetch releases: #{response.code} #{response.message}"
@@ -26,7 +33,10 @@ def get_releases
 end
 
 def update_release(release_id, body)
-  uri = URI("https://api.github.com/repos/sevenc-nanashi/aviutl2-rs/releases/#{release_id}")
+  uri =
+    URI(
+      "https://api.github.com/repos/sevenc-nanashi/aviutl2-rs/releases/#{release_id}"
+    )
   request = Net::HTTP::Patch.new(uri)
   request["Accept"] = "application/vnd.github+json"
   request["Authorization"] = "Bearer #{ENV["GITHUB_TOKEN"]}"
@@ -34,9 +44,10 @@ def update_release(release_id, body)
   request["Content-Type"] = "application/json"
   request.body = JSON.generate({ body: body })
 
-  response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
-    http.request(request)
-  end
+  response =
+    Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+      http.request(request)
+    end
 
   unless response.is_a?(Net::HTTPSuccess)
     puts "Failed to update release #{release_id}: #{response.code} #{response.message}"
@@ -54,9 +65,7 @@ def main
   end
 
   dry_run = ENV["DRY_RUN"] == "true"
-  if dry_run
-    puts "Running in DRY RUN mode - no changes will be made"
-  end
+  puts "Running in DRY RUN mode - no changes will be made" if dry_run
 
   releases = get_releases
   if releases.empty?
@@ -90,7 +99,7 @@ def main
 
   latest_url = latest_release["html_url"]
   latest_tag = latest_release["tag_name"]
-  
+
   # Format the tag name for display (add 'v' prefix if not present)
   display_tag = latest_tag.start_with?("v") ? latest_tag : "v#{latest_tag}"
 

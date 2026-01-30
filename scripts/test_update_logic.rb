@@ -12,7 +12,8 @@ releases = [
     "created_at" => "2026-01-20T00:00:00Z",
     "draft" => false,
     "prerelease" => false,
-    "html_url" => "https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.11.1",
+    "html_url" =>
+      "https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.11.1",
     "body" => "Old release body"
   },
   {
@@ -20,7 +21,8 @@ releases = [
     "created_at" => "2026-01-25T00:00:00Z",
     "draft" => false,
     "prerelease" => false,
-    "html_url" => "https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.11.2",
+    "html_url" =>
+      "https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.11.2",
     "body" => "Another old release"
   },
   {
@@ -28,7 +30,8 @@ releases = [
     "created_at" => "2026-01-29T00:00:00Z",
     "draft" => false,
     "prerelease" => false,
-    "html_url" => "https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.12.2",
+    "html_url" =>
+      "https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.12.2",
     "body" => "Latest release"
   },
   {
@@ -36,7 +39,8 @@ releases = [
     "created_at" => "2026-01-30T00:00:00Z",
     "draft" => false,
     "prerelease" => true,
-    "html_url" => "https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.13.0-beta",
+    "html_url" =>
+      "https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.13.0-beta",
     "body" => "Beta release"
   }
 ]
@@ -107,8 +111,16 @@ end
 test_tag_with_v = "v1.0.0"
 test_tag_without_v = "1.0.0"
 
-display_with_v = test_tag_with_v.start_with?("v") ? test_tag_with_v : "v#{test_tag_with_v}"
-display_without_v = test_tag_without_v.start_with?("v") ? test_tag_without_v : "v#{test_tag_without_v}"
+display_with_v =
+  test_tag_with_v.start_with?("v") ? test_tag_with_v : "v#{test_tag_with_v}"
+display_without_v =
+  (
+    if test_tag_without_v.start_with?("v")
+      test_tag_without_v
+    else
+      "v#{test_tag_without_v}"
+    end
+  )
 
 if display_with_v == "v1.0.0" && display_without_v == "v1.0.0"
   puts "✓ Tag name formatting works correctly for both formats"
