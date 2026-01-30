@@ -1,7 +1,6 @@
 use std::{
-    collections::HashMap,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, OnceLock},
+    sync::{Arc, LazyLock},
 };
 
 #[derive(Debug, Clone)]
@@ -22,35 +21,26 @@ struct SampleCacheKey {
     sample_rate: u32,
 }
 
-static SAMPLE_CACHE: OnceLock<Mutex<HashMap<SampleCacheKey, Arc<SampleData>>>> = OnceLock::new();
-
-fn get_sample_cache() -> &'static Mutex<HashMap<SampleCacheKey, Arc<SampleData>>> {
-    SAMPLE_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
-}
+static SAMPLE_CACHE: LazyLock<
+    dashmap::DashMap<SampleCacheKey, Option<Arc<SampleData>>>,
+> = LazyLock::new(dashmap::DashMap::new);
 
 pub(crate) fn get_wav_sample(path: &Path, target_rate: u32) -> Option<Arc<SampleData>> {
     let key = SampleCacheKey {
         path: path.to_path_buf(),
         sample_rate: target_rate,
     };
-    if let Some(sample) = get_sample_cache()
-        .lock()
-        .ok()
-        .and_then(|cache| cache.get(&key).cloned())
-    {
-        return Some(sample);
-    }
-    let sample = match load_wav_sample(path, target_rate) {
-        Ok(sample) => Arc::new(sample),
-        Err(err) => {
-            log::warn!("Failed to load wav sample {}: {err}", path.display());
-            return None;
+    let entry = SAMPLE_CACHE.entry(key).or_insert_with(|| {
+        let result = load_wav_sample(path, target_rate);
+        match result {
+            Ok(sample) => Some(Arc::new(sample)),
+            Err(err) => {
+                log::error!("Failed to load WAV sample from {:?}: {}", path, err);
+                None
+            }
         }
-    };
-    if let Ok(mut cache) = get_sample_cache().lock() {
-        cache.entry(key).or_insert_with(|| sample.clone());
-    }
-    Some(sample)
+    });
+    entry.value().as_ref().cloned()
 }
 
 fn load_wav_sample(path: &Path, target_rate: u32) -> anyhow::Result<SampleData> {
