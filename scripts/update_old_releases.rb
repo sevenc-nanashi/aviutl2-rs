@@ -116,7 +116,7 @@ def main
       next
     end
 
-    current_body = current_body.sub(/\A.*#{marker}/m, "").lstrip
+    current_body = current_body.sub(/\A.*#{marker}\n/m, "").lstrip
 
     # Prepend the link to the body
     new_body = <<~MARKDOWN
@@ -125,7 +125,8 @@ def main
       >
       > [#{display_tag}](#{latest_url})
 
-      #{marker}#{current_body}
+      #{marker}
+      #{current_body}
     MARKDOWN
 
     puts "Updating #{tag_name}..."
