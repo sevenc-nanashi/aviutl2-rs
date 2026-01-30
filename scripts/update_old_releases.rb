@@ -7,74 +7,50 @@
 # GITHUB_TOKEN=your_token DRY_RUN=true ruby update_old_releases.rb
 # ```
 
-require "json"
-require "net/http"
-require "uri"
+require "octokit"
 
-def get_releases
-  uri = URI("https://api.github.com/repos/sevenc-nanashi/aviutl2-rs/releases")
-  request = Net::HTTP::Get.new(uri)
-  request["Accept"] = "application/vnd.github+json"
-  request["Authorization"] = "Bearer #{ENV["GITHUB_TOKEN"]}"
-  request["X-GitHub-Api-Version"] = "2022-11-28"
+REPO = "sevenc-nanashi/aviutl2-rs"
+MARKER = "<!-- auto-updated-latest-release-link -->"
 
-  response =
-    Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
-      http.request(request)
-    end
-
-  unless response.is_a?(Net::HTTPSuccess)
-    puts "Failed to fetch releases: #{response.code} #{response.message}"
-    puts response.body
-    exit 1
-  end
-
-  JSON.parse(response.body)
-end
-
-def update_release(release_id, body)
-  uri =
-    URI(
-      "https://api.github.com/repos/sevenc-nanashi/aviutl2-rs/releases/#{release_id}"
-    )
-  request = Net::HTTP::Patch.new(uri)
-  request["Accept"] = "application/vnd.github+json"
-  request["Authorization"] = "Bearer #{ENV["GITHUB_TOKEN"]}"
-  request["X-GitHub-Api-Version"] = "2022-11-28"
-  request["Content-Type"] = "application/json"
-  request.body = JSON.generate({ body: body })
-
-  response =
-    Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
-      http.request(request)
-    end
-
-  unless response.is_a?(Net::HTTPSuccess)
-    puts "Failed to update release #{release_id}: #{response.code} #{response.message}"
-    puts response.body
-    exit 1
-  end
-
-  JSON.parse(response.body)
-end
-
-def main
-  unless ENV["GITHUB_TOKEN"]
+def build_client
+  token = ENV["GITHUB_TOKEN"]
+  unless token && !token.empty?
     puts "Error: GITHUB_TOKEN environment variable is not set"
     exit 1
   end
 
+  client = Octokit::Client.new(access_token: token)
+  client.auto_paginate = true
+  client
+end
+
+def fetch_releases(client)
+  client.releases(REPO)
+rescue Octokit::Error => e
+  puts "Failed to fetch releases: #{e.class} #{e.message}"
+  exit 1
+end
+
+def update_release(client, release_id, body)
+  client.edit_release(REPO, release_id, body: body)
+rescue Octokit::Error => e
+  puts "Failed to update release #{release_id}: #{e.class} #{e.message}"
+  exit 1
+end
+
+def main
   dry_run = ENV["DRY_RUN"] == "true"
   puts "Running in DRY RUN mode - no changes will be made" if dry_run
 
-  releases = get_releases
+  client = build_client
+  releases = fetch_releases(client)
   if releases.empty?
     puts "No releases found"
     return
   end
 
   # Filter to only non-draft, non-prerelease releases
-  stable_releases = releases.reject { |r| r["draft"] || r["prerelease"] }
+  stable_releases = releases.reject { |r| r[:draft] || r[:prerelease] }
 
   if stable_releases.empty?
     puts "No stable releases found"
@@ -82,10 +58,10 @@ def main
   end
 
   # Sort by created_at to get the latest stable release
-  stable_releases.sort_by! { |r| r["created_at"] }
+  stable_releases.sort_by! { |r| r[:created_at] }
   latest_release = stable_releases.last
 
-  puts "Latest stable release: #{latest_release["tag_name"]}"
+  puts "Latest stable release: #{latest_release[:tag_name]}"
 
   # Get older stable releases
   old_releases = stable_releases[0..-2]
@@ -97,26 +73,23 @@ def main
 
   puts "Updating #{old_releases.length} old release(s)..."
 
-  latest_url = latest_release["html_url"]
-  latest_tag = latest_release["tag_name"]
+  latest_url = latest_release[:html_url]
+  latest_tag = latest_release[:tag_name]
 
   # Format the tag name for display (add 'v' prefix if not present)
   display_tag = latest_tag.start_with?("v") ? latest_tag : "v#{latest_tag}"
 
-  # Marker to detect if the note already exists
-  marker = "<!-- auto-updated-latest-release-link -->"
-
   old_releases.each do |release|
-    tag_name = release["tag_name"]
-    current_body = release["body"] || ""
+    tag_name = release[:tag_name]
+    current_body = release[:body] || ""
 
     # Check if the link already exists by looking for the marker
-    if current_body.include?(marker)
+    if current_body.include?(MARKER)
       puts "Skipping #{tag_name}: already has latest version link"
       next
     end
 
-    current_body = current_body.sub(/\A.*#{marker}\n/m, "").lstrip
+    current_body = current_body.sub(/\A.*#{MARKER}\n/m, "").lstrip
 
     # Prepend the link to the body
     new_body = <<~MARKDOWN
@@ -125,7 +98,7 @@ def main
       >
       > [#{display_tag}](#{latest_url})
 
-      #{marker}
+      #{MARKER}
       #{current_body}
     MARKDOWN
 
@@ -134,7 +107,7 @@ def main
       puts "Would update with:"
       puts new_body[0..200] + "..."
     else
-      update_release(release["id"], new_body)
+      update_release(client, release[:id], new_body)
       puts "✓ Updated #{tag_name}"
     end
   end
