@@ -5,10 +5,10 @@ require "tomlrb"
 require "fileutils"
 
 SyntaxTree::Rake::WriteTask.new do |t|
-  t.source_files = FileList[%w[./Rakefile]]
+  t.source_files = FileList[%w[./Rakefile ./scripts/**/*.rb]]
 end
 SyntaxTree::Rake::CheckTask.new do |t|
-  t.source_files = FileList[%w[./Rakefile]]
+  t.source_files = FileList[%w[./Rakefile ./scripts/**/*.rb]]
 end
 
 suffixes = {
