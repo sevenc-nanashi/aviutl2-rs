@@ -31,8 +31,8 @@ rescue Octokit::Error => e
   exit 1
 end
 
-def update_release(client, release_id, body)
-  client.edit_release(REPO, release_id, body: body)
+def update_release(release_url, body)
+  client.edit_release(release_url, body: body)
 rescue Octokit::Error => e
   puts "Failed to update release #{release_id}: #{e.class} #{e.message}"
   exit 1
@@ -107,7 +107,7 @@ def main
       puts "Would update with:"
       puts new_body[0..200] + "..."
     else
-      update_release(client, release[:id], new_body)
+      update_release(release[:url], new_body)
       puts "✓ Updated #{tag_name}"
     end
   end
