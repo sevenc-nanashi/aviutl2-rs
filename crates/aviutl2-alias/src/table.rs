@@ -47,10 +47,7 @@ impl Table {
         }
 
         let last = segments.pop().unwrap();
-        let path = segments
-            .into_iter()
-            .map(str::to_string)
-            .collect::<Vec<_>>();
+        let path = segments.into_iter().map(str::to_string).collect::<Vec<_>>();
         let target = ensure_path(self, &path);
         target
             .items

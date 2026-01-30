@@ -295,7 +295,9 @@ impl ScriptsSearchApp {
                                     egui::TextStyle::Small,
                                 );
                                 ui.add(egui::Label::new(colored_name).selectable(false).truncate());
-                                ui.add(egui::Label::new(colored_label).selectable(false).truncate());
+                                ui.add(
+                                    egui::Label::new(colored_label).selectable(false).truncate(),
+                                );
                             });
                         });
                     })
