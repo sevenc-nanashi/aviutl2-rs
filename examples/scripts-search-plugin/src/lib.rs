@@ -6,12 +6,18 @@ mod gui;
 pub struct ScriptsSearchPlugin {
     window: aviutl2_eframe::EframeWindow,
 }
+#[derive(Debug, Clone, PartialEq)]
 pub struct EffectData {
     effect: aviutl2::generic::Effect,
-    u32_label: nucleo_matcher::Utf32String,
+    search_name: nucleo_matcher::Utf32String,
+    search_label: nucleo_matcher::Utf32String,
+    name: String,
     label: String,
 }
-pub static EFFECTS: std::sync::OnceLock<Vec<EffectData>> = std::sync::OnceLock::new();
+pub struct EffectDb {
+    effects: Vec<EffectData>,
+}
+pub static EFFECTS: std::sync::OnceLock<EffectDb> = std::sync::OnceLock::new();
 
 pub static EDIT_HANDLE: std::sync::OnceLock<aviutl2::generic::EditHandle> =
     std::sync::OnceLock::new();
@@ -41,20 +47,51 @@ impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
     }
 
     fn on_project_load(&mut self, _project: &mut aviutl2::generic::ProjectFile) {
+        let maybe_config = ScriptsSearchPlugin::load_aviutl2_ini();
+        let config = match maybe_config {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                log::error!("Failed to load aviutl2.ini: {}", e);
+                return;
+            }
+        };
+        let Some(effects_table) = config.get_table("Effect") else {
+            log::error!("Effect section not found in aviutl2.ini");
+            return;
+        };
         EFFECTS.get_or_init(|| {
             let effects = EDIT_HANDLE.get().unwrap().get_effects();
-            effects
+            let mut has_missing_label = false;
+            let effects = effects
                 .into_iter()
                 .map(|effect| {
-                    let label = aviutl2::config::get_language_text(&effect.name, &effect.name)
+                    let name = aviutl2::config::get_language_text(&effect.name, &effect.name)
                         .expect("effect name contains null byte");
+                    let label = effects_table
+                        .get_table(&effect.name)
+                        .and_then(|t| t.get_value("label"));
+                    let label = match label {
+                        Some(l) => aviutl2::config::get_language_text("Effect", l)
+                            .expect("effect label contains null byte"),
+                        None => {
+                            has_missing_label = true;
+                            "？？？".to_string()
+                        }
+                    };
                     EffectData {
                         effect,
-                        u32_label: nucleo_matcher::Utf32String::from(label.as_str()),
+                        search_name: nucleo_matcher::Utf32String::from(
+                            normalize_kana_for_search(&name).as_str(),
+                        ),
+                        search_label: nucleo_matcher::Utf32String::from(
+                            normalize_kana_for_search(&label).as_str(),
+                        ),
+                        name,
                         label,
                     }
                 })
-                .collect()
+                .collect();
+            EffectDb { effects }
         });
     }
 }
@@ -69,6 +106,29 @@ impl ScriptsSearchPlugin {
             })
             .init();
     }
+
+    fn load_aviutl2_ini() -> AnyResult<aviutl2::alias::Table> {
+        let main_config_path = aviutl2::config::app_data_path().join("aviutl2.ini");
+        let content = std::fs::read_to_string(&main_config_path)?;
+        Ok(content.parse()?)
+    }
+}
+
+pub fn normalize_kana_for_search(input: &str) -> String {
+    if input.is_empty() {
+        return String::new();
+    }
+    input
+        .chars()
+        .map(|c| {
+            if ('\u{3041}'..='\u{3096}').contains(&c) {
+                let code = u32::from(c) + 0x60;
+                char::from_u32(code).unwrap_or(c)
+            } else {
+                c
+            }
+        })
+        .collect()
 }
 
 aviutl2::register_generic_plugin!(ScriptsSearchPlugin);

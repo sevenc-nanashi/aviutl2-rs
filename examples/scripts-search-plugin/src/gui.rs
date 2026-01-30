@@ -108,7 +108,10 @@ impl ScriptsSearchApp {
                 ui.label("エフェクト情報を読み込み中...");
             }
             Some(effects) => {
-                ui.label(format!("登録されているエフェクト数: {}", effects.len()));
+                ui.label(format!(
+                    "登録されているエフェクト数: {}",
+                    effects.effects.len()
+                ));
                 ui.add_space(8.0);
                 let search_response = egui::TextEdit::singleline(&mut self.needle)
                     .desired_width(f32::INFINITY)
@@ -122,7 +125,7 @@ impl ScriptsSearchApp {
                     .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        self.render_effects_list(ui, effects);
+                        self.render_effects_list(ui, &effects.effects);
                     });
             }
         });
@@ -139,54 +142,46 @@ impl ScriptsSearchApp {
     fn render_all_effects(&self, ui: &mut egui::Ui, effects: &[crate::EffectData]) {
         for effect in effects.iter() {
             ui.add_space(4.0);
-            self.render_effect_card(ui, effect, &[]);
+            self.render_effect_card(ui, effect, None);
         }
     }
 
     fn render_filtered_effects(&mut self, ui: &mut egui::Ui, effects: &[crate::EffectData]) {
-        let needle_raw_str = self.needle.trim();
-        let needle_normalized_str = Self::normalize_kana_for_search(needle_raw_str);
-        let needle_raw = nucleo_matcher::Utf32String::from(needle_raw_str);
-        let needle_normalized = if needle_normalized_str == needle_raw_str {
-            None
-        } else {
-            Some(nucleo_matcher::Utf32String::from(needle_normalized_str))
-        };
+        let needle = nucleo_matcher::Utf32String::from(
+            crate::normalize_kana_for_search(self.needle.trim()).as_str(),
+        );
         let mut sorted_effects = effects
             .iter()
             .filter_map(|effect| {
-                let mut indices_raw = vec![];
-                let score_raw = self.matcher.fuzzy_indices(
-                    effect.u32_label.slice(..),
-                    needle_raw.slice(..),
-                    &mut indices_raw,
+                let mut name_indices = vec![];
+                let name_score = self.matcher.fuzzy_indices(
+                    effect.search_name.slice(..),
+                    needle.slice(..),
+                    &mut name_indices,
                 );
-                let Some(needle_normalized) = needle_normalized.as_ref() else {
-                    return score_raw.map(|score| (score, effect, indices_raw));
-                };
-                let mut indices_normalized = vec![];
-                let score_normalized = self.matcher.fuzzy_indices(
-                    effect.u32_label.slice(..),
-                    needle_normalized.slice(..),
-                    &mut indices_normalized,
+                let mut label_indices = vec![];
+                let label_score = self.matcher.fuzzy_indices(
+                    effect.search_label.slice(..),
+                    needle.slice(..),
+                    &mut label_indices,
                 );
-                match (score_raw, score_normalized) {
-                    (Some(raw), Some(normalized)) if normalized > raw => {
-                        Some((normalized, effect, indices_normalized))
-                    }
-                    (Some(raw), _) => Some((raw, effect, indices_raw)),
-                    (None, Some(normalized)) => Some((normalized, effect, indices_normalized)),
-                    (None, None) => None,
+                if name_score.is_none() && label_score.is_none() {
+                    return None;
                 }
+                Some(EffectMatchInfo {
+                    name_match: name_score.map(|s| (s, name_indices)),
+                    label_match: label_score.map(|s| (s, label_indices)),
+                    effect: effect.clone(),
+                })
             })
             .collect::<Vec<_>>();
         if sorted_effects.is_empty() {
             ui.label("一致するエフェクトが見つかりませんでした。");
         } else {
-            sorted_effects.sort_by(|a, b| b.0.cmp(&a.0));
-            for (_score, effect, indices) in sorted_effects.iter().take(100) {
+            sorted_effects.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            for effect in sorted_effects.iter().take(100) {
                 ui.add_space(4.0);
-                self.render_effect_card(ui, effect, indices);
+                self.render_effect_card(ui, &effect.effect, Some(effect));
             }
         }
     }
@@ -254,7 +249,7 @@ impl ScriptsSearchApp {
         &self,
         ui: &mut egui::Ui,
         effect: &crate::EffectData,
-        match_indices: &[u32],
+        match_info: Option<&EffectMatchInfo>,
     ) {
         let frame = egui::Frame::group(ui.style())
             .fill(ui.visuals().faint_bg_color)
@@ -278,9 +273,30 @@ impl ScriptsSearchApp {
                             )
                             .on_hover_text(name);
 
-                            let colored_label =
-                                Self::build_highlighted_label(ui, effect, match_indices);
-                            ui.add(egui::Label::new(colored_label).selectable(false).truncate());
+                            ui.vertical(|ui| {
+                                let colored_name = Self::build_highlighted_label_with_style(
+                                    ui,
+                                    &effect.name,
+                                    match_info
+                                        .and_then(|m| m.name_match.as_ref())
+                                        .map_or(&[], |m| &m.1),
+                                    egui::TextStyle::Body,
+                                );
+                                let colored_label = Self::build_highlighted_label_with_style(
+                                    ui,
+                                    if effect.label.is_empty() {
+                                        "（なし）"
+                                    } else {
+                                        &effect.label
+                                    },
+                                    match_info
+                                        .and_then(|m| m.label_match.as_ref())
+                                        .map_or(&[], |m| &m.1),
+                                    egui::TextStyle::Small,
+                                );
+                                ui.add(egui::Label::new(colored_name).selectable(false).truncate());
+                                ui.add(egui::Label::new(colored_label).selectable(false).truncate());
+                            });
                         });
                     })
                     .response
@@ -324,14 +340,20 @@ impl ScriptsSearchApp {
         }
     }
 
-    fn build_highlighted_label(
+    fn build_highlighted_label_with_style(
         ui: &egui::Ui,
-        effect: &crate::EffectData,
+        label: &str,
         match_indices: &[u32],
+        text_style: egui::TextStyle,
     ) -> egui::text::LayoutJob {
         let mut colored_label = egui::text::LayoutJob::default();
-        let chunks = effect
-            .label
+        let font_id = ui
+            .style()
+            .text_styles
+            .get(&text_style)
+            .cloned()
+            .unwrap_or_default();
+        let chunks = label
             .chars()
             .enumerate()
             .chunk_by(|(i, _)| match_indices.contains(&(*i as u32)));
@@ -348,6 +370,7 @@ impl ScriptsSearchApp {
                 &chunk,
                 0.0,
                 egui::TextFormat {
+                    font_id: font_id.clone(),
                     color: if is_matched {
                         ui.visuals().selection.bg_fill
                     } else {
@@ -358,23 +381,6 @@ impl ScriptsSearchApp {
             );
         }
         colored_label
-    }
-
-    fn normalize_kana_for_search(input: &str) -> String {
-        if input.is_empty() {
-            return String::new();
-        }
-        input
-            .chars()
-            .map(|c| {
-                if ('\u{3041}'..='\u{3096}').contains(&c) {
-                    let code = u32::from(c) + 0x60;
-                    char::from_u32(code).unwrap_or(c)
-                } else {
-                    c
-                }
-            })
-            .collect()
     }
 
     fn render_filter_actions_overlay(
@@ -628,6 +634,32 @@ impl ScriptsSearchApp {
                 include_iconify!("material-symbols:transition-chop"),
             ),
             _ => ("その他", include_iconify!("mdi:puzzle-outline")),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct EffectMatchInfo {
+    name_match: Option<(u16, Vec<u32>)>,
+    label_match: Option<(u16, Vec<u32>)>,
+    effect: crate::EffectData,
+}
+
+impl std::cmp::PartialOrd for EffectMatchInfo {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        // 名前がマッチしているものはラベルのみマッチしているものより優先
+        if let Some((self_score, _)) = &self.name_match {
+            if let Some((other_score, _)) = &other.name_match {
+                self_score.partial_cmp(other_score)
+            } else {
+                Some(std::cmp::Ordering::Less)
+            }
+        } else if other.name_match.is_some() {
+            Some(std::cmp::Ordering::Greater)
+        } else {
+            let (self_score, _) = self.label_match.as_ref().unwrap();
+            let (other_score, _) = other.label_match.as_ref().unwrap();
+            self_score.partial_cmp(other_score)
         }
     }
 }
