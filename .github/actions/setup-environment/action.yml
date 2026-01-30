@@ -23,10 +23,8 @@ runs:
       uses: jdx/mise-action@v3
       with:
         install: true
-        experimental: true
 
     - name: Set up Ruby
       shell: bash
       run: |
-        # jsonのビルドがうまくいかないのでplatformを強制的にrubyにする
-        BUNDLE_FORCE_RUBY_PLATFORM=true bundle install
+        bundle install
