@@ -28,7 +28,7 @@ runs:
     - name: Set up Ruby
       shell: bash
       run: |
-        cmd /c "tree /F 'C:/Users/runneradmin/AppData/Local/mise/installs/ruby/4.0.1'"
+        MSYS_NO_PATHCONV=1 cmd /c "tree /F C:/Users/runneradmin/AppData/Local/mise/installs/ruby/4.0.1"
         ridk install
         ridk enable
         bundle install
