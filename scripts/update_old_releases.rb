@@ -121,7 +121,7 @@ def main
     # Prepend the link to the body
     new_body = <<~MARKDOWN
       > [!NOTE]
-      > **最新版はこちらです！**
+      > 新しいバージョンがリリースされています！
       >
       > [#{display_tag}](#{latest_url})
 
