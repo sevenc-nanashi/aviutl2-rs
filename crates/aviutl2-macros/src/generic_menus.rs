@@ -199,8 +199,8 @@ pub fn generic_menus(
 
         let call_on_error = match e.error_mode {
             ErrorMode::Ignore => quote::quote! { let _ = ret; },
-            ErrorMode::Log => quote::quote! { ::aviutl2::generic::__output_log_if_error(ret); },
-            ErrorMode::Alert => quote::quote! { ::aviutl2::generic::__alert_if_error(ret); },
+            ErrorMode::Log => quote::quote! { ::aviutl2::common::__output_log_if_error(ret); },
+            ErrorMode::Alert => quote::quote! { ::aviutl2::common::__alert_if_error(ret); },
         };
 
         let wrapper_body = if e.has_self {

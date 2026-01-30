@@ -24,6 +24,19 @@ pub fn ensure_minimum_aviutl2_version(version: AviUtl2Version) -> AnyResult<()> 
     Ok(())
 }
 
+/// 実際に登録されるエフェクト名を返す。
+///
+/// # Note
+///
+/// `cfg!(debug_assertions)`が`true`の場合、エフェクト名の終端に` (Debug)`が追加されます。
+pub fn registered_effect_name(base_name: &str) -> String {
+    if cfg!(debug_assertions) {
+        format!("{base_name} (Debug)")
+    } else {
+        base_name.to_string()
+    }
+}
+
 /// AviUtl2のバージョン。
 ///
 /// # Note
@@ -466,6 +479,45 @@ pub(crate) fn alert_error<T: std::fmt::Display>(error: T) {
         .set_text(format!("エラーが発生しました: {error}"))
         .alert()
         .show();
+}
+
+#[doc(hidden)]
+#[expect(private_bounds)]
+pub fn __output_log_if_error<T: MenuCallbackReturn>(result: T) {
+    if let Some(err_msg) = result.into_optional_error() {
+        let _ = crate::logger::write_error_log(&err_msg);
+    }
+}
+
+#[doc(hidden)]
+#[expect(private_bounds)]
+pub fn __alert_if_error<T: MenuCallbackReturn>(result: T) {
+    if let Some(err_msg) = result.into_optional_error() {
+        alert_error(err_msg);
+    }
+}
+
+trait MenuCallbackReturn {
+    fn into_optional_error(self) -> Option<String>;
+}
+impl<E> MenuCallbackReturn for Result<(), E>
+where
+    Box<dyn std::error::Error>: From<E>,
+{
+    fn into_optional_error(self) -> Option<String> {
+        match self {
+            Ok(_) => None,
+            Err(e) => {
+                let boxed: Box<dyn std::error::Error> = e.into();
+                Some(format!("{}", boxed))
+            }
+        }
+    }
+}
+impl MenuCallbackReturn for () {
+    fn into_optional_error(self) -> Option<String> {
+        None
+    }
 }
 
 /// ワイド文字列(LPCWSTR)を所有するRust文字列として扱うためのラッパー。

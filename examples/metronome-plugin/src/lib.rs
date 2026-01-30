@@ -1,7 +1,7 @@
 use aviutl2::AnyResult;
 
-mod filter;
 mod gui;
+mod metronome;
 mod wav;
 
 pub static EDIT_HANDLE: std::sync::OnceLock<aviutl2::generic::EditHandle> =
@@ -10,7 +10,7 @@ pub static EDIT_HANDLE: std::sync::OnceLock<aviutl2::generic::EditHandle> =
 #[aviutl2::plugin(GenericPlugin)]
 pub struct MetronomePlugin {
     window: aviutl2_eframe::EframeWindow,
-    filter: aviutl2::generic::SubPlugin<crate::filter::MetronomeFilter>,
+    metronome: aviutl2::generic::SubPlugin<crate::metronome::MetronomeFilter>,
 }
 
 impl aviutl2::generic::GenericPlugin for MetronomePlugin {
@@ -24,12 +24,12 @@ impl aviutl2::generic::GenericPlugin for MetronomePlugin {
 
         Ok(Self {
             window,
-            filter: aviutl2::generic::SubPlugin::new_filter_plugin(info)?,
+            metronome: aviutl2::generic::SubPlugin::new_filter_plugin(&info)?,
         })
     }
 
     fn register(&mut self, registry: &mut aviutl2::generic::HostAppHandle) {
-        registry.register_filter_plugin(&self.filter);
+        registry.register_filter_plugin(&self.metronome);
         registry.set_plugin_information(&format!(
             "Metronome for AviUtl2, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/metronome-plugin",
             version = env!("CARGO_PKG_VERSION")

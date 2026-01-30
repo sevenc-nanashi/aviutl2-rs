@@ -18,7 +18,7 @@ impl MyPlugin {
                     let mut edit = unsafe { ::aviutl2::generic::EditSection::from_raw(edit) };
                     <MyPlugin as ::aviutl2::generic::GenericPlugin>::with_instance_mut(|__self| {
                         let ret = <MyPlugin>::export_menu(__self, &mut edit);
-                        ::aviutl2::generic::__output_log_if_error(ret);
+                        ::aviutl2::common::__output_log_if_error(ret);
                     });
                 }) {
                     ::aviutl2::log::error!(

@@ -110,7 +110,6 @@ impl MetronomeApp {
                         self.will_reset_on_next_tap = true;
                     }
                 }
-
                 let bpm_text = self
                     .bpm
                     .map(|bpm| format!("{bpm:.2} BPM"))
@@ -138,8 +137,10 @@ impl MetronomeApp {
                 } else {
                     let tap_button = egui::Button::new(if self.will_reset_on_next_tap {
                         "Reset"
-                    } else {
+                    } else if self.last_tap.is_some() {
                         "Tap"
+                    } else {
+                        "Start"
                     })
                     .min_size(egui::vec2(160.0, 48.0));
                     if ui

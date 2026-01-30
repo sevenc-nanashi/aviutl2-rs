@@ -241,11 +241,14 @@ mod utils;
 /// `aviutl2::filter::FilterConfigItem::Button`を挿入します。
 ///
 /// - `name`: ボタンの名前。省略した場合、フィールド名が使用されます。
+/// - `error`: エラー発生時のハンドリング方法を指定します。`"alert"`、`"log"`、`"ignore"`のいずれかを指定します。
+///   省略した場合は`"alert"`になります。
+/// - `unwind`: panicを捕捉するかどうかを指定します。省略した場合は`true`になります。
 /// - 型には関数名を指定します。また、関数名とフィールド名が同じ場合は`fn()`と省略できます。
 /// - 関数のシグネチャは以下のようになります。
 ///
 /// ```rust
-/// fn on_button_pressed(handle: &mut aviutl2::generic::EditSection) { /* ... */ }
+/// fn on_button_pressed(handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()>;
 /// ```
 ///
 /// - このフィールドは削除されます。

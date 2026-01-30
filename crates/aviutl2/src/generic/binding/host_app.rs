@@ -339,7 +339,7 @@ macro_rules! impl_plugin_registry {
             impl<T> SubPlugin<T> {
                 #[cfg(feature = $feature)]
                 #[doc = concat!($description, "の新しいインスタンスを作成します。")]
-                pub fn [<new_ $name>](info: AviUtl2Info) -> crate::AnyResult<Self>
+                pub fn [<new_ $name>](info: &AviUtl2Info) -> crate::AnyResult<Self>
                 where
                     T: $PluginTrait + $SingletonTrait + 'static
                 {
@@ -746,45 +746,6 @@ pub unsafe fn __internal_rwh_from_raw(
         raw_window_handle::Win32WindowHandle::new(NonZeroIsize::new(hwnd as isize).unwrap());
     handle.hinstance = Some(NonZeroIsize::new(hinstance as isize).unwrap());
     handle
-}
-
-#[doc(hidden)]
-#[expect(private_bounds)]
-pub fn __output_log_if_error<T: MenuCallbackReturn>(result: T) {
-    if let Some(err_msg) = result.into_optional_error() {
-        let _ = crate::logger::write_error_log(&err_msg);
-    }
-}
-
-#[doc(hidden)]
-#[expect(private_bounds)]
-pub fn __alert_if_error<T: MenuCallbackReturn>(result: T) {
-    if let Some(err_msg) = result.into_optional_error() {
-        crate::common::alert_error(err_msg);
-    }
-}
-
-trait MenuCallbackReturn {
-    fn into_optional_error(self) -> Option<String>;
-}
-impl<E> MenuCallbackReturn for Result<(), E>
-where
-    Box<dyn std::error::Error>: From<E>,
-{
-    fn into_optional_error(self) -> Option<String> {
-        match self {
-            Ok(_) => None,
-            Err(e) => {
-                let boxed: Box<dyn std::error::Error> = e.into();
-                Some(format!("{}", boxed))
-            }
-        }
-    }
-}
-impl MenuCallbackReturn for () {
-    fn into_optional_error(self) -> Option<String> {
-        None
-    }
 }
 
 struct KillablePointer<T> {
