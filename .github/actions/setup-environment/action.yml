@@ -28,4 +28,6 @@ runs:
     - name: Set up Ruby
       shell: bash
       run: |
+        ridk install
+        ridk enable
         bundle install
