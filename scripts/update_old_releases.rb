@@ -53,6 +53,11 @@ def main
     exit 1
   end
 
+  dry_run = ENV["DRY_RUN"] == "true"
+  if dry_run
+    puts "Running in DRY RUN mode - no changes will be made"
+  end
+
   releases = get_releases
   if releases.empty?
     puts "No releases found"
@@ -99,8 +104,13 @@ def main
     MARKDOWN
 
     puts "Updating #{tag_name}..."
-    update_release(release["id"], new_body)
-    puts "✓ Updated #{tag_name}"
+    if dry_run
+      puts "Would update with:"
+      puts new_body[0..200] + "..."
+    else
+      update_release(release["id"], new_body)
+      puts "✓ Updated #{tag_name}"
+    end
   end
 
   puts "Done!"
