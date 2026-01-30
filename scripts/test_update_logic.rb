@@ -78,13 +78,11 @@ current_body = test_release["body"] || ""
 marker = "<!-- auto-updated-latest-release-link -->"
 
 new_body = <<~MARKDOWN
-  #{marker}
   > [!NOTE]
-  > **最新版はこちらです！ / The latest version is here!**
-  > 
+  > **最新版はこちらです！**
+  >
   > [#{display_tag}](#{latest_url})
-
-  #{current_body}
+  #{marker}#{current_body}
 MARKDOWN
 
 puts "\n✓ Generated new body for #{test_release["tag_name"]}:"
@@ -94,13 +92,12 @@ puts "---"
 
 # Test that we don't update if already has the link
 test_body_with_link = <<~MARKDOWN
-  <!-- auto-updated-latest-release-link -->
   > [!NOTE]
   > **最新版はこちらです！ / The latest version is here!**
-  > 
+  >
   > [v0.12.1](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.12.1)
 
-  Old release body
+  <!-- auto-updated-latest-release-link -->Old release body
 MARKDOWN
 
 if test_body_with_link.include?(marker)
