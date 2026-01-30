@@ -64,14 +64,22 @@ def main
     return
   end
 
-  # Sort by created_at to get the latest
-  releases.sort_by! { |r| r["created_at"] }
-  latest_release = releases.last
+  # Filter to only non-draft, non-prerelease releases
+  stable_releases = releases.reject { |r| r["draft"] || r["prerelease"] }
 
-  puts "Latest release: #{latest_release["tag_name"]}"
+  if stable_releases.empty?
+    puts "No stable releases found"
+    return
+  end
 
-  # Get non-draft, non-prerelease releases
-  old_releases = releases[0..-2].reject { |r| r["draft"] || r["prerelease"] }
+  # Sort by created_at to get the latest stable release
+  stable_releases.sort_by! { |r| r["created_at"] }
+  latest_release = stable_releases.last
+
+  puts "Latest stable release: #{latest_release["tag_name"]}"
+
+  # Get older stable releases
+  old_releases = stable_releases[0..-2]
 
   if old_releases.empty?
     puts "No old releases to update"
@@ -82,23 +90,30 @@ def main
 
   latest_url = latest_release["html_url"]
   latest_tag = latest_release["tag_name"]
+  
+  # Format the tag name for display (add 'v' prefix if not present)
+  display_tag = latest_tag.start_with?("v") ? latest_tag : "v#{latest_tag}"
+
+  # Marker to detect if the note already exists
+  marker = "<!-- auto-updated-latest-release-link -->"
 
   old_releases.each do |release|
     tag_name = release["tag_name"]
     current_body = release["body"] || ""
 
-    # Check if the link already exists
-    if current_body.include?("最新版はこちらです") || current_body.include?("latest version is here")
+    # Check if the link already exists by looking for the marker
+    if current_body.include?(marker)
       puts "Skipping #{tag_name}: already has latest version link"
       next
     end
 
     # Prepend the link to the body
     new_body = <<~MARKDOWN
+      #{marker}
       > [!NOTE]
       > **最新版はこちらです！ / The latest version is here!**
       > 
-      > [v#{latest_tag}](#{latest_url})
+      > [#{display_tag}](#{latest_url})
 
       #{current_body}
     MARKDOWN
