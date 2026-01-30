@@ -28,4 +28,5 @@ runs:
     - name: Set up Ruby
       shell: pwsh
       run: |
-        bundle install
+        # jsonのビルドがうまくいかないのでplatformを強制的にrubyにする
+        BUNDLE_FORCE_RUBY_PLATFORM=true bundle install
