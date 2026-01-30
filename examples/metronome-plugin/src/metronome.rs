@@ -61,11 +61,11 @@ impl aviutl2::filter::FilterPlugin for MetronomeFilter {
             .and_then(|path| crate::wav::get_wav_sample(path, sample_rate));
         let info = crate::EDIT_HANDLE.get().unwrap().get_edit_info();
         let bpm = info.grid_bpm_tempo;
+        let bpm_offset = info.grid_bpm_offset;
+        let beat_count = info.grid_bpm_beat;
         if bpm < 0.1 {
             return Ok(());
         }
-        let bpm_offset = info.grid_bpm_offset;
-        let beat_count = info.grid_bpm_beat;
         if beat_count == 0 {
             return Ok(());
         }

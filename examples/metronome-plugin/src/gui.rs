@@ -12,6 +12,7 @@ pub(crate) struct MetronomeApp {
     last_tap: Option<Instant>,
     tap_intervals: VecDeque<f64>,
     bpm: Option<f64>,
+    bpm_text_input: String,
     will_reset_on_next_tap: bool,
 }
 
@@ -51,6 +52,7 @@ impl MetronomeApp {
             last_tap: None,
             tap_intervals: VecDeque::new(),
             bpm: None,
+            bpm_text_input: String::new(),
             will_reset_on_next_tap: false,
         }
     }
@@ -110,17 +112,36 @@ impl MetronomeApp {
                         self.will_reset_on_next_tap = true;
                     }
                 }
-                let bpm_text = self
-                    .bpm
-                    .map(|bpm| format!("{bpm:.2} BPM"))
-                    .unwrap_or_else(|| "---.-- BPM".to_string());
-                ui.label(egui::RichText::new(bpm_text).size(28.0).color(
-                    if self.will_reset_on_next_tap {
-                        ui.visuals().selection.bg_fill
-                    } else {
-                        ui.visuals().text_color()
-                    },
-                ));
+                let bpm_input_id = ui.make_persistent_id("bpm_input");
+                if !ui.memory(|m| m.has_focus(bpm_input_id)) {
+                    self.bpm_text_input =
+                        self.bpm.map(|bpm| format!("{bpm:.2}")).unwrap_or_default();
+                }
+                ui.horizontal(|ui| {
+                    let width = ui.available_width();
+                    let button_width = 40.0;
+                    let response = ui.add_sized(
+                        egui::vec2(
+                            width - button_width - 8.0,
+                            ui.text_style_height(&egui::TextStyle::Heading),
+                        ),
+                        egui::TextEdit::singleline(&mut self.bpm_text_input)
+                            .horizontal_align(egui::Align::Max)
+                            .id(bpm_input_id)
+                            .font(egui::TextStyle::Heading),
+                    );
+                    ui.add_sized(
+                        egui::vec2(button_width, response.rect.height()),
+                        egui::Label::new(
+                            egui::RichText::new("BPM").text_style(egui::TextStyle::Heading),
+                        ),
+                    );
+
+                    let enter_pressed = ui.input(|i| i.key_pressed(egui::Key::Enter));
+                    if response.lost_focus() || (response.changed() && enter_pressed) {
+                        self.apply_bpm_input();
+                    }
+                });
                 ui.add_space(12.0);
                 // Shiftキーを押してるときはプロジェクトからBPMを持ってくる
                 if ui.input(|i| i.modifiers.shift) {
@@ -276,6 +297,28 @@ impl MetronomeApp {
         self.tap_intervals.clear();
         self.bpm = None;
         self.will_reset_on_next_tap = false;
+    }
+
+    fn apply_bpm_input(&mut self) {
+        let trimmed = self.bpm_text_input.trim();
+        if trimmed.is_empty() {
+            self.bpm = None;
+            self.last_tap = None;
+            self.tap_intervals.clear();
+            self.will_reset_on_next_tap = false;
+            return;
+        }
+        match trimmed.parse::<f64>() {
+            Ok(value) if value.is_finite() && value > 0.0 => {
+                self.bpm = Some(value);
+                self.last_tap = None;
+                self.tap_intervals.clear();
+                self.will_reset_on_next_tap = false;
+            }
+            _ => {
+                self.bpm_text_input = self.bpm.map(|bpm| format!("{bpm:.2}")).unwrap_or_default();
+            }
+        }
     }
 
     fn apply_bpm_to_host_origin(&self) {
