@@ -14,7 +14,8 @@
 
 ### デモプラグイン
 
-（なし）
+- pixelsort: 高速化
+- local-alias、scripts-search: 同梱するM+を変更
 
 ## [0.12.1](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.12.1)
 
