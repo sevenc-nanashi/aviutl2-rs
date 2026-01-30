@@ -110,7 +110,7 @@ fn push_sample(
         left.push(value);
         return;
     }
-    if index % 2 == 0 {
+    if index.is_multiple_of(2) {
         left.push(value);
     } else {
         right.push(value);
@@ -131,7 +131,7 @@ fn resample_len(input_len: usize, input_rate: u32, output_rate: u32) -> usize {
     let input_len = input_len as u64;
     let input_rate = input_rate as u64;
     let output_rate = output_rate as u64;
-    (((input_len * output_rate) + input_rate - 1) / input_rate) as usize
+    (input_len * output_rate).div_ceil(input_rate) as usize
 }
 
 fn linear_resample(input: &[f32], output: &mut [f32]) {

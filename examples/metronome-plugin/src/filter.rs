@@ -61,9 +61,18 @@ impl aviutl2::filter::FilterPlugin for MetronomeFilter {
             .and_then(|path| crate::wav::get_wav_sample(path, sample_rate));
         let info = crate::EDIT_HANDLE.get().unwrap().get_edit_info();
         let bpm = info.grid_bpm_tempo;
+        if bpm < 0.1 {
+            return Ok(());
+        }
         let bpm_offset = info.grid_bpm_offset;
         let beat_count = info.grid_bpm_beat;
+        if beat_count == 0 {
+            return Ok(());
+        }
         let click_length_samples = ((config.click_ms / 1000.0) * sample_rate as f64).round() as u64;
+        if click_length_samples == 0 {
+            return Ok(());
+        }
         let mut lbuf = vec![0.0f32; audio.audio_object.sample_num as usize];
         let mut rbuf = vec![0.0f32; audio.audio_object.sample_num as usize];
         for i in 0..audio.audio_object.sample_num as usize {
