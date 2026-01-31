@@ -1,0 +1,14 @@
+[rusty_local_alias.aux2]
+エイリアスがありません。オブジェクトを選択して「ローカルエイリアスに追加」メニューで追加してください。=No aliases. Select an object and add it from the "Add to Local Alias" menu.
+下へ=Down
+上へ=Up
+削除=Delete
+名前変更=Rename
+新しいエイリアス名=New alias name
+保存=Save
+キャンセル=Cancel
+エイリアス "{}" を削除しますか？=Delete alias "{}"?
+ローカルエイリアスに追加=Add to Local Alias
+ローカルエイリアスを配置=Insert Local Alias
+オブジェクトが選択されていません。=No object is selected.
+エイリアスが選択されていません。=No alias is selected.

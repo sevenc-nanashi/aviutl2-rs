@@ -1,4 +1,5 @@
 use crate::{DEFAULT_ARGS, REQUIRED_ARGS, config::FfmpegOutputConfig};
+use aviutl2::config;
 use dedent::dedent;
 use eframe::egui;
 use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
@@ -7,6 +8,10 @@ pub struct FfmpegOutputConfigDialog {
     pub args_buffer: String,
     pub pixel_format: crate::config::PixelFormat,
     pub result_sender: std::sync::mpsc::Sender<FfmpegOutputConfig>,
+}
+
+fn tr(text: &str) -> String {
+    config::translate(text).unwrap_or_else(|_| text.to_string())
 }
 
 fn buffer_to_args(buffer: &str) -> Vec<String> {
@@ -74,12 +79,12 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                     )
                                 );
 
-                                ui.collapsing("プリセット", |ui| {
+                                ui.collapsing(tr("プリセット"), |ui| {
                                     ui.horizontal_wrapped(|ui| {
                                         for preset in crate::presets::PRESETS {
                                             if ui
-                                                .button(preset.name)
-                                                .on_hover_text(preset.description)
+                                                .button(tr(preset.name))
+                                                .on_hover_text(tr(preset.description))
                                                 .clicked()
                                             {
                                                 self.args_buffer = preset.args.join("\n");
@@ -90,9 +95,9 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                 });
 
                                 ui.horizontal(|ui| {
-                                    ui.label("ピクセルフォーマット:");
+                                    ui.label(tr("ピクセルフォーマット:"));
                                     egui::ComboBox::from_id_salt("pixel_format")
-                                        .selected_text(self.pixel_format.as_str())
+                                        .selected_text(tr(self.pixel_format.as_str()))
                                         .show_ui(ui, |ui| {
                                             for format in [
                                                 crate::config::PixelFormat::Yuy2,
@@ -103,7 +108,7 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                                 ui.selectable_value(
                                                     &mut self.pixel_format,
                                                     format,
-                                                    format.as_str(),
+                                                    tr(format.as_str()),
                                                 );
                                             }
                                         });
@@ -115,7 +120,7 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                         .iter()
                                         .all(|arg| args.iter().any(|a| a.contains(arg)));
                                     if ui
-                                        .add_enabled(can_save, egui::Button::new("保存"))
+                                        .add_enabled(can_save, egui::Button::new(tr("保存")))
                                         .clicked()
                                     {
                                         self.result_sender
@@ -126,12 +131,12 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                             .expect("Failed to send args");
                                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                                     }
-                                    if ui.button("リセット").clicked() {
+                                    if ui.button(tr("リセット")).clicked() {
                                         self.pixel_format =
                                             FfmpegOutputConfig::default().pixel_format;
                                         self.args_buffer = DEFAULT_ARGS.join("\n");
                                     }
-                                    if ui.button("キャンセル").clicked() {
+                                    if ui.button(tr("キャンセル")).clicked() {
                                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                                     }
                                 });

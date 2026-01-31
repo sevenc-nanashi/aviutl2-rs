@@ -1,5 +1,9 @@
 use aviutl2::{AnyResult, lprintln};
 
+fn tr(text: &str) -> String {
+    aviutl2::config::translate(text).unwrap_or_else(|_| text.to_string())
+}
+
 #[easy_ext::ext]
 impl srtlib::Timestamp {
     fn to_milliseconds(&self) -> u32 {
@@ -35,8 +39,8 @@ impl SrtFilePlugin {
         }
 
         let file_path = native_dialog::FileDialogBuilder::default()
-            .add_filter("SRTファイル", ["srt"])
-            .set_title("SRTファイルを選択")
+            .add_filter(tr("SRTファイル"), ["srt"])
+            .set_title(tr("SRTファイルを選択"))
             .open_single_file()
             .show()?;
         let Some(file_path) = file_path else {
@@ -148,8 +152,8 @@ impl SrtFilePlugin {
         }
 
         let save_path = native_dialog::FileDialogBuilder::default()
-            .add_filter("SRTファイル", ["srt"])
-            .set_title("SRTファイルを保存")
+            .add_filter(tr("SRTファイル"), ["srt"])
+            .set_title(tr("SRTファイルを保存"))
             .set_filename("subtitles.srt")
             .save_single_file()
             .show()?;
@@ -161,8 +165,8 @@ impl SrtFilePlugin {
 
         native_dialog::MessageDialogBuilder::default()
             .set_level(native_dialog::MessageLevel::Info)
-            .set_title("SRTファイルの書き出し完了")
-            .set_text("SRTファイルの書き出しが完了しました。")
+            .set_title(tr("SRTファイルの書き出し完了"))
+            .set_text(tr("SRTファイルの書き出しが完了しました。"))
             .alert()
             .show()?;
 

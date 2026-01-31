@@ -1,5 +1,9 @@
 use aviutl2::AnyResult;
 
+fn tr(text: &str) -> String {
+    aviutl2::config::translate(text).unwrap_or_else(|_| text.to_string())
+}
+
 #[aviutl2::plugin(GenericPlugin)]
 struct RestartHostAppPlugin {
     edit_handle: Option<aviutl2::generic::EditHandle>,
@@ -48,8 +52,10 @@ impl RestartHostAppPlugin {
             edit_handle.restart_host_app();
         } else {
             let restart = native_dialog::DialogBuilder::message()
-                .set_title("AviUtl2を再起動")
-                .set_text("AviUtl2を再起動しますか？（Shiftキーを押しながらメニューを選択すると確認なしで再起動します）")
+                .set_title(tr("AviUtl2を再起動"))
+                .set_text(tr(
+                    "AviUtl2を再起動しますか？（Shiftキーを押しながらメニューを選択すると確認なしで再起動します）",
+                ))
                 .confirm()
                 .show()
                 .map_err(|e| aviutl2::anyhow::anyhow!(e))?;
@@ -63,16 +69,16 @@ impl RestartHostAppPlugin {
     #[config(name = "[Rusty Restart Shortcut Plugin] 確認ダイアログの有無を切り替え")]
     fn toggle_confirm_on_restart(&mut self, _hwnd: aviutl2::Win32WindowHandle) -> AnyResult<()> {
         self.config.confirm_on_restart = !self.config.confirm_on_restart;
+        let state = if self.config.confirm_on_restart {
+            tr("有効")
+        } else {
+            tr("無効")
+        };
+        let template = tr("再起動時の確認ダイアログ表示設定を「{}」に変更しました。");
+        let message = template.replace("{}", &state);
         native_dialog::DialogBuilder::message()
-            .set_title("設定を変更しました")
-            .set_text(format!(
-                "再起動時の確認ダイアログ表示設定を「{}」に変更しました。",
-                if self.config.confirm_on_restart {
-                    "有効"
-                } else {
-                    "無効"
-                }
-            ))
+            .set_title(tr("設定を変更しました"))
+            .set_text(&message)
             .alert()
             .show()?;
         Ok(())
