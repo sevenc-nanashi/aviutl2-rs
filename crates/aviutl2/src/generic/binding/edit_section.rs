@@ -97,13 +97,9 @@ impl EditInfo {
             display_frame_num: raw.display_frame_num as usize,
             display_layer_num: raw.display_layer_num as usize,
 
-            // `as usize` はpanicしないけど一応気分的に安全にしておく、それはそうと
-            // clippyはこれをunnecessary_lazy_evaluationsと判断するので無視する
-            #[expect(clippy::unnecessary_lazy_evaluations)]
             select_range_start: (raw.select_range_start >= 0)
-                .then(|| raw.select_range_start as usize),
-            #[expect(clippy::unnecessary_lazy_evaluations)]
-            select_range_end: (raw.select_range_end >= 0).then(|| raw.select_range_end as usize),
+                .then_some(raw.select_range_start as usize),
+            select_range_end: (raw.select_range_end >= 0).then_some(raw.select_range_end as usize),
 
             grid_bpm_tempo: raw.grid_bpm_tempo,
             grid_bpm_beat: raw.grid_bpm_beat as usize,
