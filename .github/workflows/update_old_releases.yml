@@ -1,8 +1,10 @@
 name: Update Old Releases
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ["Build"]
+    types:
+      - completed
   workflow_dispatch:
 
 jobs:
