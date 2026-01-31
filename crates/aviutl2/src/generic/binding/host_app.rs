@@ -545,7 +545,9 @@ impl EditHandle {
         if self
             .edit_info_worker()
             .sender
-            .send(EditInfoRequest { responder: tx })
+            .send(std::ops::ControlFlow::Continue(EditInfoRequest {
+                responder: tx,
+            }))
             .is_err()
         {
             return Err(EditHandleError::ApiCallFailed);
@@ -645,6 +647,14 @@ impl EditHandle {
         modules
     }
 }
+impl Drop for EditHandle {
+    fn drop(&mut self) {
+        if let Some(worker) = self.edit_info_worker.take() {
+            let _ = worker.sender.send(std::ops::ControlFlow::Break(()));
+            let _ = worker.join_handle.join();
+        }
+    }
+}
 
 struct InternalSendableEditHandle(*mut aviutl2_sys::plugin2::EDIT_HANDLE);
 unsafe impl Send for InternalSendableEditHandle {}
@@ -660,17 +670,18 @@ struct EditInfoRequest {
 
 #[derive(Debug)]
 struct EditInfoWorker {
-    sender: std::sync::mpsc::Sender<EditInfoRequest>,
+    sender: std::sync::mpsc::Sender<std::ops::ControlFlow<(), EditInfoRequest>>,
+    join_handle: std::thread::JoinHandle<()>,
 }
 
 impl EditInfoWorker {
     fn new(internal: *mut aviutl2_sys::plugin2::EDIT_HANDLE) -> Self {
-        let (tx, rx) = std::sync::mpsc::channel::<EditInfoRequest>();
+        let (tx, rx) = std::sync::mpsc::channel::<std::ops::ControlFlow<(), EditInfoRequest>>();
         let internal = InternalSendableEditHandle(internal);
-        std::thread::Builder::new()
+        let join_handle = std::thread::Builder::new()
             .name("aviutl2-edit-info-worker".to_string())
             .spawn(move || {
-                while let Ok(request) = rx.recv() {
+                while let Ok(std::ops::ControlFlow::Continue(request)) = rx.recv() {
                     let mut raw_info =
                         std::mem::MaybeUninit::<aviutl2_sys::plugin2::EDIT_INFO>::uninit();
                     unsafe {
@@ -685,7 +696,10 @@ impl EditInfoWorker {
                 }
             })
             .expect("Failed to spawn edit info worker thread");
-        Self { sender: tx }
+        Self {
+            sender: tx,
+            join_handle,
+        }
     }
 }
 
