@@ -3,10 +3,9 @@ name: Build
 on:
   workflow_dispatch:
     inputs:
-      name:
-        description: "Name of the release"
+      version:
+        description: "Version to publish"
         required: true
-        default: "latest"
 
 jobs:
   build:
@@ -26,7 +25,7 @@ jobs:
 
       - name: Update Cargo.toml
         run: |
-          cargo set-version ${{ github.event.inputs.name }}
+          cargo set-version ${{ github.event.inputs.version }}
           cargo update --workspace
 
       - name: Build Page
@@ -39,7 +38,7 @@ jobs:
       - name: Prepare release
         shell: bash
         run: |
-          bundle exec rake release[${{ github.event.inputs.name }}]
+          bundle exec rake release[${{ github.event.inputs.version }}]
           cp ./release/CHANGELOG.md ./CHANGELOG.md
 
       - name: Commit version change
@@ -47,7 +46,7 @@ jobs:
           git config --local user.name "GitHub Actions"
           git config --local user.email "actions@github.com"
           git add Cargo.toml Cargo.lock CHANGELOG.md
-          git commit -m "release: v${{ github.event.inputs.name }}"
+          git commit -m "release: v${{ github.event.inputs.version }}"
 
       - name: Login to crates.io
         uses: rust-lang/crates-io-auth-action@v1
@@ -65,7 +64,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.name }}
+          tag_name: ${{ github.event.inputs.version }}
           body_path: "./release/README.md"
           files: |
             ./release/aviutl2-rs.au2pkg.zip
