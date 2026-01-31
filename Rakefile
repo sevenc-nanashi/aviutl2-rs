@@ -28,9 +28,7 @@ main_crates = %w[
 
 def replace_suffix(name, suffixes)
   suffixes.each do |key, value|
-    if name.end_with?(key)
-      return name.sub(/#{key}$/, "#{value}")
-    end
+    return name.sub(/#{key}$/, "#{value}") if name.end_with?(key)
   end
   raise "Invalid file name: #{name}"
 end
@@ -170,14 +168,16 @@ task :release, ["tag"] do |task, args|
       plugin_files[plugin_name] = source_path
       cp(source_path, File.join(dest_dir, plugin_name))
 
-      Dir.glob(File.join(dir, "i18n", "*.aul2")).each do |i18n_file|
-        i18n_name = File.basename(i18n_file)
-        if language_files.key?(i18n_name)
-          puts "Skip: duplicate i18n file #{i18n_name}"
-          next
+      Dir
+        .glob(File.join(dir, "i18n", "*.aul2"))
+        .each do |i18n_file|
+          i18n_name = File.basename(i18n_file)
+          if language_files.key?(i18n_name)
+            puts "Skip: duplicate i18n file #{i18n_name}"
+            next
+          end
+          language_files[i18n_name] = i18n_file
         end
-        language_files[i18n_name] = i18n_file
-      end
     end
   unless language_files.empty?
     language_files.each do |i18n_name, i18n_file|

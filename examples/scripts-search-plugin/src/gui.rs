@@ -113,10 +113,7 @@ impl ScriptsSearchApp {
             }
             Some(effects) => {
                 let count_label = tr("登録されているエフェクト数: {count}");
-                ui.label(
-                    count_label
-                        .replace("{count}", &effects.effects.len().to_string()),
-                );
+                ui.label(count_label.replace("{count}", &effects.effects.len().to_string()));
                 ui.add_space(8.0);
                 let search_response = egui::TextEdit::singleline(&mut self.needle)
                     .desired_width(f32::INFINITY)

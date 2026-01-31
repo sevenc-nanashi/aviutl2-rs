@@ -156,7 +156,8 @@ pub fn normalize_kana_for_search_with_map(input: &str) -> (String, Vec<(usize, u
             let mut end = start;
             if index + 1 < chars.len() {
                 let next = chars[index + 1];
-                if (next == 'ﾞ' || next == 'ﾟ') && let Some(combined) = apply_diacritic(kata, next)
+                if (next == 'ﾞ' || next == 'ﾟ')
+                    && let Some(combined) = apply_diacritic(kata, next)
                 {
                     kata = combined;
                     end = index + 1;
