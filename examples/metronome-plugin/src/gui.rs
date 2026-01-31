@@ -224,7 +224,7 @@ impl MetronomeApp {
         if !self.show_info {
             return;
         }
-        let screen_rect = ctx.screen_rect();
+        let screen_rect = ctx.content_rect();
         let dim_color = egui::Color32::from_black_alpha(128);
         let dim_response = egui::Area::new(egui::Id::new("info_window_dim_layer"))
             .order(egui::Order::Middle)
