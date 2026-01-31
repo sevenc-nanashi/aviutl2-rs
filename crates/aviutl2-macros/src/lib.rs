@@ -248,7 +248,8 @@ mod utils;
 /// - 関数のシグネチャは以下のようになります。
 ///
 /// ```rust
-/// fn on_button_pressed(handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()>;
+/// fn on_button_pressed(handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()>
+/// # { unimplemented!() }
 /// ```
 ///
 /// - このフィールドは削除されます。
