@@ -2,6 +2,10 @@ use aviutl2::anyhow;
 use aviutl2_eframe::{AviUtl2EframeHandle, eframe, egui};
 use itertools::Itertools;
 
+fn tr(text: &str) -> String {
+    aviutl2::config::translate(text).unwrap_or_else(|_| text.to_string())
+}
+
 pub(crate) struct ScriptsSearchApp {
     show_info: bool,
     suppress_info_close_once: bool,
@@ -92,7 +96,7 @@ impl ScriptsSearchApp {
                             egui::Button::image(include_iconify!("mdi:information-outline")),
                         )
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
-                        .on_hover_text("プラグイン情報");
+                        .on_hover_text(tr("プラグイン情報"));
                     if resp.clicked() {
                         self.show_info = true;
                         self.suppress_info_close_once = true;
@@ -105,17 +109,18 @@ impl ScriptsSearchApp {
     fn render_main_panel(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| match crate::EFFECTS.get() {
             None => {
-                ui.label("エフェクト情報を読み込み中...");
+                ui.label(tr("エフェクト情報を読み込み中..."));
             }
             Some(effects) => {
-                ui.label(format!(
-                    "登録されているエフェクト数: {}",
-                    effects.effects.len()
-                ));
+                let count_label = tr("登録されているエフェクト数: {count}");
+                ui.label(
+                    count_label
+                        .replace("{count}", &effects.effects.len().to_string()),
+                );
                 ui.add_space(8.0);
                 let search_response = egui::TextEdit::singleline(&mut self.needle)
                     .desired_width(f32::INFINITY)
-                    .hint_text("検索...")
+                    .hint_text(tr("検索..."))
                     .show(ui);
                 if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                     search_response.response.request_focus();
@@ -176,7 +181,7 @@ impl ScriptsSearchApp {
             })
             .collect::<Vec<_>>();
         if sorted_effects.is_empty() {
-            ui.label("一致するエフェクトが見つかりませんでした。");
+            ui.label(tr("一致するエフェクトが見つかりませんでした。"));
         } else {
             sorted_effects.sort_by(|a, b| a.partial_cmp(b).unwrap());
             for effect in sorted_effects.iter().take(100) {
@@ -212,13 +217,14 @@ impl ScriptsSearchApp {
             .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
-                ui.label(format!("バージョン: {}", self.version));
-                ui.label("オブジェクト・エフェクトを検索するプラグイン。");
+                let version_label = tr("バージョン: {version}");
+                ui.label(version_label.replace("{version}", &self.version));
+                ui.label(tr("オブジェクト・エフェクトを検索するプラグイン。"));
                 ui.add_space(8.0);
-                ui.label("Developed by");
+                ui.label(tr("開発者"));
                 ui.hyperlink_to("Nanashi.", "https://sevenc7c.com");
                 ui.add_space(4.0);
-                ui.label("Source Code:");
+                ui.label(tr("ソースコード:"));
                 ui.hyperlink_to(
                     "sevenc-nanashi/aviutl2-rs",
                     "https://github.com/sevenc-nanashi/aviutl2-rs",
@@ -271,7 +277,7 @@ impl ScriptsSearchApp {
                                     .max_size(egui::vec2(24.0, 24.0))
                                     .tint(ui.visuals().text_color()),
                             )
-                            .on_hover_text(name);
+                            .on_hover_text(tr(name));
 
                             ui.vertical(|ui| {
                                 let colored_name = Self::build_highlighted_label_with_style(
@@ -282,13 +288,15 @@ impl ScriptsSearchApp {
                                         .map_or(&[], |m| &m.1),
                                     egui::TextStyle::Body,
                                 );
+                                let effect_label = if effect.label.is_empty() {
+                                    tr("（なし）")
+                                } else {
+                                    effect.label.clone()
+                                };
+
                                 let colored_label = Self::build_highlighted_label_with_style(
                                     ui,
-                                    if effect.label.is_empty() {
-                                        "（なし）"
-                                    } else {
-                                        &effect.label
-                                    },
+                                    &effect_label,
                                     match_info
                                         .and_then(|m| m.label_match.as_ref())
                                         .map_or(&[], |m| &m.1),
@@ -355,10 +363,24 @@ impl ScriptsSearchApp {
             .get(&text_style)
             .cloned()
             .unwrap_or_default();
-        let chunks = label
-            .chars()
+        let (.., map) = crate::normalize_kana_for_search_with_map(label);
+        let label_chars: Vec<char> = label.chars().collect();
+        let mut match_flags = vec![false; label_chars.len()];
+        for matched_index in match_indices {
+            let Some((start, end)) = map.get(*matched_index as usize) else {
+                continue;
+            };
+            let mut i = *start;
+            while i <= *end && i < match_flags.len() {
+                match_flags[i] = true;
+                i += 1;
+            }
+        }
+        let chunks = label_chars
+            .iter()
+            .copied()
             .enumerate()
-            .chunk_by(|(i, _)| match_indices.contains(&(*i as u32)));
+            .chunk_by(|(i, _)| match_flags.get(*i).copied().unwrap_or(false));
 
         let chunks = chunks
             .into_iter()
@@ -436,18 +458,18 @@ impl ScriptsSearchApp {
                     if effect.effect.flag.as_filter {
                         action_button(
                             include_iconify!("mdi:card-multiple"),
-                            "フィルタオブジェクトとして追加",
+                            &tr("フィルタオブジェクトとして追加"),
                             Self::add_filter_as_filter_object,
                         );
                     }
                     action_button(
                         include_iconify!("material-symbols:add-row-below"),
-                        "選択中のオブジェクトに追加",
+                        &tr("選択中のオブジェクトに追加"),
                         Self::add_filter_to_focused_object,
                     );
                     action_button(
                         include_iconify!("material-symbols:view-timeline"),
-                        "オブジェクトとして追加",
+                        &tr("オブジェクトとして追加"),
                         Self::add_filter_as_object,
                     );
                 });

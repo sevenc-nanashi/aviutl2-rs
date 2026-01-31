@@ -1,0 +1,25 @@
+[rusty_scripts_search.aux2]
+Rusty Scripts Search Plugin=Rusty Scripts Search Plugin
+エフェクト情報を読み込み中...=Loading effect information...
+登録されているエフェクト数: {count}=Registered effects: {count}
+検索...=Search...
+一致するエフェクトが見つかりませんでした。=No matching effects were found.
+バージョン: {version}=Version: {version}
+オブジェクト・エフェクトを検索するプラグイン。=A plugin to search for objects and effects.
+開発者=Developer
+ソースコード:=Source Code:
+プラグイン情報=Plugin Info
+（なし）=(None)
+フィルタオブジェクトとして追加=Add as filter object
+選択中のオブジェクトに追加=Add to selected object
+オブジェクトとして追加=Add as object
+入力（映像・音声）=Input (Video + Audio)
+入力（映像）=Input (Video)
+入力（音声）=Input (Audio)
+入力=Input
+フィルタ（映像・音声）=Filter (Video + Audio)
+フィルタ（映像）=Filter (Video)
+フィルタ（音声）=Filter (Audio)
+フィルタ=Filter
+シーンチェンジ=Scene Change
+その他=Other

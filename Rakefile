@@ -26,11 +26,10 @@ main_crates = %w[
   aviutl2-eframe
 ]
 
-def replace_suffix(name, target, suffixes)
-  target_suffix = target == "release" ? "" : "_#{target}"
+def replace_suffix(name, suffixes)
   suffixes.each do |key, value|
     if name.end_with?(key)
-      return name.sub(/#{key}$/, "#{target_suffix}#{value}")
+      return name.sub(/#{key}$/, "#{value}")
     end
   end
   raise "Invalid file name: #{name}"
@@ -95,7 +94,6 @@ task :debug_setup do |task, args|
 
   dest_dir = "./test_environment/data/Plugin"
   script_dir = dest_dir + "/../Script"
-  target = "debug"
   FileUtils.mkdir_p(dest_dir) unless Dir.exist?(dest_dir)
   FileUtils.mkdir_p(script_dir) unless Dir.exist?(script_dir)
   Dir
@@ -108,8 +106,8 @@ task :debug_setup do |task, args|
         next
       end
 
-      source = "./target/#{target}/#{cargo_toml["lib"]["name"]}.dll"
-      dest_name = replace_suffix(cargo_toml["lib"]["name"], target, suffixes)
+      source = "./target/debug/#{cargo_toml["lib"]["name"]}.dll"
+      dest_name = replace_suffix(cargo_toml["lib"]["name"], suffixes)
       raise "Invalid file name: #{source}" if dest_name == File.basename(source)
       from_path = File.absolute_path(source)
       dest_path =
@@ -149,7 +147,7 @@ task :release, ["tag"] do |task, args|
         next
       end
       lib_name = cargo_toml["lib"]["name"]
-      plugin_name = replace_suffix(lib_name, "release", suffixes)
+      plugin_name = replace_suffix(lib_name, suffixes)
       plugins[plugin_name] = dir
       source_path = File.join("target/release", "#{lib_name}.dll")
       plugin_files[plugin_name] = source_path

@@ -1545,6 +1545,7 @@ dependencies = [
  "aviutl2",
  "aviutl2-eframe",
  "egui_extras",
+ "formatx",
  "iconify",
  "itertools 0.14.0",
  "log",
