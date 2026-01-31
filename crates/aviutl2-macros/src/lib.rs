@@ -115,24 +115,6 @@ mod utils;
 /// - 値の型は`default`が`items`のインデックスの場合は`usize`、
 ///   `default`がenumのVariantの場合はそのenumである必要があります。
 ///
-/// ## `file`
-///
-/// ```rust
-/// # #[aviutl2_macros::filter_config_items]
-/// # struct S {
-/// #[file(name = "サンプルファイル", filters = {
-///     "テキストファイル" => ["txt"],
-///     "すべてのファイル" => []
-/// })]
-/// file_field: std::path::PathBuf,
-/// # }
-/// ```
-///
-/// - `name`: ファイル選択の名前。省略した場合、フィールド名が使用されます。
-/// - `filters`: ファイルフィルタのリスト。キーがフィルタ名、値が拡張子のリストです。
-///
-/// - 値の型は`std::path::PathBuf`である必要があります。
-///
 /// ## `string`
 ///
 /// ```rust
@@ -163,20 +145,45 @@ mod utils;
 ///
 /// - 値の型は`String`である必要があります。
 ///
+/// ## `file`
+///
+/// ```rust
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[file(name = "サンプルファイル", filters = {
+///     "テキストファイル" => ["txt"],
+///     "すべてのファイル" => []
+/// })]
+/// file_field: std::path::PathBuf,
+/// #[file(name = "オプションファイル", filters = {
+///     "テキストファイル" => ["txt"],
+/// })]
+/// optional_file_field: Option<std::path::PathBuf>,
+/// # }
+/// ```
+///
+/// - `name`: ファイル選択の名前。省略した場合、フィールド名が使用されます。
+/// - `filters`: ファイルフィルタのリスト。キーがフィルタ名、値が拡張子のリストです。
+/// - `default`: ファイルの初期値。省略した場合、空文字列または`None`になります。
+///
+/// - 値の型は`std::path::PathBuf`または`Option<std::path::PathBuf>`である必要があります。
+///
 /// ## `folder`
 ///
 /// ```rust
 /// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
 /// #[folder(name = "サンプルフォルダ", default = "C:\\\\")]
-/// folder_field: String,
+/// folder_field: std::path::PathBuf,
+/// #[folder(name = "オプションフォルダ")]
+/// optional_folder_field: Option<std::path::PathBuf>,
 /// # }
 /// ```
 ///
 /// - `name`: フォルダ選択の名前。省略した場合、フィールド名が使用されます。
-/// - `default`: フォルダの初期値。省略した場合、空文字列になります。
+/// - `default`: フォルダの初期値。省略した場合、空文字列または`None`になります。
 ///
-/// - 値の型は`String`である必要があります。
+/// - 値の型は`std::path::PathBuf`または`Option<std::path::PathBuf>`である必要があります。
 ///
 /// ## `data`
 ///
@@ -234,11 +241,15 @@ mod utils;
 /// `aviutl2::filter::FilterConfigItem::Button`を挿入します。
 ///
 /// - `name`: ボタンの名前。省略した場合、フィールド名が使用されます。
+/// - `error`: エラー発生時のハンドリング方法を指定します。`"alert"`、`"log"`、`"ignore"`のいずれかを指定します。
+///   省略した場合は`"alert"`になります。
+/// - `unwind`: panicを捕捉するかどうかを指定します。省略した場合は`true`になります。
 /// - 型には関数名を指定します。また、関数名とフィールド名が同じ場合は`fn()`と省略できます。
 /// - 関数のシグネチャは以下のようになります。
 ///
 /// ```rust
-/// fn on_button_pressed(handle: &mut aviutl2::generic::EditSection) { /* ... */ }
+/// fn on_button_pressed(handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()>
+/// # { unimplemented!() }
 /// ```
 ///
 /// - このフィールドは削除されます。

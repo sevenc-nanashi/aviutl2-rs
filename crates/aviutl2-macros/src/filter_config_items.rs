@@ -200,6 +200,7 @@ enum FilterConfigField {
         id: String,
         name: String,
         filters: Vec<FileFilterEntry>,
+        default: Option<syn::Expr>,
     },
     String {
         id: String,
@@ -226,6 +227,8 @@ enum FilterConfigField {
         id: String,
         name: String,
         callback: syn::ExprPath,
+        error_mode: ButtonErrorMode,
+        unwind: bool,
     },
     GroupStart {
         name: String,
@@ -240,6 +243,13 @@ enum TrackStep {
     PointOne,
     PointZeroOne,
     PointZeroZeroOne,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ButtonErrorMode {
+    Alert,
+    Log,
+    Ignore,
 }
 
 impl std::str::FromStr for TrackStep {
@@ -409,9 +419,10 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
             FilterConfigField::File {
                 id: _,
                 name,
-                filters: filter,
+                filters,
+                default,
             } => {
-                let filter_entries = filter.iter().map(|entry| {
+                let filter_entries = filters.iter().map(|entry| {
                     let n = &entry.name;
                     let exts = &entry.exts;
                     quote::quote! {
@@ -421,11 +432,16 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                         }
                     }
                 });
+                let value = if let Some(expr) = default {
+                    quote::quote! { (#expr).to_string() }
+                } else {
+                    quote::quote! { String::new() }
+                };
                 quote::quote! {
                     ::aviutl2::filter::FilterConfigItem::File(
                         ::aviutl2::filter::FilterConfigFile {
                             name: #name.to_string(),
-                            value: String::new(),
+                            value: #value,
                             filters: vec![#(#filter_entries),*],
                         }
                     )
@@ -538,17 +554,55 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     )
                 }
             }
-            FilterConfigField::Button { id, name, callback  } => {
+            FilterConfigField::Button {
+                id,
+                name,
+                callback,
+                error_mode,
+                unwind,
+            } => {
                 let callback_id = syn::Ident::new(
                     &format!("__filter_button_callback_{}", id),
                     callback.span(),
                 );
-                button_callbacks.push(quote::quote! {
-                    extern "C" fn #callback_id(edit_section: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
-                        let mut edit_section = unsafe { ::aviutl2::generic::EditSection::from_raw(edit_section) };
-                        #callback(&mut edit_section);
+                let call_on_error = match error_mode {
+                    ButtonErrorMode::Ignore => {
+                        quote::quote! { let _ = ret; }
                     }
-                });
+                    ButtonErrorMode::Log => {
+                        quote::quote! { ::aviutl2::common::__output_log_if_error(ret); }
+                    }
+                    ButtonErrorMode::Alert => {
+                        quote::quote! { ::aviutl2::common::__alert_if_error(ret); }
+                    }
+                };
+                let call_body = quote::quote! {
+                    let mut edit_section = unsafe { ::aviutl2::generic::EditSection::from_raw(edit_section) };
+                    let ret = #callback(&mut edit_section);
+                    #call_on_error
+                };
+                if *unwind {
+                    button_callbacks.push(quote::quote! {
+                        extern "C" fn #callback_id(edit_section: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
+                            if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
+                                #call_body
+                            }) {
+                                ::aviutl2::log::error!(
+                                    "Panic occurred during {}: {}",
+                                    #name,
+                                    panic_info
+                                );
+                                ::aviutl2::__alert_error(&panic_info);
+                            }
+                        }
+                    });
+                } else {
+                    button_callbacks.push(quote::quote! {
+                        extern "C" fn #callback_id(edit_section: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
+                            #call_body
+                        }
+                    });
+                }
                 quote::quote! {
                     ::aviutl2::filter::FilterConfigItem::Button(
                         ::aviutl2::filter::FilterConfigButton {
@@ -656,7 +710,7 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                 Some(quote::quote! {
                     #id_ident: match items[#i] {
                         ::aviutl2::filter::FilterConfigItem::File(ref file) =>
-                            std::path::PathBuf::from(&file.value),
+                            ::aviutl2::filter::__string_to_pathbuf_or_option_pathbuf(&file.value),
                         _ => panic!("expected File at index {}", #i),
                     }
                 })
@@ -692,7 +746,8 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
                 Some(quote::quote! {
                     #id_ident: match items[#i] {
-                        ::aviutl2::filter::FilterConfigItem::Folder(ref folder) => folder.value.clone(),
+                        ::aviutl2::filter::FilterConfigItem::Folder(ref folder) =>
+                            ::aviutl2::filter::__string_to_pathbuf_or_option_pathbuf(&folder.value),
                         _ => panic!("expected Folder at index {}", #i),
                     }
                 })
@@ -747,10 +802,15 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
                 },
             })
         }
-        FilterConfigField::File { id, .. } => {
+        FilterConfigField::File { id, default, .. } => {
             let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+            let default = if let Some(expr) = default {
+                quote::quote! { ::aviutl2::filter::__string_to_pathbuf_or_option_pathbuf(&(#expr).to_string()) }
+            } else {
+                quote::quote! { ::std::default::Default::default() }
+            };
             Some(quote::quote! {
-                #id_ident: ::std::path::PathBuf::new()
+                #id_ident: #default
             })
         }
         FilterConfigField::Data { id, default, .. } => {
@@ -794,7 +854,7 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
                 quote::quote! { ::std::string::String::new() }
             };
             Some(quote::quote! {
-                #id_ident: #value
+                #id_ident: ::aviutl2::filter::__string_to_pathbuf_or_option_pathbuf(&#value)
             })
         }
         FilterConfigField::GroupStart { .. }
@@ -1307,7 +1367,8 @@ fn filter_config_field_file(
     recognized_attr: &syn::Attribute,
 ) -> Result<FilterConfigField, syn::Error> {
     let mut name = None;
-    let mut filter = None;
+    let mut filters = None;
+    let mut default = None;
 
     recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
@@ -1315,12 +1376,14 @@ fn filter_config_field_file(
         } else if m.path.is_ident("filters") {
             let content;
             syn::braced!(content in &m.value()?);
-            filter = Some(
+            filters = Some(
                 content
                     .parse_terminated(FileFilterEntry::parse, syn::Token![,])?
                     .into_iter()
                     .collect::<Vec<_>>(),
             );
+        } else if m.path.is_ident("default") {
+            default = Some(m.value()?.parse::<syn::Expr>()?);
         } else {
             return Err(m.error("Unknown attribute for file"));
         }
@@ -1328,7 +1391,7 @@ fn filter_config_field_file(
     })?;
 
     let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
-    let Some(filter) = filter else {
+    let Some(filters) = filters else {
         return Err(syn::Error::new_spanned(
             recognized_attr,
             "filters is required",
@@ -1337,7 +1400,8 @@ fn filter_config_field_file(
     Ok(FilterConfigField::File {
         id: field.ident.as_ref().unwrap().to_string(),
         name,
-        filters: filter,
+        filters,
+        default,
     })
 }
 
@@ -1481,10 +1545,28 @@ fn filter_config_field_button(
     recognized_attr: &syn::Attribute,
 ) -> Result<FilterConfigField, syn::Error> {
     let mut name = None;
+    let mut error_mode = ButtonErrorMode::Alert;
+    let mut unwind = true;
 
     recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("error") {
+            let value: syn::LitStr = m.value()?.parse()?;
+            match value.value().as_str() {
+                "alert" => error_mode = ButtonErrorMode::Alert,
+                "log" => error_mode = ButtonErrorMode::Log,
+                "ignore" => error_mode = ButtonErrorMode::Ignore,
+                _ => {
+                    return Err(m.error("expected \"alert\", \"log\", or \"ignore\""));
+                }
+            }
+        } else if m.path.is_ident("unwind") {
+            if m.input.is_empty() {
+                unwind = true;
+            } else {
+                unwind = m.value()?.parse::<syn::LitBool>()?.value;
+            }
         } else {
             return Err(m.error("Unknown attribute for button"));
         }
@@ -1501,6 +1583,8 @@ fn filter_config_field_button(
         id: field.ident.as_ref().unwrap().to_string(),
         name,
         callback,
+        error_mode,
+        unwind,
     })
 }
 

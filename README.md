@@ -34,6 +34,7 @@ AviUtl2 SDKのRust版です。
   - スクリプトモジュール：
     - `./examples/username-module`：ユーザー名を取得するスクリプトモジュールのサンプル。
   - 汎用プラグイン：
+    - `./examples/metronome-plugin`：クリックに合わせてBPMを調整したり、メトロノーム音を再生したりする汎用プラグインのサンプル。
     - `./examples/local-alias-plugin`：プロジェクトローカルにオブジェクトを保存する汎用プラグインのサンプル。
     - `./examples/srt-file-plugin`：SRTファイルをインポート/エクスポートする汎用プラグインのサンプル。
     - `./examples/restart-shortcut-plugin`：AviUtl2を再起動する編集メニューを追加する汎用プラグインのサンプル。

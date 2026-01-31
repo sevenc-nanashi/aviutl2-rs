@@ -97,13 +97,9 @@ impl EditInfo {
             display_frame_num: raw.display_frame_num as usize,
             display_layer_num: raw.display_layer_num as usize,
 
-            // `as usize` はpanicしないけど一応気分的に安全にしておく、それはそうと
-            // clippyはこれをunnecessary_lazy_evaluationsと判断するので無視する
-            #[expect(clippy::unnecessary_lazy_evaluations)]
             select_range_start: (raw.select_range_start >= 0)
-                .then(|| raw.select_range_start as usize),
-            #[expect(clippy::unnecessary_lazy_evaluations)]
-            select_range_end: (raw.select_range_end >= 0).then(|| raw.select_range_end as usize),
+                .then_some(raw.select_range_start as usize),
+            select_range_end: (raw.select_range_end >= 0).then_some(raw.select_range_end as usize),
 
             grid_bpm_tempo: raw.grid_bpm_tempo,
             grid_bpm_beat: raw.grid_bpm_beat as usize,
@@ -170,6 +166,15 @@ pub enum EditSectionError {
     #[cfg(feature = "aviutl2-alias")]
     #[error("alias parse error: {0}")]
     ParseFailed(#[from] aviutl2_alias::TableParseError),
+}
+
+/// [`EditSection::get_object_effect_item_parsed`] などのエラー。
+#[derive(thiserror::Error, Debug)]
+pub enum EditSectionParsedError<E: std::error::Error + Send + Sync + 'static> {
+    #[error(transparent)]
+    EditSectionError(#[from] EditSectionError),
+    #[error("value parse error: {0}")]
+    ParseError(E),
 }
 
 pub type EditSectionResult<T> = Result<T, EditSectionError>;
@@ -376,6 +381,26 @@ impl EditSection {
         let c_str = unsafe { std::ffi::CStr::from_ptr(value_ptr) };
         let value = c_str.to_str()?.to_owned();
         Ok(value)
+    }
+
+    /// オブジェクトの設定項目の値を取得し、パースします。
+    ///
+    /// # See Also
+    ///
+    /// [`EditSection::get_object_effect_item`]
+    #[cfg(feature = "aviutl2-alias")]
+    pub fn get_object_effect_item_parsed<T: aviutl2_alias::FromTableValue>(
+        &self,
+        object: &ObjectHandle,
+        effect_name: &str,
+        effect_index: usize,
+        item: &str,
+    ) -> Result<T, EditSectionParsedError<<T as aviutl2_alias::FromTableValue>::Err>>
+    where
+        <T as aviutl2_alias::FromTableValue>::Err: std::error::Error + Sync + Send + 'static,
+    {
+        let value_str = self.get_object_effect_item(object, effect_name, effect_index, item)?;
+        T::from_table_value(&value_str).map_err(EditSectionParsedError::ParseError)
     }
 
     /// オブジェクトの設定項目の値を文字列で設定します。
@@ -784,6 +809,25 @@ impl<'a> EditSectionObjectCaller<'a> {
     ) -> EditSectionResult<String> {
         self.edit_section
             .get_object_effect_item(self.handle, effect_name, effect_index, item)
+    }
+
+    /// オブジェクトの設定項目の値を取得し、パースします。
+    ///
+    /// # See Also
+    ///
+    /// [`EditSection::get_object_effect_item`]
+    #[cfg(feature = "aviutl2-alias")]
+    pub fn get_effect_item_parsed<T: aviutl2_alias::FromTableValue>(
+        &self,
+        effect_name: &str,
+        effect_index: usize,
+        item: &str,
+    ) -> Result<T, EditSectionParsedError<<T as aviutl2_alias::FromTableValue>::Err>>
+    where
+        <T as aviutl2_alias::FromTableValue>::Err: std::error::Error + Sync + Send + 'static,
+    {
+        let value_str = self.get_effect_item(effect_name, effect_index, item)?;
+        T::from_table_value(&value_str).map_err(EditSectionParsedError::ParseError)
     }
 
     /// オブジェクトの設定項目の値を文字列で設定します。

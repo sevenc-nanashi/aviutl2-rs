@@ -494,6 +494,30 @@ impl<T: Copy> FilterConfigDataHandle<T> {
     }
 }
 
+#[doc(hidden)]
+#[expect(private_bounds)]
+pub fn __string_to_pathbuf_or_option_pathbuf<T: StringToPathBufOrOptionPathBuf>(s: &str) -> T {
+    T::__string_to_pathbuf_or_option_pathbuf(s)
+}
+
+trait StringToPathBufOrOptionPathBuf: Sized {
+    fn __string_to_pathbuf_or_option_pathbuf(s: &str) -> Self;
+}
+impl StringToPathBufOrOptionPathBuf for std::path::PathBuf {
+    fn __string_to_pathbuf_or_option_pathbuf(s: &str) -> Self {
+        std::path::PathBuf::from(s)
+    }
+}
+impl StringToPathBufOrOptionPathBuf for Option<std::path::PathBuf> {
+    fn __string_to_pathbuf_or_option_pathbuf(s: &str) -> Self {
+        if s.is_empty() {
+            None
+        } else {
+            Some(std::path::PathBuf::from(s))
+        }
+    }
+}
+
 /// フィルタプラグインのデータを読み取るためのガード。
 pub struct FilterConfigDataReadGuard<'handle, T: Copy> {
     pub(crate) inner: *mut T,

@@ -24,3 +24,4 @@ backend = "cargo:cargo-edit"
 [[tools.ruby]]
 version = "4.0.1"
 backend = "core:ruby"
+"platforms.windows-x64" = { checksum = "blake3:6dde8dc7cfc3e7250a4f1823ad54fd99365e04022d8dac22b84759be52369970"}

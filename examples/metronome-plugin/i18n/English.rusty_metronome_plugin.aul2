@@ -1,0 +1,26 @@
+[rusty_metronome.aux2]
+Rusty Metronome Plugin=Rusty Metronome Plugin
+プラグイン情報=Plugin Info
+BPM=BPM
+BPM取得=Get BPM
+プロジェクトからBPMを取得します=Get BPM from project
+Reset=Reset
+Tap=Tap
+Start=Start
+Spaceキーでもタップできます=You can tap with the Space key
+÷ 2=÷ 2
+リセット=Reset
+× 2=× 2
+0:00を基準に反映=Apply based on 0:00
+現在位置を基準に反映=Apply based on current position
+バージョン: {version}=Version: {version}
+BPMを合わせるタップボタンとメトロノームのエフェクトを提供します。=Provides a tap button to set BPM and a metronome effect.
+開発者=Developer
+ソースコード:=Source Code:
+音量=Volume
+周波数A(Hz)=Frequency A (Hz)
+周波数B(Hz)=Frequency B (Hz)
+長さ(ms)=Length (ms)
+音源A=Sample A
+音源B=Sample B
+WAVファイル=WAV Files

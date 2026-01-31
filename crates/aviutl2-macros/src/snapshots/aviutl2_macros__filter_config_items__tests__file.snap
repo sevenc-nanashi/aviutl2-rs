@@ -29,7 +29,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
         Self {
             input_file: match items[0usize] {
                 ::aviutl2::filter::FilterConfigItem::File(ref file) => {
-                    std::path::PathBuf::from(&file.value)
+                    ::aviutl2::filter::__string_to_pathbuf_or_option_pathbuf(&file.value)
                 }
                 _ => panic!("expected File at index {}", 0usize),
             },
@@ -40,7 +40,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
 impl ::std::default::Default for Config {
     fn default() -> Self {
         Self {
-            input_file: ::std::path::PathBuf::new(),
+            input_file: ::std::default::Default::default(),
         }
     }
 }
