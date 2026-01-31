@@ -31,9 +31,27 @@ impl Table {
             .value = Some(value.to_string());
     }
     /// 指定したキーにサブテーブルを挿入します。
+    ///
+    /// キーに`.`を含めると階層を掘り下げて挿入します。
     pub fn insert_table(&mut self, key: &str, table: Table) {
-        self.items
-            .entry(key.to_string())
+        let mut segments = key.split('.').collect::<Vec<_>>();
+        if segments.len() <= 1 {
+            self.items
+                .entry(key.to_string())
+                .or_insert_with(|| TableItem {
+                    value: None,
+                    table: None,
+                })
+                .table = Some(table);
+            return;
+        }
+
+        let last = segments.pop().unwrap();
+        let path = segments.into_iter().map(str::to_string).collect::<Vec<_>>();
+        let target = ensure_path(self, &path);
+        target
+            .items
+            .entry(last.to_string())
             .or_insert_with(|| TableItem {
                 value: None,
                 table: None,
@@ -50,12 +68,24 @@ impl Table {
         }
     }
     /// 指定したキーのサブテーブルを削除します。
+    ///
+    /// キーに`.`を含めると階層を掘り下げて削除します。
     pub fn remove_table(&mut self, key: &str) {
-        if let Some(item) = self.items.get_mut(key) {
-            item.table = None;
-            if item.value.is_none() {
-                self.items.shift_remove(key);
+        let mut segments = key.split('.').collect::<Vec<_>>();
+        if segments.len() <= 1 {
+            if let Some(item) = self.items.get_mut(key) {
+                item.table = None;
+                if item.value.is_none() {
+                    self.items.shift_remove(key);
+                }
             }
+            return;
+        }
+
+        let last = segments.pop().unwrap();
+        let parent_key = segments.join(".");
+        if let Some(parent) = self.get_table_mut(&parent_key) {
+            parent.remove_table(last);
         }
     }
     /// 指定したキーの値を文字列として読み取ります。
@@ -73,12 +103,26 @@ impl Table {
         self.items.get_mut(key).and_then(|item| item.value.as_mut())
     }
     /// 指定したキーのサブテーブルを取得します。
+    ///
+    /// キーに`.`を含めると階層を掘り下げて取得します。
     pub fn get_table(&self, key: &str) -> Option<&Table> {
-        self.items.get(key).and_then(|item| item.table.as_ref())
+        let mut current = self;
+        for segment in key.split('.') {
+            let item = current.items.get(segment)?;
+            current = item.table.as_ref()?;
+        }
+        Some(current)
     }
     /// 指定したキーのサブテーブルへの可変参照を取得します。
+    ///
+    /// キーに`.`を含めると階層を掘り下げて取得します。
     pub fn get_table_mut(&mut self, key: &str) -> Option<&mut Table> {
-        self.items.get_mut(key).and_then(|item| item.table.as_mut())
+        let mut current = self;
+        for segment in key.split('.') {
+            let next = current.items.get_mut(segment)?.table.as_mut()?;
+            current = next;
+        }
+        Some(current)
     }
 
     /// 別のテーブルをマージします。
@@ -468,6 +512,21 @@ mod tests {
 
         insta::assert_debug_snapshot!(table);
         assert_eq!(table.to_string(), input);
+    }
+
+    #[test]
+    fn test_table_key_with_dots() {
+        let input = include_str!("../test_assets/tracks.aup2");
+        let table: Table = input.parse().unwrap();
+
+        let scene0 = table.get_table("scene.0").unwrap();
+        assert_eq!(scene0.get_value("scene"), Some(&"0".to_string()));
+
+        let effect1 = table.get_table("0.1").unwrap();
+        assert_eq!(
+            effect1.get_value("effect.name"),
+            Some(&"標準描画".to_string())
+        );
     }
 
     #[test]

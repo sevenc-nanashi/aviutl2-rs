@@ -1,0 +1,24 @@
+name: Update Old Releases
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  update-releases:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+
+      - name: Update old releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ruby ./scripts/update_old_releases.rb

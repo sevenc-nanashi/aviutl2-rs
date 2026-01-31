@@ -13,3 +13,5 @@ gem "rake", "~> 13.3"
 gem "racc", "~> 1.8"
 
 gem "rubyzip", "~> 3.2"
+
+gem "octokit", "~> 10.0"

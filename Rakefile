@@ -5,10 +5,10 @@ require "tomlrb"
 require "fileutils"
 
 SyntaxTree::Rake::WriteTask.new do |t|
-  t.source_files = FileList[%w[./Rakefile]]
+  t.source_files = FileList[%w[./Rakefile ./scripts/**/*.rb]]
 end
 SyntaxTree::Rake::CheckTask.new do |t|
-  t.source_files = FileList[%w[./Rakefile]]
+  t.source_files = FileList[%w[./Rakefile ./scripts/**/*.rb]]
 end
 
 suffixes = {
@@ -26,11 +26,10 @@ main_crates = %w[
   aviutl2-eframe
 ]
 
-def replace_suffix(name, target, suffixes)
-  target_suffix = target == "release" ? "" : "_#{target}"
+def replace_suffix(name, suffixes)
   suffixes.each do |key, value|
     if name.end_with?(key)
-      return name.sub(/#{key}$/, "#{target_suffix}#{value}")
+      return name.sub(/#{key}$/, "#{value}")
     end
   end
   raise "Invalid file name: #{name}"
@@ -94,8 +93,8 @@ task :debug_setup do |task, args|
   rm(zip_path)
 
   dest_dir = "./test_environment/data/Plugin"
-  script_dir = dest_dir + "/../Script"
-  target = "debug"
+  script_dir = "./test_environment/data/Script"
+  languages_dir = "./test_environment/data/Language"
   FileUtils.mkdir_p(dest_dir) unless Dir.exist?(dest_dir)
   FileUtils.mkdir_p(script_dir) unless Dir.exist?(script_dir)
   Dir
@@ -108,8 +107,8 @@ task :debug_setup do |task, args|
         next
       end
 
-      source = "./target/#{target}/#{cargo_toml["lib"]["name"]}.dll"
-      dest_name = replace_suffix(cargo_toml["lib"]["name"], target, suffixes)
+      source = "./target/debug/#{cargo_toml["lib"]["name"]}.dll"
+      dest_name = replace_suffix(cargo_toml["lib"]["name"], suffixes)
       raise "Invalid file name: #{source}" if dest_name == File.basename(source)
       from_path = File.absolute_path(source)
       dest_path =
@@ -120,9 +119,24 @@ task :debug_setup do |task, args|
         end
       if File.exist?(dest_path) || File.symlink?(dest_path)
         puts "Skip: #{dest_path} already exists"
-        next
       else
         FileUtils.ln_s(from_path, dest_path, verbose: true)
+      end
+
+      maybe_i18n = Dir.glob("#{File.dirname(manifest)}/i18n/*.aul2")
+      maybe_i18n.each do |i18n_file|
+        i18n_dest_name = File.basename(i18n_file)
+        i18n_dest_path = File.join(languages_dir, i18n_dest_name)
+        if File.exist?(i18n_dest_path) || File.symlink?(i18n_dest_path)
+          puts "Skip: #{i18n_dest_path} already exists"
+          next
+        else
+          FileUtils.ln_s(
+            File.absolute_path(i18n_file),
+            i18n_dest_path,
+            verbose: true
+          )
+        end
       end
     end
 end
@@ -140,6 +154,7 @@ task :release, ["tag"] do |task, args|
   FileUtils.mkdir_p(dest_dir) unless Dir.exist?(dest_dir)
   plugins = {}
   plugin_files = {}
+  language_files = {}
   Dir
     .glob("./examples/*")
     .each do |dir|
@@ -149,28 +164,50 @@ task :release, ["tag"] do |task, args|
         next
       end
       lib_name = cargo_toml["lib"]["name"]
-      plugin_name = replace_suffix(lib_name, "release", suffixes)
+      plugin_name = replace_suffix(lib_name, suffixes)
       plugins[plugin_name] = dir
       source_path = File.join("target/release", "#{lib_name}.dll")
       plugin_files[plugin_name] = source_path
       cp(source_path, File.join(dest_dir, plugin_name))
+
+      Dir.glob(File.join(dir, "i18n", "*.aul2")).each do |i18n_file|
+        i18n_name = File.basename(i18n_file)
+        if language_files.key?(i18n_name)
+          puts "Skip: duplicate i18n file #{i18n_name}"
+          next
+        end
+        language_files[i18n_name] = i18n_file
+      end
     end
+  unless language_files.empty?
+    language_files.each do |i18n_name, i18n_file|
+      cp(i18n_file, File.join(dest_dir, i18n_name))
+    end
+  end
   zip_path = File.join(dest_dir, "aviutl2-rs.au2pkg.zip")
   rm_f(zip_path)
   puts "Creating zip: #{zip_path}"
   Zip::File.open(zip_path, create: true) do |zip|
     zip.mkdir("Plugin")
     zip.mkdir("Script")
+    zip.mkdir("Language") unless language_files.empty?
     plugin_files.each do |plugin_name, source_path|
       dest_dir_name = plugin_name.end_with?("mod2") ? "Script" : "Plugin"
       zip.add(File.join(dest_dir_name, plugin_name), source_path)
+    end
+    language_files.each do |i18n_name, i18n_file|
+      zip.add(File.join("Language", i18n_name), i18n_file)
     end
   end
 
   description = +<<~MARKDOWN
     # AviUtl2-rs Demo Plugins
+
     AviUtl2-rsのデモプラグイン集です。
-    `C:/ProgramData/AviUtl2/Plugin`に放り込めば動きます。
+    `aviutl2-rs.au2pkg.zip` はすべてのプラグインをまとめたパッケージです。プレビュー画面にドラッグアンドドロップしてインストールできます。
+
+    また、個別にプラグインをダウンロードしてインストールすることもできます。
+    `C:/ProgramData/AviUtl2/Plugin`に放り込んでください。
     ただし、`mod2`は`C:/ProgramData/AviUtl2/Script`に放り込んでください。
 
     ## 説明書
