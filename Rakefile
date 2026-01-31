@@ -95,6 +95,7 @@ task :debug_setup do |task, args|
   languages_dir = "./test_environment/data/Language"
   FileUtils.mkdir_p(dest_dir) unless Dir.exist?(dest_dir)
   FileUtils.mkdir_p(script_dir) unless Dir.exist?(script_dir)
+  FileUtils.mkdir_p(languages_dir) unless Dir.exist?(languages_dir)
   Dir
     .glob("./examples/*/Cargo.toml")
     .each do |manifest|

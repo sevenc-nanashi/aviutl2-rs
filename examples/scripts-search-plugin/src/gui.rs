@@ -218,7 +218,7 @@ impl ScriptsSearchApp {
                 ui.label(version_label.replace("{version}", &self.version));
                 ui.label(tr("オブジェクト・エフェクトを検索するプラグイン。"));
                 ui.add_space(8.0);
-                ui.label(tr("開発者"));
+                ui.label(tr("開発者:"));
                 ui.hyperlink_to("Nanashi.", "https://sevenc7c.com");
                 ui.add_space(4.0);
                 ui.label(tr("ソースコード:"));
