@@ -4,6 +4,10 @@ use std::{collections::VecDeque, time::Instant};
 const MAX_TAP_INTERVAL_SECS: f64 = 3.0;
 const MAX_INTERVALS: usize = 8;
 
+fn tr(text: &str) -> String {
+    aviutl2::config::translate(text).unwrap_or_else(|_| text.to_string())
+}
+
 pub(crate) struct MetronomeApp {
     show_info: bool,
     suppress_info_close_once: bool,
@@ -77,7 +81,7 @@ impl MetronomeApp {
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 let clicked = ui
-                    .heading("Rusty Metronome Plugin")
+                    .heading(tr("Rusty Metronome Plugin"))
                     .interact(egui::Sense::click());
                 if clicked.secondary_clicked() {
                     let _ = self.handle.show_context_menu();
@@ -92,7 +96,7 @@ impl MetronomeApp {
                             egui::Button::new("i"),
                         )
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
-                        .on_hover_text("プラグイン情報");
+                        .on_hover_text(tr("プラグイン情報"));
                     if resp.clicked() {
                         self.show_info = true;
                         self.suppress_info_close_once = true;
@@ -130,12 +134,12 @@ impl MetronomeApp {
                             .id(bpm_input_id)
                             .font(egui::TextStyle::Heading),
                     );
-                    ui.add_sized(
-                        egui::vec2(button_width, response.rect.height()),
-                        egui::Label::new(
-                            egui::RichText::new("BPM").text_style(egui::TextStyle::Heading),
-                        ),
-                    );
+                ui.add_sized(
+                    egui::vec2(button_width, response.rect.height()),
+                    egui::Label::new(
+                        egui::RichText::new(tr("BPM")).text_style(egui::TextStyle::Heading),
+                    ),
+                );
 
                     let enter_pressed = ui.input(|i| i.key_pressed(egui::Key::Enter));
                     if response.lost_focus() || (response.changed() && enter_pressed) {
@@ -145,10 +149,11 @@ impl MetronomeApp {
                 ui.add_space(12.0);
                 // Shiftキーを押してるときはプロジェクトからBPMを持ってくる
                 if ui.input(|i| i.modifiers.shift) {
-                    let set_button = egui::Button::new("BPM取得").min_size(egui::vec2(160.0, 48.0));
+                    let set_button =
+                        egui::Button::new(tr("BPM取得")).min_size(egui::vec2(160.0, 48.0));
                     if ui
                         .add(set_button)
-                        .on_hover_text("プロジェクトからBPMを取得します")
+                        .on_hover_text(tr("プロジェクトからBPMを取得します"))
                         .clicked()
                     {
                         let info = crate::EDIT_HANDLE.get().unwrap().get_edit_info();
@@ -156,17 +161,18 @@ impl MetronomeApp {
                         self.will_reset_on_next_tap = true;
                     }
                 } else {
-                    let tap_button = egui::Button::new(if self.will_reset_on_next_tap {
-                        "Reset"
+                    let tap_label = if self.will_reset_on_next_tap {
+                        tr("Reset")
                     } else if self.last_tap.is_some() {
-                        "Tap"
+                        tr("Tap")
                     } else {
-                        "Start"
-                    })
+                        tr("Start")
+                    };
+                    let tap_button = egui::Button::new(tap_label)
                     .min_size(egui::vec2(160.0, 48.0));
                     if ui
                         .add(tap_button)
-                        .on_hover_text("Spaceキーでもタップできます")
+                        .on_hover_text(tr("Spaceキーでもタップできます"))
                         .clicked()
                     {
                         self.register_tap();
@@ -175,16 +181,16 @@ impl MetronomeApp {
                 ui.add_space(8.0);
                 ui.columns(3, |columns| {
                     if columns[0]
-                        .add_enabled(self.bpm.is_some(), egui::Button::new("÷ 2"))
+                        .add_enabled(self.bpm.is_some(), egui::Button::new(tr("÷ 2")))
                         .clicked()
                     {
                         self.bpm = self.bpm.map(|bpm| bpm / 2.0);
                     }
-                    if columns[1].button("リセット").clicked() {
+                    if columns[1].button(tr("リセット")).clicked() {
                         self.reset_taps();
                     }
                     if columns[2]
-                        .add_enabled(self.bpm.is_some(), egui::Button::new("× 2"))
+                        .add_enabled(self.bpm.is_some(), egui::Button::new(tr("× 2")))
                         .clicked()
                     {
                         self.bpm = self.bpm.map(|bpm| bpm * 2.0);
@@ -193,7 +199,10 @@ impl MetronomeApp {
                 ui.add_space(8.0);
                 ui.columns(2, |columns| {
                     if columns[0]
-                        .add_enabled(self.bpm.is_some(), egui::Button::new("0:00を基準に反映"))
+                        .add_enabled(
+                            self.bpm.is_some(),
+                            egui::Button::new(tr("0:00を基準に反映")),
+                        )
                         .clicked()
                     {
                         self.apply_bpm_to_host_origin();
@@ -201,7 +210,7 @@ impl MetronomeApp {
                     if columns[1]
                         .add_enabled(
                             self.bpm.is_some(),
-                            egui::Button::new("現在位置を基準に反映"),
+                            egui::Button::new(tr("現在位置を基準に反映")),
                         )
                         .clicked()
                     {
@@ -230,7 +239,7 @@ impl MetronomeApp {
             })
             .inner;
         let mut open = true;
-        let response = egui::Window::new("Rusty Metronome Plugin")
+        let response = egui::Window::new(tr("Rusty Metronome Plugin"))
             .collapsible(false)
             .movable(false)
             .resizable(false)
@@ -238,13 +247,16 @@ impl MetronomeApp {
             .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
-                ui.label(format!("バージョン: {}", self.version));
-                ui.label("BPMを合わせるタップボタンとメトロノームのエフェクトを提供します。");
+                let version_label = tr("バージョン: {version}");
+                ui.label(version_label.replace("{version}", &self.version));
+                ui.label(tr(
+                    "BPMを合わせるタップボタンとメトロノームのエフェクトを提供します。",
+                ));
                 ui.add_space(8.0);
-                ui.label("Developed by");
+                ui.label(tr("開発者"));
                 ui.hyperlink_to("Nanashi.", "https://sevenc7c.com");
                 ui.add_space(4.0);
-                ui.label("Source Code:");
+                ui.label(tr("ソースコード:"));
                 ui.hyperlink_to(
                     "sevenc-nanashi/aviutl2-rs",
                     "https://github.com/sevenc-nanashi/aviutl2-rs",
