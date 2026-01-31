@@ -304,13 +304,8 @@ impl Drop for EframeWindow {
     }
 }
 
-fn wait_or_force_terminate(
-    thread: std::thread::JoinHandle<()>,
-    force_kill_timeout: Duration,
-) {
-    let timeout_ms = force_kill_timeout
-        .as_millis()
-        .min(u128::from(u32::MAX)) as u32;
+fn wait_or_force_terminate(thread: std::thread::JoinHandle<()>, force_kill_timeout: Duration) {
+    let timeout_ms = force_kill_timeout.as_millis().min(u128::from(u32::MAX)) as u32;
     let handle = HANDLE(thread.as_raw_handle());
     let wait_result = unsafe { WaitForSingleObject(handle, timeout_ms) };
     match wait_result {
