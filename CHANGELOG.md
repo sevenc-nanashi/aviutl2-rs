@@ -2,11 +2,18 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: aviutl2-eframe: eframeを0.33.3に更新
+- **Breaking**: filter: `file`、`folder`属性の型を`Option<std::path::PathBuf>`または`std::path::PathBuf`に変更
+- **Breaking**: filter: `button`属性の戻り値を`anyhow::Result<()>`に変更
+- **Breaking**: generic: `SubPlugin::new`の引数を`&AviUtl2Info`に変更
+- aviutl2-alias: get_tableで`.`を使うと子テーブルを辿れるように
+- generic: `try_get_edit_info`、`get_effect_item_parsed`を追加
+- `registered_effect_name`を追加
 
 ### デモプラグイン
 
-（なし）
+- 英語翻訳を追加
+- 再起動できなくなるバグを修正
 
 ## [0.12.2](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.12.2)
 
