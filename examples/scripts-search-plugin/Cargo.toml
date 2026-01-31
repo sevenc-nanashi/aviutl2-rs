@@ -21,7 +21,7 @@ mplus.workspace = true
 nucleo-matcher = "0.3.1"
 # lindera = { version = "2.0.1", features = ["embed-ipadic"] }
 itertools = "0.14.0"
-egui_extras = { version = "0.32.0", features = ["svg"] }
+egui_extras = { version = "0.33.3", features = ["svg"] }
 iconify = "0.3.1"
 formatx = "0.2.4"
 
