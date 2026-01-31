@@ -40,6 +40,10 @@ impl aviutl2::generic::GenericPlugin for MetronomePlugin {
         let edit_handle = registry.create_edit_handle();
         EDIT_HANDLE.set(edit_handle).unwrap();
     }
+
+    fn on_clear_cache(&mut self, _edit_section: &aviutl2::generic::EditSection) {
+        crate::wav::clear_sample_cache();
+    }
 }
 
 impl MetronomePlugin {

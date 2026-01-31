@@ -24,6 +24,10 @@ struct SampleCacheKey {
 static SAMPLE_CACHE: LazyLock<dashmap::DashMap<SampleCacheKey, Option<Arc<SampleData>>>> =
     LazyLock::new(dashmap::DashMap::new);
 
+pub(crate) fn clear_sample_cache() {
+    SAMPLE_CACHE.clear();
+}
+
 pub(crate) fn get_wav_sample(path: &Path, target_rate: u32) -> Option<Arc<SampleData>> {
     let key = SampleCacheKey {
         path: path.to_path_buf(),
