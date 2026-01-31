@@ -134,12 +134,12 @@ impl MetronomeApp {
                             .id(bpm_input_id)
                             .font(egui::TextStyle::Heading),
                     );
-                ui.add_sized(
-                    egui::vec2(button_width, response.rect.height()),
-                    egui::Label::new(
-                        egui::RichText::new(tr("BPM")).text_style(egui::TextStyle::Heading),
-                    ),
-                );
+                    ui.add_sized(
+                        egui::vec2(button_width, response.rect.height()),
+                        egui::Label::new(
+                            egui::RichText::new(tr("BPM")).text_style(egui::TextStyle::Heading),
+                        ),
+                    );
 
                     let enter_pressed = ui.input(|i| i.key_pressed(egui::Key::Enter));
                     if response.lost_focus() || (response.changed() && enter_pressed) {
@@ -168,8 +168,7 @@ impl MetronomeApp {
                     } else {
                         tr("Start")
                     };
-                    let tap_button = egui::Button::new(tap_label)
-                    .min_size(egui::vec2(160.0, 48.0));
+                    let tap_button = egui::Button::new(tap_label).min_size(egui::vec2(160.0, 48.0));
                     if ui
                         .add(tap_button)
                         .on_hover_text(tr("Spaceキーでもタップできます"))
