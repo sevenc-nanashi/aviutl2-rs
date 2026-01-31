@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.13.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.13.0)
+
 - **Breaking**: aviutl2-eframe: eframeを0.33.3に更新
 - **Breaking**: filter: `file`、`folder`属性の型を`Option<std::path::PathBuf>`または`std::path::PathBuf`に変更
 - **Breaking**: filter: `button`属性の戻り値を`anyhow::Result<()>`に変更
