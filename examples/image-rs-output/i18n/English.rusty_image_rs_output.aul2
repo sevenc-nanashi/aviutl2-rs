@@ -1,0 +1,6 @@
+[rusty_image_rs.auo2]
+動画情報がありません。=Video information is missing.
+ファイル名には連続する「`#`」を含めてください。その部分が連番になります。=The filename must contain consecutive `#` characters; that part becomes the sequence number.
+ファイル名には連続する「`#`」を1箇所だけ含めてください。=The filename must contain exactly one consecutive `#` section.
+連続する「`#`」の数が足りません。最低でも{required_len}つ必要です。=Not enough consecutive `#` characters. At least {required_len} are required.
+{}フレーム目を{}に保存できませんでした。=Failed to save frame {} to {}.

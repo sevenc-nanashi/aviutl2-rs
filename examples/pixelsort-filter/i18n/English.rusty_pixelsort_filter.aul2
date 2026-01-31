@@ -1,0 +1,10 @@
+[rusty_pixelsort.auf2]
+しきい値以上=Above threshold
+しきい値以下=Below threshold
+左右=Horizontal
+左右（反転）=Horizontal (Reversed)
+上下=Vertical
+上下（反転）=Vertical (Reversed)
+しきい値=Threshold
+ソート対象=Sort Target
+ソート方向=Sort Direction

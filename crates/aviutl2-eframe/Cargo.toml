@@ -12,7 +12,7 @@ categories = ["gui"]
 [dependencies]
 anyhow = "1.0.98"
 aviutl2.workspace = true
-eframe = { version = "0.32.0", default-features = false, features = ["glow"] }
+eframe = { version = "0.33.3", default-features = false, features = ["glow"] }
 winit = "0.30.9"
 windows = { version = "0.61.3", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse"] }
 

@@ -185,7 +185,7 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
             name: "Rusty Binaural Filter".to_string(),
             label: None,
             information: format!(
-                "Binaural filter, powered by Steam Audio, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/equalizer-filter",
+                "Binaural filter, powered by hrtf crate, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/equalizer-filter",
                 version = env!("CARGO_PKG_VERSION")
             ),
             flags: aviutl2::bitflag!(aviutl2::filter::FilterPluginFlags { audio: true }),

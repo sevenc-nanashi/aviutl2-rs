@@ -1,0 +1,11 @@
+[rusty_chiptune.auf2]
+矩形波=Square Wave
+三角波=Triangle Wave
+のこぎり波=Sawtooth Wave
+正弦波=Sine Wave
+ノイズ=Noise
+MIDIノート=MIDI Note
+周波数（Hz）=Frequency (Hz)
+音量=Volume
+音源=Waveform
+周波数モード=Frequency Mode

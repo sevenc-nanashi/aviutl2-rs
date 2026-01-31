@@ -2,6 +2,10 @@ use crate::{AliasEntry, AliasState};
 use aviutl2_eframe::{AviUtl2EframeHandle, eframe, egui};
 use std::sync::{Arc, Mutex};
 
+fn tr(text: &str) -> String {
+    aviutl2::config::translate(text).unwrap_or_else(|_| text.to_string())
+}
+
 pub(crate) struct LocalAliasApp {
     state: Arc<Mutex<AliasState>>,
     show_info: bool,
@@ -113,7 +117,9 @@ impl eframe::App for LocalAliasApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if aliases.is_empty() {
-                ui.label("エイリアスがありません。オブジェクトを選択して「ローカルエイリアスに追加」メニューで追加してください。");
+                ui.label(tr(
+                    "エイリアスがありません。オブジェクトを選択して「ローカルエイリアスに追加」メニューで追加してください。",
+                ));
                 return;
             }
 
@@ -140,24 +146,27 @@ impl eframe::App for LocalAliasApp {
 
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             if ui
-                                .add_enabled(index + 1 < aliases.len(), egui::Button::new("下へ"))
+                                .add_enabled(
+                                    index + 1 < aliases.len(),
+                                    egui::Button::new(tr("下へ")),
+                                )
                                 .clicked()
                             {
                                 self.move_alias(index, 1);
                             }
                             if ui
-                                .add_enabled(index > 0, egui::Button::new("上へ"))
+                                .add_enabled(index > 0, egui::Button::new(tr("上へ")))
                                 .clicked()
                             {
                                 self.move_alias(index, -1);
                             }
-                            if ui.button("削除").clicked() {
+                            if ui.button(tr("削除")).clicked() {
                                 self.delete_dialog = Some(DeleteDialog {
                                     index,
                                     name: alias.name.clone(),
                                 });
                             }
-                            if ui.button("名前変更").clicked() {
+                            if ui.button(tr("名前変更")).clicked() {
                                 self.rename_dialog = Some(RenameDialog {
                                     index,
                                     buffer: alias.name.clone(),
@@ -211,20 +220,20 @@ impl eframe::App for LocalAliasApp {
                 let mut open = true;
                 let mut save = false;
                 let mut cancel = false;
-                egui::Window::new("名前変更")
+                egui::Window::new(tr("名前変更"))
                     .collapsible(false)
                     .resizable(false)
                     .open(&mut open)
                     .show(ctx, |ui| {
-                        ui.label("新しいエイリアス名");
+                        ui.label(tr("新しいエイリアス名"));
                         let response = ui.text_edit_singleline(&mut dialog.buffer);
                         let pressed_enter =
                             response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
                         ui.horizontal(|ui| {
-                            if ui.button("保存").clicked() || pressed_enter {
+                            if ui.button(tr("保存")).clicked() || pressed_enter {
                                 save = true;
                             }
-                            if ui.button("キャンセル").clicked() {
+                            if ui.button(tr("キャンセル")).clicked() {
                                 cancel = true;
                             }
                         });
@@ -255,17 +264,19 @@ impl eframe::App for LocalAliasApp {
                 let mut open = true;
                 let mut cancel = false;
                 let mut confirm_delete = false;
-                egui::Window::new("削除")
+                egui::Window::new(tr("削除"))
                     .collapsible(false)
                     .resizable(false)
                     .open(&mut open)
                     .show(ctx, |ui| {
-                        ui.label(format!("エイリアス \"{}\" を削除しますか？", dialog.name));
+                        let template = tr("エイリアス \"{}\" を削除しますか？");
+                        let message = template.replace("{}", &dialog.name);
+                        ui.label(message);
                         ui.horizontal(|ui| {
-                            if ui.button("削除").clicked() {
+                            if ui.button(tr("削除")).clicked() {
                                 confirm_delete = true;
                             }
-                            if ui.button("キャンセル").clicked() {
+                            if ui.button(tr("キャンセル")).clicked() {
                                 cancel = true;
                             }
                         });

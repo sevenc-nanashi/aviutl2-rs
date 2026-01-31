@@ -3,9 +3,11 @@
 //! AviUtl2の汎用プラグインでegui/eframeを扱うためのライブラリ。
 use anyhow::Context;
 use aviutl2::{AnyResult, log, raw_window_handle};
-use std::{num::NonZeroIsize, sync::mpsc};
+use std::os::windows::io::AsRawHandle;
+use std::{num::NonZeroIsize, sync::mpsc, time::Duration};
 use windows::Win32::{
-    Foundation::{HWND, SetLastError},
+    Foundation::{HANDLE, HWND, SetLastError, WAIT_FAILED, WAIT_OBJECT_0, WAIT_TIMEOUT},
+    System::Threading::{TerminateThread, WaitForSingleObject},
     UI::WindowsAndMessaging::{
         GWL_EXSTYLE, GWL_STYLE, SetWindowLongPtrW, WS_CLIPSIBLINGS, WS_POPUP,
     },
@@ -20,10 +22,17 @@ pub use windows;
 ///
 /// この構造体は、別スレッドで動作するegui/eframeウィンドウを管理します。
 /// ウィンドウのハンドル（HWND）やeguiのコンテキストへのアクセスを提供します。
+///
+/// # Warning
+///
+/// Drop時にウィンドウスレッドの終了を待機しますが、現在、なぜかウィンドウスレッドが
+/// 正常に終了しないことがあります。
+/// `force_kill_timeout`で指定した時間内に終了しない場合、強制終了されます。
 pub struct EframeWindow {
     hwnd: NonZeroIsize,
     thread: Option<std::thread::JoinHandle<()>>,
     egui_ctx: egui::Context,
+    force_kill_timeout: Duration,
 }
 
 struct WrappedApp {
@@ -86,10 +95,33 @@ impl eframe::App for WrappedApp {
 }
 
 impl EframeWindow {
+    /// ウィンドウ終了待ちのデフォルトタイムアウト。
+    pub const DEFAULT_FORCE_KILL_TIMEOUT: Duration = Duration::from_secs(5);
+
     /// 新しいEframeWindowを作成する。
     ///
     /// `app_creator`は`eframe::run_native`と同様のclosureです。
     pub fn new<F>(name: &str, app_creator: F) -> AnyResult<Self>
+    where
+        F: 'static
+            + Send
+            + FnOnce(
+                &eframe::CreationContext<'_>,
+                AviUtl2EframeHandle,
+            )
+                -> Result<Box<dyn eframe::App>, Box<dyn std::error::Error + Send + Sync>>,
+    {
+        Self::new_with_force_kill_timeout(name, app_creator, Self::DEFAULT_FORCE_KILL_TIMEOUT)
+    }
+
+    /// 新しいEframeWindowを作成する（終了待ちの強制終了タイムアウトを指定）。
+    ///
+    /// `app_creator`は`eframe::run_native`と同様のclosureです。
+    pub fn new_with_force_kill_timeout<F>(
+        name: &str,
+        app_creator: F,
+        force_kill_timeout: Duration,
+    ) -> AnyResult<Self>
     where
         F: 'static
             + Send
@@ -188,6 +220,7 @@ impl EframeWindow {
             hwnd,
             thread: Some(thread),
             egui_ctx,
+            force_kill_timeout,
         })
     }
 
@@ -266,6 +299,35 @@ impl Drop for EframeWindow {
             self.egui_ctx
                 .send_viewport_cmd(egui::ViewportCommand::Close);
             self.egui_ctx.request_repaint(); // ウィンドウを閉じるトリガー
+            wait_or_force_terminate(thread, self.force_kill_timeout);
+        }
+    }
+}
+
+fn wait_or_force_terminate(thread: std::thread::JoinHandle<()>, force_kill_timeout: Duration) {
+    let timeout_ms = force_kill_timeout.as_millis().min(u128::from(u32::MAX)) as u32;
+    let handle = HANDLE(thread.as_raw_handle());
+    let wait_result = unsafe { WaitForSingleObject(handle, timeout_ms) };
+    match wait_result {
+        WAIT_OBJECT_0 => {
+            let _ = thread.join();
+        }
+        WAIT_TIMEOUT => {
+            log::warn!(
+                "Egui thread did not exit within {} ms; force terminating",
+                timeout_ms
+            );
+            unsafe {
+                let _ = TerminateThread(handle, 1);
+            }
+        }
+        WAIT_FAILED => {
+            let err = unsafe { windows::Win32::Foundation::GetLastError() };
+            log::warn!("WaitForSingleObject failed: {:?}", err);
+            let _ = thread.join();
+        }
+        other => {
+            log::warn!("WaitForSingleObject returned unexpected value: {:?}", other);
             let _ = thread.join();
         }
     }

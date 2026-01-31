@@ -1,0 +1,24 @@
+[rusty_ffmpeg.auo2]
+デフォルト=Default
+デフォルトの最小限のFFmpeg設定。=Minimal default FFmpeg settings.
+高品質なH.264/AAC形式で出力。配布・投稿に最適。=High-quality H.264/AAC output. Ideal for distribution and posting.
+YouTube投稿向けの推奨設定（H.264 + AAC + faststart）。=Recommended settings for YouTube uploads (H.264 + AAC + faststart).
+ニコニコ（推奨）=Niconico (Recommended)
+ニコニコ動画の推奨設定（H.264 + AAC）。=Recommended settings for Niconico (H.264 + AAC).
+ニコニコ（最高音質）=Niconico (Highest Quality)
+ニコニコ動画の最高音質設定（H.264 + flac）。mkvで出力してください。=Highest quality settings for Niconico (H.264 + FLAC). Please output as MKV.
+中間編集用の高品質ProRes 422 HQ（Apple互換）。=High-quality ProRes 422 HQ for intermediate editing (Apple compatible).
+透過mov=Transparent MOV
+アルファチャンネル付きProRes 4444でMOV出力（透過対応の高品質動画）。=Output MOV with ProRes 4444 and alpha channel (high-quality video with transparency).
+YUY2モードでは偶数以外の解像度はサポートされていません。現在の解像度は {}x{} です。=In YUY2 mode, only even resolutions are supported. Current resolution is {}x{}.
+カスタム=Custom
+引数：{args} | ピクセルフォーマット：{pixel_format}=Arguments: {args} | Pixel format: {pixel_format}
+プリセット=Presets
+ピクセルフォーマット:=Pixel format:
+保存=Save
+リセット=Reset
+キャンセル=Cancel
+YUV422（YUY2、透過なし）=YUV422 (YUY2, no transparency)
+BGR u8x3（BGR24、透過なし）=BGR u8x3 (BGR24, no transparency)
+RGBA u16x4（PA64、透過対応）=RGBA u16x4 (PA64, transparency supported)
+RGBA f16x4（HF64、透過対応）=RGBA f16x4 (HF64, transparency supported)

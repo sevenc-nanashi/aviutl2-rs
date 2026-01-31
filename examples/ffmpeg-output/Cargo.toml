@@ -16,8 +16,8 @@ anyhow = "1.0.98"
 aviutl2.workspace = true
 chrono = "0.4.41"
 dedent = "0.1.1"
-eframe = { version = "0.32.0", default-features = false, features = ["glow"] }
-egui_commonmark = { version = "0.21.0", features = ["macros"] }
+eframe = { version = "0.33.3", default-features = false, features = ["glow"] }
+egui_commonmark = { version = "0.22.0", features = ["macros"] }
 mplus.workspace = true
 process_path = "0.1.4"
 serde = { version = "1.0.219", features = ["derive"] }

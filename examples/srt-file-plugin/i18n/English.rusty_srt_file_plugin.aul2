@@ -1,0 +1,13 @@
+[rusty_srt_file.aux2]
+SRTファイル（*.srt）=SRT file (*.srt)
+オブジェクトが選択されていません。=No object is selected.
+選択されたオブジェクトはテキストオブジェクトではありません。=The selected object is not a text object.
+SRTファイル=SRT file
+SRTファイルを選択=Select SRT file
+SRTファイルの解析に失敗しました: {}=Failed to parse SRT file: {}
+SRTファイルに字幕が含まれていません。=The SRT file contains no subtitles.
+字幕を追加すると既存のオブジェクトと重なってしまいます。=Adding subtitles would overlap existing objects.
+オブジェクトの編集に失敗しました。=Failed to edit the object.
+SRTファイルを保存=Save SRT file
+SRTファイルの書き出し完了=SRT export completed
+SRTファイルの書き出しが完了しました。=SRT export completed.
