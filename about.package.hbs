@@ -1,0 +1,40 @@
+[ AviUtl2-rs Demo Plugins ]
+
+aviutl2-rs のデモプラグイン集です。
+
+作者：名無し。（@sevenc_nanashi / https://sevenc7c.com ）
+配布：https://github.com/sevenc-nanashi/aviutl2-rs
+
+
+注意：
+| このプラグイン集は頻繁に更新されます。
+| 最新版は上記の配布先からダウンロードしてください。
+| また、 @sevenc_nanashi の Twitter でも更新情報を発信しています。
+
+[ ライセンス情報 ]
+
+このプラグイン集で使用されているサードパーティライブラリのライセンス情報は以下の通りです：
+
+[[ ライセンスの概要 ]]
+
+{{#each overview}}
+- {{name}} x{{count}}
+{{/each}}
+
+[[ ライセンスの全文 ]]
+
+{{#each licenses}}
+
+[[[ {{name}} ]]]
+
+使用しているクレート：
+
+{{#each used_by}}
+- {{crate.name}} {{crate.version}} ({{#if crate.repository}}{{crate.repository}}{{else}}https://crates.io/crates/{{crate.name}}{{/if}})
+{{/each}}
+
+```
+{{{text}}}
+```
+
+{{/each}}

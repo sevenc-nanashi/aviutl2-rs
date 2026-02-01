@@ -187,8 +187,18 @@ task :release, ["tag"] do |task, args|
   end
   zip_path = File.join(dest_dir, "aviutl2-rs-v#{tag}.au2pkg.zip")
   rm_f(zip_path)
+
+  package_txt_path = File.join(dest_dir, "package.txt")
+  sh "cargo about generate ./about.package.hbs -o #{package_txt_path}"
+  base_package_txt = File.read(package_txt_path)
+  File.write(
+    package_txt_path,
+    base_package_txt.gsub("\r\n", "\n").gsub("\n", "\r\n"),
+    mode: "wb"
+  )
   puts "Creating zip: #{zip_path}"
   Zip::File.open(zip_path, create: true) do |zip|
+    zip.add("package.txt", File.join(dest_dir, "package.txt"))
     zip.mkdir("Plugin")
     zip.mkdir("Script")
     zip.mkdir("Language") unless language_files.empty?
