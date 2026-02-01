@@ -1,16 +1,21 @@
 # Third Party Licenses
-This page lists the licenses of the projects used in cargo-about.
+
+This page lists the licenses of third party libraries used by this project.
 
 ## Overview of licenses:
+
 {{#each overview}}
 - [{{name}}](#{{id}}) ({{count}})
 {{/each}}
 
 ## All license text:
+
 {{#each licenses}}
+
 ### {{name}}
 
 #### Used by:
+
 {{#each used_by}}
 - [{{crate.name}} {{crate.version}}]({{#if crate.repository}}{{crate.repository}}{{else}}https://crates.io/crates/{{crate.name}}{{/if}})
 {{/each}}
@@ -18,6 +23,7 @@ This page lists the licenses of the projects used in cargo-about.
 ```
 {{text}}
 ```
+
 {{/each}}
 
 <!-- vim: set ft=markdown : -->
