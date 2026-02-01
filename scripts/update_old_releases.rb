@@ -83,12 +83,6 @@ def main
     tag_name = release[:tag_name]
     current_body = release[:body] || ""
 
-    # Check if the link already exists by looking for the marker
-    if current_body.include?(MARKER)
-      puts "Skipping #{tag_name}: already has latest version link"
-      next
-    end
-
     current_body = current_body.sub(/\A.*#{MARKER}\n/m, "").lstrip
 
     # Prepend the link to the body
@@ -101,6 +95,11 @@ def main
       #{MARKER}
       #{current_body}
     MARKDOWN
+
+    if new_body.strip == release[:body].to_s.strip
+      puts "✓ #{tag_name} is already up to date"
+      next
+    end
 
     puts "Updating #{tag_name}..."
     if dry_run
