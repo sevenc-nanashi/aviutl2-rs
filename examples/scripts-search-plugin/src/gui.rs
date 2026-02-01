@@ -110,6 +110,10 @@ impl ScriptsSearchApp {
         egui::CentralPanel::default().show(ctx, |ui| match crate::EFFECTS.get() {
             None => {
                 ui.label(tr("エフェクト情報を読み込み中..."));
+
+                // NOTE: エフェクトが読み込まれるまでは常に再描画する
+                // 本来はlib.rsからrequest_repaintを呼ぶべきだが、まぁ面倒なので...
+                ctx.request_repaint();
             }
             Some(effects) => {
                 let count_label = tr("登録されているエフェクト数: {count}");

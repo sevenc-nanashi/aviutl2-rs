@@ -17,12 +17,15 @@
 - **Breaking**: filter: `file`、`folder`属性の型を`Option<std::path::PathBuf>`または`std::path::PathBuf`に変更
 - **Breaking**: filter: `button`属性の戻り値を`anyhow::Result<()>`に変更
 - **Breaking**: generic: `SubPlugin::new`の引数を`&AviUtl2Info`に変更
+- **Breaking**: `au2pkg.zip`の名前にバージョンを含めるように
 - aviutl2-alias: get_tableで`.`を使うと子テーブルを辿れるように
 - generic: `try_get_edit_info`、`get_effect_item_parsed`を追加
 - `registered_effect_name`を追加
+- package.txtを追加
 
 ### デモプラグイン
 
+- scripts-search-plugin: エフェクトを読み込んでもマウスオーバーしないと名前が表示されなかったのを修正
 - 英語翻訳を追加
 - 再起動できなくなるバグを修正
 
