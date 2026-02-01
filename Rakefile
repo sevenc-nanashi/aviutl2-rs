@@ -185,7 +185,7 @@ task :release, ["tag"] do |task, args|
       cp(i18n_file, File.join(dest_dir, i18n_name))
     end
   end
-  zip_path = File.join(dest_dir, "aviutl2-rs.au2pkg.zip")
+  zip_path = File.join(dest_dir, "aviutl2-rs-v#{tag}.au2pkg.zip")
   rm_f(zip_path)
   puts "Creating zip: #{zip_path}"
   Zip::File.open(zip_path, create: true) do |zip|
@@ -205,7 +205,7 @@ task :release, ["tag"] do |task, args|
     # AviUtl2-rs Demo Plugins
 
     AviUtl2-rsのデモプラグイン集です。
-    `aviutl2-rs.au2pkg.zip` はすべてのプラグインをまとめたパッケージです。プレビュー画面にドラッグアンドドロップしてインストールできます。
+    `aviutl2-rs-v#{tag}.au2pkg.zip` はすべてのプラグインをまとめたパッケージです。プレビュー画面にドラッグアンドドロップしてインストールできます。
 
     また、個別にプラグインをダウンロードしてインストールすることもできます。
     `C:/ProgramData/AviUtl2/Plugin`に放り込んでください。
