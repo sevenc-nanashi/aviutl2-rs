@@ -133,29 +133,56 @@ pub fn get_font_info(key: &str) -> Result<FontInfo, std::ffi::NulError> {
 ///
 /// # Note
 ///
-/// 取得出来ない場合は(0, 0, 0)が返却されます。
+/// 複数の色が定義されている場合は最初の色が取得されます。
 ///
 /// # Arguments
 ///
 /// - `key`: 設定ファイル(style.conf)の`[Color]`のキー名
-pub fn get_color_code(key: &str) -> Result<(u8, u8, u8), std::ffi::NulError> {
+///
+/// # See Also
+///
+/// - [`get_all_color_codes`]
+pub fn get_color_code(key: &str) -> Result<Option<(u8, u8, u8)>, std::ffi::NulError> {
+    get_all_color_codes(key).map(|codes| codes.into_iter().next())
+}
+
+/// 設定ファイルで定義されている色コードを取得する。
+///
+/// # Arguments
+///
+/// - `key`: 設定ファイル(style.conf)の`[Color]`のキー名
+///
+/// # See Also
+///
+/// - [`get_color_code`]
+pub fn get_all_color_codes(key: &str) -> Result<Vec<(u8, u8, u8)>, std::ffi::NulError> {
     let c_key = std::ffi::CString::new(key)?;
-    let color_code = unsafe {
+    let color_codes = unsafe {
         let handle = CONFIG_HANDLE
             .get()
             .expect("Config handle not initialized")
             .lock()
             .unwrap();
-        (handle
+        let count = (handle
             .raw
             .as_ref()
             .expect("Config handle raw pointer is null")
-            .get_color_code)(handle.raw, c_key.as_ptr())
+            .get_color_code_index)(handle.raw, c_key.as_ptr(), -1);
+        let mut codes = Vec::with_capacity(count as usize);
+        for i in 0..count {
+            let color_code = (handle
+                .raw
+                .as_ref()
+                .expect("Config handle raw pointer is null")
+                .get_color_code_index)(handle.raw, c_key.as_ptr(), i);
+            let r = ((color_code >> 16) & 0xFF) as u8;
+            let g = ((color_code >> 8) & 0xFF) as u8;
+            let b = (color_code & 0xFF) as u8;
+            codes.push((r, g, b));
+        }
+        codes
     };
-    let r = ((color_code >> 16) & 0xFF) as u8;
-    let g = ((color_code >> 8) & 0xFF) as u8;
-    let b = (color_code & 0xFF) as u8;
-    Ok((r, g, b))
+    Ok(color_codes)
 }
 
 /// 設定ファイルで定義されているレイアウトサイズを取得する。

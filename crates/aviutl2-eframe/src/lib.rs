@@ -378,51 +378,80 @@ pub fn aviutl2_visuals() -> eframe::egui::Visuals {
     let button_body_press = load_color("ButtonBodyPress");
     let button_body_select = load_color("ButtonBodySelect");
 
-    visuals.override_text_color = Some(text);
-    visuals.weak_text_color = Some(text_disable);
-    visuals.selection = egui::style::Selection {
-        bg_fill: text_select,
-        stroke: egui::Stroke::new(1.0, border_select),
-    };
-    visuals.window_fill = background;
-    visuals.window_stroke = egui::Stroke::new(1.0, window_border);
-    visuals.panel_fill = background;
-    visuals.faint_bg_color = grouping;
-    visuals.extreme_bg_color = window_separator;
-    visuals.text_edit_bg_color = Some(grouping_hover);
-    visuals.code_bg_color = grouping_select;
+    if let Some(text) = text {
+        visuals.override_text_color = Some(text);
+        visuals.widgets.noninteractive.fg_stroke.color = text;
+        visuals.widgets.inactive.fg_stroke.color = text;
+        visuals.widgets.hovered.fg_stroke.color = text;
+        visuals.widgets.active.fg_stroke.color = text;
+        visuals.widgets.open.fg_stroke.color = text;
+    }
+    if let Some(text_disable) = text_disable {
+        visuals.weak_text_color = Some(text_disable);
+    }
+    if let (Some(text_select), Some(border_select)) = (text_select, border_select) {
+        visuals.selection = egui::style::Selection {
+            bg_fill: text_select,
+            stroke: egui::Stroke::new(1.0, border_select),
+        };
+    }
+    if let Some(background) = background {
+        visuals.window_fill = background;
+        visuals.panel_fill = background;
+        visuals.widgets.noninteractive.bg_fill = background;
+        visuals.widgets.noninteractive.weak_bg_fill = background;
+    }
+    if let Some(window_border) = window_border {
+        visuals.window_stroke = egui::Stroke::new(1.0, window_border);
+    }
+    if let Some(grouping) = grouping {
+        visuals.faint_bg_color = grouping;
+    }
+    if let Some(window_separator) = window_separator {
+        visuals.extreme_bg_color = window_separator;
+    }
+    if let Some(grouping_hover) = grouping_hover {
+        visuals.text_edit_bg_color = Some(grouping_hover);
+    }
+    if let Some(grouping_select) = grouping_select {
+        visuals.code_bg_color = grouping_select;
+    }
 
-    visuals.widgets.noninteractive.bg_fill = background;
-    visuals.widgets.noninteractive.weak_bg_fill = background;
-    visuals.widgets.noninteractive.bg_stroke.color = border;
-    visuals.widgets.noninteractive.fg_stroke.color = text;
+    if let Some(border) = border {
+        visuals.widgets.noninteractive.bg_stroke.color = border;
+        visuals.widgets.inactive.bg_stroke.color = border;
+    }
+    if let Some(border_focus) = border_focus {
+        visuals.widgets.hovered.bg_stroke.color = border_focus;
+    }
+    if let Some(border_select) = border_select {
+        visuals.widgets.active.bg_stroke.color = border_select;
+        visuals.widgets.open.bg_stroke.color = border_select;
+    }
 
-    visuals.widgets.inactive.bg_fill = button_body;
-    visuals.widgets.inactive.weak_bg_fill = button_body;
-    visuals.widgets.inactive.bg_stroke.color = border;
-    visuals.widgets.inactive.fg_stroke.color = text;
-
-    visuals.widgets.hovered.bg_fill = button_body_hover;
-    visuals.widgets.hovered.weak_bg_fill = button_body_hover;
-    visuals.widgets.hovered.bg_stroke.color = border_focus;
-    visuals.widgets.hovered.fg_stroke.color = text;
-
-    visuals.widgets.active.bg_fill = button_body_press;
-    visuals.widgets.active.weak_bg_fill = button_body_press;
-    visuals.widgets.active.bg_stroke.color = border_select;
-    visuals.widgets.active.fg_stroke.color = text;
-
-    visuals.widgets.open.bg_fill = button_body_select;
-    visuals.widgets.open.weak_bg_fill = button_body_select;
-    visuals.widgets.open.bg_stroke.color = border_select;
-    visuals.widgets.open.fg_stroke.color = text;
+    if let Some(button_body) = button_body {
+        visuals.widgets.inactive.bg_fill = button_body;
+        visuals.widgets.inactive.weak_bg_fill = button_body;
+    }
+    if let Some(button_body_hover) = button_body_hover {
+        visuals.widgets.hovered.bg_fill = button_body_hover;
+        visuals.widgets.hovered.weak_bg_fill = button_body_hover;
+    }
+    if let Some(button_body_press) = button_body_press {
+        visuals.widgets.active.bg_fill = button_body_press;
+        visuals.widgets.active.weak_bg_fill = button_body_press;
+    }
+    if let Some(button_body_select) = button_body_select {
+        visuals.widgets.open.bg_fill = button_body_select;
+        visuals.widgets.open.weak_bg_fill = button_body_select;
+    }
 
     visuals
 }
 
-fn load_color(key: &str) -> egui::Color32 {
-    let (r, g, b) = aviutl2::config::get_color_code(key).expect("Key contains null byte");
-    egui::Color32::from_rgb(r, g, b)
+fn load_color(key: &str) -> Option<egui::Color32> {
+    let (r, g, b) = aviutl2::config::get_color_code(key).expect("Key contains null byte")?;
+    Some(egui::Color32::from_rgb(r, g, b))
 }
 #[inline]
 fn makelparam(low: i32, high: i32) -> isize {
