@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.14.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.14.0)
+
 - **Breaking**: aviutl2の最小サポートをbeta31に引き上げ
 - **Breaking**: aviutl2-eframe: `new_with_force_kill_timeout`を削除
 - **Breaking**: config: `get_color_code`の戻り値をOptionに変更
