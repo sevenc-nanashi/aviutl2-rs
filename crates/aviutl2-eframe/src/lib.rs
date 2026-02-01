@@ -90,13 +90,25 @@ impl eframe::App for WrappedApp {
 // # Note
 //
 // デフォルトのEframeWinitApplicationはAviUtl2のメインスレッドからの終了要求に対して終了しないため、
-// 一段階wrapして、OnceLockで終了要求を伝えるようにする。
+// 一段階wrapして終了要求を処理するようにする。
 // （これによってActiveEventLoopへのアクセスが可能になり、exit()を呼び出せる）
 // 少なくとも2026/02/01現在、これで正常に動作しているので、まぁ...
+//
+// TODO: "You forgot to call destroy() on the egui glow painter. Resources will leak!" を直す
 
 struct WinitEventLoopApp<'a> {
     app: EframeWinitApplication<'a>,
     thread_terminator: std::sync::Arc<std::sync::OnceLock<()>>,
+}
+impl<'a> WinitEventLoopApp<'a> {
+    fn maybe_exit(&self, event_loop: &winit::event_loop::ActiveEventLoop) -> bool {
+        if self.thread_terminator.get().is_some() {
+            log::debug!("Egui window thread exiting...");
+            event_loop.exit();
+            return true;
+        }
+        false
+    }
 }
 impl<'a> winit::application::ApplicationHandler<eframe::UserEvent> for WinitEventLoopApp<'a> {
     fn new_events(
@@ -104,6 +116,9 @@ impl<'a> winit::application::ApplicationHandler<eframe::UserEvent> for WinitEven
         event_loop: &winit::event_loop::ActiveEventLoop,
         cause: winit::event::StartCause,
     ) {
+        if self.maybe_exit(event_loop) {
+            return;
+        }
         self.app.new_events(event_loop, cause);
     }
 
@@ -112,6 +127,9 @@ impl<'a> winit::application::ApplicationHandler<eframe::UserEvent> for WinitEven
         event_loop: &winit::event_loop::ActiveEventLoop,
         event: eframe::UserEvent,
     ) {
+        if self.maybe_exit(event_loop) {
+            return;
+        }
         self.app.user_event(event_loop, event);
     }
 
@@ -121,30 +139,44 @@ impl<'a> winit::application::ApplicationHandler<eframe::UserEvent> for WinitEven
         device_id: winit::event::DeviceId,
         event: winit::event::DeviceEvent,
     ) {
+        if self.maybe_exit(event_loop) {
+            return;
+        }
         self.app.device_event(event_loop, device_id, event);
     }
 
     fn about_to_wait(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        if self.thread_terminator.get().is_some() {
-            event_loop.exit();
+        if self.maybe_exit(event_loop) {
             return;
         }
         self.app.about_to_wait(event_loop);
     }
 
     fn suspended(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        if self.maybe_exit(event_loop) {
+            return;
+        }
         self.app.suspended(event_loop);
     }
 
     fn exiting(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        if self.maybe_exit(event_loop) {
+            return;
+        }
         self.app.exiting(event_loop);
     }
 
     fn memory_warning(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        if self.maybe_exit(event_loop) {
+            return;
+        }
         self.app.memory_warning(event_loop);
     }
 
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        if self.maybe_exit(event_loop) {
+            return;
+        }
         self.app.resumed(event_loop);
     }
 
@@ -154,6 +186,9 @@ impl<'a> winit::application::ApplicationHandler<eframe::UserEvent> for WinitEven
         window_id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
+        if self.maybe_exit(event_loop) {
+            return;
+        }
         self.app.window_event(event_loop, window_id, event);
     }
 }
@@ -358,8 +393,20 @@ impl Drop for EframeWindow {
     fn drop(&mut self) {
         // ウィンドウスレッドが終了するのを待つ
         if let Some(thread) = self.thread.take() {
+            log::debug!("Terminating Egui window thread...");
             self.thread_terminator.set(()).ok();
+            unsafe {
+                windows::Win32::UI::WindowsAndMessaging::PostMessageW(
+                    Some(HWND(self.hwnd.get() as *mut std::ffi::c_void)),
+                    windows::Win32::UI::WindowsAndMessaging::WM_NULL,
+                    windows::Win32::Foundation::WPARAM(0),
+                    windows::Win32::Foundation::LPARAM(0),
+                )
+                .ok();
+            }
+            log::debug!("Waiting for Egui window thread to exit...");
             let _ = thread.join();
+            log::debug!("Egui window thread exited.");
         }
     }
 }
