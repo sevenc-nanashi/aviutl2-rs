@@ -3,11 +3,10 @@
 //! AviUtl2の汎用プラグインでegui/eframeを扱うためのライブラリ。
 use anyhow::Context;
 use aviutl2::{AnyResult, log, raw_window_handle};
-use std::os::windows::io::AsRawHandle;
-use std::{num::NonZeroIsize, sync::mpsc, time::Duration};
+use eframe::EframeWinitApplication;
+use std::{num::NonZeroIsize, sync::mpsc};
 use windows::Win32::{
-    Foundation::{HANDLE, HWND, SetLastError, WAIT_FAILED, WAIT_OBJECT_0, WAIT_TIMEOUT},
-    System::Threading::{TerminateThread, WaitForSingleObject},
+    Foundation::{HWND, SetLastError},
     UI::WindowsAndMessaging::{
         GWL_EXSTYLE, GWL_STYLE, SetWindowLongPtrW, WS_CLIPSIBLINGS, WS_POPUP,
     },
@@ -22,17 +21,11 @@ pub use windows;
 ///
 /// この構造体は、別スレッドで動作するegui/eframeウィンドウを管理します。
 /// ウィンドウのハンドル（HWND）やeguiのコンテキストへのアクセスを提供します。
-///
-/// # Warning
-///
-/// Drop時にウィンドウスレッドの終了を待機しますが、現在、なぜかウィンドウスレッドが
-/// 正常に終了しないことがあります。
-/// `force_kill_timeout`で指定した時間内に終了しない場合、強制終了されます。
 pub struct EframeWindow {
     hwnd: NonZeroIsize,
     thread: Option<std::thread::JoinHandle<()>>,
     egui_ctx: egui::Context,
-    force_kill_timeout: Duration,
+    thread_terminator: std::sync::Arc<std::sync::OnceLock<()>>,
 }
 
 struct WrappedApp {
@@ -94,10 +87,78 @@ impl eframe::App for WrappedApp {
     }
 }
 
-impl EframeWindow {
-    /// ウィンドウ終了待ちのデフォルトタイムアウト。
-    pub const DEFAULT_FORCE_KILL_TIMEOUT: Duration = Duration::from_secs(5);
+// # Note
+//
+// デフォルトのEframeWinitApplicationはAviUtl2のメインスレッドからの終了要求に対して終了しないため、
+// 一段階wrapして、OnceLockで終了要求を伝えるようにする。
+// （これによってActiveEventLoopへのアクセスが可能になり、exit()を呼び出せる）
+// 少なくとも2026/02/01現在、これで正常に動作しているので、まぁ...
 
+struct WinitEventLoopApp<'a> {
+    app: EframeWinitApplication<'a>,
+    thread_terminator: std::sync::Arc<std::sync::OnceLock<()>>,
+}
+impl<'a> winit::application::ApplicationHandler<eframe::UserEvent> for WinitEventLoopApp<'a> {
+    fn new_events(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        cause: winit::event::StartCause,
+    ) {
+        self.app.new_events(event_loop, cause);
+    }
+
+    fn user_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        event: eframe::UserEvent,
+    ) {
+        self.app.user_event(event_loop, event);
+    }
+
+    fn device_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        device_id: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    ) {
+        self.app.device_event(event_loop, device_id, event);
+    }
+
+    fn about_to_wait(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        if self.thread_terminator.get().is_some() {
+            event_loop.exit();
+            return;
+        }
+        self.app.about_to_wait(event_loop);
+    }
+
+    fn suspended(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        self.app.suspended(event_loop);
+    }
+
+    fn exiting(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        self.app.exiting(event_loop);
+    }
+
+    fn memory_warning(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        self.app.memory_warning(event_loop);
+    }
+
+    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        self.app.resumed(event_loop);
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        window_id: winit::window::WindowId,
+        event: winit::event::WindowEvent,
+    ) {
+        self.app.window_event(event_loop, window_id, event);
+    }
+}
+
+impl EframeWindow {
     /// 新しいEframeWindowを作成する。
     ///
     /// `app_creator`は`eframe::run_native`と同様のclosureです。
@@ -111,42 +172,28 @@ impl EframeWindow {
             )
                 -> Result<Box<dyn eframe::App>, Box<dyn std::error::Error + Send + Sync>>,
     {
-        Self::new_with_force_kill_timeout(name, app_creator, Self::DEFAULT_FORCE_KILL_TIMEOUT)
-    }
-
-    /// 新しいEframeWindowを作成する（終了待ちの強制終了タイムアウトを指定）。
-    ///
-    /// `app_creator`は`eframe::run_native`と同様のclosureです。
-    pub fn new_with_force_kill_timeout<F>(
-        name: &str,
-        app_creator: F,
-        force_kill_timeout: Duration,
-    ) -> AnyResult<Self>
-    where
-        F: 'static
-            + Send
-            + FnOnce(
-                &eframe::CreationContext<'_>,
-                AviUtl2EframeHandle,
-            )
-                -> Result<Box<dyn eframe::App>, Box<dyn std::error::Error + Send + Sync>>,
-    {
         let (tx, rx) = mpsc::channel::<
             Result<(isize, egui::Context), Box<dyn std::error::Error + Send + Sync>>,
         >();
         let name = name.to_string();
+        let thread_terminator = std::sync::Arc::new(std::sync::OnceLock::new());
         let thread = std::thread::spawn({
+            let thread_terminator = thread_terminator.clone();
             move || {
                 let native_options = eframe::NativeOptions {
-                    event_loop_builder: Some(Box::new(move |builder| {
-                        builder.with_any_thread(true);
-                    })),
                     viewport: egui::ViewportBuilder::default()
                         .with_visible(false)
                         .with_icon(egui::IconData::default()),
                     ..Default::default()
                 };
-                let result = eframe::run_native(
+
+                let event_loop =
+                    winit::event_loop::EventLoop::<eframe::UserEvent>::with_user_event()
+                        .with_any_thread(true)
+                        .build()
+                        .unwrap();
+                event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+                let app = eframe::create_native(
                     &name,
                     native_options,
                     Box::new(|cc| {
@@ -196,23 +243,38 @@ impl EframeWindow {
                             internal_app: app,
                         }) as Box<dyn eframe::App>)
                     }),
+                    &event_loop,
                 );
 
-                if let Err(e) = result {
-                    let _ = tx.send(Err(anyhow::anyhow!(
-                        "Egui thread encountered an error: {}",
-                        e
-                    )
-                    .into_boxed_dyn_error()));
-                }
+                let mut egui_app = WinitEventLoopApp {
+                    app,
+                    thread_terminator,
+                };
+                let res = event_loop.run_app(&mut egui_app);
+                log::debug!("Egui event loop exited: {:?}", res);
             }
         });
-        let (hwnd, egui_ctx) = rx
-            .recv()
-            .context("Failed to receive HWND from Egui thread")?
-            .map_err(|e| {
-                anyhow::anyhow!("Egui thread reported an error during initialization: {}", e)
-            })?;
+        let (hwnd, egui_ctx) = match rx.recv() {
+            Ok(Ok((hwnd, egui_ctx))) => (hwnd, egui_ctx),
+            Ok(Err(e)) => {
+                return Err(anyhow::anyhow!("Failed to create Egui app: {}", e));
+            }
+            Err(e) => {
+                if thread.is_finished() {
+                    let thread_err = thread.join();
+                    if let Err(join_err) = thread_err {
+                        if let Some(panic_info) = join_err.downcast_ref::<String>() {
+                            return Err(anyhow::anyhow!("Egui thread panicked: {}", panic_info));
+                        } else if let Some(panic_info) = join_err.downcast_ref::<&str>() {
+                            return Err(anyhow::anyhow!("Egui thread panicked: {}", panic_info));
+                        } else {
+                            return Err(anyhow::anyhow!("Egui thread panicked with unknown type"));
+                        }
+                    }
+                }
+                return Err(anyhow::anyhow!("Failed to receive HWND: {}", e));
+            }
+        };
 
         let hwnd = NonZeroIsize::new(hwnd).context("Received null HWND from Egui thread")?;
 
@@ -220,7 +282,7 @@ impl EframeWindow {
             hwnd,
             thread: Some(thread),
             egui_ctx,
-            force_kill_timeout,
+            thread_terminator,
         })
     }
 
@@ -296,38 +358,7 @@ impl Drop for EframeWindow {
     fn drop(&mut self) {
         // ウィンドウスレッドが終了するのを待つ
         if let Some(thread) = self.thread.take() {
-            self.egui_ctx
-                .send_viewport_cmd(egui::ViewportCommand::Close);
-            self.egui_ctx.request_repaint(); // ウィンドウを閉じるトリガー
-            wait_or_force_terminate(thread, self.force_kill_timeout);
-        }
-    }
-}
-
-fn wait_or_force_terminate(thread: std::thread::JoinHandle<()>, force_kill_timeout: Duration) {
-    let timeout_ms = force_kill_timeout.as_millis().min(u128::from(u32::MAX)) as u32;
-    let handle = HANDLE(thread.as_raw_handle());
-    let wait_result = unsafe { WaitForSingleObject(handle, timeout_ms) };
-    match wait_result {
-        WAIT_OBJECT_0 => {
-            let _ = thread.join();
-        }
-        WAIT_TIMEOUT => {
-            log::warn!(
-                "Egui thread did not exit within {} ms; force terminating",
-                timeout_ms
-            );
-            unsafe {
-                let _ = TerminateThread(handle, 1);
-            }
-        }
-        WAIT_FAILED => {
-            let err = unsafe { windows::Win32::Foundation::GetLastError() };
-            log::warn!("WaitForSingleObject failed: {:?}", err);
-            let _ = thread.join();
-        }
-        other => {
-            log::warn!("WaitForSingleObject returned unexpected value: {:?}", other);
+            self.thread_terminator.set(()).ok();
             let _ = thread.join();
         }
     }
