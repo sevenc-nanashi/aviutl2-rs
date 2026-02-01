@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: aviutl2の最小サポートをbeta31に引き上げ
+- **Breaking**: aviutl2-eframe: `new_with_force_kill_timeout`を削除
+- **Breaking**: config: `get_color_code`の戻り値をOptionに変更
+- config: `get_all_color_codes`を追加
 
 ### デモプラグイン
 
