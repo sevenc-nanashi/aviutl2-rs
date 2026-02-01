@@ -57,5 +57,6 @@ pub struct CONFIG_HANDLE {
     /// key : 設定ファイル(style.conf)の\[Color]のキー名
     /// index : 取得する色のインデックス (-1を指定すると色の数を返却します)
     /// 戻り値 : 定義されている色コードの値 (取得出来ない場合は0が返却されます)
-    pub get_color_code_index: unsafe extern "C" fn(handle: *mut CONFIG_HANDLE, key: LPCSTR, index: i32) -> i32,
+    pub get_color_code_index:
+        unsafe extern "C" fn(handle: *mut CONFIG_HANDLE, key: LPCSTR, index: i32) -> i32,
 }
