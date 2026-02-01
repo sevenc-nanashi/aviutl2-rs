@@ -13,7 +13,7 @@ pub struct AviUtl2Info {
 }
 
 /// 対応する最小のAviUtl2バージョン。
-pub const MINIMUM_AVIUTL2_VERSION: AviUtl2Version = AviUtl2Version(2003001);
+pub const MINIMUM_AVIUTL2_VERSION: AviUtl2Version = AviUtl2Version(2003100);
 
 /// AviUtl2のバージョンがサポート範囲かを確認します。
 pub fn ensure_minimum_aviutl2_version(version: AviUtl2Version) -> AnyResult<()> {
