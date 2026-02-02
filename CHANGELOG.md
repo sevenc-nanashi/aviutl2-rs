@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: パスを受け取る箇所で`AsRef<std::path::Path>`を使うように
 
 ### デモプラグイン
 

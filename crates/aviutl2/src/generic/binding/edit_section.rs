@@ -552,12 +552,12 @@ impl EditSection {
     }
 
     /// 指定のメディアファイルがサポートされているかどうか調べます。
-    pub fn is_support_media_file<P: AsRef<str>>(
+    pub fn is_support_media_file<P: AsRef<std::path::Path>>(
         &self,
         file_path: P,
         mode: MediaFileSupportMode,
     ) -> EditSectionResult<bool> {
-        let c_file_path = crate::common::CWString::new(file_path.as_ref())?;
+        let c_file_path = crate::common::CWString::new(&file_path.as_ref().to_string_lossy())?;
         let is_supported = unsafe {
             match mode {
                 MediaFileSupportMode::ExtensionOnly => {
@@ -576,8 +576,11 @@ impl EditSection {
     /// # Note
     ///
     /// 動画、音声、画像ファイル以外では取得出来ません。
-    pub fn get_media_info<P: AsRef<str>>(&self, file_path: P) -> EditSectionResult<MediaInfo> {
-        let c_file_path = crate::common::CWString::new(file_path.as_ref())?;
+    pub fn get_media_info<P: AsRef<std::path::Path>>(
+        &self,
+        file_path: P,
+    ) -> EditSectionResult<MediaInfo> {
+        let c_file_path = crate::common::CWString::new(&file_path.as_ref().to_string_lossy())?;
         let mut media_info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::MEDIA_INFO>::uninit();
         let success = unsafe {
             ((*self.internal).get_media_info)(
@@ -607,14 +610,14 @@ impl EditSection {
     /// - `layer`：作成するオブジェクトのレイヤー番号（0始まり）。
     /// - `frame`：作成するオブジェクトのフレーム番号（0始まり）。
     /// - `length`：作成するオブジェクトの長さ（フレーム数）。`None`を指定した場合、長さや追加位置は自動的に調整されます。
-    pub fn create_object_from_media_file<P: AsRef<str>>(
+    pub fn create_object_from_media_file<P: AsRef<std::path::Path>>(
         &self,
         file_path: P,
         layer: usize,
         frame: usize,
         length: Option<usize>,
     ) -> EditSectionResult<ObjectHandle> {
-        let c_file_path = crate::common::CWString::new(file_path.as_ref())?;
+        let c_file_path = crate::common::CWString::new(&file_path.as_ref().to_string_lossy())?;
         let object_handle = unsafe {
             ((*self.internal).create_object_from_media_file)(
                 c_file_path.as_ptr(),
@@ -914,7 +917,7 @@ impl<'a> EditSectionLayerCaller<'a> {
     /// # See Also
     ///
     /// [`EditSection::create_object_from_media_file`]
-    pub fn create_object_from_media_file<P: AsRef<str>>(
+    pub fn create_object_from_media_file<P: AsRef<std::path::Path>>(
         &self,
         file_path: P,
         frame: usize,
