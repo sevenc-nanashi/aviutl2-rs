@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.15.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.15.0)
+
 - **Breaking**: パスを受け取る箇所で`AsRef<std::path::Path>`を使うように
 
 ### デモプラグイン
