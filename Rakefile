@@ -221,6 +221,8 @@ task :release, ["tag"] do |task, args|
     `C:/ProgramData/AviUtl2/Plugin`に放り込んでください。
     ただし、`mod2`は`C:/ProgramData/AviUtl2/Script`に放り込んでください。
 
+    これらのプラグインを使って動画を作ったりした際は動画やコモンズに`sm45355531`を親登録していただけると嬉しいです。（任意）
+
     ## 説明書
     変更履歴：<https://github.com/sevenc-nanashi/aviutl2-rs/blob/#{tag}/CHANGELOG.md>
   MARKDOWN
