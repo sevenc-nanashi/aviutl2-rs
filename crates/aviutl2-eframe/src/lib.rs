@@ -8,7 +8,7 @@ use std::{num::NonZeroIsize, sync::mpsc};
 use windows::Win32::{
     Foundation::{HWND, SetLastError},
     UI::WindowsAndMessaging::{
-        GWL_EXSTYLE, GWL_STYLE, SetWindowLongPtrW, WS_CLIPSIBLINGS, WS_POPUP,
+        GWL_EXSTYLE, GWL_STYLE, SetWindowLongPtrW, ShowWindow, WS_CLIPSIBLINGS, WS_POPUP,
     },
 };
 use winit::{platform::windows::EventLoopBuilderExtWindows, raw_window_handle::HasWindowHandle};
@@ -218,7 +218,11 @@ impl EframeWindow {
                 let native_options = eframe::NativeOptions {
                     viewport: egui::ViewportBuilder::default()
                         .with_visible(false)
+                        .with_decorations(false)
                         .with_icon(egui::IconData::default()),
+                    window_builder: Some(Box::new(|wb| {
+                        wb.with_visible(false).with_decorations(false)
+                    })),
                     ..Default::default()
                 };
 
@@ -242,6 +246,18 @@ impl EframeWindow {
                         unsafe {
                             // Set window styles
                             let hwnd = hwnd.hwnd.get() as _;
+
+                            SetLastError(windows::Win32::Foundation::WIN32_ERROR(0));
+                            let _ = ShowWindow(
+                                HWND(hwnd),
+                                windows::Win32::UI::WindowsAndMessaging::SW_HIDE,
+                            );
+                            if windows::Win32::Foundation::GetLastError().0 != 0 {
+                                let err = windows::core::Error::from_win32();
+                                return Err(anyhow::anyhow!("Failed to hide window: {}", err)
+                                    .into_boxed_dyn_error());
+                            }
+
                             SetLastError(windows::Win32::Foundation::WIN32_ERROR(0));
                             let res_style = SetWindowLongPtrW(
                                 HWND(hwnd),
