@@ -10,36 +10,36 @@ AviUtl2 SDKのRust版です。
 ## 構成
 
 - `./crates/`：ライブラリとして提供するクレート群。
-  - `./crates/aviutl2`：AviUtl2 SDKのRustラッパー。`aviutl2-sys`を使用して、よりRustらしいAPIを提供します。
-  - `./crates/aviutl2-sys`：AviUtl2 SDKのRustバインディング。ほぼ1:1の対応です。
-  - `./crates/aviutl2-macros`：`aviutl2`で使用するマクロを提供します。
-  - `./crates/aviutl2-alias`：プロジェクトファイル（`*.aup2`）とエイリアスファイル（`*.object`、`*.effect`）で使われているデータ構造を読み書きするクレート。
-  - `./crates/aviutl2-eframe`：汎用プラグインでeframe（egui）を使用するためのクレート。
+  - [`./crates/aviutl2`](https://crates.io/crates/aviutl2)：AviUtl2 SDKのRustラッパー。`aviutl2-sys`を使用して、よりRustらしいAPIを提供します。
+  - [`./crates/aviutl2-sys`](https://crates.io/crates/aviutl2-sys)：AviUtl2 SDKのRustバインディング。ほぼ1:1の対応です。
+  - [`./crates/aviutl2-macros`](https://crates.io/crates/aviutl2-macros)：`aviutl2`で使用するマクロを提供します。
+  - [`./crates/aviutl2-alias`](https://crates.io/crates/aviutl2-alias)：プロジェクトファイル（`*.aup2`）とエイリアスファイル（`*.object`、`*.effect`）で使われているデータ構造を読み書きするクレート。
+  - [`./crates/aviutl2-eframe`](https://crates.io/crates/aviutl2-eframe)：汎用プラグインでeframe（egui）を使用するためのクレート。
 
 - `./examples/`：AviUtl2 SDKを使用したサンプルコード。
   - 入力プラグイン：
-    - `./examples/image-rs-input`：image-rsを使用して画像を読み込むサンプル。
-    - `./examples/midi-player-input`：midlyを使用してMIDIを読み込み、ピアノで再生するサンプル。
+    - [`./examples/image-rs-input`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_image_rs_input)：image-rsを使用して画像を読み込むサンプル。
+    - [`./examples/midi-player-input`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_midi_player)：midlyを使用してMIDIを読み込み、ピアノで再生するサンプル。
     - `./examples/pixel-format-test-input`：それぞれのピクセルフォーマットをテストするサンプル。
   - 出力プラグイン：
-    - `./examples/image-rs-output`：image-rsを使用して画像を連番で保存するサンプル。
-    - `./examples/ffmpeg-output`：FFmpegを使用して動画を出力するサンプル。
-    - `./examples/statistics-output`：フレームごとの描画時間を計測し、統計情報を出力するサンプル。
+    - [`./examples/image-rs-output`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_image_rs_output)：image-rsを使用して画像を連番で保存するサンプル。
+    - [`./examples/ffmpeg-output`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_ffmpeg)：FFmpegを使用して動画を出力するサンプル。
+    - [`./examples/statistics-output`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_statistics)：フレームごとの描画時間を計測し、統計情報を出力するサンプル。
   - フィルタプラグイン（フィルタ効果）：
-    - `./examples/binaural-filter`：hrtfクレートを使用してバイノーラルなパン振りを実装したサンプル。
-    - `./examples/equalizer-filter`：biquadクレートを使用してイコライザーフィルタを実装したサンプル。
-    - `./examples/pixelsort-filter`：ピクセルソートフィルタのサンプル。
+    - [`./examples/binaural-filter`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_binaural)：hrtfクレートを使用してバイノーラルなパン振りを実装したサンプル。
+    - [`./examples/equalizer-filter`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_equalizer)：biquadクレートを使用してイコライザーフィルタを実装したサンプル。
+    - [`./examples/pixelsort-filter`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_pixelsort)：ピクセルソートフィルタのサンプル。
   - フィルタプラグイン（カスタムオブジェクト）：
-    - `./examples/chiptune-filter`：チップチューンの音を生成するサンプル。
-    - `./examples/random-color-filter`：ランダムな色を表示するサンプル。
+    - [`./examples/chiptune-filter`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_chiptune)：チップチューンの音を生成するサンプル。
+    - [`./examples/random-color-filter`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_random_color)：ランダムな色を表示するサンプル。
   - スクリプトモジュール：
     - `./examples/username-module`：ユーザー名を取得するスクリプトモジュールのサンプル。
   - 汎用プラグイン：
-    - `./examples/metronome-plugin`：クリックに合わせてBPMを調整したり、メトロノーム音を再生したりする汎用プラグインのサンプル。
-    - `./examples/local-alias-plugin`：プロジェクトローカルにオブジェクトを保存する汎用プラグインのサンプル。
-    - `./examples/srt-file-plugin`：SRTファイルをインポート/エクスポートする汎用プラグインのサンプル。
-    - `./examples/restart-shortcut-plugin`：AviUtl2を再起動する編集メニューを追加する汎用プラグインのサンプル。
-    - `./examples/scripts-search-plugin`：オブジェクト・エフェクトを検索してタイムラインに配置する汎用プラグインのサンプル。
+    - [`./examples/metronome-plugin`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_metronome_plugin)：クリックに合わせてBPMを調整したり、メトロノーム音を再生したりする汎用プラグインのサンプル。
+    - [`./examples/local-alias-plugin`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_local_alias_plugin)：プロジェクトローカルにオブジェクトを保存する汎用プラグインのサンプル。
+    - [`./examples/srt-file-plugin`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_srt_file)：SRTファイルをインポート/エクスポートする汎用プラグインのサンプル。
+    - [`./examples/restart-shortcut-plugin`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_restart_shortcut)：AviUtl2を再起動する編集メニューを追加する汎用プラグインのサンプル。
+    - [`./examples/scripts-search-plugin`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_scripts_search)：オブジェクト・エフェクトを検索してタイムラインに配置する汎用プラグインのサンプル。
 
 ## ライセンス
 
