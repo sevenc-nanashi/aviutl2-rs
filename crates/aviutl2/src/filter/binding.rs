@@ -121,7 +121,7 @@ pub struct SceneInfo {
 /// オブジェクト情報。
 #[derive(Debug, Clone, Copy)]
 pub struct ObjectInfo {
-    /// ID。
+    /// 描画対象のオブジェクトの固有ID。
     /// アプリ起動ごとの固有IDです。
     pub id: i64,
     /// オブジェクトの内の対象エフェクトのID。

@@ -354,6 +354,9 @@ pub struct EDIT_HANDLE {
         param: *mut c_void,
         func_proc_enum_module: unsafe extern "C" fn(param: *mut c_void, info: *mut MODULE_INFO),
     ),
+
+    /// ホストアプリケーションのメインウィンドウのハンドルを取得します
+    pub get_host_app_window: unsafe extern "C" fn() -> HWND,
 }
 
 impl EDIT_HANDLE {
@@ -498,4 +501,59 @@ pub struct HOST_APP_TABLE {
     /// func_proc_change_scene : シーン変更時のコールバック関数
     pub register_change_scene_handler:
         unsafe extern "C" fn(func_proc_change_scene: unsafe extern "C" fn(*mut EDIT_SECTION)),
+
+    /// インポートメニューを登録する (ウィンドウメニューのファイルに追加されます)
+    /// 引数paramを渡して編集セクションにしないでコールバックを呼び出します
+    /// name : インポートメニューの名称
+    /// param : 任意のユーザーデータのポインタ
+    /// func_proc_import : インポートメニュー選択時のコールバック関数
+    pub register_import_menu_param: unsafe extern "C" fn(
+        name: LPCWSTR,
+        param: *mut c_void,
+        func_proc_import: unsafe extern "C" fn(param: *mut c_void),
+    ),
+
+    /// エクスポートメニューを登録する (ウィンドウメニューのファイルに追加されます)
+    /// 引数paramを渡して編集セクションにしないでコールバックを呼び出します
+    /// name : エクスポートメニューの名称
+    /// param : 任意のユーザーデータのポインタ
+    /// func_proc_export : エクスポートメニュー選択時のコールバック関数
+    pub register_export_menu_param: unsafe extern "C" fn(
+        name: LPCWSTR,
+        param: *mut c_void,
+        func_proc_export: unsafe extern "C" fn(param: *mut c_void),
+    ),
+
+    /// レイヤーメニューを登録する (レイヤー編集でオブジェクト未選択時の右クリックメニューに追加されます)
+    /// 引数paramを渡して編集セクションにしないでコールバックを呼び出します
+    /// name : レイヤーメニューの名称
+    /// param : 任意のユーザーデータのポインタ
+    /// func_proc_layer_menu : レイヤーメニュー選択時のコールバック関数
+    pub register_layer_menu_param: unsafe extern "C" fn(
+        name: LPCWSTR,
+        param: *mut c_void,
+        func_proc_layer_menu: unsafe extern "C" fn(param: *mut c_void),
+    ),
+
+    /// オブジェクトメニューを登録する (レイヤー編集でオブジェクト選択時の右クリックメニューに追加されます)
+    /// 引数paramを渡して編集セクションにしないでコールバックを呼び出します
+    /// name : オブジェクトメニューの名称
+    /// param : 任意のユーザーデータのポインタ
+    /// func_proc_object_menu : オブジェクトメニュー選択時のコールバック関数
+    pub register_object_menu_param: unsafe extern "C" fn(
+        name: LPCWSTR,
+        param: *mut c_void,
+        func_proc_object_menu: unsafe extern "C" fn(param: *mut c_void),
+    ),
+
+    /// 編集メニューを登録する
+    /// 引数paramを渡して編集セクションにしないでコールバックを呼び出します
+    /// name : 編集メニューの名称 ※名称に'\'を入れると表示を階層に出来ます
+    /// param : 任意のユーザーデータのポインタ
+    /// func_proc_edit_menu : 編集メニュー選択時のコールバック関数
+    pub register_edit_menu_param: unsafe extern "C" fn(
+        name: LPCWSTR,
+        param: *mut c_void,
+        func_proc_edit_menu: unsafe extern "C" fn(param: *mut c_void),
+    ),
 }

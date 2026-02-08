@@ -54,3 +54,5 @@ mod edit_section;
 pub use edit_section::*;
 mod host_app;
 pub use host_app::*;
+mod edit_handle;
+pub use edit_handle::*;

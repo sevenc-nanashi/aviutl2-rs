@@ -281,6 +281,53 @@ pub(crate) fn format_file_filters(file_filters: &[FileFilter]) -> String {
     file_filter
 }
 
+pub(crate) struct KillablePointer<T> {
+    kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    inner: *mut T,
+}
+unsafe impl<T> Send for KillablePointer<T> {}
+unsafe impl<T> Sync for KillablePointer<T> {}
+impl<T> Drop for KillablePointer<T> {
+    fn drop(&mut self) {
+        self.kill_switch
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+impl<T> KillablePointer<T> {
+    pub fn new(inner: T) -> Self {
+        Self {
+            kill_switch: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            inner: Box::into_raw(Box::new(inner)),
+        }
+    }
+
+    pub fn create_child(&self) -> ChildKillablePointer<T> {
+        ChildKillablePointer {
+            kill_switch: std::sync::Arc::clone(&self.kill_switch),
+            inner: self.inner,
+        }
+    }
+}
+
+pub(crate) struct ChildKillablePointer<T> {
+    kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    inner: *mut T,
+}
+unsafe impl<T> Send for ChildKillablePointer<T> {}
+unsafe impl<T> Sync for ChildKillablePointer<T> {}
+impl<T> ChildKillablePointer<T> {
+    pub fn is_killed(&self) -> bool {
+        self.kill_switch.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    pub unsafe fn as_mut(&mut self) -> &mut T {
+        if self.is_killed() {
+            panic!("parent KillablePointer has been dropped");
+        }
+        unsafe { &mut *self.inner }
+    }
+}
+
 pub(crate) enum LeakType {
     WideString,
     ValueVector { len: usize, name: String },

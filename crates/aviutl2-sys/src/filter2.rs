@@ -218,6 +218,7 @@ pub struct SCENE_INFO {
 #[repr(C)]
 pub struct OBJECT_INFO {
     /// オブジェクトのID (アプリ起動毎の固有ID)
+    /// ※描画対象のオブジェクトの固有ID
     pub id: i64,
     /// オブジェクトの現在のフレーム番号
     pub frame: i32,
