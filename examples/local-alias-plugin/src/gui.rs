@@ -13,6 +13,7 @@ pub(crate) struct LocalAliasApp {
     delete_dialog: Option<DeleteDialog>,
     version: String,
     handle: AviUtl2EframeHandle,
+    collapsed: bool,
 }
 
 struct RenameDialog {
@@ -64,6 +65,7 @@ impl LocalAliasApp {
             delete_dialog: None,
             version: env!("CARGO_PKG_VERSION").to_string(),
             handle,
+            collapsed: false,
         }
     }
 
@@ -100,7 +102,7 @@ impl eframe::App for LocalAliasApp {
 
         // TODO: toolbarの右クリックイベントに右クリックメニューを割り当てる
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
-            ui.horizontal(|ui| {
+            let response = ui.horizontal(|ui| {
                 let clicked = ui
                     .heading("Rusty Local Alias Plugin")
                     .interact(egui::Sense::click());
@@ -112,72 +114,77 @@ impl eframe::App for LocalAliasApp {
                         self.show_info = true;
                     }
                 });
-            });
+            }).response;
+            if response.clicked() {
+                self.collapsed = !self.collapsed;
+            }
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            if aliases.is_empty() {
-                ui.label(tr(
-                    "エイリアスがありません。オブジェクトを選択して「ローカルエイリアスに追加」メニューで追加してください。",
-                ));
-                return;
-            }
+        if !self.collapsed {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                if aliases.is_empty() {
+                    ui.label(tr(
+                        "エイリアスがありません。オブジェクトを選択して「ローカルエイリアスに追加」メニューで追加してください。",
+                    ));
+                    return;
+                }
 
-            for (index, alias) in aliases.iter().enumerate() {
-                let selected = selected_index == Some(index);
-                let frame = egui::Frame::group(ui.style())
-                    .fill(if selected {
-                        ui.visuals().selection.bg_fill
-                    } else {
-                        ui.visuals().faint_bg_color
-                    })
-                    .stroke(if selected {
-                        ui.visuals().selection.stroke
-                    } else {
-                        ui.visuals().widgets.noninteractive.bg_stroke
-                    });
-                frame.show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        let select_button =
-                            egui::Button::new(&alias.name).selected(selected).frame(false);
-                        if ui.add(select_button).clicked() {
-                            self.set_selected_index(Some(index));
-                        }
+                for (index, alias) in aliases.iter().enumerate() {
+                    let selected = selected_index == Some(index);
+                    let frame = egui::Frame::group(ui.style())
+                        .fill(if selected {
+                            ui.visuals().selection.bg_fill
+                        } else {
+                            ui.visuals().faint_bg_color
+                        })
+                        .stroke(if selected {
+                            ui.visuals().selection.stroke
+                        } else {
+                            ui.visuals().widgets.noninteractive.bg_stroke
+                        });
+                    frame.show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            let select_button =
+                                egui::Button::new(&alias.name).selected(selected).frame(false);
+                            if ui.add(select_button).clicked() {
+                                self.set_selected_index(Some(index));
+                            }
 
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui
-                                .add_enabled(
-                                    index + 1 < aliases.len(),
-                                    egui::Button::new(tr("下へ")),
-                                )
-                                .clicked()
-                            {
-                                self.move_alias(index, 1);
-                            }
-                            if ui
-                                .add_enabled(index > 0, egui::Button::new(tr("上へ")))
-                                .clicked()
-                            {
-                                self.move_alias(index, -1);
-                            }
-                            if ui.button(tr("削除")).clicked() {
-                                self.delete_dialog = Some(DeleteDialog {
-                                    index,
-                                    name: alias.name.clone(),
-                                });
-                            }
-                            if ui.button(tr("名前変更")).clicked() {
-                                self.rename_dialog = Some(RenameDialog {
-                                    index,
-                                    buffer: alias.name.clone(),
-                                });
-                            }
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                if ui
+                                    .add_enabled(
+                                        index + 1 < aliases.len(),
+                                        egui::Button::new(tr("下へ")),
+                                    )
+                                    .clicked()
+                                {
+                                    self.move_alias(index, 1);
+                                }
+                                if ui
+                                    .add_enabled(index > 0, egui::Button::new(tr("上へ")))
+                                    .clicked()
+                                {
+                                    self.move_alias(index, -1);
+                                }
+                                if ui.button(tr("削除")).clicked() {
+                                    self.delete_dialog = Some(DeleteDialog {
+                                        index,
+                                        name: alias.name.clone(),
+                                    });
+                                }
+                                if ui.button(tr("名前変更")).clicked() {
+                                    self.rename_dialog = Some(RenameDialog {
+                                        index,
+                                        buffer: alias.name.clone(),
+                                    });
+                                }
+                            });
                         });
                     });
-                });
-                ui.add_space(6.0);
-            }
-        });
+                    ui.add_space(6.0);
+                }
+            });
+        }
 
         if self.show_info {
             let mut open = true;

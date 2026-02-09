@@ -14,6 +14,7 @@ pub(crate) struct ScriptsSearchApp {
 
     matcher: nucleo_matcher::Matcher,
     needle: String,
+    collapsed: bool,
 }
 
 macro_rules! include_iconify {
@@ -63,6 +64,7 @@ impl ScriptsSearchApp {
             handle,
             matcher: nucleo_matcher::Matcher::new(config),
             needle: String::new(),
+            collapsed: false,
         }
     }
 }
@@ -79,7 +81,7 @@ impl ScriptsSearchApp {
     fn render_toolbar(&mut self, ctx: &egui::Context) {
         // TODO: toolbarの右クリックイベントに右クリックメニューを割り当てる
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
-            ui.horizontal(|ui| {
+            let response = ui.horizontal(|ui| {
                 let clicked = ui
                     .heading("Rusty Scripts Search Plugin")
                     .interact(egui::Sense::click());
@@ -102,11 +104,17 @@ impl ScriptsSearchApp {
                         self.suppress_info_close_once = true;
                     }
                 });
-            });
+            }).response;
+            if response.clicked() {
+                self.collapsed = !self.collapsed;
+            }
         });
     }
 
     fn render_main_panel(&mut self, ctx: &egui::Context) {
+        if self.collapsed {
+            return;
+        }
         egui::CentralPanel::default().show(ctx, |ui| match crate::EFFECTS.get() {
             None => {
                 ui.label(tr("エフェクト情報を読み込み中..."));

@@ -18,6 +18,7 @@ pub(crate) struct MetronomeApp {
     bpm: Option<f64>,
     bpm_text_input: String,
     will_reset_on_next_tap: bool,
+    collapsed: bool,
 }
 
 impl MetronomeApp {
@@ -58,6 +59,7 @@ impl MetronomeApp {
             bpm: None,
             bpm_text_input: String::new(),
             will_reset_on_next_tap: false,
+            collapsed: false,
         }
     }
 }
@@ -79,7 +81,7 @@ impl eframe::App for MetronomeApp {
 impl MetronomeApp {
     fn render_toolbar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
-            ui.horizontal(|ui| {
+            let response = ui.horizontal(|ui| {
                 let clicked = ui
                     .heading(tr("Rusty Metronome Plugin"))
                     .interact(egui::Sense::click());
@@ -102,11 +104,17 @@ impl MetronomeApp {
                         self.suppress_info_close_once = true;
                     }
                 });
-            });
+            }).response;
+            if response.clicked() {
+                self.collapsed = !self.collapsed;
+            }
         });
     }
 
     fn render_main_panel(&mut self, ctx: &egui::Context) {
+        if self.collapsed {
+            return;
+        }
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(16.0);
