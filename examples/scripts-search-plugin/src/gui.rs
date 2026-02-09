@@ -105,7 +105,7 @@ impl ScriptsSearchApp {
                     }
                 });
             }).response;
-            if response.clicked() {
+            if response.clicked() && !response.clicked_elsewhere() {
                 self.collapsed = !self.collapsed;
             }
         });
