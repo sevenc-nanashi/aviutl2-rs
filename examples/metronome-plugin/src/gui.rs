@@ -81,11 +81,14 @@ impl eframe::App for MetronomeApp {
 impl MetronomeApp {
     fn render_toolbar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
-            let response = ui.horizontal(|ui| {
-                let clicked = ui
+            ui.horizontal(|ui| {
+                let heading_response = ui
                     .heading(tr("Rusty Metronome Plugin"))
                     .interact(egui::Sense::click());
-                if clicked.secondary_clicked() {
+                if heading_response.clicked() {
+                    self.collapsed = !self.collapsed;
+                }
+                if heading_response.secondary_clicked() {
                     let _ = self.handle.show_context_menu();
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -104,10 +107,7 @@ impl MetronomeApp {
                         self.suppress_info_close_once = true;
                     }
                 });
-            }).response;
-            if response.clicked() && !response.clicked_elsewhere() {
-                self.collapsed = !self.collapsed;
-            }
+            });
         });
     }
 
