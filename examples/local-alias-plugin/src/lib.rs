@@ -94,6 +94,7 @@ fn update_current_alias(state: &AliasState) {
 }
 
 pub static CURRENT_ALIAS: Mutex<Option<AliasEntry>> = Mutex::new(None);
+static EDIT_HANDLE: aviutl2::generic::GlobalEditHandle = aviutl2::generic::GlobalEditHandle::new();
 
 #[aviutl2::plugin(GenericPlugin)]
 pub struct LocalAliasPlugin {
@@ -118,6 +119,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
     }
 
     fn register(&mut self, registry: &mut aviutl2::generic::HostAppHandle) {
+        EDIT_HANDLE.init(registry.create_edit_handle());
         registry.set_plugin_information(&format!(
             "Project Local Alias for AviUtl2, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/local-alias-plugin",
             version = env!("CARGO_PKG_VERSION")
@@ -162,14 +164,13 @@ impl LocalAliasPlugin {
 #[aviutl2::generic::menus]
 impl LocalAliasPlugin {
     #[object(name = "ローカルエイリアスに追加")]
-    fn menu_add_alias(
-        &mut self,
-        edit_section: &mut aviutl2::generic::EditSection,
-    ) -> AnyResult<()> {
-        let alias = edit_section
-            .get_focused_object()?
-            .map(|obj| edit_section.get_object_alias(&obj))
-            .transpose()?;
+    fn menu_add_alias(&mut self) -> AnyResult<()> {
+        let alias = EDIT_HANDLE.call_edit_section(|edit_section| {
+            edit_section
+                .get_focused_object()?
+                .map(|obj| edit_section.get_object_alias(&obj))
+                .transpose()
+        })??;
         let Some(alias) = alias else {
             anyhow::bail!("オブジェクトが選択されていません。");
         };
@@ -182,21 +183,20 @@ impl LocalAliasPlugin {
     }
 
     #[layer(name = "ローカルエイリアスを配置")]
-    fn menu_insert_alias(
-        &mut self,
-        edit_section: &mut aviutl2::generic::EditSection,
-    ) -> AnyResult<()> {
-        let current_alias = CURRENT_ALIAS.lock().unwrap().clone();
-        let Some(alias) = current_alias else {
-            anyhow::bail!("エイリアスが選択されていません。")
-        };
-        let info = edit_section.info;
-        let length = match (info.select_range_start, info.select_range_end) {
-            (Some(start), Some(end)) if end >= start => end - start + 1,
-            _ => 1,
-        };
-        edit_section.create_object_from_alias(&alias.alias, info.layer, info.frame, length)?;
-        Ok(())
+    fn menu_insert_alias(&mut self) -> AnyResult<()> {
+        EDIT_HANDLE.call_edit_section(|edit_section| {
+            let current_alias = CURRENT_ALIAS.lock().unwrap().clone();
+            let Some(alias) = current_alias else {
+                anyhow::bail!("エイリアスが選択されていません。")
+            };
+            let info = edit_section.info;
+            let length = match (info.select_range_start, info.select_range_end) {
+                (Some(start), Some(end)) if end >= start => end - start + 1,
+                _ => 1,
+            };
+            edit_section.create_object_from_alias(&alias.alias, info.layer, info.frame, length)?;
+            Ok(())
+        })?
     }
 }
 

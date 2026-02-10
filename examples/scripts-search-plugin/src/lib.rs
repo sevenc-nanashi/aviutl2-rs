@@ -19,8 +19,8 @@ pub struct EffectDb {
 }
 pub static EFFECTS: std::sync::OnceLock<EffectDb> = std::sync::OnceLock::new();
 
-pub static EDIT_HANDLE: std::sync::OnceLock<aviutl2::generic::EditHandle> =
-    std::sync::OnceLock::new();
+pub static EDIT_HANDLE: aviutl2::generic::GlobalEditHandle =
+    aviutl2::generic::GlobalEditHandle::new();
 
 impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
@@ -43,7 +43,7 @@ impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
             .register_window_client("Rusty Scripts Search Plugin", &self.window)
             .unwrap();
         let edit_handle = registry.create_edit_handle();
-        EDIT_HANDLE.set(edit_handle).unwrap();
+        EDIT_HANDLE.init(edit_handle);
     }
 
     fn on_project_load(&mut self, _project: &mut aviutl2::generic::ProjectFile) {
@@ -60,7 +60,7 @@ impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
             return;
         };
         EFFECTS.get_or_init(|| {
-            let effects = EDIT_HANDLE.get().unwrap().get_effects();
+            let effects = EDIT_HANDLE.get_effects();
             let mut has_missing_label = false;
             let effects = effects
                 .into_iter()

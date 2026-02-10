@@ -10,7 +10,7 @@
 
 ## [0.15.1](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.15.1)
 
-（なし）
+- aviutl2-eframe: ウィンドウ作成時の挙動を改善
 
 ### デモプラグイン
 

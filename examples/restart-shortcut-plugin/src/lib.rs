@@ -4,9 +4,10 @@ fn tr(text: &str) -> String {
     aviutl2::config::translate(text).unwrap_or_else(|_| text.to_string())
 }
 
+static EDIT_HANDLE: aviutl2::generic::GlobalEditHandle = aviutl2::generic::GlobalEditHandle::new();
+
 #[aviutl2::plugin(GenericPlugin)]
 struct RestartHostAppPlugin {
-    edit_handle: Option<aviutl2::generic::EditHandle>,
     config: Config,
 }
 
@@ -25,10 +26,7 @@ impl Default for Config {
 impl aviutl2::generic::GenericPlugin for RestartHostAppPlugin {
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
         let config = RestartHostAppPlugin::load_or_default_config()?;
-        Ok(Self {
-            edit_handle: None,
-            config,
-        })
+        Ok(Self { config })
     }
 
     fn register(&mut self, registry: &mut aviutl2::generic::HostAppHandle) {
@@ -36,7 +34,7 @@ impl aviutl2::generic::GenericPlugin for RestartHostAppPlugin {
             "Rusty Restart Shortcut Plugin, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/restart-shortcut-plugin",
             version = env!("CARGO_PKG_VERSION")
         ));
-        self.edit_handle = Some(registry.create_edit_handle());
+        EDIT_HANDLE.init(registry.create_edit_handle());
         registry.register_menus::<RestartHostAppPlugin>();
     }
 }
@@ -44,23 +42,21 @@ impl aviutl2::generic::GenericPlugin for RestartHostAppPlugin {
 #[aviutl2::generic::menus]
 impl RestartHostAppPlugin {
     #[edit(name = "AviUtl2を再起動")]
-    fn restart_menu(&mut self, _edit_section: &mut aviutl2::generic::EditSection) -> AnyResult<()> {
-        let Some(edit_handle) = self.edit_handle.as_ref() else {
-            aviutl2::anyhow::bail!("編集ハンドルの取得に失敗しました。");
-        };
+    fn restart_menu(&mut self) -> AnyResult<()> {
         if !self.config.confirm_on_restart || shift_key_pressed() {
-            edit_handle.restart_host_app();
+            EDIT_HANDLE.restart_host_app();
         } else {
             let restart = native_dialog::DialogBuilder::message()
                 .set_title(tr("AviUtl2を再起動"))
                 .set_text(tr(
                     "AviUtl2を再起動しますか？（Shiftキーを押しながらメニューを選択すると確認なしで再起動します）",
                 ))
+                .set_owner(&unsafe { EDIT_HANDLE.get_host_app_window()}.unwrap())
                 .confirm()
                 .show()
                 .map_err(|e| aviutl2::anyhow::anyhow!(e))?;
             if restart {
-                edit_handle.restart_host_app();
+                EDIT_HANDLE.restart_host_app();
             }
         }
         Ok(())
@@ -79,6 +75,7 @@ impl RestartHostAppPlugin {
         native_dialog::DialogBuilder::message()
             .set_title(tr("設定を変更しました"))
             .set_text(&message)
+            .set_owner(&unsafe { EDIT_HANDLE.get_host_app_window() }.unwrap())
             .alert()
             .show()?;
         Ok(())

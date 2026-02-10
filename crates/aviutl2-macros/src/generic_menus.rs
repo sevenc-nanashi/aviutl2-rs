@@ -1,4 +1,5 @@
 use quote::ToTokens;
+use strum::IntoEnumIterator;
 use syn::parse::Parser;
 
 fn parse_unwind_attr(attr: proc_macro2::TokenStream) -> Result<bool, proc_macro2::TokenStream> {
@@ -30,7 +31,8 @@ enum ErrorMode {
     Alert,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, strum::EnumIter, strum::EnumString, strum::AsRefStr)]
+#[strum(serialize_all = "lowercase")]
 enum EntryType {
     Import,
     Export,
@@ -38,6 +40,13 @@ enum EntryType {
     Object,
     Edit,
     Config,
+}
+
+fn all_entry_types_display() -> String {
+    EntryType::iter()
+        .map(|et| format!("#[{}]", et.as_ref()))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 struct Entry {
@@ -140,7 +149,7 @@ pub fn generic_menus(
             Ok(None) => {
                 return Err(syn::Error::new_spanned(
                     &method.sig.ident,
-                    "method must have one of #[import], #[export], #[layer], or #[object]",
+                    format!("method must have one of {}", all_entry_types_display()),
                 )
                 .to_compile_error());
             }
@@ -219,9 +228,8 @@ pub fn generic_menus(
                 }
             } else {
                 quote::quote! {
-                    let mut edit = unsafe { ::aviutl2::generic::EditSection::from_raw(edit) };
                     <#impl_token as ::aviutl2::generic::GenericPlugin>::#with_fn(|__self| {
-                        let ret = <#impl_token>::#method_ident(__self, &mut edit);
+                        let ret = <#impl_token>::#method_ident(__self);
                         #call_on_error
                     });
                 }
@@ -234,8 +242,7 @@ pub fn generic_menus(
             }
         } else {
             quote::quote! {
-                let mut edit = unsafe { ::aviutl2::generic::EditSection::from_raw(edit) };
-                let ret = <#impl_token>::#method_ident(&mut edit);
+                let ret = <#impl_token>::#method_ident();
                 #call_on_error
             }
         };
@@ -258,7 +265,7 @@ pub fn generic_menus(
                 }
             } else {
                 quote::quote! {
-                    extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
+                    fn #wrapper_ident() {
                         if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
                             #wrapper_body
                         }) {
@@ -267,7 +274,6 @@ pub fn generic_menus(
                                 #method_name_str,
                                 panic_info
                             );
-                            ::aviutl2::__alert_error(&panic_info);
                         }
                     }
                 }
@@ -280,7 +286,7 @@ pub fn generic_menus(
             }
         } else {
             quote::quote! {
-                extern "C" fn #wrapper_ident(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
+                extern "C" fn #wrapper_ident() {
                     #wrapper_body
                 }
             }
@@ -321,24 +327,14 @@ fn has_generic_args_in_type(ty: &syn::Type) -> bool {
 fn find_menu_attr(
     attrs: &[syn::Attribute],
 ) -> Result<Option<(usize, EntryType)>, proc_macro2::TokenStream> {
-    static RECOGNIZED_ATTRS: &[&str] = &["import", "export", "layer", "object", "edit", "config"];
     let mut found: Option<(usize, EntryType)> = None;
     for (idx, attr) in attrs.iter().enumerate() {
-        for &recognized in RECOGNIZED_ATTRS {
-            if attr.path().is_ident(recognized) {
-                let entry_type = match recognized {
-                    "import" => EntryType::Import,
-                    "export" => EntryType::Export,
-                    "layer" => EntryType::Layer,
-                    "object" => EntryType::Object,
-                    "edit" => EntryType::Edit,
-                    "config" => EntryType::Config,
-                    _ => unreachable!(),
-                };
+        for entry_type in EntryType::iter() {
+            if attr.path().is_ident(entry_type.as_ref()) {
                 if found.is_some() {
                     return Err(syn::Error::new_spanned(
                         &attrs[0],
-                        "method can have only one of #[import], #[export], #[layer], #[object], or #[edit]",
+                        format!("method can have only one of {}", all_entry_types_display()),
                     )
                     .to_compile_error());
                 }

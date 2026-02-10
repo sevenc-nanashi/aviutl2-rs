@@ -156,7 +156,7 @@ impl MetronomeApp {
                         .on_hover_text(tr("プロジェクトからBPMを取得します"))
                         .clicked()
                     {
-                        let info = crate::EDIT_HANDLE.get().unwrap().get_edit_info();
+                        let info = crate::EDIT_HANDLE.get_edit_info();
                         self.bpm = Some(info.grid_bpm_tempo as f64);
                         self.will_reset_on_next_tap = true;
                     }
@@ -334,7 +334,7 @@ impl MetronomeApp {
 
     fn apply_bpm_to_host_origin(&self) {
         if let Some(bpm) = self.bpm {
-            let res = crate::EDIT_HANDLE.get().unwrap().call_edit_section(|edit| {
+            let res = crate::EDIT_HANDLE.call_edit_section(|edit| {
                 // TODO: 拍子情報も変更できるようにする
                 edit.set_grid_bpm(bpm as f32, 4, 0.0)
             });
@@ -344,7 +344,7 @@ impl MetronomeApp {
 
     fn apply_bpm_to_host_relative(&self) {
         if let Some(bpm) = self.bpm {
-            let res = crate::EDIT_HANDLE.get().unwrap().call_edit_section(|edit| {
+            let res = crate::EDIT_HANDLE.call_edit_section(|edit| {
                 let current_frame = edit.info.frame;
                 let fps = *edit.info.fps.numer() as f32 / *edit.info.fps.denom() as f32;
                 // TODO: 拍子情報も変更できるようにする

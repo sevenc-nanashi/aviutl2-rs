@@ -29,12 +29,12 @@ impl Drop for InternalReferenceHandle {
     }
 }
 
-impl<'a> HostAppHandle<'a> {
+impl<'plugin> HostAppHandle<'plugin> {
     pub(crate) unsafe fn new(
         internal: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
-        global_leak_manager: &'a mut crate::common::LeakManager,
+        global_leak_manager: &'plugin mut crate::common::LeakManager,
         kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
-        plugin_registry: &'a mut crate::generic::PluginRegistry,
+        plugin_registry: &'plugin mut crate::generic::PluginRegistry,
     ) -> Self {
         Self {
             internal,
@@ -78,18 +78,13 @@ impl<'a> HostAppHandle<'a> {
     /// # See Also
     ///
     /// - [`crate::generic::menus`]
-    pub fn register_import_menu(
-        &mut self,
-        name: &str,
-        callback: extern "C" fn(*mut aviutl2_sys::plugin2::EDIT_SECTION),
-    ) {
-        self.assert_not_killed();
-        unsafe {
-            ((*self.internal).register_import_menu)(
-                self.global_leak_manager.leak_as_wide_string(name),
-                callback,
-            )
-        }
+    pub fn register_import_menu<F>(&mut self, name: &str, callback: F)
+    where
+        F: Fn() + 'plugin + Send + Sync,
+    {
+        self.register_menu_internal(name, callback, unsafe {
+            (*self.internal).register_import_menu_param
+        });
     }
 
     /// エクスポートメニューを登録します。
@@ -97,18 +92,13 @@ impl<'a> HostAppHandle<'a> {
     /// # See Also
     ///
     /// - [`crate::generic::menus`]
-    pub fn register_export_menu(
-        &mut self,
-        name: &str,
-        callback: extern "C" fn(*mut aviutl2_sys::plugin2::EDIT_SECTION),
-    ) {
-        self.assert_not_killed();
-        unsafe {
-            ((*self.internal).register_export_menu)(
-                self.global_leak_manager.leak_as_wide_string(name),
-                callback,
-            )
-        }
+    pub fn register_export_menu<F>(&mut self, name: &str, callback: F)
+    where
+        F: Fn() + 'plugin + Send + Sync,
+    {
+        self.register_menu_internal(name, callback, unsafe {
+            (*self.internal).register_export_menu_param
+        });
     }
 
     /// レイヤーメニューを登録します。
@@ -117,18 +107,13 @@ impl<'a> HostAppHandle<'a> {
     /// # See Also
     ///
     /// - [`crate::generic::menus`]
-    pub fn register_layer_menu(
-        &mut self,
-        name: &str,
-        callback: extern "C" fn(*mut aviutl2_sys::plugin2::EDIT_SECTION),
-    ) {
-        self.assert_not_killed();
-        unsafe {
-            ((*self.internal).register_layer_menu)(
-                self.global_leak_manager.leak_as_wide_string(name),
-                callback,
-            )
-        }
+    pub fn register_layer_menu<F>(&mut self, name: &str, callback: F)
+    where
+        F: Fn() + 'plugin + Send + Sync,
+    {
+        self.register_menu_internal(name, callback, unsafe {
+            (*self.internal).register_layer_menu_param
+        });
     }
 
     /// オブジェクトメニューを登録します。
@@ -137,18 +122,13 @@ impl<'a> HostAppHandle<'a> {
     /// # See Also
     ///
     /// - [`crate::generic::menus`]
-    pub fn register_object_menu(
-        &mut self,
-        name: &str,
-        callback: extern "C" fn(*mut aviutl2_sys::plugin2::EDIT_SECTION),
-    ) {
-        self.assert_not_killed();
-        unsafe {
-            ((*self.internal).register_object_menu)(
-                self.global_leak_manager.leak_as_wide_string(name),
-                callback,
-            )
-        }
+    pub fn register_object_menu<F>(&mut self, name: &str, callback: F)
+    where
+        F: Fn() + 'plugin + Send + Sync,
+    {
+        self.register_menu_internal(name, callback, unsafe {
+            (*self.internal).register_object_menu_param
+        });
     }
 
     /// 編集メニューを登録します。
@@ -157,18 +137,13 @@ impl<'a> HostAppHandle<'a> {
     /// # See Also
     ///
     /// - [`crate::generic::menus`]
-    pub fn register_edit_menu(
-        &mut self,
-        name: &str,
-        callback: extern "C" fn(*mut aviutl2_sys::plugin2::EDIT_SECTION),
-    ) {
-        self.assert_not_killed();
-        unsafe {
-            ((*self.internal).register_edit_menu)(
-                self.global_leak_manager.leak_as_wide_string(name),
-                callback,
-            )
-        }
+    pub fn register_edit_menu<F>(&mut self, name: &str, callback: F)
+    where
+        F: Fn() + 'plugin + Send + Sync,
+    {
+        self.register_menu_internal(name, callback, unsafe {
+            (*self.internal).register_edit_menu_param
+        });
     }
 
     /// 設定メニューを登録します。
@@ -289,6 +264,53 @@ impl<'a> HostAppHandle<'a> {
         unsafe {
             ((*self.internal).register_change_scene_handler)(callback);
         }
+    }
+
+    fn register_menu_internal<F>(
+        &mut self,
+        name: &str,
+        callback: F,
+        register_fn: unsafe extern "C" fn(
+            aviutl2_sys::common::LPCWSTR,
+            *mut std::ffi::c_void,
+            unsafe extern "C" fn(*mut std::ffi::c_void),
+        ),
+    ) where
+        F: Fn() + 'plugin + Send + Sync,
+    {
+        self.assert_not_killed();
+        let return_value = Box::new(None);
+        let return_value_ptr = Box::into_raw(return_value);
+        let trampoline_param: Box<MenuTrampolineParam<F, ()>> =
+            Box::new((callback, return_value_ptr));
+        let trampoline_param_ptr = Box::into_raw(trampoline_param);
+        unsafe {
+            register_fn(
+                self.global_leak_manager.leak_as_wide_string(name),
+                trampoline_param_ptr as *mut std::ffi::c_void,
+                menu_trampoline::<F>,
+            );
+        }
+        let return_value = unsafe { Box::from_raw(return_value_ptr) };
+        match return_value.as_ref() {
+            Some(Ok(())) => {}
+            Some(Err(err)) => {
+                log::error!("Panic occurred in menu callback: {:?}", err);
+            }
+            None => {}
+        }
+    }
+}
+
+type MenuTrampolineParam<F, R> = (F, *mut Option<std::thread::Result<R>>);
+unsafe extern "C" fn menu_trampoline<'plugin, F>(param: *mut std::ffi::c_void)
+where
+    F: Fn() + 'plugin + Send + Sync,
+{
+    let (callback, result) = unsafe { &mut *(param as *mut MenuTrampolineParam<F, ()>) };
+    let result_value = std::panic::catch_unwind(std::panic::AssertUnwindSafe(callback));
+    unsafe {
+        **result = Some(result_value);
     }
 }
 

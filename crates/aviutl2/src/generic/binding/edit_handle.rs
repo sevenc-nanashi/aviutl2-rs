@@ -1,3 +1,5 @@
+use std::num::NonZeroIsize;
+
 use crate::common::{ChildKillablePointer, KillablePointer};
 use crate::generic::EditSection;
 
@@ -178,7 +180,10 @@ impl EditHandle {
         let param = Box::new(child_param);
         let param_ptr = Box::into_raw(param);
         unsafe {
-            ((*self.internal).enum_effect_name)(param_ptr as *mut std::ffi::c_void, trampoline_static);
+            ((*self.internal).enum_effect_name)(
+                param_ptr as *mut std::ffi::c_void,
+                trampoline_static,
+            );
         }
         drop(unsafe { Box::from_raw(param_ptr) });
     }
@@ -221,7 +226,10 @@ impl EditHandle {
         let param = Box::new(child_param);
         let param_ptr = Box::into_raw(param);
         unsafe {
-            ((*self.internal).enum_module_info)(param_ptr as *mut std::ffi::c_void, trampoline_static);
+            ((*self.internal).enum_module_info)(
+                param_ptr as *mut std::ffi::c_void,
+                trampoline_static,
+            );
         }
         drop(unsafe { Box::from_raw(param_ptr) });
     }
@@ -235,7 +243,26 @@ impl EditHandle {
         modules
     }
 
+    /// ホストアプリケーションのメインウィンドウのハンドルを[`raw_window_handle::Win32WindowHandle`]として取得する。
+    pub fn get_host_app_window_raw(&self) -> Option<raw_window_handle::Win32WindowHandle> {
+        let hwnd = unsafe { ((*self.internal).get_host_app_window)() };
+        NonZeroIsize::new(hwnd as isize).map(raw_window_handle::Win32WindowHandle::new)
+    }
+
+    /// ホストアプリケーションのメインウィンドウのハンドルを[`raw_window_handle::WindowHandle`]として取得する。
+    ///
+    /// # Safety
+    ///
+    /// [`raw_window_handle::WindowHandle::borrow_raw`] を参照してください。
+    pub unsafe fn get_host_app_window(&'_ self) -> Option<raw_window_handle::WindowHandle<'_>> {
+        self.get_host_app_window_raw().map(|handle| unsafe {
+            raw_window_handle::WindowHandle::borrow_raw(raw_window_handle::RawWindowHandle::Win32(
+                handle,
+            ))
+        })
+    }
 }
+
 impl Drop for EditHandle {
     fn drop(&mut self) {
         if let Some(worker) = self.edit_info_worker.take() {
@@ -420,5 +447,46 @@ impl From<ModuleType> for i32 {
             ModuleType::PluginGeneric => 9,
             ModuleType::Other(other) => other,
         }
+    }
+}
+
+/// グローバルに [EditHandle] を保持するための構造体。
+///
+/// `OnceLock` と違い、もし初期化していない状態でアクセスした場合にパニックします。
+#[derive(Debug)]
+pub struct GlobalEditHandle {
+    edit_handle: std::sync::OnceLock<crate::generic::EditHandle>,
+}
+
+impl GlobalEditHandle {
+    /// 新しいインスタンスを作成します。
+    pub const fn new() -> Self {
+        Self {
+            edit_handle: std::sync::OnceLock::new(),
+        }
+    }
+
+    /// グローバルな編集ハンドルを初期化します。
+    pub fn init(&self, edit_handle: crate::generic::EditHandle) {
+        let _ = self
+            .edit_handle
+            .set(edit_handle)
+            .map_err(|_| log::warn!("GlobalEditHandle was already initialized"));
+    }
+}
+
+impl Default for GlobalEditHandle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl std::ops::Deref for GlobalEditHandle {
+    type Target = crate::generic::EditHandle;
+
+    fn deref(&self) -> &Self::Target {
+        self.edit_handle
+            .get()
+            .expect("GlobalEditHandle is not initialized")
     }
 }

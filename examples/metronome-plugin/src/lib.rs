@@ -4,8 +4,8 @@ mod gui;
 mod metronome;
 mod wav;
 
-pub static EDIT_HANDLE: std::sync::OnceLock<aviutl2::generic::EditHandle> =
-    std::sync::OnceLock::new();
+pub static EDIT_HANDLE: aviutl2::generic::GlobalEditHandle =
+    aviutl2::generic::GlobalEditHandle::new();
 
 #[aviutl2::plugin(GenericPlugin)]
 pub struct MetronomePlugin {
@@ -38,7 +38,7 @@ impl aviutl2::generic::GenericPlugin for MetronomePlugin {
             .register_window_client("Rusty Metronome Plugin", &self.window)
             .unwrap();
         let edit_handle = registry.create_edit_handle();
-        EDIT_HANDLE.set(edit_handle).unwrap();
+        EDIT_HANDLE.init(edit_handle);
     }
 
     fn on_clear_cache(&mut self, _edit_section: &aviutl2::generic::EditSection) {
