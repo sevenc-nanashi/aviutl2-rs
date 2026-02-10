@@ -13,11 +13,10 @@ impl MyPlugin {
         fn register_menus(host: &mut ::aviutl2::generic::HostAppHandle) {
             host.register_export_menu("MyExport", bridge_export_menu);
             return;
-            extern "C" fn bridge_export_menu(edit: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
+            fn bridge_export_menu() {
                 if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
-                    let mut edit = unsafe { ::aviutl2::generic::EditSection::from_raw(edit) };
                     <MyPlugin as ::aviutl2::generic::GenericPlugin>::with_instance_mut(|__self| {
-                        let ret = <MyPlugin>::export_menu(__self, &mut edit);
+                        let ret = <MyPlugin>::export_menu(__self);
                         ::aviutl2::common::__output_log_if_error(ret);
                     });
                 }) {
@@ -26,7 +25,6 @@ impl MyPlugin {
                         "export_menu",
                         panic_info
                     );
-                    ::aviutl2::__alert_error(&panic_info);
                 }
             }
         }
