@@ -28,7 +28,6 @@ fn parse_unwind_attr(attr: proc_macro2::TokenStream) -> Result<bool, proc_macro2
 enum ErrorMode {
     Ignore,
     Log,
-    Alert,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, strum::EnumIter, strum::EnumString, strum::AsRefStr)]
@@ -64,7 +63,7 @@ fn parse_menu_attr(
     default_name: &str,
 ) -> Result<(String, ErrorMode), proc_macro2::TokenStream> {
     let mut name: Option<String> = None;
-    let mut error_mode = ErrorMode::Alert;
+    let mut error_mode = ErrorMode::Log;
     attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
             let value: syn::LitStr = m.value()?.parse()?;
@@ -73,10 +72,9 @@ fn parse_menu_attr(
         } else if m.path.is_ident("error") {
             let value: syn::LitStr = m.value()?.parse()?;
             match value.value().as_str() {
-                "alert" => error_mode = ErrorMode::Alert,
                 "log" => error_mode = ErrorMode::Log,
                 "ignore" => error_mode = ErrorMode::Ignore,
-                _ => return Err(m.error("expected \"alert\", \"log\", or \"ignore\"")),
+                _ => return Err(m.error("expected \"log\" or \"ignore\"")),
             }
             Ok(())
         } else {
@@ -209,7 +207,6 @@ pub fn generic_menus(
         let call_on_error = match e.error_mode {
             ErrorMode::Ignore => quote::quote! { let _ = ret; },
             ErrorMode::Log => quote::quote! { ::aviutl2::common::__output_log_if_error(ret); },
-            ErrorMode::Alert => quote::quote! { ::aviutl2::common::__alert_if_error(ret); },
         };
 
         let wrapper_body = if e.has_self {
@@ -259,7 +256,7 @@ pub fn generic_menus(
                                 #method_name_str,
                                 panic_info
                             );
-                            ::aviutl2::__alert_error(&panic_info);
+                            let _ = ::aviutl2::logger::write_error_log(&panic_info);
                         }
                     }
                 }

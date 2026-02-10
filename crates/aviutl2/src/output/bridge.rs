@@ -1,7 +1,7 @@
 use std::num::NonZeroIsize;
 
 use crate::{
-    common::{AnyResult, LeakManager, alert_error, format_file_filters},
+    common::{AnyResult, LeakManager, format_file_filters},
     output::{FromRawAudioSamples, OutputInfo, OutputPlugin},
 };
 
@@ -56,7 +56,7 @@ pub unsafe fn initialize_plugin_c<T: OutputSingleton>(version: u32) -> bool {
         Ok(_) => true,
         Err(e) => {
             log::error!("Failed to initialize plugin: {}", e);
-            alert_error(&e);
+            let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
     }
@@ -72,7 +72,7 @@ pub unsafe fn initialize_plugin_c_unwind<T: OutputSingleton>(version: u32) -> bo
                 "Panic occurred during plugin initialization: {}",
                 panic_info
             );
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             false
         }
     }
@@ -105,7 +105,7 @@ pub unsafe fn uninitialize_plugin_c_unwind<T: OutputSingleton>() {
                 "Panic occurred during plugin uninitialization: {}",
                 panic_info
             );
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
         }
     }
 }
@@ -173,7 +173,7 @@ pub unsafe fn create_table_unwind<T: OutputSingleton>()
         Ok(table) => table,
         Err(panic_info) => {
             log::error!("Panic occurred during create_table: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             std::ptr::null_mut()
         }
     }
@@ -191,7 +191,7 @@ extern "C" fn func_output<T: OutputSingleton>(oip: *mut aviutl2_sys::output2::OU
         Ok(()) => true,
         Err(e) => {
             log::error!("Error during func_output: {}", e);
-            alert_error(&e);
+            let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
     }
@@ -203,7 +203,7 @@ extern "C" fn func_output_unwind<T: OutputSingleton>(
         Ok(result) => result,
         Err(panic_info) => {
             log::error!("Panic occurred during func_output: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             false
         }
     }
@@ -225,7 +225,7 @@ extern "C" fn func_config<T: OutputSingleton>(
         Ok(()) => true,
         Err(e) => {
             log::error!("Error during func_config: {}", e);
-            alert_error(&e);
+            let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
     }
@@ -238,7 +238,7 @@ extern "C" fn func_config_unwind<T: OutputSingleton>(
         Ok(result) => result,
         Err(panic_info) => {
             log::error!("Panic occurred during func_config: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             false
         }
     }
@@ -266,7 +266,7 @@ extern "C" fn func_get_config_text_unwind<T: OutputSingleton>() -> *const u16 {
         Ok(text) => text,
         Err(panic_info) => {
             log::error!("Panic occurred during func_get_config_text: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             std::ptr::null()
         }
     }

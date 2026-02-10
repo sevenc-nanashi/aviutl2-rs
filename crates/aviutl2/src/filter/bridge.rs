@@ -1,5 +1,5 @@
 use crate::{
-    common::{AnyResult, LeakManager, alert_error},
+    common::{AnyResult, LeakManager},
     filter::{
         AudioObjectInfo, FilterConfigItem, FilterPlugin, FilterPluginTable, FilterProcAudio,
         FilterProcVideo, ObjectInfo, SceneInfo, VideoObjectInfo,
@@ -165,7 +165,7 @@ pub unsafe fn initialize_plugin_c<T: FilterSingleton>(version: u32) -> bool {
         Ok(_) => true,
         Err(e) => {
             log::error!("Failed to initialize plugin: {}", e);
-            alert_error(&e);
+            let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
     }
@@ -179,7 +179,7 @@ pub unsafe fn initialize_plugin_c_unwind<T: FilterSingleton>(version: u32) -> bo
                 "Panic occurred during plugin initialization: {}",
                 panic_info
             );
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             false
         }
     }
@@ -211,7 +211,7 @@ pub unsafe fn uninitialize_plugin_c_unwind<T: FilterSingleton>() {
                 "Panic occurred during plugin uninitialization: {}",
                 panic_info
             );
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
         }
     }
 }
@@ -291,7 +291,7 @@ pub unsafe fn create_table_unwind<T: FilterSingleton>()
         Ok(table) => table,
         Err(panic_info) => {
             log::error!("Panic occurred during create_table: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             std::ptr::null_mut()
         }
     }

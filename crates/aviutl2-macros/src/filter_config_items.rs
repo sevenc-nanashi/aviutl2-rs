@@ -247,7 +247,6 @@ enum TrackStep {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ButtonErrorMode {
-    Alert,
     Log,
     Ignore,
 }
@@ -572,9 +571,6 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     ButtonErrorMode::Log => {
                         quote::quote! { ::aviutl2::common::__output_log_if_error(ret); }
                     }
-                    ButtonErrorMode::Alert => {
-                        quote::quote! { ::aviutl2::common::__alert_if_error(ret); }
-                    }
                 };
                 let call_body = quote::quote! {
                     let mut edit_section = unsafe { ::aviutl2::generic::EditSection::from_raw(edit_section) };
@@ -592,7 +588,7 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                                     #name,
                                     panic_info
                                 );
-                                ::aviutl2::__alert_error(&panic_info);
+                                let _ = ::aviutl2::logger::write_error_log(&panic_info);
                             }
                         }
                     });
@@ -1545,7 +1541,7 @@ fn filter_config_field_button(
     recognized_attr: &syn::Attribute,
 ) -> Result<FilterConfigField, syn::Error> {
     let mut name = None;
-    let mut error_mode = ButtonErrorMode::Alert;
+    let mut error_mode = ButtonErrorMode::Log;
     let mut unwind = true;
 
     recognized_attr.parse_nested_meta(|m| {
@@ -1554,11 +1550,10 @@ fn filter_config_field_button(
         } else if m.path.is_ident("error") {
             let value: syn::LitStr = m.value()?.parse()?;
             match value.value().as_str() {
-                "alert" => error_mode = ButtonErrorMode::Alert,
                 "log" => error_mode = ButtonErrorMode::Log,
                 "ignore" => error_mode = ButtonErrorMode::Ignore,
                 _ => {
-                    return Err(m.error("expected \"alert\", \"log\", or \"ignore\""));
+                    return Err(m.error("expected \"log\" or \"ignore\""));
                 }
             }
         } else if m.path.is_ident("unwind") {

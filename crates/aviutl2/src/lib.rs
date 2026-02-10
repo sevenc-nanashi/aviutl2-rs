@@ -100,8 +100,3 @@ where
 {
     utils::catch_unwind_with_panic_info(f)
 }
-
-#[doc(hidden)]
-pub fn __alert_error<T: std::fmt::Display>(error: T) {
-    common::alert_error(error);
-}

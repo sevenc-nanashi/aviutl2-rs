@@ -2,8 +2,10 @@
 
 ## Unreleased
 
+- **Breaking**: デフォルトのエラーダイアログを削除
 - **Breaking**: generic: register_menu系のコールバックをFnに変更
 - **Breaking**: aviutl2-macros: `generic::menus`の引数から`&mut EditSection`を削除
+- **Breaking**: aviutl2-macros: `error="alert"`を削除
 - generic: `get_host_app_window`、`get_host_app_window_raw`を追加
 - eframe: 終了処理を改善
 

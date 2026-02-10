@@ -284,7 +284,6 @@ dependencies = [
  "half",
  "image",
  "log",
- "native-dialog",
  "num-rational",
  "parking_lot",
  "pastey",

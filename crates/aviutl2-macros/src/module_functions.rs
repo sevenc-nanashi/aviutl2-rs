@@ -231,7 +231,7 @@ fn create_bridge(
                                 #method_name_str,
                                 panic_info
                             );
-                            ::aviutl2::__alert_error(&panic_info);
+                            let _ = ::aviutl2::logger::write_error_log(&panic_info);
                         }
                     }
                 }

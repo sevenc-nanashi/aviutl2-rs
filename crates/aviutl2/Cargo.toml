@@ -1,51 +1,58 @@
 [package]
 name = "aviutl2"
-description = "AviUtl2 SDKのRustラッパー"
 version.workspace = true
-edition.workspace = true
-license.workspace = true
 authors.workspace = true
+edition.workspace = true
+description = "AviUtl2 SDKのRustラッパー"
 repository.workspace = true
-publish = true
+license.workspace = true
 categories = ["api-bindings"]
+publish = true
 
 [package.metadata.docs.rs]
 default-target = "x86_64-pc-windows-msvc"
 targets = []
 all-features = true
 
-[features]
-default = ["input", "output", "filter", "module", "generic", "aviutl2-alias", "wrap_log"]
-input = []
-output = []
-filter = []
-module = []
-generic = []
-wrap_log = ["dep:process_path"]
-image = ["dep:image"]
-serde = ["dep:serde", "dep:rmp-serde", "dep:ruzstd"]
-aviutl2-alias = ["dep:aviutl2-alias"]
-
 [dependencies]
 anyhow = "1.0.98"
+aviutl2-alias = { workspace = true, optional = true }
 aviutl2-macros.workspace = true
 aviutl2-sys.workspace = true
-aviutl2-alias = { workspace = true, optional = true }
+comptime-if = "0.1.0"
+dashmap = "6.1.0"
 duplicate = "2.0.0"
 env_filter = "0.1.4"
 half = { version = "2.6.0", features = ["zerocopy"] }
 image = { version = "0.25.6", optional = true }
 log = "0.4.27"
-native-dialog = "0.9.0"
 num-rational = "0.4.2"
+parking_lot = "0.12.5"
 pastey = "0.1.1"
+process_path = { version = "0.1.4", optional = true }
 raw-window-handle = "0.6.2"
 rmp-serde = { version = "1.3.0", optional = true }
+ruzstd = { version = "0.8.2", optional = true }
 serde = { version = "1.0.228", optional = true }
 thiserror = "2.0.12"
 zerocopy = { version = "0.8.26", features = ["std"] }
-dashmap = "6.1.0"
-parking_lot = "0.12.5"
-ruzstd = { version = "0.8.2", optional = true }
-process_path = { version = "0.1.4", optional = true }
-comptime-if = "0.1.0"
+
+[features]
+default = [
+  "aviutl2-alias",
+  "filter",
+  "generic",
+  "input",
+  "module",
+  "output",
+  "wrap_log"
+]
+aviutl2-alias = ["dep:aviutl2-alias"]
+filter = []
+generic = []
+image = ["dep:image"]
+input = []
+module = []
+output = []
+serde = ["dep:rmp-serde", "dep:ruzstd", "dep:serde"]
+wrap_log = ["dep:process_path"]

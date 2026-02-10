@@ -1,5 +1,5 @@
 use crate::{
-    common::{AnyResult, LeakManager, alert_error},
+    common::{AnyResult, LeakManager},
     module::{ScriptModule, ScriptModuleTable},
 };
 
@@ -48,7 +48,7 @@ pub unsafe fn initialize_plugin_c<T: ScriptModuleSingleton>(version: u32) -> boo
         Ok(_) => true,
         Err(e) => {
             log::error!("Failed to initialize plugin: {}", e);
-            alert_error(&e);
+            let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
     }
@@ -64,7 +64,7 @@ pub unsafe fn initialize_plugin_c_unwind<T: ScriptModuleSingleton>(version: u32)
                 "Panic occurred during plugin initialization: {}",
                 panic_info
             );
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             false
         }
     }
@@ -95,7 +95,7 @@ pub unsafe fn uninitialize_plugin_c_unwind<T: ScriptModuleSingleton>() {
                 "Panic occurred during plugin uninitialization: {}",
                 panic_info
             );
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
         }
     }
 }
@@ -149,7 +149,7 @@ pub unsafe fn create_table_unwind<T: ScriptModuleSingleton>()
         Ok(table) => table,
         Err(panic_info) => {
             log::error!("Panic occurred during create_table: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             std::ptr::null_mut()
         }
     }

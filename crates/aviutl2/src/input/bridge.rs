@@ -1,7 +1,7 @@
 use std::num::NonZeroIsize;
 
 use crate::{
-    common::{AnyResult, LeakManager, alert_error, format_file_filters, load_wide_string},
+    common::{AnyResult, LeakManager, format_file_filters, load_wide_string},
     input::{
         AudioFormat, AudioInputInfo, AudioReturner, ImageReturner, InputInfo, InputPixelFormat,
         InputPlugin, InputPluginTable, VideoInputInfo,
@@ -115,7 +115,7 @@ pub unsafe fn initialize_plugin_c<T: InputSingleton>(version: u32) -> bool {
         Ok(_) => true,
         Err(e) => {
             log::error!("Failed to initialize plugin: {}", e);
-            alert_error(&e);
+            let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
     }
@@ -131,7 +131,7 @@ pub unsafe fn initialize_plugin_c_unwind<T: InputSingleton>(version: u32) -> boo
                 "Panic occurred during plugin initialization: {}",
                 panic_info
             );
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             false
         }
     }
@@ -164,7 +164,7 @@ pub unsafe fn uninitialize_plugin_c_unwind<T: InputSingleton>() {
                 "Panic occurred during plugin uninitialization: {}",
                 panic_info
             );
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
         }
     }
 }
@@ -265,7 +265,7 @@ pub unsafe fn create_table_unwind<T: InputSingleton>()
         Ok(table) => table,
         Err(panic_info) => {
             log::error!("Panic occurred during create_table: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             std::ptr::null_mut()
         }
     }
@@ -306,7 +306,7 @@ extern "C" fn func_open_unwind<T: InputSingleton>(
         Ok(handle) => handle,
         Err(panic_info) => {
             log::error!("Panic occurred during func_open: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             std::ptr::null_mut()
         }
     }
@@ -331,7 +331,7 @@ extern "C" fn func_close_unwind<T: InputSingleton>(ih: aviutl2_sys::input2::INPU
         Ok(result) => result,
         Err(panic_info) => {
             log::error!("Panic occurred during func_close: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             false
         }
     }
@@ -413,7 +413,7 @@ extern "C" fn func_info_get_unwind<T: InputSingleton>(
         Ok(result) => result,
         Err(panic_info) => {
             log::error!("Panic occurred during func_info_get: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             false
         }
     }
@@ -472,7 +472,7 @@ extern "C" fn func_read_video_unwind<T: InputSingleton>(
         Ok(result) => result,
         Err(panic_info) => {
             log::error!("Panic occurred during func_read_video: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             0
         }
     }
@@ -536,7 +536,7 @@ extern "C" fn func_read_audio_unwind<T: InputSingleton>(
         Ok(result) => result,
         Err(panic_info) => {
             log::error!("Panic occurred during func_read_audio: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             0
         }
     }
@@ -558,7 +558,7 @@ extern "C" fn func_config<T: InputSingleton>(
         Ok(()) => true,
         Err(e) => {
             log::error!("Error during func_config: {}", e);
-            alert_error(&e);
+            let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
     }
@@ -571,7 +571,7 @@ extern "C" fn func_config_unwind<T: InputSingleton>(
         Ok(result) => result,
         Err(panic_info) => {
             log::error!("Panic occurred during func_config: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             false
         }
     }
@@ -677,7 +677,7 @@ extern "C" fn func_set_track_unwind<T: InputSingleton>(
         Ok(result) => result,
         Err(panic_info) => {
             log::error!("Panic occurred during func_set_track: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             -1
         }
     }
@@ -714,7 +714,7 @@ extern "C" fn func_time_to_frame_unwind<T: InputSingleton>(
         Ok(result) => result,
         Err(panic_info) => {
             log::error!("Panic occurred during func_time_to_frame: {}", panic_info);
-            alert_error(&panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
             0
         }
     }

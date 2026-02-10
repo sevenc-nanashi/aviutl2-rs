@@ -519,15 +519,6 @@ pub(crate) unsafe fn load_wide_string(ptr: *const u16) -> String {
     unsafe { String::from_utf16_lossy(std::slice::from_raw_parts(ptr, len)) }
 }
 
-pub(crate) fn alert_error<T: std::fmt::Display>(error: T) {
-    let _ = native_dialog::DialogBuilder::message()
-        .set_title("エラー")
-        .set_level(native_dialog::MessageLevel::Error)
-        .set_text(format!("エラーが発生しました: {error}"))
-        .alert()
-        .show();
-}
-
 #[doc(hidden)]
 #[expect(private_bounds)]
 pub fn __output_log_if_error<T: MenuCallbackReturn>(result: T) {
@@ -540,7 +531,7 @@ pub fn __output_log_if_error<T: MenuCallbackReturn>(result: T) {
 #[expect(private_bounds)]
 pub fn __alert_if_error<T: MenuCallbackReturn>(result: T) {
     if let Some(err_msg) = result.into_optional_error() {
-        alert_error(err_msg);
+        let _ = crate::logger::write_error_log(&err_msg);
     }
 }
 
