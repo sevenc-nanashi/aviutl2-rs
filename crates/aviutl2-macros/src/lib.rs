@@ -592,22 +592,22 @@ pub fn plugin(
 /// # #[aviutl2::generic::menus]
 /// # impl MyGenericPlugin {
 /// #     #[import(name = "")]
-/// fn func1(edit_handle: &mut aviutl2::generic::EditSection) -> ()
+/// fn func1() -> ()
 /// #     {}
 /// #     #[export(name = "")]
-/// fn func2(edit_handle: &mut aviutl2::generic::EditSection) -> Result<(), E>
+/// fn func2() -> Result<(), E>
 /// #     { unimplemented!() }
 /// #     #[layer(name = "")]
-/// fn func3(&self, edit_handle: &mut aviutl2::generic::EditSection) -> ()
+/// fn func3(&self) -> ()
 /// #     {}
 /// #     #[object(name = "")]
-/// fn func4(&self, edit_handle: &mut aviutl2::generic::EditSection) -> Result<(), E>
+/// fn func4(&self) -> Result<(), E>
 /// #     { unimplemented!() }
 /// #     #[edit(name = "")]
-/// fn func5(&mut self, edit_handle: &mut aviutl2::generic::EditSection) -> ()
+/// fn func5(&mut self) -> ()
 /// #     {}
 /// #     #[edit(name = "")]
-/// fn func6(&mut self, edit_handle: &mut aviutl2::generic::EditSection) -> Result<(), E>
+/// fn func6(&mut self) -> Result<(), E>
 /// #     { unimplemented!() }
 /// # }
 /// # fn test<E>() -> Result<(), E>
@@ -698,31 +698,31 @@ pub fn plugin(
 /// #[aviutl2::generic::menus]
 /// impl MyGenericPlugin {
 ///     #[import(name = ".txtファイルをインポート")]
-///     fn import_text(edit_handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()> {
+///     fn import_text() -> aviutl2::AnyResult<()> {
 ///         // ...
 /// #       Ok(())
 ///     }
 ///
 ///     #[export(name = ".txtファイルをエクスポート")]
-///     fn export_text(edit_handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()> {
+///     fn export_text() -> aviutl2::AnyResult<()> {
 ///         // ...
 /// #       Ok(())
 ///     }
 ///
 ///     #[layer(name = "レイヤーを複製")]
-///     fn duplicate_layer(edit_handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()> {
+///     fn duplicate_layer() -> aviutl2::AnyResult<()> {
 ///         // ...
 /// #       Ok(())
 ///     }
 ///
 ///     #[object(name = "オブジェクトを削除")]
-///     fn delete_object(edit_handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()> {
+///     fn delete_object() -> aviutl2::AnyResult<()> {
 ///         // ...
 /// #       Ok(())
 ///     }
 ///
 ///     #[edit(name = "BPMグリッドを消去")]
-///     fn register_edit_menu(edit_handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()> {
+///     fn register_edit_menu() -> aviutl2::AnyResult<()> {
 ///         // ...
 /// #       Ok(())
 ///     }
