@@ -31,12 +31,12 @@ rayon-threshold = []
 [dependencies]
 aviutl2.workspace = true
 cfg-elif = "0.6.5"
-duplicate = "2.0.0"
+duplicate = "2.0.1"
 ndarray = { version = "0.17.2", features = ["rayon"] }
 rayon = "1.11.0"
-wide = "0.8.0"
+wide = "1.1.1"
 
 [dev-dependencies]
-criterion = "0.7.0"
-image = "0.25.8"
-zerocopy = "0.8.26"
+criterion = "0.8.2"
+image = "0.25.9"
+zerocopy = "0.8.39"

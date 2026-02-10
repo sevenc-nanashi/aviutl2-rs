@@ -5,6 +5,7 @@ use aviutl2::{
         FilterPluginTable, FilterProcVideo,
     },
 };
+use rand::RngExt;
 
 #[aviutl2::filter::filter_config_items]
 #[derive(Debug, Clone)]
@@ -61,7 +62,6 @@ impl FilterPlugin for RandomColorFilter {
         let color_handle = config.color.read();
 
         let color = if !color_handle.initialized {
-            use rand::Rng;
             let mut rng = rand::rng();
             let mut color = *color_handle;
             color.r = rng.random_range(0..=255);

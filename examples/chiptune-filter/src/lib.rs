@@ -5,7 +5,6 @@ use aviutl2::{
         FilterProcAudio,
     },
 };
-use rand::Rng;
 
 #[derive(Debug, Clone, PartialEq, Eq, aviutl2::filter::FilterConfigSelectItems)]
 enum WaveType {
@@ -125,7 +124,6 @@ impl FilterPlugin for ChiptuneFilter {
         let mut right = vec![0.0; sample_num];
 
         let mut phase = synthesizer.phase;
-        let mut rng = rand::rng();
         for i in 0..sample_num {
             let value = match config.wave_type {
                 WaveType::Square => {
@@ -144,7 +142,7 @@ impl FilterPlugin for ChiptuneFilter {
                 }
                 WaveType::Sawtooth => phase * 2.0 - 1.0,
                 WaveType::Sine => (phase * 2.0 * std::f64::consts::PI).sin(),
-                WaveType::Noise => Rng::random::<f64>(&mut rng) * 2.0 - 1.0,
+                WaveType::Noise => rand::random::<f64>() * 2.0 - 1.0,
             };
             left[i] = (value * config.volume) as f32;
             right[i] = (value * config.volume) as f32;

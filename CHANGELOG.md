@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking**: 依存関係を更新
 - **Breaking**: デフォルトのエラーダイアログを削除
 - **Breaking**: generic: register_menu系のコールバックをFnに変更
 - **Breaking**: aviutl2-macros: `generic::menus`の引数から`&mut EditSection`を削除

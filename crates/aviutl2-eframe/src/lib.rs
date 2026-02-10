@@ -248,7 +248,7 @@ impl EframeWindow {
                                 windows::Win32::UI::WindowsAndMessaging::SW_HIDE,
                             );
                             if windows::Win32::Foundation::GetLastError().0 != 0 {
-                                let err = windows::core::Error::from_win32();
+                                let err = windows::core::Error::from_thread();
                                 return Err(anyhow::anyhow!("Failed to hide window: {}", err)
                                     .into_boxed_dyn_error());
                             }
@@ -260,7 +260,7 @@ impl EframeWindow {
                                 (WS_CLIPSIBLINGS.0 | WS_POPUP.0) as isize,
                             );
                             if res_style == 0 && windows::Win32::Foundation::GetLastError().0 != 0 {
-                                let err = windows::core::Error::from_win32();
+                                let err = windows::core::Error::from_thread();
                                 return Err(anyhow::anyhow!("Failed to set window style: {}", err)
                                     .into_boxed_dyn_error());
                             }
@@ -269,7 +269,7 @@ impl EframeWindow {
                             let res_exstyle = SetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE, 0);
                             if res_exstyle == 0 && windows::Win32::Foundation::GetLastError().0 != 0
                             {
-                                let err = windows::core::Error::from_win32();
+                                let err = windows::core::Error::from_thread();
                                 return Err(anyhow::anyhow!(
                                     "Failed to set window exstyle: {}",
                                     err

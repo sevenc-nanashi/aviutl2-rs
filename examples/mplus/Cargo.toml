@@ -9,5 +9,5 @@ repository.workspace = true
 publish = false
 
 [build-dependencies]
-anyhow = "1.0.98"
-ureq = "3.0.12"
+anyhow = "1.0.101"
+ureq = "3.2.0"

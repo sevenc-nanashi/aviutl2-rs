@@ -12,5 +12,5 @@ name = "rusty_pixel_format_test_input"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.98"
+anyhow = "1.0.101"
 aviutl2.workspace = true

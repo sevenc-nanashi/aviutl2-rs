@@ -12,10 +12,10 @@ name = "rusty_metronome_plugin"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.98"
+anyhow = "1.0.101"
 aviutl2 = { workspace = true, features = ["serde"] }
 aviutl2-eframe.workspace = true
 dashmap = "6.1.0"
 hound = "3.5.1"
-log = "0.4.28"
+log = "0.4.29"
 mplus.workspace = true

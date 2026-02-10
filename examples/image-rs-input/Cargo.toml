@@ -12,14 +12,14 @@ name = "rusty_image_rs_input"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.98"
+anyhow = "1.0.101"
 aviutl2 = { workspace = true, features = ["input", "image"] }
-duplicate = "2.0.0"
-gif = "0.13.3"
-image = "0.25.6"
-ordered-float = "5.0.0"
+duplicate = "2.0.1"
+gif = "0.14.1"
+image = "0.25.9"
+ordered-float = "5.1.0"
 ouroboros = "0.18.5"
 png = "0.18.0"
 
 [dev-dependencies]
-insta = "1.43.1"
+insta = "1.46.3"

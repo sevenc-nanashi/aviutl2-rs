@@ -12,8 +12,8 @@ name = "rusty_image_rs_output"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.98"
+anyhow = "1.0.101"
 aviutl2.workspace = true
-image = "0.25.6"
-lazy-regex = "3.4.1"
-regex = "1.11.1"
+image = "0.25.9"
+lazy-regex = "3.5.1"
+regex = "1.12.3"
