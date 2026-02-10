@@ -42,7 +42,7 @@ impl aviutl2::generic::GenericPlugin for RestartHostAppPlugin {
 #[aviutl2::generic::menus]
 impl RestartHostAppPlugin {
     #[edit(name = "AviUtl2を再起動")]
-    fn restart_menu(&mut self) -> AnyResult<()> {
+    fn restart_menu(&self) -> AnyResult<()> {
         if !self.config.confirm_on_restart || shift_key_pressed() {
             EDIT_HANDLE.restart_host_app();
         } else {
@@ -51,7 +51,7 @@ impl RestartHostAppPlugin {
                 .set_text(tr(
                     "AviUtl2を再起動しますか？（Shiftキーを押しながらメニューを選択すると確認なしで再起動します）",
                 ))
-                .set_owner(&unsafe { EDIT_HANDLE.get_host_app_window()}.unwrap())
+                .set_owner(&unsafe { EDIT_HANDLE.get_host_app_window() }.unwrap())
                 .confirm()
                 .show()
                 .map_err(|e| aviutl2::anyhow::anyhow!(e))?;

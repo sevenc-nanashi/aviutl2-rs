@@ -80,7 +80,7 @@ impl<'plugin> HostAppHandle<'plugin> {
     /// - [`crate::generic::menus`]
     pub fn register_import_menu<F>(&mut self, name: &str, callback: F)
     where
-        F: Fn() + 'plugin + Send + Sync,
+        F: Fn() + 'static + Send + Sync,
     {
         self.register_menu_internal(name, callback, unsafe {
             (*self.internal).register_import_menu_param
@@ -94,7 +94,7 @@ impl<'plugin> HostAppHandle<'plugin> {
     /// - [`crate::generic::menus`]
     pub fn register_export_menu<F>(&mut self, name: &str, callback: F)
     where
-        F: Fn() + 'plugin + Send + Sync,
+        F: Fn() + 'static + Send + Sync,
     {
         self.register_menu_internal(name, callback, unsafe {
             (*self.internal).register_export_menu_param
@@ -109,7 +109,7 @@ impl<'plugin> HostAppHandle<'plugin> {
     /// - [`crate::generic::menus`]
     pub fn register_layer_menu<F>(&mut self, name: &str, callback: F)
     where
-        F: Fn() + 'plugin + Send + Sync,
+        F: Fn() + 'static + Send + Sync,
     {
         self.register_menu_internal(name, callback, unsafe {
             (*self.internal).register_layer_menu_param
@@ -124,7 +124,7 @@ impl<'plugin> HostAppHandle<'plugin> {
     /// - [`crate::generic::menus`]
     pub fn register_object_menu<F>(&mut self, name: &str, callback: F)
     where
-        F: Fn() + 'plugin + Send + Sync,
+        F: Fn() + 'static + Send + Sync,
     {
         self.register_menu_internal(name, callback, unsafe {
             (*self.internal).register_object_menu_param
@@ -139,7 +139,7 @@ impl<'plugin> HostAppHandle<'plugin> {
     /// - [`crate::generic::menus`]
     pub fn register_edit_menu<F>(&mut self, name: &str, callback: F)
     where
-        F: Fn() + 'plugin + Send + Sync,
+        F: Fn() + 'static + Send + Sync,
     {
         self.register_menu_internal(name, callback, unsafe {
             (*self.internal).register_edit_menu_param
@@ -276,13 +276,10 @@ impl<'plugin> HostAppHandle<'plugin> {
             unsafe extern "C" fn(*mut std::ffi::c_void),
         ),
     ) where
-        F: Fn() + 'plugin + Send + Sync,
+        F: Fn() + 'static + Send + Sync,
     {
         self.assert_not_killed();
-        let return_value = Box::new(None);
-        let return_value_ptr = Box::into_raw(return_value);
-        let trampoline_param: Box<MenuTrampolineParam<F, ()>> =
-            Box::new((callback, return_value_ptr));
+        let trampoline_param: Box<MenuTrampolineParam<F>> = Box::new(callback);
         let trampoline_param_ptr = Box::into_raw(trampoline_param);
         unsafe {
             register_fn(
@@ -291,26 +288,20 @@ impl<'plugin> HostAppHandle<'plugin> {
                 menu_trampoline::<F>,
             );
         }
-        let return_value = unsafe { Box::from_raw(return_value_ptr) };
-        match return_value.as_ref() {
-            Some(Ok(())) => {}
-            Some(Err(err)) => {
-                log::error!("Panic occurred in menu callback: {:?}", err);
-            }
-            None => {}
-        }
     }
 }
 
-type MenuTrampolineParam<F, R> = (F, *mut Option<std::thread::Result<R>>);
-unsafe extern "C" fn menu_trampoline<'plugin, F>(param: *mut std::ffi::c_void)
+type MenuTrampolineParam<F> = F;
+unsafe extern "C" fn menu_trampoline<F>(param: *mut std::ffi::c_void)
 where
-    F: Fn() + 'plugin + Send + Sync,
+    F: Fn() + 'static + Send + Sync,
 {
-    let (callback, result) = unsafe { &mut *(param as *mut MenuTrampolineParam<F, ()>) };
-    let result_value = std::panic::catch_unwind(std::panic::AssertUnwindSafe(callback));
-    unsafe {
-        **result = Some(result_value);
+    let callback = unsafe { &mut *(param as *mut MenuTrampolineParam<F>) };
+    if let Err(panic_info) =
+        crate::utils::catch_unwind_with_panic_info(std::panic::AssertUnwindSafe(callback))
+    {
+        log::error!("Panic occurred in menu callback: {}", panic_info);
+        let _ = crate::logger::write_error_log(&panic_info);
     }
 }
 
