@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.16.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.16.0)
+
 - **Breaking**: 依存関係を更新
 - **Breaking**: デフォルトのエラーダイアログを削除
 - **Breaking**: generic: register_menu系のコールバックをFnに変更
