@@ -11,6 +11,7 @@ pub(crate) struct ScriptsSearchApp {
     suppress_info_close_once: bool,
     version: String,
     handle: AviUtl2EframeHandle,
+    header_collapsed: bool,
 
     matcher: nucleo_matcher::Matcher,
     needle: String,
@@ -27,6 +28,12 @@ macro_rules! include_iconify {
 
 impl ScriptsSearchApp {
     pub(crate) fn new(cc: &eframe::CreationContext<'_>, handle: AviUtl2EframeHandle) -> Self {
+        let header_collapsed = cc
+            .egui_ctx
+            .data_mut(|data| {
+                data.get_persisted::<bool>(egui::Id::new("header_collapsed_scripts_search"))
+            })
+            .unwrap_or(false);
         let mut fonts = egui::FontDefinitions::default();
         fonts.font_data.insert(
             "M+ 1p".to_owned(),
@@ -61,6 +68,7 @@ impl ScriptsSearchApp {
             suppress_info_close_once: false,
             version: env!("CARGO_PKG_VERSION").to_string(),
             handle,
+            header_collapsed,
             matcher: nucleo_matcher::Matcher::new(config),
             needle: String::new(),
         }
@@ -69,13 +77,43 @@ impl ScriptsSearchApp {
 
 impl eframe::App for ScriptsSearchApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.render_toolbar(ctx);
+        if self.header_collapsed {
+            self.render_collapsed_header(ctx);
+        } else {
+            self.render_toolbar(ctx);
+        }
         self.render_main_panel(ctx);
         self.render_info_window(ctx);
+        ctx.data_mut(|data| {
+            data.insert_persisted(
+                egui::Id::new("header_collapsed_scripts_search"),
+                self.header_collapsed,
+            );
+        });
     }
 }
 
 impl ScriptsSearchApp {
+    fn render_collapsed_header(&mut self, ctx: &egui::Context) {
+        let toolbar = egui::TopBottomPanel::top("header")
+            .exact_height(8.0)
+            .show(ctx, |_ui| {});
+        let response = toolbar
+            .response
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+        if response.hovered() {
+            let hover_color = egui::Color32::from_white_alpha(32);
+            response.ctx.layer_painter(response.layer_id).rect_filled(
+                response.rect,
+                0.0,
+                hover_color,
+            );
+        }
+        if response.interact(egui::Sense::click()).clicked() {
+            self.header_collapsed = false;
+        }
+    }
+
     fn render_toolbar(&mut self, ctx: &egui::Context) {
         // TODO: toolbarの右クリックイベントに右クリックメニューを割り当てる
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
@@ -100,6 +138,19 @@ impl ScriptsSearchApp {
                     if resp.clicked() {
                         self.show_info = true;
                         self.suppress_info_close_once = true;
+                    }
+                    let collapse = ui
+                        .add_sized(
+                            egui::vec2(
+                                ui.text_style_height(&egui::TextStyle::Heading),
+                                ui.text_style_height(&egui::TextStyle::Heading),
+                            ),
+                            egui::Button::image(include_iconify!("mdi:chevron-up")),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .on_hover_text(tr("ヘッダーを折りたたむ"));
+                    if collapse.clicked() {
+                        self.header_collapsed = true;
                     }
                 });
             });

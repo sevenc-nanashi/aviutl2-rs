@@ -13,6 +13,7 @@ pub(crate) struct LocalAliasApp {
     delete_dialog: Option<DeleteDialog>,
     version: String,
     handle: AviUtl2EframeHandle,
+    header_collapsed: bool,
 }
 
 struct RenameDialog {
@@ -31,6 +32,12 @@ impl LocalAliasApp {
         state: Arc<Mutex<AliasState>>,
         handle: AviUtl2EframeHandle,
     ) -> Self {
+        let header_collapsed = cc
+            .egui_ctx
+            .data_mut(|data| {
+                data.get_persisted::<bool>(egui::Id::new("header_collapsed_local_alias"))
+            })
+            .unwrap_or(false);
         let mut fonts = egui::FontDefinitions::default();
         fonts.font_data.insert(
             "M+ 1p".to_owned(),
@@ -64,6 +71,7 @@ impl LocalAliasApp {
             delete_dialog: None,
             version: env!("CARGO_PKG_VERSION").to_string(),
             handle,
+            header_collapsed,
         }
     }
 
@@ -99,21 +107,11 @@ impl eframe::App for LocalAliasApp {
         let (aliases, selected_index) = self.snapshot();
 
         // TODO: toolbarの右クリックイベントに右クリックメニューを割り当てる
-        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                let clicked = ui
-                    .heading("Rusty Local Alias Plugin")
-                    .interact(egui::Sense::click());
-                if clicked.secondary_clicked() {
-                    let _ = self.handle.show_context_menu();
-                }
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("?").clicked() {
-                        self.show_info = true;
-                    }
-                });
-            });
-        });
+        if self.header_collapsed {
+            self.render_collapsed_header(ctx);
+        } else {
+            self.render_toolbar(ctx);
+        }
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if aliases.is_empty() {
@@ -296,9 +294,79 @@ impl eframe::App for LocalAliasApp {
         if let Some(index) = delete_action {
             self.delete_alias(index);
         }
+
+        ctx.data_mut(|data| {
+            data.insert_persisted(
+                egui::Id::new("header_collapsed_local_alias"),
+                self.header_collapsed,
+            );
+        });
     }
 
     fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
         visuals.window_fill.to_normalized_gamma_f32()
+    }
+}
+
+impl LocalAliasApp {
+    fn render_collapsed_header(&mut self, ctx: &egui::Context) {
+        let toolbar = egui::TopBottomPanel::top("header")
+            .exact_height(8.0)
+            .show(ctx, |_ui| {});
+        let response = toolbar
+            .response
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+        if response.hovered() {
+            let hover_color = egui::Color32::from_white_alpha(32);
+            response.ctx.layer_painter(response.layer_id).rect_filled(
+                response.rect,
+                0.0,
+                hover_color,
+            );
+        }
+        if response.interact(egui::Sense::click()).clicked() {
+            self.header_collapsed = false;
+        }
+    }
+
+    fn render_toolbar(&mut self, ctx: &egui::Context) {
+        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                let clicked = ui
+                    .heading("Rusty Local Alias Plugin")
+                    .interact(egui::Sense::click());
+                if clicked.secondary_clicked() {
+                    let _ = self.handle.show_context_menu();
+                }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let info = ui
+                        .add_sized(
+                            egui::vec2(
+                                ui.text_style_height(&egui::TextStyle::Heading),
+                                ui.text_style_height(&egui::TextStyle::Heading),
+                            ),
+                            egui::Button::new("i"),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .on_hover_text(tr("プラグイン情報"));
+                    if info.clicked() {
+                        self.show_info = true;
+                    }
+                    let collapse = ui
+                        .add_sized(
+                            egui::vec2(
+                                ui.text_style_height(&egui::TextStyle::Heading),
+                                ui.text_style_height(&egui::TextStyle::Heading),
+                            ),
+                            egui::Button::new("^"),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .on_hover_text(tr("ヘッダーを折りたたむ"));
+                    if collapse.clicked() {
+                        self.header_collapsed = true;
+                    }
+                });
+            });
+        });
     }
 }

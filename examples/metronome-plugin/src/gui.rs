@@ -18,10 +18,15 @@ pub(crate) struct MetronomeApp {
     bpm: Option<f64>,
     bpm_text_input: String,
     will_reset_on_next_tap: bool,
+    header_collapsed: bool,
 }
 
 impl MetronomeApp {
     pub(crate) fn new(cc: &eframe::CreationContext<'_>, handle: AviUtl2EframeHandle) -> Self {
+        let header_collapsed = cc
+            .egui_ctx
+            .data_mut(|data| data.get_persisted::<bool>(egui::Id::new("header_collapsed")))
+            .unwrap_or(false);
         let mut fonts = egui::FontDefinitions::default();
         fonts.font_data.insert(
             "M+ 1p".to_owned(),
@@ -58,6 +63,7 @@ impl MetronomeApp {
             bpm: None,
             bpm_text_input: String::new(),
             will_reset_on_next_tap: false,
+            header_collapsed,
         }
     }
 }
@@ -70,13 +76,39 @@ impl eframe::App for MetronomeApp {
         if ctx.input(|i| i.key_pressed(egui::Key::Space)) {
             self.register_tap();
         }
-        self.render_toolbar(ctx);
+        if self.header_collapsed {
+            self.render_collapsed_header(ctx);
+        } else {
+            self.render_toolbar(ctx);
+        }
         self.render_main_panel(ctx);
         self.render_info_window(ctx);
+        ctx.data_mut(|data| {
+            data.insert_persisted(egui::Id::new("header_collapsed"), self.header_collapsed);
+        });
     }
 }
 
 impl MetronomeApp {
+    fn render_collapsed_header(&mut self, ctx: &egui::Context) {
+        let toolbar = egui::TopBottomPanel::top("header")
+            .exact_height(8.0)
+            .show(ctx, |_ui| {});
+        let response = toolbar
+            .response
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+        if response.hovered() {
+            let hover_color = egui::Color32::from_white_alpha(32);
+            response.ctx.layer_painter(response.layer_id).rect_filled(
+                response.rect,
+                0.0,
+                hover_color,
+            );
+        }
+        if response.interact(egui::Sense::click()).clicked() {
+            self.header_collapsed = false;
+        }
+    }
     fn render_toolbar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -87,7 +119,7 @@ impl MetronomeApp {
                     let _ = self.handle.show_context_menu();
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let resp = ui
+                    let info = ui
                         .add_sized(
                             egui::vec2(
                                 ui.text_style_height(&egui::TextStyle::Heading),
@@ -97,9 +129,23 @@ impl MetronomeApp {
                         )
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
                         .on_hover_text(tr("プラグイン情報"));
-                    if resp.clicked() {
+                    if info.clicked() {
                         self.show_info = true;
                         self.suppress_info_close_once = true;
+                    }
+
+                    let collapse = ui
+                        .add_sized(
+                            egui::vec2(
+                                ui.text_style_height(&egui::TextStyle::Heading),
+                                ui.text_style_height(&egui::TextStyle::Heading),
+                            ),
+                            egui::Button::new("^"),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .on_hover_text(tr("ヘッダーを折りたたむ"));
+                    if collapse.clicked() {
+                        self.header_collapsed = true;
                     }
                 });
             });

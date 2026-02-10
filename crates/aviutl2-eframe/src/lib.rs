@@ -93,8 +93,6 @@ impl eframe::App for WrappedApp {
 // 一段階wrapして終了要求を処理するようにする。
 // （これによってActiveEventLoopへのアクセスが可能になり、exit()を呼び出せる）
 // 少なくとも2026/02/01現在、これで正常に動作しているので、まぁ...
-//
-// TODO: "You forgot to call destroy() on the egui glow painter. Resources will leak!" を直す
 
 struct WinitEventLoopApp<'a> {
     app: EframeWinitApplication<'a>,
@@ -160,9 +158,6 @@ impl<'a> winit::application::ApplicationHandler<eframe::UserEvent> for WinitEven
     }
 
     fn exiting(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        if self.maybe_exit(event_loop) {
-            return;
-        }
         self.app.exiting(event_loop);
     }
 
