@@ -1,6 +1,7 @@
 [rusty_metronome.aux2]
 Rusty Metronome Plugin=
 プラグイン情報=
+ヘッダーを折りたたむ=
 BPM=
 BPM取得=
 プロジェクトからBPMを取得します=

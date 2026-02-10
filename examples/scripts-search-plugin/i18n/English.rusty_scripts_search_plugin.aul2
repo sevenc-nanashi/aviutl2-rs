@@ -9,6 +9,7 @@ Rusty Scripts Search Plugin=Rusty Scripts Search Plugin
 開発者:=Developer:
 ソースコード:=Source Code:
 プラグイン情報=Plugin Info
+ヘッダーを折りたたむ=Collapse Header
 （なし）=(None)
 フィルタオブジェクトとして追加=Add as filter object
 選択中のオブジェクトに追加=Add to selected object

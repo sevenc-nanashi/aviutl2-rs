@@ -5,6 +5,8 @@
 削除=Delete
 名前変更=Rename
 新しいエイリアス名=New alias name
+プラグイン情報=Plugin Info
+ヘッダーを折りたたむ=Collapse Header
 保存=Save
 キャンセル=Cancel
 エイリアス "{}" を削除しますか？=Delete alias "{}"?
