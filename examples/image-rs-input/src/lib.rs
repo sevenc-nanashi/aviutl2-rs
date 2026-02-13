@@ -68,6 +68,7 @@ impl InputPlugin for ImageInputPlugin {
                     "tiff",
                     "gif",
                     "hdr",
+                    "jxl",
                 ],
             },
             information: format!(

@@ -165,19 +165,19 @@ macro_rules! ldbg {
 #[macro_export]
 macro_rules! lprintln {
     (plugin, $($arg:tt)*) => {
-        let _ = $crate::logger::write_plugin_log(&format!($($arg)*));
+        ::std::mem::drop($crate::logger::write_plugin_log(&format!($($arg)*)));
     };
     (info, $($arg:tt)*) => {
-        let _ = $crate::logger::write_info_log(&format!($($arg)*));
+        ::std::mem::drop($crate::logger::write_info_log(&format!($($arg)*)));
     };
     (warn, $($arg:tt)*) => {
-        let _ = $crate::logger::write_warn_log(&format!($($arg)*));
+        ::std::mem::drop($crate::logger::write_warn_log(&format!($($arg)*)));
     };
     (error, $($arg:tt)*) => {
-        let _ = $crate::logger::write_error_log(&format!($($arg)*));
+        ::std::mem::drop($crate::logger::write_error_log(&format!($($arg)*)));
     };
     (verbose, $($arg:tt)*) => {
-        let _ = $crate::logger::write_verbose_log(&format!($($arg)*));
+        ::std::mem::drop($crate::logger::write_verbose_log(&format!($($arg)*)));
     };
     ($($arg:tt)*) => {
         $crate::lprintln!(plugin, $($arg)*);

@@ -17,6 +17,7 @@ aviutl2 = { workspace = true, features = ["input", "image"] }
 duplicate = "2.0.1"
 gif = "0.14.1"
 image = "0.25.9"
+jxl-oxide = "0.12.5"
 ordered-float = "5.1.0"
 ouroboros = "0.18.5"
 png = "0.18.0"
