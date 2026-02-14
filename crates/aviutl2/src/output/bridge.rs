@@ -299,10 +299,10 @@ where
 #[macro_export]
 macro_rules! register_output_plugin {
     ($struct:ident, $($key:ident = $value:expr),* $(,)?) => {
-        ::$crate::__internal_module! {
+        $crate::__internal_module! {
             #[unsafe(no_mangle)]
             unsafe extern "C" fn RequiredVersion() -> u32 {
-                $struct::MINIMUM_AVIUTL2_VERSION.into()
+                $crate::MINIMUM_AVIUTL2_VERSION.into()
             }
 
             #[unsafe(no_mangle)]

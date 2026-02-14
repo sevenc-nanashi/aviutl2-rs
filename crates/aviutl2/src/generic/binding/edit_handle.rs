@@ -21,9 +21,7 @@ pub enum EditHandleError {
 
 impl EditHandle {
     pub(crate) unsafe fn new(internal: *mut aviutl2_sys::plugin2::EDIT_HANDLE) -> Self {
-        Self {
-            internal,
-        }
+        Self { internal }
     }
 
     /// プロジェクトデータの編集を開始する。

@@ -338,7 +338,6 @@ pub struct EDIT_SECTION {
     /// シーンのサンプリングレートを設定します ※シーンの操作は現状Undoに非対応です
     /// sample_rate : サンプリングレート
     pub set_scene_sample_rate: unsafe extern "C" fn(sample_rate: i32),
-
 }
 
 /// 編集ハンドル構造体
