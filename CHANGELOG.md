@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.17.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.17.0)
+
 - **Breaking**: 最小バージョンをbeta33に引き上げ
 - **Breaking**: generic: `try_get_edit_info`を削除
 - generic: [beta33の変更](https://github.com/aviutl2/aviutl2_sdk_mirror/commit/c5a364cffbab058bed2b4aa8fd5c4931e3c3f817)に追従
