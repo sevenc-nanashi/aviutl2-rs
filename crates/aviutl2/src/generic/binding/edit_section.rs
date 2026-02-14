@@ -189,7 +189,7 @@ pub struct EditSection {
 }
 
 impl EditSection {
-    /// 生ポインタから `EditSection` を作成します。
+    /// 生ポインタから `EditSection` を作成する。
     ///
     /// # Safety
     ///
@@ -201,7 +201,7 @@ impl EditSection {
         }
     }
 
-    /// オブジェクトエイリアスから指定の位置にオブジェクトを作成します。
+    /// オブジェクトエイリアスから指定の位置にオブジェクトを作成する。
     ///
     /// # Arguments
     ///
@@ -240,7 +240,7 @@ impl EditSection {
         })
     }
 
-    /// 指定のフレーム番号以降にあるオブジェクトを検索します。
+    /// 指定のフレーム番号以降にあるオブジェクトを検索する。
     ///
     /// # Arguments
     ///
@@ -262,7 +262,7 @@ impl EditSection {
         }
     }
 
-    /// オブジェクトに対象エフェクトが何個存在するかを取得します。
+    /// オブジェクトに対象エフェクトが何個存在するかを取得する。
     ///
     /// # Arguments
     ///
@@ -284,7 +284,7 @@ impl EditSection {
         Ok(count.try_into()?)
     }
 
-    /// 指定のオブジェクトのレイヤーとフレーム情報を取得します。
+    /// 指定のオブジェクトのレイヤーとフレーム情報を取得する。
     pub fn get_object_layer_frame(
         &self,
         object: &ObjectHandle,
@@ -298,7 +298,7 @@ impl EditSection {
         })
     }
 
-    /// オブジェクトの情報をエイリアスデータとして取得します。
+    /// オブジェクトの情報をエイリアスデータとして取得する。
     pub fn get_object_alias(&self, object: &ObjectHandle) -> EditSectionResult<String> {
         self.ensure_object_exists(object)?;
         let alias_ptr = unsafe { ((*self.internal).get_object_alias)(object.internal) };
@@ -310,7 +310,7 @@ impl EditSection {
         Ok(alias)
     }
 
-    /// オブジェクト名を取得します。
+    /// オブジェクト名を取得する。
     ///
     /// # Returns
     ///
@@ -324,7 +324,7 @@ impl EditSection {
         Ok(Some(unsafe { crate::common::load_wide_string(name_ptr) }))
     }
 
-    /// オブジェクト名を設定します。
+    /// オブジェクト名を設定する。
     ///
     /// # Note
     ///
@@ -350,7 +350,7 @@ impl EditSection {
         }
     }
 
-    /// オブジェクトの設定項目の値を文字列で取得します。
+    /// オブジェクトの設定項目の値を文字列で取得する。
     ///
     /// # Arguments
     ///
@@ -383,7 +383,7 @@ impl EditSection {
         Ok(value)
     }
 
-    /// オブジェクトの設定項目の値を取得し、パースします。
+    /// オブジェクトの設定項目の値を取得し、パースする。
     ///
     /// # See Also
     ///
@@ -403,7 +403,7 @@ impl EditSection {
         T::from_table_value(&value_str).map_err(EditSectionParsedError::ParseError)
     }
 
-    /// オブジェクトの設定項目の値を文字列で設定します。
+    /// オブジェクトの設定項目の値を文字列で設定する。
     ///
     /// # Arguments
     ///
@@ -438,7 +438,7 @@ impl EditSection {
         Ok(())
     }
 
-    /// オブジェクトを移動します。
+    /// オブジェクトを移動する。
     pub fn move_object(
         &self,
         object: &ObjectHandle,
@@ -459,14 +459,14 @@ impl EditSection {
         Ok(())
     }
 
-    /// オブジェクトを削除します。
+    /// オブジェクトを削除する。
     pub fn delete_object(&self, object: &ObjectHandle) -> EditSectionResult<()> {
         self.ensure_object_exists(object)?;
         unsafe { ((*self.internal).delete_object)(object.internal) };
         Ok(())
     }
 
-    /// 現在、オブジェクト設定ウィンドウで選択されているオブジェクトを取得します。
+    /// 現在、オブジェクト設定ウィンドウで選択されているオブジェクトを取得する。
     pub fn get_focused_object(&self) -> EditSectionResult<Option<ObjectHandle>> {
         let object_handle = unsafe { ((*self.internal).get_focus_object)() };
         if object_handle.is_null() {
@@ -478,7 +478,7 @@ impl EditSection {
         }
     }
 
-    /// 現在選択されているオブジェクトの一覧を取得します。
+    /// 現在選択されているオブジェクトの一覧を取得する。
     pub fn get_selected_objects(&self) -> EditSectionResult<Vec<ObjectHandle>> {
         let mut handles = Vec::new();
         let num_objects = unsafe { ((*self.internal).get_selected_object_num)() };
@@ -494,7 +494,7 @@ impl EditSection {
         Ok(handles)
     }
 
-    /// オブジェクト設定ウィンドウで指定のオブジェクトを選択状態にします。
+    /// オブジェクト設定ウィンドウで指定のオブジェクトを選択状態にする。
     ///
     /// # Note
     ///
@@ -505,7 +505,7 @@ impl EditSection {
         Ok(())
     }
 
-    /// プロジェクトファイルのポインタを取得します。
+    /// プロジェクトファイルのポインタを取得する。
     pub fn get_project_file<'handle>(
         &'handle self,
         edit_handle: &crate::generic::EditHandle,
@@ -514,7 +514,7 @@ impl EditSection {
         unsafe { crate::generic::ProjectFile::from_raw(pf_ptr) }
     }
 
-    /// マウス座標のレイヤー・フレーム位置を取得します。
+    /// マウス座標のレイヤー・フレーム位置を取得する。
     ///
     /// # Returns
     ///
@@ -535,7 +535,7 @@ impl EditSection {
         }
     }
 
-    /// 指定のスクリーン座標のレイヤー・フレーム位置を取得します。
+    /// 指定のスクリーン座標のレイヤー・フレーム位置を取得する。
     pub fn pos_to_layer_frame(&self, x: i32, y: i32) -> EditSectionResult<Option<LayerFrameData>> {
         let mut layer = 0;
         let mut frame = 0;
@@ -551,7 +551,7 @@ impl EditSection {
         }
     }
 
-    /// 指定のメディアファイルがサポートされているかどうか調べます。
+    /// 指定のメディアファイルがサポートされているかどうか調べる。
     pub fn is_support_media_file<P: AsRef<std::path::Path>>(
         &self,
         file_path: P,
@@ -571,7 +571,7 @@ impl EditSection {
         Ok(is_supported)
     }
 
-    /// 指定のメディアファイルの情報を取得します。
+    /// 指定のメディアファイルの情報を取得する。
     ///
     /// # Note
     ///
@@ -602,7 +602,7 @@ impl EditSection {
         })
     }
 
-    /// 指定の位置にメディアファイルからオブジェクトを作成します。
+    /// 指定の位置にメディアファイルからオブジェクトを作成する。
     ///
     /// # Arguments
     ///
@@ -634,7 +634,7 @@ impl EditSection {
         })
     }
 
-    /// 指定の位置にオブジェクトを作成します。
+    /// 指定の位置にオブジェクトを作成する。
     ///
     /// # Arguments
     ///
@@ -666,7 +666,7 @@ impl EditSection {
         })
     }
 
-    /// 現在のレイヤー・フレーム位置を設定します。
+    /// 現在のレイヤー・フレーム位置を設定する。
     ///
     /// # Note
     ///
@@ -678,7 +678,7 @@ impl EditSection {
         Ok(())
     }
 
-    /// レイヤー編集のレイヤー・フレームの表示開始位置を設定します。
+    /// レイヤー編集のレイヤー・フレームの表示開始位置を設定する。
     ///
     /// # Note
     ///
@@ -690,7 +690,7 @@ impl EditSection {
         Ok(())
     }
 
-    /// フレーム範囲選択を設定します。
+    /// フレーム範囲選択を設定する。
     ///
     /// # Note
     ///
@@ -702,7 +702,7 @@ impl EditSection {
         Ok(())
     }
 
-    /// 選択されているフレーム範囲選択を解除します。
+    /// 選択されているフレーム範囲選択を解除する。
     pub fn clear_select_range(&self) -> EditSectionResult<()> {
         unsafe {
             ((*self.internal).set_select_range)(-1, -1);
@@ -710,7 +710,7 @@ impl EditSection {
         Ok(())
     }
 
-    /// グリッド（BPM）を設定します。
+    /// グリッド（BPM）を設定する。
     pub fn set_grid_bpm(&self, tempo: f32, beat: usize, offset: f32) -> EditSectionResult<()> {
         unsafe {
             ((*self.internal).set_grid_bpm)(tempo, beat.try_into()?, offset);
@@ -718,7 +718,90 @@ impl EditSection {
         Ok(())
     }
 
-    /// オブジェクトが存在するかどうか調べます。
+    /// レイヤーの名前を取得する。
+    pub fn get_layer_name(&self, layer: usize) -> EditSectionResult<Option<String>> {
+        let name_ptr = unsafe { ((*self.internal).get_layer_name)(layer.try_into()?) };
+        if name_ptr.is_null() {
+            return Ok(None);
+        }
+        Ok(Some(unsafe { crate::common::load_wide_string(name_ptr) }))
+    }
+
+    /// レイヤーの名前を設定する。
+    /// `name`に`None`や空文字を指定すると、標準の名前になります。
+    pub fn set_layer_name(&self, layer: usize, name: Option<&str>) -> EditSectionResult<()> {
+        match name {
+            None => {
+                unsafe { ((*self.internal).set_layer_name)(layer.try_into()?, std::ptr::null()) };
+                Ok(())
+            }
+            Some(name) => {
+                let c_name = crate::common::CWString::new(name)?;
+                unsafe {
+                    ((*self.internal).set_layer_name)(layer.try_into()?, c_name.as_ptr());
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// シーン名を取得する。
+    pub fn get_scene_name(&self) -> EditSectionResult<String> {
+        let name_ptr = unsafe { ((*self.internal).get_scene_name)() };
+        if name_ptr.is_null() {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(unsafe { crate::common::load_wide_string(name_ptr) })
+    }
+
+    /// シーン名を設定する。
+    ///
+    /// <div class="warning">
+    /// シーンの操作は現状Undoに対応していません。
+    /// </div>
+    pub fn set_scene_name(&self, name: &str) -> EditSectionResult<()> {
+        let c_name = crate::common::CWString::new(name)?;
+        unsafe { ((*self.internal).set_scene_name)(c_name.as_ptr()) };
+        Ok(())
+    }
+
+    /// シーンの解像度を設定する。
+    ///
+    /// <div class="warning">
+    /// シーンの操作は現状Undoに対応していません。
+    /// </div>
+    pub fn set_scene_size(&self, width: usize, height: usize) -> EditSectionResult<()> {
+        unsafe {
+            ((*self.internal).set_scene_size)(width.try_into()?, height.try_into()?);
+        }
+        Ok(())
+    }
+
+    /// シーンのフレームレートを設定する。
+    ///
+    /// <div class="warning">
+    /// シーンの操作は現状Undoに対応していません。
+    /// </div>
+    pub fn set_scene_fps(&self, fps: Rational32) -> EditSectionResult<()> {
+        unsafe {
+            ((*self.internal).set_scene_frame_rate)(*fps.numer(), *fps.denom());
+        }
+        Ok(())
+    }
+
+    /// シーンのサンプルレートを設定する。
+    ///
+    /// <div class="warning">
+    /// シーンの操作は現状Undoに対応していません。
+    /// </div>
+    pub fn set_scene_sample_rate(&self, sample_rate: usize) -> EditSectionResult<()> {
+        unsafe {
+            ((*self.internal).set_scene_sample_rate)(sample_rate.try_into()?);
+        }
+        Ok(())
+    }
+
+    /// オブジェクトが存在するかどうか調べる。
     ///
     /// # Note
     ///
@@ -735,16 +818,16 @@ impl EditSection {
         Ok(())
     }
 
-    /// すべてのレイヤーをイテレータで取得します。
+    /// すべてのレイヤーをイテレータで取得する。
     pub fn layers(&self) -> EditSectionLayersIterator<'_> {
         EditSectionLayersIterator::new(self)
     }
 
-    /// [EditSectionLayerCaller] を作成します。
+    /// [EditSectionLayerCaller] を作成する。
     pub fn layer<'a>(&'a self, layer: usize) -> EditSectionLayerCaller<'a> {
         EditSectionLayerCaller::new(self, layer)
     }
-    /// [EditSectionObjectCaller] を作成します。
+    /// [EditSectionObjectCaller] を作成する。
     pub fn object<'a>(&'a self, object: &'a ObjectHandle) -> EditSectionObjectCaller<'a> {
         EditSectionObjectCaller::new(self, object)
     }
@@ -765,17 +848,17 @@ impl<'a> EditSectionObjectCaller<'a> {
         }
     }
 
-    /// オブジェクトのレイヤーとフレーム情報を取得します。
+    /// オブジェクトのレイヤーとフレーム情報を取得する。
     pub fn get_layer_frame(&self) -> EditSectionResult<ObjectLayerFrame> {
         self.edit_section.get_object_layer_frame(self.handle)
     }
 
-    /// オブジェクトの情報をエイリアスデータとして取得します。
+    /// オブジェクトの情報をエイリアスデータとして取得する。
     pub fn get_alias(&self) -> EditSectionResult<String> {
         self.edit_section.get_object_alias(self.handle)
     }
 
-    /// オブジェクトの情報をエイリアスデータとして取得し、パースします。
+    /// オブジェクトの情報をエイリアスデータとして取得し、パースする。
     #[cfg(feature = "aviutl2-alias")]
     pub fn get_alias_parsed(&self) -> EditSectionResult<aviutl2_alias::Table> {
         self.edit_section
@@ -784,7 +867,7 @@ impl<'a> EditSectionObjectCaller<'a> {
             .map_err(Into::into)
     }
 
-    /// オブジェクトに対象エフェクトが何個存在するかを取得します。
+    /// オブジェクトに対象エフェクトが何個存在するかを取得する。
     ///
     /// # Arguments
     ///
@@ -797,7 +880,7 @@ impl<'a> EditSectionObjectCaller<'a> {
         self.edit_section.count_object_effect(self.handle, effect)
     }
 
-    /// オブジェクトの設定項目の値を文字列で取得します。
+    /// オブジェクトの設定項目の値を文字列で取得する。
     ///
     /// # Arguments
     ///
@@ -814,7 +897,7 @@ impl<'a> EditSectionObjectCaller<'a> {
             .get_object_effect_item(self.handle, effect_name, effect_index, item)
     }
 
-    /// オブジェクトの設定項目の値を取得し、パースします。
+    /// オブジェクトの設定項目の値を取得し、パースする。
     ///
     /// # See Also
     ///
@@ -833,7 +916,7 @@ impl<'a> EditSectionObjectCaller<'a> {
         T::from_table_value(&value_str).map_err(EditSectionParsedError::ParseError)
     }
 
-    /// オブジェクトの設定項目の値を文字列で設定します。
+    /// オブジェクトの設定項目の値を文字列で設定する。
     ///
     /// # Arguments
     ///
@@ -857,7 +940,7 @@ impl<'a> EditSectionObjectCaller<'a> {
         )
     }
 
-    /// オブジェクトを移動します。
+    /// オブジェクトを移動する。
     ///
     /// # Arguments
     ///
@@ -868,12 +951,12 @@ impl<'a> EditSectionObjectCaller<'a> {
             .move_object(self.handle, new_layer, new_start_frame)
     }
 
-    /// オブジェクトを削除します。
+    /// オブジェクトを削除する。
     pub fn delete_object(&self) -> EditSectionResult<()> {
         self.edit_section.delete_object(self.handle)
     }
 
-    /// オブジェクト設定ウィンドウでこのオブジェクトを選択状態にします。
+    /// オブジェクト設定ウィンドウでこのオブジェクトを選択状態にする。
     ///
     /// # Note
     ///
@@ -882,9 +965,24 @@ impl<'a> EditSectionObjectCaller<'a> {
         self.edit_section.focus_object(self.handle)
     }
 
-    /// このオブジェクトが存在するかどうか調べます。
+    /// このオブジェクトが存在するかどうか調べる。
     pub fn exists(&self) -> bool {
         self.edit_section.object_exists(self.handle)
+    }
+
+    /// オブジェクトの名前を取得する。
+    ///
+    /// # Returns
+    ///
+    /// 標準の名前の場合は`None`を返します。
+    pub fn get_name(&self) -> EditSectionResult<Option<String>> {
+        self.edit_section.get_object_name(self.handle)
+    }
+
+    /// オブジェクトの名前を設定する。
+    /// `name`に`None`や空文字を指定すると、標準の名前になります。
+    pub fn set_name(&self, name: Option<&str>) -> EditSectionResult<()> {
+        self.edit_section.set_object_name(self.handle, name)
     }
 }
 
@@ -903,7 +1001,7 @@ impl<'a> EditSectionLayerCaller<'a> {
         }
     }
 
-    /// 指定のフレーム番号以降にあるオブジェクトを検索します。
+    /// 指定のフレーム番号以降にあるオブジェクトを検索する。
     ///
     /// # Arguments
     ///
@@ -912,7 +1010,22 @@ impl<'a> EditSectionLayerCaller<'a> {
         self.edit_section.find_object_after(self.index, frame)
     }
 
-    /// 指定の位置にメディアファイルからオブジェクトを作成します。
+    /// オブジェクトエイリアスから指定の位置にオブジェクトを作成する。
+    ///
+    /// # See Also
+    ///
+    /// [`EditSection::create_object_from_alias`]
+    pub fn create_object_from_alias<P: AsRef<std::path::Path>>(
+        &self,
+        alias: &str,
+        frame: usize,
+        length: usize,
+    ) -> EditSectionResult<ObjectHandle> {
+        self.edit_section
+            .create_object_from_alias(alias, self.index, frame, length)
+    }
+
+    /// 指定の位置にメディアファイルからオブジェクトを作成する。
     ///
     /// # See Also
     ///
@@ -927,7 +1040,7 @@ impl<'a> EditSectionLayerCaller<'a> {
             .create_object_from_media_file(file_path, self.index, frame, length)
     }
 
-    /// 指定の位置にオブジェクトを作成します。
+    /// 指定の位置にオブジェクトを作成する。
     ///
     /// # See Also
     ///
@@ -942,8 +1055,19 @@ impl<'a> EditSectionLayerCaller<'a> {
             .create_object(effect, self.index, frame, length)
     }
 
+    /// レイヤーの名前を取得する。
+    pub fn get_name(&self) -> EditSectionResult<Option<String>> {
+        self.edit_section.get_layer_name(self.index)
+    }
+
+    /// レイヤーの名前を設定する。
+    /// `name`に`None`や空文字を指定すると、標準の名前になります。
+    pub fn set_name(&self, name: Option<&str>) -> EditSectionResult<()> {
+        self.edit_section.set_layer_name(self.index, name)
+    }
+
     /// このレイヤーに存在するすべてのオブジェクトを、
-    /// 開始フレームの昇順で走査するイテレータを返します。
+    /// 開始フレームの昇順で走査するイテレータを返す。
     pub fn objects(&self) -> EditSectionLayerObjectsIterator<'a> {
         EditSectionLayerObjectsIterator::new(self.edit_section, self.index)
     }

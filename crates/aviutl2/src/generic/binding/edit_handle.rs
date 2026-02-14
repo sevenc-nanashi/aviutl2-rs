@@ -7,7 +7,6 @@ use crate::generic::EditSection;
 #[derive(Debug)]
 pub struct EditHandle {
     pub(crate) internal: *mut aviutl2_sys::plugin2::EDIT_HANDLE,
-    edit_info_worker: std::sync::OnceLock<EditInfoWorker>,
 }
 
 unsafe impl Send for EditHandle {}
@@ -24,13 +23,7 @@ impl EditHandle {
     pub(crate) unsafe fn new(internal: *mut aviutl2_sys::plugin2::EDIT_HANDLE) -> Self {
         Self {
             internal,
-            edit_info_worker: std::sync::OnceLock::new(),
         }
-    }
-
-    fn edit_info_worker(&self) -> &EditInfoWorker {
-        self.edit_info_worker
-            .get_or_init(|| EditInfoWorker::new(self.internal))
     }
 
     /// プロジェクトデータの編集を開始する。
@@ -102,41 +95,6 @@ impl EditHandle {
             );
             let edit_info = raw_info.assume_init();
             crate::generic::EditInfo::from_raw(&edit_info)
-        }
-    }
-
-    /// 編集情報を取得する。
-    ///
-    /// [`Self::get_edit_info`] と異なり、タイムアウトを指定できます。
-    ///
-    /// # Note
-    ///
-    /// 現在、なぜか別スレッドでのcall_edit_section中にこの関数を呼び出すとデッドロックするため、
-    /// タイムアウトを指定できるようにしています。
-    pub fn try_get_edit_info(
-        &self,
-        timeout: std::time::Duration,
-    ) -> Result<crate::generic::EditInfo, EditHandleError> {
-        let (tx, rx) = std::sync::mpsc::channel();
-        if self
-            .edit_info_worker()
-            .sender
-            .send(std::ops::ControlFlow::Continue(EditInfoRequest {
-                responder: tx,
-            }))
-            .is_err()
-        {
-            return Err(EditHandleError::ApiCallFailed);
-        }
-        match rx.recv_timeout(timeout) {
-            Ok(info) => Ok(info),
-            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                log::warn!("try_get_edit_info timed out");
-                Err(EditHandleError::ApiCallFailed)
-            }
-            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                Err(EditHandleError::ApiCallFailed)
-            }
         }
     }
 
@@ -260,62 +218,6 @@ impl EditHandle {
                 handle,
             ))
         })
-    }
-}
-
-impl Drop for EditHandle {
-    fn drop(&mut self) {
-        if let Some(worker) = self.edit_info_worker.take() {
-            let _ = worker.sender.send(std::ops::ControlFlow::Break(()));
-            let _ = worker.join_handle.join();
-        }
-    }
-}
-
-struct InternalSendableEditHandle(*mut aviutl2_sys::plugin2::EDIT_HANDLE);
-unsafe impl Send for InternalSendableEditHandle {}
-impl InternalSendableEditHandle {
-    fn get(&self) -> *mut aviutl2_sys::plugin2::EDIT_HANDLE {
-        self.0
-    }
-}
-
-struct EditInfoRequest {
-    responder: std::sync::mpsc::Sender<crate::generic::EditInfo>,
-}
-
-#[derive(Debug)]
-struct EditInfoWorker {
-    sender: std::sync::mpsc::Sender<std::ops::ControlFlow<(), EditInfoRequest>>,
-    join_handle: std::thread::JoinHandle<()>,
-}
-
-impl EditInfoWorker {
-    fn new(internal: *mut aviutl2_sys::plugin2::EDIT_HANDLE) -> Self {
-        let (tx, rx) = std::sync::mpsc::channel::<std::ops::ControlFlow<(), EditInfoRequest>>();
-        let internal = InternalSendableEditHandle(internal);
-        let join_handle = std::thread::Builder::new()
-            .name("aviutl2-edit-info-worker".to_string())
-            .spawn(move || {
-                while let Ok(std::ops::ControlFlow::Continue(request)) = rx.recv() {
-                    let mut raw_info =
-                        std::mem::MaybeUninit::<aviutl2_sys::plugin2::EDIT_INFO>::uninit();
-                    unsafe {
-                        ((*internal.get()).get_edit_info)(
-                            raw_info.as_mut_ptr(),
-                            std::mem::size_of::<aviutl2_sys::plugin2::EDIT_INFO>() as _,
-                        );
-                        let edit_info = raw_info.assume_init();
-                        let info = crate::generic::EditInfo::from_raw(&edit_info);
-                        let _ = request.responder.send(info);
-                    }
-                }
-            })
-            .expect("Failed to spawn edit info worker thread");
-        Self {
-            sender: tx,
-            join_handle,
-        }
     }
 }
 

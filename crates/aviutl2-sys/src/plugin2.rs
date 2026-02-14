@@ -304,13 +304,48 @@ pub struct EDIT_SECTION {
     /// object : オブジェクトのハンドル
     /// name : オブジェクト名 (nullptrか空文字を指定すると標準の名前になります)
     pub set_object_name: unsafe extern "C" fn(object: OBJECT_HANDLE, name: LPCWSTR),
+
+    /// レイヤー名を取得します
+    /// layer : レイヤー番号
+    /// 戻り値 : レイヤー名へのポインタ (標準の名前の場合はnullptrを返却)
+    ///     ※レイヤーの編集をするかコールバック処理の終了まで有効
+    pub get_layer_name: unsafe extern "C" fn(layer: i32) -> LPCWSTR,
+
+    /// レイヤー名を設定します
+    /// layer : レイヤー番号
+    /// name : レイヤー名 (nullptrか空文字を指定すると標準の名前になります)
+    pub set_layer_name: unsafe extern "C" fn(layer: i32, name: LPCWSTR),
+
+    /// シーン名を取得します
+    /// 戻り値 : シーン名へのポインタ
+    ///     ※シーンの編集をするかコールバック処理の終了まで有効
+    pub get_scene_name: unsafe extern "C" fn() -> LPCWSTR,
+
+    /// シーン名を設定します ※シーンの操作は現状Undoに非対応です
+    /// name : シーン名 (nullptrや空文字の場合は変更しません)
+    pub set_scene_name: unsafe extern "C" fn(name: LPCWSTR),
+
+    /// シーンの解像度を設定します ※シーンの操作は現状Undoに非対応です
+    /// width : 横のサイズ
+    /// height : 縦のサイズ
+    pub set_scene_size: unsafe extern "C" fn(width: i32, height: i32),
+
+    /// シーンのフレームレートを設定します ※シーンの操作は現状Undoに非対応です
+    /// rate : フレームレート
+    /// scale : フレームレートのスケール
+    pub set_scene_frame_rate: unsafe extern "C" fn(rate: i32, scale: i32),
+
+    /// シーンのサンプリングレートを設定します ※シーンの操作は現状Undoに非対応です
+    /// sample_rate : サンプリングレート
+    pub set_scene_sample_rate: unsafe extern "C" fn(sample_rate: i32),
+
 }
 
 /// 編集ハンドル構造体
 #[repr(C)]
 pub struct EDIT_HANDLE {
     /// プロジェクトデータの編集をする為のコールバック関数(func_proc_edit)を呼び出します
-    /// 編集情報を排他制御する為にコールバック関数内で編集処理をする形になります
+    /// 編集情報を排他制御する為に更新ロック状態のコールバック関数内で編集処理をする形になります
     /// コールバック関数内で編集したオブジェクトは纏めてUndoに登録されます
     /// コールバック関数はメインスレッドから呼ばれます
     /// func_proc_edit : 編集処理のコールバック関数
@@ -326,7 +361,7 @@ pub struct EDIT_HANDLE {
     ) -> bool,
 
     /// 編集情報を取得します
-    /// 既に編集処理中(EDIT_SECTIONが引数のコールバック関数内等)の場合は利用出来ません ※デッドロックします
+    /// 編集情報を排他制御する為に参照ロックします。※同一スレッドで既にロック状態の場合はそのまま取得します。
     /// info : 編集情報の格納先へのポインタ
     /// info_size : 編集情報の格納先のサイズ ※EDIT_INFOと異なる場合はサイズ分のみ取得されます
     pub get_edit_info: unsafe extern "C" fn(info: *mut EDIT_INFO, info_size: i32),

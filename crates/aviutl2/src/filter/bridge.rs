@@ -386,7 +386,12 @@ extern "C" fn func_proc_audio_unwind<T: FilterSingleton>(
 #[macro_export]
 macro_rules! register_filter_plugin {
     ($struct:ident, $($key:ident = $value:expr),* $(,)?) => {
-        ::aviutl2::__internal_module! {
+        ::$crate::__internal_module! {
+            #[unsafe(no_mangle)]
+            unsafe extern "C" fn RequiredVersion() -> u32 {
+                $struct::MINIMUM_AVIUTL2_VERSION.into()
+            }
+
             #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializeLogger(logger: *mut $crate::sys::logger2::LOG_HANDLE) {
                 $crate::comptime_if::comptime_if! {
