@@ -521,7 +521,7 @@ impl ScriptsSearchApp {
                     );
                     action_button(
                         include_iconify!("material-symbols:view-timeline"),
-                        &tr("オブジェクトとして追加"),
+                        &tr("フィルタ効果オブジェクトとして追加"),
                         Self::add_filter_as_object,
                     );
                 });
