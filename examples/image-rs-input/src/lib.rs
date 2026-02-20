@@ -1,7 +1,6 @@
+mod alpha;
 mod codecs;
-use aviutl2::input::{
-    AnyResult, ImageBuffer, ImageReturner, InputPlugin, IntoImage as _, Rational32,
-};
+use aviutl2::input::{AnyResult, ImageBuffer, ImageReturner, InputPlugin, IntoImage, Rational32};
 use image::{AnimationDecoder, GenericImageView};
 use ordered_float::OrderedFloat;
 use std::io::Seek;
@@ -231,7 +230,14 @@ impl InputPlugin for ImageInputPlugin {
                     .with_frames_mut(|frames| frames.next().transpose())?
                     .ok_or_else(|| anyhow::anyhow!("Failed to get frame {}", frame))?;
                 handle.current_frame += 1;
-                let img = frame.into_buffer();
+                let mut img = frame.into_buffer().into_raw();
+                crate::alpha::straight_alpha_to_premultiplied_alpha(&mut img);
+                aviutl2::utils::flip_vertical(
+                    &mut img,
+                    handle.width as usize * 4,
+                    handle.height as _,
+                );
+                aviutl2::utils::rgba_to_bgra_bytes(&mut img);
                 returner.write(&img);
                 handle.reader = Some(ImageReader::Animated(frames));
             }
@@ -239,13 +245,21 @@ impl InputPlugin for ImageInputPlugin {
                 let img = image::DynamicImage::from_decoder(decoder)?;
                 match handle.format {
                     aviutl2::input::InputPixelFormat::Bgra => {
-                        let img = img.to_rgba8();
-                        let buffer = img.into_image();
+                        let mut img = img.to_rgba8().into_raw();
+                        crate::alpha::straight_alpha_to_premultiplied_alpha(&mut img);
+                        aviutl2::utils::flip_vertical(
+                            &mut img,
+                            handle.width as usize * 4,
+                            handle.height as _,
+                        );
+                        aviutl2::utils::rgba_to_bgra_bytes(&mut img);
+                        let buffer = aviutl2::input::ImageBuffer(img);
                         returner.write(&buffer);
                         handle.reader = Some(ImageReader::SingleCached(buffer));
                     }
                     aviutl2::input::InputPixelFormat::Pa64 => {
-                        let img = img.to_rgba16();
+                        let mut img = img.to_rgba16().into_raw();
+                        crate::alpha::straight_alpha_to_premultiplied_alpha_u16(&mut img);
                         let buffer = img.into_image();
                         returner.write(&buffer);
                         handle.reader = Some(ImageReader::SingleCached(buffer));
