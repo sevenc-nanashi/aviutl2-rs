@@ -248,6 +248,7 @@ enum TrackStep {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ButtonErrorMode {
     Log,
+    LogOnly,
     Ignore,
 }
 
@@ -568,8 +569,11 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     ButtonErrorMode::Ignore => {
                         quote::quote! { let _ = ret; }
                     }
-                    ButtonErrorMode::Log => {
+                    ButtonErrorMode::LogOnly => {
                         quote::quote! { ::aviutl2::common::__output_log_if_error(ret); }
+                    }
+                    ButtonErrorMode::Log => {
+                        quote::quote! { ::aviutl2::common::__log_and_beep_if_error(ret); }
                     }
                 };
                 let call_body = quote::quote! {
@@ -1551,9 +1555,10 @@ fn filter_config_field_button(
             let value: syn::LitStr = m.value()?.parse()?;
             match value.value().as_str() {
                 "log" => error_mode = ButtonErrorMode::Log,
+                "log_only" => error_mode = ButtonErrorMode::LogOnly,
                 "ignore" => error_mode = ButtonErrorMode::Ignore,
                 _ => {
-                    return Err(m.error("expected \"log\" or \"ignore\""));
+                    return Err(m.error("expected \"log\", \"log_only\", or \"ignore\""));
                 }
             }
         } else if m.path.is_ident("unwind") {

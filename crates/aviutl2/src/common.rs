@@ -529,9 +529,15 @@ pub fn __output_log_if_error<T: MenuCallbackReturn>(result: T) {
 
 #[doc(hidden)]
 #[expect(private_bounds)]
-pub fn __alert_if_error<T: MenuCallbackReturn>(result: T) {
+pub fn __log_and_beep_if_error<T: MenuCallbackReturn>(result: T) {
     if let Some(err_msg) = result.into_optional_error() {
         let _ = crate::logger::write_error_log(&err_msg);
+
+        let _ = unsafe {
+            windows::Win32::System::Diagnostics::Debug::MessageBeep(
+                windows::Win32::UI::WindowsAndMessaging::MB_ICONEXCLAMATION,
+            )
+        };
     }
 }
 

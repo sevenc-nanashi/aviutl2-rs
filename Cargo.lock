@@ -325,6 +325,7 @@ dependencies = [
  "ruzstd",
  "serde",
  "thiserror 2.0.18",
+ "windows",
  "zerocopy",
 ]
 

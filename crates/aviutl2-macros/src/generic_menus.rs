@@ -27,6 +27,7 @@ fn parse_unwind_attr(attr: proc_macro2::TokenStream) -> Result<bool, proc_macro2
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ErrorMode {
     Ignore,
+    LogOnly,
     Log,
 }
 
@@ -73,8 +74,9 @@ fn parse_menu_attr(
             let value: syn::LitStr = m.value()?.parse()?;
             match value.value().as_str() {
                 "log" => error_mode = ErrorMode::Log,
+                "log_only" => error_mode = ErrorMode::LogOnly,
                 "ignore" => error_mode = ErrorMode::Ignore,
-                _ => return Err(m.error("expected \"log\" or \"ignore\"")),
+                _ => return Err(m.error("expected \"log\", \"log_only\", or \"ignore\"")),
             }
             Ok(())
         } else {
@@ -206,7 +208,8 @@ pub fn generic_menus(
 
         let call_on_error = match e.error_mode {
             ErrorMode::Ignore => quote::quote! { let _ = ret; },
-            ErrorMode::Log => quote::quote! { ::aviutl2::common::__output_log_if_error(ret); },
+            ErrorMode::LogOnly => quote::quote! { ::aviutl2::common::__output_log_if_error(ret); },
+            ErrorMode::Log => quote::quote! { ::aviutl2::common::__log_and_beep_if_error(ret); },
         };
 
         let wrapper_body = if e.has_self {
