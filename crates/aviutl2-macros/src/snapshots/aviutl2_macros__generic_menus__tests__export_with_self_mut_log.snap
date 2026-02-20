@@ -17,7 +17,7 @@ impl MyPlugin {
                 if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
                     <MyPlugin as ::aviutl2::generic::GenericPlugin>::with_instance_mut(|__self| {
                         let ret = <MyPlugin>::export_menu(__self);
-                        ::aviutl2::common::__output_log_if_error(ret);
+                        ::aviutl2::common::__log_and_beep_if_error(ret);
                     });
                 }) {
                     ::aviutl2::log::error!(
