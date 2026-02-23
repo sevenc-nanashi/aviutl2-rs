@@ -133,16 +133,16 @@ fn register_plugin_impl<T: GenericSingleton>(
     }
 
     fn on_project_load_impl<T: GenericSingleton>(project: *mut aviutl2_sys::plugin2::PROJECT_FILE) {
+        {
+            // on_project_loadはプロジェクトの初期化時に呼ばれるので、RegisterPluginが終わった合図として使う。
+            let state = T::__get_singleton_state();
+            let guard = state.read().unwrap();
+            let plugin_state = guard.as_ref().expect("Plugin not initialized");
+            plugin_state
+                .is_edit_handle_ready
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+        }
         <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
-            {
-                // on_project_loadはプロジェクトの初期化時に呼ばれるので、RegisterPluginが終わった合図として使う。
-                let state = T::__get_singleton_state();
-                let guard = state.read().unwrap();
-                let plugin_state = guard.as_ref().expect("Plugin not initialized");
-                plugin_state
-                    .is_edit_handle_ready
-                    .store(true, std::sync::atomic::Ordering::SeqCst);
-            }
             let mut project = ProjectFile::from_raw(project);
             instance.on_project_load(&mut project);
         });
