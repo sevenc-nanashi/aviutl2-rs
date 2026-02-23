@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-（なし）
+- generic: `GlobalEditHandle::is_initialized`を追加
 
 ### デモプラグイン
 

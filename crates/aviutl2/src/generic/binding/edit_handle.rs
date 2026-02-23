@@ -406,19 +406,24 @@ pub struct GlobalEditHandle {
 }
 
 impl GlobalEditHandle {
-    /// 新しいインスタンスを作成します。
+    /// 新しいインスタンスを作成する。
     pub const fn new() -> Self {
         Self {
             edit_handle: std::sync::OnceLock::new(),
         }
     }
 
-    /// グローバルな編集ハンドルを初期化します。
+    /// 初期化する。すでに初期化されている場合は警告をログに出力します。
     pub fn init(&self, edit_handle: crate::generic::EditHandle) {
         let _ = self
             .edit_handle
             .set(edit_handle)
             .map_err(|_| log::warn!("GlobalEditHandle was already initialized"));
+    }
+
+    /// 初期化されているかどうかを確認します。
+    pub fn is_initialized(&self) -> bool {
+        self.edit_handle.get().is_some()
     }
 }
 
