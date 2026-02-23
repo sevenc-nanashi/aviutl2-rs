@@ -23,6 +23,7 @@ AviUtl2 SDKのRust版です。
     - `./examples/pixel-format-test-input`：それぞれのピクセルフォーマットをテストするサンプル。
   - 出力プラグイン：
     - [`./examples/image-rs-output`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_image_rs_output)：image-rsを使用して画像を連番で保存するサンプル。
+    - [`./examples/image-rs-single-output`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_image_rs_single_output)：image-rsを使用して画像を静止画で保存するサンプル。
     - [`./examples/ffmpeg-output`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_ffmpeg)：FFmpegを使用して動画を出力するサンプル。
     - [`./examples/statistics-output`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_statistics)：フレームごとの描画時間を計測し、統計情報を出力するサンプル。
   - フィルタプラグイン（フィルタ効果）：

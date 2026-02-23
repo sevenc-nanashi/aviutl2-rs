@@ -36,6 +36,9 @@ pub enum OutputType {
     Audio,
     /// 動画と音声の両方を出力。
     Both,
+    /// 静止画出力のみ。
+    /// OUTPUT_INFOが1フレーム出力になり、また出力完了時の通知やサウンド再生が行われなくなります。
+    Image,
 }
 
 impl OutputType {
@@ -44,6 +47,7 @@ impl OutputType {
             OutputType::Video => 1,
             OutputType::Audio => 2,
             OutputType::Both => 3,
+            OutputType::Image => 4,
         }
     }
 }

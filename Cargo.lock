@@ -1541,6 +1541,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "example-image-rs-single-output"
+version = "0.17.0"
+dependencies = [
+ "anyhow",
+ "aviutl2",
+ "image",
+ "lazy-regex",
+ "regex",
+]
+
+[[package]]
 name = "example-local-alias-plugin"
 version = "0.17.0"
 dependencies = [

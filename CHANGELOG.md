@@ -12,6 +12,7 @@
 ### デモプラグイン
 
 - image-rs-input: アルファ値周りの処理を修正
+- image-rs-single-outputを追加（静止画出力）
 
 ## [0.17.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.17.0)
 
