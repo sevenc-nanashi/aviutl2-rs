@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking**: `aviutl2::config::translate`の戻り値を`Result<String>`から`String`に変更
 - eframe: persistence feature flagを追加
 - generic: デフォルトでエラー時にビープ音を鳴らすように
 

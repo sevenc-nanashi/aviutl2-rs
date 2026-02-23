@@ -1,10 +1,7 @@
 use crate::{AliasEntry, AliasState};
+use aviutl2::config::translate as tr;
 use aviutl2_eframe::{AviUtl2EframeHandle, eframe, egui};
 use std::sync::{Arc, Mutex};
-
-fn tr(text: &str) -> String {
-    aviutl2::config::translate(text).unwrap_or_else(|_| text.to_string())
-}
 
 pub(crate) struct LocalAliasApp {
     state: Arc<Mutex<AliasState>>,

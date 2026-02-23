@@ -1,10 +1,6 @@
-use aviutl2::anyhow;
+use aviutl2::{anyhow, config::translate as tr};
 use aviutl2_eframe::{AviUtl2EframeHandle, eframe, egui};
 use itertools::Itertools;
-
-fn tr(text: &str) -> String {
-    aviutl2::config::translate(text).unwrap_or_else(|_| text.to_string())
-}
 
 pub(crate) struct ScriptsSearchApp {
     show_info: bool,

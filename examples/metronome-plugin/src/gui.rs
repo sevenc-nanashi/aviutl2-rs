@@ -1,12 +1,9 @@
+use aviutl2::config::translate as tr;
 use aviutl2_eframe::{AviUtl2EframeHandle, eframe, egui};
 use std::{collections::VecDeque, time::Instant};
 
 const MAX_TAP_INTERVAL_SECS: f64 = 3.0;
 const MAX_INTERVALS: usize = 8;
-
-fn tr(text: &str) -> String {
-    aviutl2::config::translate(text).unwrap_or_else(|_| text.to_string())
-}
 
 pub(crate) struct MetronomeApp {
     show_info: bool,

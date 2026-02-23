@@ -1,8 +1,4 @@
-use aviutl2::{AnyResult, lprintln};
-
-fn tr(text: &str) -> String {
-    aviutl2::config::translate(text).unwrap_or_else(|_| text.to_string())
-}
+use aviutl2::{AnyResult, config::translate as tr, lprintln};
 
 #[easy_ext::ext]
 impl srtlib::Timestamp {

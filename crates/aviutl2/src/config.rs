@@ -55,11 +55,22 @@ pub fn app_data_path() -> std::path::PathBuf {
 /// 現在の言語設定で定義されているテキストを取得する。
 ///
 /// 参照する言語設定のセクションはビルドしたプラグインのファイル名になります。
+/// [`translate_strict`]と異なり、テキストにnull byteが含まれている場合は元のテキストを返却します。
+pub fn translate(text: &str) -> String {
+    match translate_strict(text) {
+        Ok(translated) => translated,
+        Err(_) => text.to_string(),
+    }
+}
+
+/// 現在の言語設定で定義されているテキストを取得する。
+///
+/// 参照する言語設定のセクションはビルドしたプラグインのファイル名になります。
 ///
 /// # Arguments
 ///
 /// - `text`: 元のテキスト（.aul2ファイルのキー名）
-pub fn translate(text: &str) -> Result<String, NullByteError> {
+pub fn translate_strict(text: &str) -> Result<String, NullByteError> {
     let wide_text = CWString::new(text)?;
     let translated = unsafe {
         let handle = CONFIG_HANDLE

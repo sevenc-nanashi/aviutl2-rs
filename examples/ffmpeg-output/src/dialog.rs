@@ -1,5 +1,5 @@
 use crate::{DEFAULT_ARGS, REQUIRED_ARGS, config::FfmpegOutputConfig};
-use aviutl2::config;
+use aviutl2::config::translate as tr;
 use dedent::dedent;
 use eframe::egui;
 use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
@@ -8,10 +8,6 @@ pub struct FfmpegOutputConfigDialog {
     pub args_buffer: String,
     pub pixel_format: crate::config::PixelFormat,
     pub result_sender: std::sync::mpsc::Sender<FfmpegOutputConfig>,
-}
-
-fn tr(text: &str) -> String {
-    config::translate(text).unwrap_or_else(|_| text.to_string())
 }
 
 fn buffer_to_args(buffer: &str) -> Vec<String> {
