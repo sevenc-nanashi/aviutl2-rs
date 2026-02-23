@@ -822,6 +822,10 @@ impl EditSection {
     pub fn layers(&self) -> EditSectionLayersIterator<'_> {
         EditSectionLayersIterator::new(self)
     }
+    /// 特定のレイヤー内のオブジェクトをイテレータで取得する。
+    pub fn objects_in_layer(&self, layer: usize) -> EditSectionLayerObjectsIterator<'_> {
+        EditSectionLayerObjectsIterator::new(self, layer)
+    }
 
     /// [EditSectionLayerCaller] を作成する。
     pub fn layer<'a>(&'a self, layer: usize) -> EditSectionLayerCaller<'a> {
