@@ -7,7 +7,10 @@ use crate::generic::EditSection;
 ///
 /// # Panics
 ///
-/// [`crate::generic::GenericPlugin::register`]が終了するまでは、[`Self::get_host_app_window`]、[`Self::get_host_app_window_raw`]以外は呼び出せません。
+/// [`crate::generic::GenericPlugin::register`]が終了するまでは、以下のメソッド以外は呼び出せません。
+/// - [`Self::get_host_app_window`]
+/// - [`Self::get_host_app_window_raw`]
+/// - [`Self::is_ready`]
 #[derive(Debug)]
 pub struct EditHandle {
     pub(crate) internal: *mut aviutl2_sys::plugin2::EDIT_HANDLE,
@@ -35,6 +38,12 @@ impl EditHandle {
         }
     }
 
+    /// 編集ハンドルが使用可能かどうかを確認します。
+    pub fn is_ready(&self) -> bool {
+        self.is_registerplugin_done
+            .load(std::sync::atomic::Ordering::Acquire)
+    }
+
     /// プロジェクトデータの編集を開始する。
     ///
     /// # Note
@@ -46,8 +55,7 @@ impl EditHandle {
         F: FnOnce(&mut EditSection) -> T + Send + 'a,
     {
         assert!(
-            self.is_registerplugin_done
-                .load(std::sync::atomic::Ordering::Acquire),
+            self.is_ready(),
             "call_edit_section cannot be called before register_plugin is done"
         );
 
@@ -103,8 +111,7 @@ impl EditHandle {
     /// 既に編集処理中（`call_edit_section` 内）である場合、デッドロックします。
     pub fn get_edit_info(&self) -> crate::generic::EditInfo {
         assert!(
-            self.is_registerplugin_done
-                .load(std::sync::atomic::Ordering::Acquire),
+            self.is_ready(),
             "call_edit_section cannot be called before register_plugin is done"
         );
         let mut raw_info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::EDIT_INFO>::uninit();
@@ -121,8 +128,7 @@ impl EditHandle {
     /// ホストアプリケーションを再起動する。
     pub fn restart_host_app(&self) {
         assert!(
-            self.is_registerplugin_done
-                .load(std::sync::atomic::Ordering::Acquire),
+            self.is_ready(),
             "call_edit_section cannot be called before register_plugin is done"
         );
         unsafe {
@@ -136,8 +142,7 @@ impl EditHandle {
         F: FnMut(Effect),
     {
         assert!(
-            self.is_registerplugin_done
-                .load(std::sync::atomic::Ordering::Acquire),
+            self.is_ready(),
             "call_edit_section cannot be called before register_plugin is done"
         );
         type CallbackParam<F> = ChildKillablePointer<F>;
@@ -179,8 +184,7 @@ impl EditHandle {
     /// エフェクトの一覧を取得する。
     pub fn get_effects(&self) -> Vec<Effect> {
         assert!(
-            self.is_registerplugin_done
-                .load(std::sync::atomic::Ordering::Acquire),
+            self.is_ready(),
             "call_edit_section cannot be called before register_plugin is done"
         );
         let mut effects = Vec::new();
@@ -196,8 +200,7 @@ impl EditHandle {
         F: FnMut(ModuleInfo),
     {
         assert!(
-            self.is_registerplugin_done
-                .load(std::sync::atomic::Ordering::Acquire),
+            self.is_ready(),
             "call_edit_section cannot be called before register_plugin is done"
         );
         type CallbackParam<F> = ChildKillablePointer<F>;
@@ -235,8 +238,7 @@ impl EditHandle {
     /// モジュールの一覧を取得する。
     pub fn get_modules(&self) -> Vec<ModuleInfo> {
         assert!(
-            self.is_registerplugin_done
-                .load(std::sync::atomic::Ordering::Acquire),
+            self.is_ready(),
             "call_edit_section cannot be called before register_plugin is done"
         );
         let mut modules = Vec::new();
@@ -422,8 +424,10 @@ impl GlobalEditHandle {
     }
 
     /// 初期化されているかどうかを確認します。
-    pub fn is_initialized(&self) -> bool {
-        self.edit_handle.get().is_some()
+    pub fn is_ready(&self) -> bool {
+        self.edit_handle
+            .get()
+            .is_some_and(|handle| handle.is_ready())
     }
 }
 

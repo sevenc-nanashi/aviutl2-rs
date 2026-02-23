@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- generic: `GlobalEditHandle::is_initialized`を追加
+- generic: `GlobalEditHandle::is_ready`を追加
+- generic: `EditHandle::is_ready`を追加
 
 ### デモプラグイン
 
