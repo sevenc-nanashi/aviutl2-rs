@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.18.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.18.0)
+
 - **Breaking**: 最小バージョンをbeta34に引き上げ
 - **Breaking**: `aviutl2::config::translate`の戻り値を`Result<String>`から`String`に変更
 - output: `aviutl2::output::OutputType::Image`を追加
