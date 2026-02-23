@@ -196,9 +196,17 @@ task :release, ["tag"] do |task, args|
     base_package_txt.gsub("\r\n", "\n").gsub("\n", "\r\n"),
     mode: "wb"
   )
+
+  base_package_ini = <<~INI
+    [package]
+    id=sevenc-nanashi.aviutl2-rs
+    name=AviUtl2-rs Demo Plugins v#{tag}
+  INI
+  File.write(File.join(dest_dir, "package.ini"), base_package_ini)
   puts "Creating zip: #{zip_path}"
   Zip::File.open(zip_path, create: true) do |zip|
     zip.add("package.txt", File.join(dest_dir, "package.txt"))
+    zip.add("package.ini", File.join(dest_dir, "package.ini"))
     zip.mkdir("Plugin")
     zip.mkdir("Script")
     zip.mkdir("Language") unless language_files.empty?
