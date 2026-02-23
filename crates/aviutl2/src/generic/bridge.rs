@@ -14,7 +14,7 @@ pub struct InternalGenericPluginState<T: Send + Sync + GenericPlugin> {
     global_leak_manager: LeakManager,
 
     instance: T,
-    is_registerplugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    is_edit_handle_ready: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl<T: Send + Sync + GenericPlugin> InternalGenericPluginState<T> {
@@ -24,7 +24,7 @@ impl<T: Send + Sync + GenericPlugin> InternalGenericPluginState<T> {
             kill_switch: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             global_leak_manager: LeakManager::new(),
             instance,
-            is_registerplugin_done: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            is_edit_handle_ready: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
     }
 }
@@ -97,14 +97,14 @@ fn register_plugin_impl<T: GenericSingleton>(
     let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
 
     let kill_switch = plugin_state.kill_switch.clone();
-    let is_registerplugin_done = plugin_state.is_registerplugin_done.clone();
+    let is_edithandle_ready = plugin_state.is_edit_handle_ready.clone();
     let mut handle = unsafe {
         HostAppHandle::new(
             host,
             &mut plugin_state.global_leak_manager,
             kill_switch,
             &mut plugin_state.plugin_registry,
-            is_registerplugin_done.clone(),
+            is_edithandle_ready.clone(),
         )
     };
     if unwind {
@@ -131,10 +131,18 @@ fn register_plugin_impl<T: GenericSingleton>(
         handle.register_clear_cache_handler(on_clear_cache::<T>);
         handle.register_change_scene_handler(on_change_scene::<T>);
     }
-    is_registerplugin_done.store(true, std::sync::atomic::Ordering::SeqCst);
 
     fn on_project_load_impl<T: GenericSingleton>(project: *mut aviutl2_sys::plugin2::PROJECT_FILE) {
         <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
+            {
+                // on_project_loadはプロジェクトの初期化時に呼ばれるので、RegisterPluginが終わった合図として使う。
+                let state = T::__get_singleton_state();
+                let guard = state.read().unwrap();
+                let plugin_state = guard.as_ref().expect("Plugin not initialized");
+                plugin_state
+                    .is_edit_handle_ready
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
+            }
             let mut project = ProjectFile::from_raw(project);
             instance.on_project_load(&mut project);
         });

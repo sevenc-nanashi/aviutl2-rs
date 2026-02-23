@@ -14,7 +14,7 @@ use crate::generic::EditSection;
 #[derive(Debug)]
 pub struct EditHandle {
     pub(crate) internal: *mut aviutl2_sys::plugin2::EDIT_HANDLE,
-    pub(crate) is_registerplugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    pub(crate) is_ready: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 unsafe impl Send for EditHandle {}
@@ -30,18 +30,14 @@ pub enum EditHandleError {
 impl EditHandle {
     pub(crate) unsafe fn new(
         internal: *mut aviutl2_sys::plugin2::EDIT_HANDLE,
-        is_registerplugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        is_ready: std::sync::Arc<std::sync::atomic::AtomicBool>,
     ) -> Self {
-        Self {
-            internal,
-            is_registerplugin_done,
-        }
+        Self { internal, is_ready }
     }
 
     /// 編集ハンドルが使用可能かどうかを確認します。
     pub fn is_ready(&self) -> bool {
-        self.is_registerplugin_done
-            .load(std::sync::atomic::Ordering::Acquire)
+        self.is_ready.load(std::sync::atomic::Ordering::Acquire)
     }
 
     /// プロジェクトデータの編集を開始する。
