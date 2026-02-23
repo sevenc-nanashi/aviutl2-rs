@@ -28,7 +28,7 @@ impl OutputPlugin for ImageRsOutputPlugin {
             },
 
             information: format!(
-                "image-rs Single Output for AviUtl2, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-single-output",
+                "Single Image Output for AviUtl2, powered by image-rs, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/image-rs-single-output",
                 version = env!("CARGO_PKG_VERSION")
             ),
             can_config: false,
