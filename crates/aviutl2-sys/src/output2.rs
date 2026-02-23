@@ -109,4 +109,7 @@ impl OUTPUT_PLUGIN_TABLE {
     pub const FLAG_VIDEO: i32 = 1;
     /// 音声をサポートする
     pub const FLAG_AUDIO: i32 = 2;
+    /// 静止画出力のみサポートする (OUTPUT_INFOが1フレーム出力になります)
+    /// ※静止画出力では出力完了時の通知やサウンド再生をしません
+    pub const FLAG_IMAGE: i32 = 4;
 }

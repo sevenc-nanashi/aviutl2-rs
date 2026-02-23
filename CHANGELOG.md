@@ -2,7 +2,9 @@
 
 ## Unreleased
 
+- **Breaking**: 最小バージョンをbeta34に引き上げ
 - **Breaking**: `aviutl2::config::translate`の戻り値を`Result<String>`から`String`に変更
+- output: `aviutl2::output::OutputType::Image`を追加
 - eframe: persistence feature flagを追加
 - generic: デフォルトでエラー時にビープ音を鳴らすように
 - generic: `EditSection::objects_in_layer`を追加

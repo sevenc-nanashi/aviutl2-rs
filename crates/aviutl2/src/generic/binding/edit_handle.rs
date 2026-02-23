@@ -4,9 +4,14 @@ use crate::common::{ChildKillablePointer, KillablePointer};
 use crate::generic::EditSection;
 
 /// 編集ハンドル。
+///
+/// # Panics
+///
+/// [`crate::generic::GenericPlugin::register`]が終了するまでは、[`Self::get_host_app_window`]、[`Self::get_host_app_window_raw`]以外は呼び出せません。
 #[derive(Debug)]
 pub struct EditHandle {
     pub(crate) internal: *mut aviutl2_sys::plugin2::EDIT_HANDLE,
+    pub(crate) is_registerplugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 unsafe impl Send for EditHandle {}
@@ -20,8 +25,14 @@ pub enum EditHandleError {
 }
 
 impl EditHandle {
-    pub(crate) unsafe fn new(internal: *mut aviutl2_sys::plugin2::EDIT_HANDLE) -> Self {
-        Self { internal }
+    pub(crate) unsafe fn new(
+        internal: *mut aviutl2_sys::plugin2::EDIT_HANDLE,
+        is_registerplugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    ) -> Self {
+        Self {
+            internal,
+            is_registerplugin_done,
+        }
     }
 
     /// プロジェクトデータの編集を開始する。
@@ -34,6 +45,12 @@ impl EditHandle {
         T: Send + 'static,
         F: FnOnce(&mut EditSection) -> T + Send + 'a,
     {
+        assert!(
+            self.is_registerplugin_done
+                .load(std::sync::atomic::Ordering::Acquire),
+            "call_edit_section cannot be called before register_plugin is done"
+        );
+
         type CallbackParam<'a, F, T> = (ChildKillablePointer<Option<F>>, &'a mut Option<T>);
 
         let closure = Some(callback);
@@ -85,6 +102,11 @@ impl EditHandle {
     ///
     /// 既に編集処理中（`call_edit_section` 内）である場合、デッドロックします。
     pub fn get_edit_info(&self) -> crate::generic::EditInfo {
+        assert!(
+            self.is_registerplugin_done
+                .load(std::sync::atomic::Ordering::Acquire),
+            "call_edit_section cannot be called before register_plugin is done"
+        );
         let mut raw_info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::EDIT_INFO>::uninit();
         unsafe {
             ((*self.internal).get_edit_info)(
@@ -98,6 +120,11 @@ impl EditHandle {
 
     /// ホストアプリケーションを再起動する。
     pub fn restart_host_app(&self) {
+        assert!(
+            self.is_registerplugin_done
+                .load(std::sync::atomic::Ordering::Acquire),
+            "call_edit_section cannot be called before register_plugin is done"
+        );
         unsafe {
             ((*self.internal).restart_host_app)();
         }
@@ -108,6 +135,11 @@ impl EditHandle {
     where
         F: FnMut(Effect),
     {
+        assert!(
+            self.is_registerplugin_done
+                .load(std::sync::atomic::Ordering::Acquire),
+            "call_edit_section cannot be called before register_plugin is done"
+        );
         type CallbackParam<F> = ChildKillablePointer<F>;
 
         extern "C" fn trampoline<F>(
@@ -146,6 +178,11 @@ impl EditHandle {
 
     /// エフェクトの一覧を取得する。
     pub fn get_effects(&self) -> Vec<Effect> {
+        assert!(
+            self.is_registerplugin_done
+                .load(std::sync::atomic::Ordering::Acquire),
+            "call_edit_section cannot be called before register_plugin is done"
+        );
         let mut effects = Vec::new();
         self.enumerate_effects(|effect| {
             effects.push(effect);
@@ -158,6 +195,11 @@ impl EditHandle {
     where
         F: FnMut(ModuleInfo),
     {
+        assert!(
+            self.is_registerplugin_done
+                .load(std::sync::atomic::Ordering::Acquire),
+            "call_edit_section cannot be called before register_plugin is done"
+        );
         type CallbackParam<F> = ChildKillablePointer<F>;
 
         extern "C" fn trampoline<F>(
@@ -192,6 +234,11 @@ impl EditHandle {
 
     /// モジュールの一覧を取得する。
     pub fn get_modules(&self) -> Vec<ModuleInfo> {
+        assert!(
+            self.is_registerplugin_done
+                .load(std::sync::atomic::Ordering::Acquire),
+            "call_edit_section cannot be called before register_plugin is done"
+        );
         let mut modules = Vec::new();
         self.enumerate_modules(|module| {
             modules.push(module);

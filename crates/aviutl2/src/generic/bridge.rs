@@ -14,6 +14,7 @@ pub struct InternalGenericPluginState<T: Send + Sync + GenericPlugin> {
     global_leak_manager: LeakManager,
 
     instance: T,
+    is_registerplugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl<T: Send + Sync + GenericPlugin> InternalGenericPluginState<T> {
@@ -23,6 +24,7 @@ impl<T: Send + Sync + GenericPlugin> InternalGenericPluginState<T> {
             kill_switch: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             global_leak_manager: LeakManager::new(),
             instance,
+            is_registerplugin_done: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
     }
 }
@@ -95,26 +97,41 @@ fn register_plugin_impl<T: GenericSingleton>(
     let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
 
     let kill_switch = plugin_state.kill_switch.clone();
+    let is_registerplugin_done = plugin_state.is_registerplugin_done.clone();
     let mut handle = unsafe {
         HostAppHandle::new(
             host,
             &mut plugin_state.global_leak_manager,
             kill_switch,
             &mut plugin_state.plugin_registry,
+            is_registerplugin_done.clone(),
         )
     };
     if unwind {
+        let result =
+            crate::utils::catch_unwind_with_panic_info(std::panic::AssertUnwindSafe(|| {
+                T::register(&mut plugin_state.instance, &mut handle)
+            }));
+        if let Err(panic_info) = result {
+            log::error!("Panic occurred during plugin registration: {}", panic_info);
+            let _ = crate::logger::write_error_log(&format!(
+                "Panic during plugin registration: {}",
+                panic_info
+            ));
+            return;
+        }
         handle.register_project_load_handler(on_project_load_unwind::<T>);
         handle.register_project_save_handler(on_project_save_unwind::<T>);
         handle.register_clear_cache_handler(on_clear_cache_unwind::<T>);
         handle.register_change_scene_handler(on_change_scene_unwind::<T>);
     } else {
+        T::register(&mut plugin_state.instance, &mut handle);
         handle.register_project_load_handler(on_project_load::<T>);
         handle.register_project_save_handler(on_project_save::<T>);
         handle.register_clear_cache_handler(on_clear_cache::<T>);
         handle.register_change_scene_handler(on_change_scene::<T>);
     }
-    T::register(&mut plugin_state.instance, &mut handle);
+    is_registerplugin_done.store(true, std::sync::atomic::Ordering::SeqCst);
 
     fn on_project_load_impl<T: GenericSingleton>(project: *mut aviutl2_sys::plugin2::PROJECT_FILE) {
         <T as GenericSingleton>::with_instance_mut(|instance| unsafe {

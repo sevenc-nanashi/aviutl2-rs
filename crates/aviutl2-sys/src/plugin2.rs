@@ -341,6 +341,7 @@ pub struct EDIT_SECTION {
 }
 
 /// 編集ハンドル構造体
+/// get_host_app_window()以外はRegisterPlugin処理内から利用出来ません
 #[repr(C)]
 pub struct EDIT_HANDLE {
     /// プロジェクトデータの編集をする為のコールバック関数(func_proc_edit)を呼び出します

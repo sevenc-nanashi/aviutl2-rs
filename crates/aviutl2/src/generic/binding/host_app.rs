@@ -13,6 +13,7 @@ pub struct HostAppHandle<'a> {
     global_leak_manager: &'a mut crate::common::LeakManager,
     kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
     plugin_registry: &'a mut crate::generic::PluginRegistry,
+    is_registerplugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 /// プラグインの初期化状態を管理するためのハンドル。
@@ -35,12 +36,14 @@ impl<'plugin> HostAppHandle<'plugin> {
         global_leak_manager: &'plugin mut crate::common::LeakManager,
         kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
         plugin_registry: &'plugin mut crate::generic::PluginRegistry,
+        is_registerplugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
     ) -> Self {
         Self {
             internal,
             global_leak_manager,
             kill_switch,
             plugin_registry,
+            is_registerplugin_done,
         }
     }
 
@@ -70,7 +73,7 @@ impl<'plugin> HostAppHandle<'plugin> {
     pub fn create_edit_handle(&mut self) -> crate::generic::EditHandle {
         self.assert_not_killed();
         let raw_handle = unsafe { ((*self.internal).create_edit_handle)() };
-        unsafe { crate::generic::EditHandle::new(raw_handle) }
+        unsafe { crate::generic::EditHandle::new(raw_handle, self.is_registerplugin_done.clone()) }
     }
 
     /// インポートメニューを登録します。

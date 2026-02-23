@@ -148,7 +148,7 @@ pub struct FILTER_ITEM_BUTTON {
     pub r#type: LPCWSTR,
     /// 設定名
     pub name: LPCWSTR,
-    /// コールバック関数
+    /// コールバック関数 (呼び出し時に各設定項目の設定値が更新されます)
     pub callback: extern "C" fn(edit_section: *mut EDIT_SECTION),
 }
 

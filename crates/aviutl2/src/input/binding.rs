@@ -141,6 +141,8 @@ pub enum InputType {
     Audio,
     /// 動画と音声の両方。
     Both,
+    /// 画像のみ。
+    Image,
 }
 
 impl InputType {
@@ -149,6 +151,7 @@ impl InputType {
             InputType::Video => 1,
             InputType::Audio => 2,
             InputType::Both => 3,
+            InputType::Image => 4,
         }
     }
 }
