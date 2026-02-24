@@ -3,9 +3,14 @@ use std::num::NonZero;
 use crate::common::Rational32;
 
 /// オブジェクトへのハンドル。
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct ObjectHandle {
     pub(crate) internal: aviutl2_sys::plugin2::OBJECT_HANDLE,
+}
+impl std::fmt::Debug for ObjectHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("ObjectHandle").field(&self.internal).finish()
+    }
 }
 impl From<aviutl2_sys::plugin2::OBJECT_HANDLE> for ObjectHandle {
     fn from(value: aviutl2_sys::plugin2::OBJECT_HANDLE) -> Self {

@@ -4,6 +4,7 @@
 
 - generic: `GlobalEditHandle::is_ready`を追加
 - generic: `EditHandle::is_ready`を追加
+- generic: `EditHandle`に`std::hash::Hash`を実装
 
 ### デモプラグイン
 
