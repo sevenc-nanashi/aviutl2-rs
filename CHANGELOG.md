@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.19.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.19.0)
+
 - **Breaking**: デバッグビルドでの`(Debug)`付与を削除
 
 ### デモプラグイン
