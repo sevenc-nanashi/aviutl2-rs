@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.18.1](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.18.1)
+
 - generic: `GlobalEditHandle::is_ready`を追加
 - generic: `EditHandle::is_ready`を追加
 - generic: `EditHandle`に`std::hash::Hash`を実装
