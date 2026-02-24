@@ -99,13 +99,11 @@ struct WinitEventLoopApp<'a> {
     thread_terminator: std::sync::Arc<std::sync::OnceLock<()>>,
 }
 impl<'a> WinitEventLoopApp<'a> {
-    fn maybe_exit(&self, event_loop: &winit::event_loop::ActiveEventLoop) -> bool {
+    fn trigger_exit_if_requested(&self, event_loop: &winit::event_loop::ActiveEventLoop) {
         if self.thread_terminator.get().is_some() {
             log::debug!("Egui window thread exiting...");
             event_loop.exit();
-            return true;
         }
-        false
     }
 }
 impl<'a> winit::application::ApplicationHandler<eframe::UserEvent> for WinitEventLoopApp<'a> {
@@ -114,9 +112,7 @@ impl<'a> winit::application::ApplicationHandler<eframe::UserEvent> for WinitEven
         event_loop: &winit::event_loop::ActiveEventLoop,
         cause: winit::event::StartCause,
     ) {
-        if self.maybe_exit(event_loop) {
-            return;
-        }
+        self.trigger_exit_if_requested(event_loop);
         self.app.new_events(event_loop, cause);
     }
 
@@ -125,9 +121,7 @@ impl<'a> winit::application::ApplicationHandler<eframe::UserEvent> for WinitEven
         event_loop: &winit::event_loop::ActiveEventLoop,
         event: eframe::UserEvent,
     ) {
-        if self.maybe_exit(event_loop) {
-            return;
-        }
+        self.trigger_exit_if_requested(event_loop);
         self.app.user_event(event_loop, event);
     }
 
@@ -137,23 +131,17 @@ impl<'a> winit::application::ApplicationHandler<eframe::UserEvent> for WinitEven
         device_id: winit::event::DeviceId,
         event: winit::event::DeviceEvent,
     ) {
-        if self.maybe_exit(event_loop) {
-            return;
-        }
+        self.trigger_exit_if_requested(event_loop);
         self.app.device_event(event_loop, device_id, event);
     }
 
     fn about_to_wait(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        if self.maybe_exit(event_loop) {
-            return;
-        }
+        self.trigger_exit_if_requested(event_loop);
         self.app.about_to_wait(event_loop);
     }
 
     fn suspended(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        if self.maybe_exit(event_loop) {
-            return;
-        }
+        self.trigger_exit_if_requested(event_loop);
         self.app.suspended(event_loop);
     }
 
@@ -162,16 +150,12 @@ impl<'a> winit::application::ApplicationHandler<eframe::UserEvent> for WinitEven
     }
 
     fn memory_warning(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        if self.maybe_exit(event_loop) {
-            return;
-        }
+        self.trigger_exit_if_requested(event_loop);
         self.app.memory_warning(event_loop);
     }
 
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        if self.maybe_exit(event_loop) {
-            return;
-        }
+        self.trigger_exit_if_requested(event_loop);
         self.app.resumed(event_loop);
     }
 
@@ -181,9 +165,7 @@ impl<'a> winit::application::ApplicationHandler<eframe::UserEvent> for WinitEven
         window_id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
-        if self.maybe_exit(event_loop) {
-            return;
-        }
+        self.trigger_exit_if_requested(event_loop);
         self.app.window_event(event_loop, window_id, event);
     }
 }
