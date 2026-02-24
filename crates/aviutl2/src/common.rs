@@ -24,19 +24,6 @@ pub fn ensure_minimum_aviutl2_version(version: AviUtl2Version) -> AnyResult<()> 
     Ok(())
 }
 
-/// 実際に登録されるエフェクト名を返す。
-///
-/// # Note
-///
-/// `cfg!(debug_assertions)`が`true`の場合、エフェクト名の終端に` (Debug)`が追加されます。
-pub fn registered_effect_name(base_name: &str) -> String {
-    if cfg!(debug_assertions) {
-        format!("{base_name} (Debug)")
-    } else {
-        base_name.to_string()
-    }
-}
-
 /// AviUtl2のバージョン。
 ///
 /// # Note

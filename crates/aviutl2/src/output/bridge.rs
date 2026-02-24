@@ -122,12 +122,8 @@ fn create_table_impl<T: OutputSingleton>(
     let plugin_info = plugin.plugin_info();
     let filefilter = format_file_filters(&plugin_info.file_filters);
 
-    let name = crate::common::registered_effect_name(&plugin_info.name);
-    let information = if cfg!(debug_assertions) {
-        format!("{} (Debug Build)", plugin_info.information)
-    } else {
-        plugin_info.information
-    };
+    let name = plugin_info.name.clone();
+    let information = plugin_info.information.clone();
 
     let func_output = if unwind {
         func_output_unwind::<T>

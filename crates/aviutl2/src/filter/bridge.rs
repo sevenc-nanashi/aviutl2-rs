@@ -223,12 +223,8 @@ fn create_table_impl<T: FilterSingleton>(
     let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
     let plugin_info = &plugin_state.plugin_info;
 
-    let name = crate::common::registered_effect_name(&plugin_info.name);
-    let information = if cfg!(debug_assertions) {
-        format!("(Debug Build) {}", plugin_info.information)
-    } else {
-        plugin_info.information.clone()
-    };
+    let name = plugin_info.name.clone();
+    let information = plugin_info.information.clone();
 
     let config_items = plugin_info
         .config_items

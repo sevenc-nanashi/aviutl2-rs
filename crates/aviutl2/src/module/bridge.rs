@@ -106,11 +106,7 @@ pub unsafe fn create_table<T: ScriptModuleSingleton>()
     let plugin_state = plugin_state_lock.read().unwrap();
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     let plugin_info = &plugin_state.plugin_info;
-    let information = if cfg!(debug_assertions) {
-        format!("(Debug Build) {}", plugin_info.information)
-    } else {
-        plugin_info.information.clone()
-    };
+    let information = plugin_info.information.clone();
 
     let module_functions: Vec<aviutl2_sys::module2::SCRIPT_MODULE_FUNCTION> = plugin_info
         .functions

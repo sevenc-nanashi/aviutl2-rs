@@ -57,11 +57,7 @@ impl<'plugin> HostAppHandle<'plugin> {
     /// 「プラグイン情報」ダイアログで表示されます。
     pub fn set_plugin_information(&mut self, information: &str) {
         self.assert_not_killed();
-        let information = if cfg!(debug_assertions) {
-            format!("{information} (Debug Build)")
-        } else {
-            information.to_string()
-        };
+        let information = information.to_string();
         unsafe {
             ((*self.internal).set_plugin_information)(
                 self.global_leak_manager.leak_as_wide_string(&information),
