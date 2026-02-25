@@ -196,6 +196,7 @@ impl EframeWindow {
                     viewport: egui::ViewportBuilder::default()
                         .with_visible(false)
                         .with_decorations(false)
+                        .with_taskbar(false)
                         .with_icon(egui::IconData::default()),
                     window_builder: Some(Box::new(|wb| {
                         wb.with_visible(false).with_decorations(false)
