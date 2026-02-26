@@ -48,7 +48,8 @@ pub use aviutl2_sys as sys;
 pub use anyhow;
 pub use comptime_if;
 pub use half;
-pub extern crate log as log;
+pub use tracing;
+pub use tracing_subscriber;
 
 #[cfg(feature = "image")]
 pub use image;

@@ -1,17 +1,19 @@
 use anyhow::Context;
-use aviutl2::{log, output::OutputPlugin};
+use aviutl2::{output::OutputPlugin, tracing};
 
 #[aviutl2::plugin(OutputPlugin)]
 struct ImageRsOutputPlugin;
 
 impl OutputPlugin for ImageRsOutputPlugin {
     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
-        aviutl2::logger::LogBuilder::new()
-            .filter_level(if cfg!(debug_assertions) {
-                log::LevelFilter::Debug
+        aviutl2::tracing_subscriber::fmt()
+            .with_max_level(if cfg!(debug_assertions) {
+                tracing::Level::DEBUG
             } else {
-                log::LevelFilter::Info
+                tracing::Level::INFO
             })
+            .event_format(aviutl2::logger::AviUtl2Formatter)
+            .with_writer(aviutl2::logger::AviUtl2LogWriter)
             .init();
         Ok(ImageRsOutputPlugin)
     }

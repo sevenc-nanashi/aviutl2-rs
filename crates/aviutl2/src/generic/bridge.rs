@@ -53,7 +53,7 @@ pub unsafe fn initialize_plugin_c<T: GenericSingleton>(version: u32) -> bool {
     match initialize_plugin::<T>(version) {
         Ok(_) => true,
         Err(e) => {
-            log::error!("Failed to initialize plugin: {}", e);
+            tracing::error!("Failed to initialize plugin: {}", e);
             let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
@@ -66,7 +66,7 @@ pub unsafe fn initialize_plugin_c_unwind<T: GenericSingleton>(version: u32) -> b
     }) {
         Ok(result) => result,
         Err(panic_info) => {
-            log::error!(
+            tracing::error!(
                 "Panic occurred during plugin initialization: {}",
                 panic_info
             );
@@ -113,7 +113,7 @@ fn register_plugin_impl<T: GenericSingleton>(
                 T::register(&mut plugin_state.instance, &mut handle)
             }));
         if let Err(panic_info) = result {
-            log::error!("Panic occurred during plugin registration: {}", panic_info);
+            tracing::error!("Panic occurred during plugin registration: {}", panic_info);
             let _ = crate::logger::write_error_log(&format!(
                 "Panic during plugin registration: {}",
                 panic_info
@@ -158,7 +158,7 @@ fn register_plugin_impl<T: GenericSingleton>(
         if let Err(panic_info) =
             crate::utils::catch_unwind_with_panic_info(|| on_project_load_impl::<T>(project))
         {
-            log::error!("Panic occurred during on_project_load: {}", panic_info);
+            tracing::error!("Panic occurred during on_project_load: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
         }
     }
@@ -180,7 +180,7 @@ fn register_plugin_impl<T: GenericSingleton>(
         if let Err(panic_info) =
             crate::utils::catch_unwind_with_panic_info(|| on_project_save_impl::<T>(project))
         {
-            log::error!("Panic occurred during on_project_save: {}", panic_info);
+            tracing::error!("Panic occurred during on_project_save: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
         }
     }
@@ -204,7 +204,7 @@ fn register_plugin_impl<T: GenericSingleton>(
         if let Err(panic_info) =
             crate::utils::catch_unwind_with_panic_info(|| on_clear_cache_impl::<T>(edit_section))
         {
-            log::error!("Panic occurred during on_clear_cache: {}", panic_info);
+            tracing::error!("Panic occurred during on_clear_cache: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
         }
     }
@@ -228,7 +228,7 @@ fn register_plugin_impl<T: GenericSingleton>(
         if let Err(panic_info) =
             crate::utils::catch_unwind_with_panic_info(|| on_change_scene_impl::<T>(edit_section))
         {
-            log::error!("Panic occurred during on_change_scene: {}", panic_info);
+            tracing::error!("Panic occurred during on_change_scene: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
         }
     }
@@ -246,7 +246,7 @@ pub unsafe fn register_plugin_unwind<T: GenericSingleton>(
     if let Err(panic_info) =
         crate::utils::catch_unwind_with_panic_info(|| register_plugin_impl::<T>(host, true))
     {
-        log::error!("Panic occurred during register_plugin: {}", panic_info);
+        tracing::error!("Panic occurred during register_plugin: {}", panic_info);
         let _ = crate::logger::write_error_log(&panic_info);
     }
 }
@@ -259,7 +259,7 @@ pub unsafe fn uninitialize_plugin_c_unwind<T: GenericSingleton>() {
     match crate::utils::catch_unwind_with_panic_info(|| unsafe { uninitialize_plugin::<T>() }) {
         Ok(()) => {}
         Err(panic_info) => {
-            log::error!(
+            tracing::error!(
                 "Panic occurred during plugin uninitialization: {}",
                 panic_info
             );

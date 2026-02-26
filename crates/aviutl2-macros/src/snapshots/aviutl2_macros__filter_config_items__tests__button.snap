@@ -25,7 +25,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
                 let ret = reset(&mut edit_section);
                 ::aviutl2::common::__log_and_beep_if_error(ret);
             }) {
-                ::aviutl2::log::error!("Panic occurred during {}: {}", "Reset", panic_info);
+                ::aviutl2::tracing::error!("Panic occurred during {}: {}", "Reset", panic_info);
                 let _ = ::aviutl2::logger::write_error_log(&panic_info);
             }
         }
@@ -38,7 +38,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
                 let ret = on_apply_clicked(&mut edit_section);
                 ::aviutl2::common::__log_and_beep_if_error(ret);
             }) {
-                ::aviutl2::log::error!("Panic occurred during {}: {}", "Apply", panic_info);
+                ::aviutl2::tracing::error!("Panic occurred during {}: {}", "Apply", panic_info);
                 let _ = ::aviutl2::logger::write_error_log(&panic_info);
             }
         }

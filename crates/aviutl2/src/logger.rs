@@ -1,125 +1,216 @@
 //! AviUtl2のロガーへのインターフェースを提供します。
+//!
+//! # Examples
+//!
+//! AviUtl2のロガーに直接書き込むことができます。
+//!
+//! ```rust
+//! aviutl2::logger::write_plugin_log("This is a plugin log message.").unwrap();
+//! aviutl2::logger::write_info_log("This is an info log message.").unwrap();
+//! aviutl2::logger::write_warn_log("This is a warning log message.").unwrap();
+//! aviutl2::logger::write_error_log("This is an error log message.").unwrap();
+//! aviutl2::logger::write_verbose_log("This is a verbose log message.").unwrap();
+//!
+//! aviutl2::lprintln!("This is a plugin log message.");  // デフォルトはpluginログに出力
+//! aviutl2::lprintln!(plugin, "This is also a plugin log message.");
+//! aviutl2::lprintln!(info, "This is an info log message.");
+//! aviutl2::lprintln!(warn, "This is a warning log message.");
+//! aviutl2::lprintln!(error, "This is an error log message.");
+//! aviutl2::lprintln!(verbose, "This is a verbose log message.");
+//!
+//! aviutl2::ldbg!(42); // dbg!マクロに相当
+//! ```
+//!
+//! [`tracing`]クレートと組み合わせることもできます。
+//!
+//! ```rust
+//! aviutl2::tracing_subscriber::fmt()
+//!     .with_max_level(if cfg!(debug_assertions) {
+//!         tracing::Level::DEBUG
+//!     } else {
+//!         tracing::Level::INFO
+//!     })
+//!     .event_format(aviutl2::logger::AviUtl2Formatter)
+//!     .with_writer(aviutl2::logger::AviUtl2LogWriter)
+//!     .init();
+//!
+//! tracing::info!("This is an info log message using tracing.");
+//! ```
 
 use crate::common::{CWString, NullByteError};
-pub use log::LevelFilter;
+use tracing_subscriber::fmt::FormatFields;
 
 // NOTE:
 // InitializeLoggerは可能な限り早く実行されるらしいので、まぁ捨てられるログはないとしていいはず...
 
-/// フォーマッター。
+/// [`tracing_subscriber::fmt::FormatEvent`]を実装する構造体。
 ///
-/// # See Also
-///
-/// [`LogBuilder::formatter`]
-pub type Formatter = dyn Fn(&log::Record) -> String + Send + Sync + 'static;
+/// AviUtl2風のログフォーマットでイベントをフォーマットします。
+#[derive(Debug, Clone, Default)]
+pub struct AviUtl2Formatter;
 
-/// [`log`]クレートを使用してAviUtl2のログ出力を設定するためのビルダー。
-///
-/// # Note
-///
-/// Debug、TraceレベルのログはVERBOSEとしてまとめられます。
-///
-/// # See Also
-///
-/// - [`env_filter::Builder`](https://docs.rs/env_filter/latest/env_filter/struct.Builder.html)
-#[must_use]
-pub struct LogBuilder {
-    filter: env_filter::Builder,
-    formatter: Option<Box<Formatter>>,
-}
-
-impl LogBuilder {
-    /// 新しい`LogBuilder`を作成します。
-    pub fn new() -> Self {
-        LogBuilder {
-            filter: env_filter::Builder::new(),
-            formatter: None,
-        }
-    }
-
-    /// 全てのモジュールのログレベルを設定します。
-    pub fn filter_level(mut self, level: log::LevelFilter) -> Self {
-        self.filter.filter_level(level);
-        self
-    }
-
-    /// 指定したモジュールのログレベルを設定します。
-    pub fn filter_module(mut self, module: &str, level: log::LevelFilter) -> Self {
-        self.filter.filter_module(module, level);
-        self
-    }
-
-    /// ログのフォーマッタを設定します。
-    pub fn formatter<F>(mut self, formatter: F) -> Self
-    where
-        F: Fn(&log::Record) -> String + Send + Sync + 'static,
-    {
-        self.formatter = Some(Box::new(formatter));
-        self
-    }
-
-    /// ログのフォーマッターをデフォルトのものに設定します。
-    pub fn default_formatter(mut self) -> Self {
-        self.formatter = None;
-        self
-    }
-
-    /// ロガーを初期化します。
-    ///
-    /// [`LogBuilder::try_init`]と異なり、エラーが発生した場合にパニックします。
-    pub fn init(self) {
-        self.try_init().expect("Failed to initialize logger")
-    }
-
-    /// ロガーを初期化します。
-    ///
-    /// # Errors
-    ///
-    /// ロガーを2回以上初期化しようとした場合にエラーを返します。
-    pub fn try_init(self) -> Result<(), log::SetLoggerError> {
-        let LogBuilder {
-            mut filter,
-            formatter,
-        } = self;
-        let filter = filter.build();
-        let logger = InternalLogger::new(formatter.unwrap_or_else(|| {
-            Box::new(|record: &log::Record| format!("[{}] {}", record.target(), record.args()))
-        }));
-        log::set_max_level(filter.filter());
-        let logger = env_filter::FilteredLog::new(logger, filter);
-        log::set_boxed_logger(Box::new(logger))?;
+impl<C, N> tracing_subscriber::fmt::FormatEvent<C, N> for AviUtl2Formatter
+where
+    C: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
+    N: for<'a> tracing_subscriber::fmt::FormatFields<'a> + 'static,
+{
+    fn format_event(
+        &self,
+        ctx: &tracing_subscriber::fmt::FmtContext<'_, C, N>,
+        mut writer: tracing_subscriber::fmt::format::Writer<'_>,
+        event: &tracing::Event<'_>,
+    ) -> std::fmt::Result {
+        let target = event.metadata().target();
+        write!(writer, "[{target}] ")?;
+        ctx.format_fields(writer.by_ref(), event)?;
+        writer.write_str("\n")?;
         Ok(())
     }
 }
 
-impl Default for LogBuilder {
-    fn default() -> Self {
-        Self::new()
+/// [`tracing_subscriber::fmt::MakeWriter`]を実装する構造体。
+///
+/// AviUtl2のログに書き込みます。
+#[derive(Debug, Clone, Default)]
+pub struct AviUtl2LogWriter;
+
+impl tracing_subscriber::fmt::MakeWriter<'_> for AviUtl2LogWriter {
+    type Writer = LockedInternalWriter;
+
+    fn make_writer(&self) -> Self::Writer {
+        LockedInternalWriter::plugin()
+    }
+
+    fn make_writer_for(&'_ self, meta: &tracing::Metadata<'_>) -> Self::Writer {
+        match *meta.level() {
+            tracing::Level::ERROR => LockedInternalWriter::error(),
+            tracing::Level::WARN => LockedInternalWriter::warn(),
+            tracing::Level::INFO => LockedInternalWriter::info(),
+            tracing::Level::DEBUG | tracing::Level::TRACE => LockedInternalWriter::verbose(),
+        }
     }
 }
-struct InternalLogger {
-    formatter: Box<Formatter>,
+
+static INTERNAL_WRITER_MUTEX_PLUGIN: std::sync::LazyLock<std::sync::Mutex<InternalWriter>> =
+    std::sync::LazyLock::new(|| {
+        std::sync::Mutex::new(InternalWriter::new(InternalWriterLevel::Plugin))
+    });
+static INTERNAL_WRITER_MUTEX_INFO: std::sync::LazyLock<std::sync::Mutex<InternalWriter>> =
+    std::sync::LazyLock::new(|| {
+        std::sync::Mutex::new(InternalWriter::new(InternalWriterLevel::Info))
+    });
+static INTERNAL_WRITER_MUTEX_WARN: std::sync::LazyLock<std::sync::Mutex<InternalWriter>> =
+    std::sync::LazyLock::new(|| {
+        std::sync::Mutex::new(InternalWriter::new(InternalWriterLevel::Warn))
+    });
+static INTERNAL_WRITER_MUTEX_ERROR: std::sync::LazyLock<std::sync::Mutex<InternalWriter>> =
+    std::sync::LazyLock::new(|| {
+        std::sync::Mutex::new(InternalWriter::new(InternalWriterLevel::Error))
+    });
+static INTERNAL_WRITER_MUTEX_VERBOSE: std::sync::LazyLock<std::sync::Mutex<InternalWriter>> =
+    std::sync::LazyLock::new(|| {
+        std::sync::Mutex::new(InternalWriter::new(InternalWriterLevel::Verbose))
+    });
+
+pub struct LockedInternalWriter {
+    mutex: &'static std::sync::Mutex<InternalWriter>,
 }
 
-impl InternalLogger {
-    fn new(formatter: Box<Formatter>) -> Self {
-        InternalLogger { formatter }
+impl LockedInternalWriter {
+    pub fn plugin() -> Self {
+        Self {
+            mutex: &INTERNAL_WRITER_MUTEX_PLUGIN,
+        }
+    }
+
+    pub fn info() -> Self {
+        Self {
+            mutex: &INTERNAL_WRITER_MUTEX_INFO,
+        }
+    }
+
+    pub fn warn() -> Self {
+        Self {
+            mutex: &INTERNAL_WRITER_MUTEX_WARN,
+        }
+    }
+
+    pub fn error() -> Self {
+        Self {
+            mutex: &INTERNAL_WRITER_MUTEX_ERROR,
+        }
+    }
+
+    pub fn verbose() -> Self {
+        Self {
+            mutex: &INTERNAL_WRITER_MUTEX_VERBOSE,
+        }
+    }
+}
+impl std::io::Write for LockedInternalWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut writer = self.mutex.lock().unwrap();
+        writer.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        let mut writer = self.mutex.lock().unwrap();
+        writer.flush()
     }
 }
 
-// NOTE: env_filterがいい感じにやってくれるらしい（ありがたい）
-impl log::Log for InternalLogger {
-    fn enabled(&self, _metadata: &log::Metadata) -> bool {
-        true
+enum InternalWriterLevel {
+    Plugin,
+    Info,
+    Warn,
+    Error,
+    Verbose,
+}
+
+struct InternalWriter {
+    level: InternalWriterLevel,
+    buffer: Vec<u8>,
+}
+impl InternalWriter {
+    fn new(level: InternalWriterLevel) -> Self {
+        Self {
+            level,
+            buffer: Vec::new(),
+        }
+    }
+}
+
+impl std::io::Write for InternalWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.buffer.extend_from_slice(buf);
+        self.flush()?;
+        Ok(buf.len())
     }
 
-    fn log(&self, record: &log::Record) {
-        let message = (self.formatter)(record);
-        send_record(record.level(), message);
-    }
-
-    fn flush(&self) {
-        // No-op
+    fn flush(&mut self) -> std::io::Result<()> {
+        while let Some(pos) = self.buffer.iter().position(|&b| b == b'\n') {
+            let line = self.buffer.drain(..=pos).collect::<Vec<u8>>();
+            let line = String::from_utf8_lossy(&line);
+            let line = line.trim_end_matches('\n');
+            match self.level {
+                InternalWriterLevel::Plugin => {
+                    let _ = write_plugin_log(line);
+                }
+                InternalWriterLevel::Info => {
+                    let _ = write_info_log(line);
+                }
+                InternalWriterLevel::Warn => {
+                    let _ = write_warn_log(line);
+                }
+                InternalWriterLevel::Error => {
+                    let _ = write_error_log(line);
+                }
+                InternalWriterLevel::Verbose => {
+                    let _ = write_verbose_log(line);
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -288,7 +379,7 @@ pub fn __initialize_logger_unwind(handle: *mut aviutl2_sys::logger2::LOG_HANDLE)
     if let Err(panic_info) =
         crate::utils::catch_unwind_with_panic_info(|| __initialize_logger(handle))
     {
-        crate::log::error!("Panic occurred during InitializeLogger: {}", panic_info);
+        crate::tracing::error!("Panic occurred during InitializeLogger: {}", panic_info);
         let _ = crate::logger::write_error_log(&panic_info);
     }
 }
@@ -307,23 +398,6 @@ where
     let handle = handle.lock().unwrap();
     let handle_ptr = handle.ptr();
     Some(f(handle_ptr))
-}
-
-fn send_record(level: log::Level, message: String) {
-    match level {
-        log::Level::Error => {
-            let _ = write_error_log(&message);
-        }
-        log::Level::Warn => {
-            let _ = write_warn_log(&message);
-        }
-        log::Level::Info => {
-            let _ = write_info_log(&message);
-        }
-        log::Level::Debug | log::Level::Trace => {
-            let _ = write_verbose_log(&message);
-        }
-    }
 }
 
 #[cfg(test)]

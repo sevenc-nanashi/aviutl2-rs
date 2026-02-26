@@ -587,7 +587,7 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                             if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
                                 #call_body
                             }) {
-                                ::aviutl2::log::error!(
+                                ::aviutl2::tracing::error!(
                                     "Panic occurred during {}: {}",
                                     #name,
                                     panic_info

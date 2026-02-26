@@ -55,7 +55,7 @@ pub unsafe fn initialize_plugin_c<T: OutputSingleton>(version: u32) -> bool {
     match initialize_plugin::<T>(version) {
         Ok(_) => true,
         Err(e) => {
-            log::error!("Failed to initialize plugin: {}", e);
+            tracing::error!("Failed to initialize plugin: {}", e);
             let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
@@ -68,7 +68,7 @@ pub unsafe fn initialize_plugin_c_unwind<T: OutputSingleton>(version: u32) -> bo
     }) {
         Ok(result) => result,
         Err(panic_info) => {
-            log::error!(
+            tracing::error!(
                 "Panic occurred during plugin initialization: {}",
                 panic_info
             );
@@ -101,7 +101,7 @@ pub unsafe fn uninitialize_plugin_c_unwind<T: OutputSingleton>() {
     match crate::utils::catch_unwind_with_panic_info(|| unsafe { uninitialize_plugin::<T>() }) {
         Ok(()) => {}
         Err(panic_info) => {
-            log::error!(
+            tracing::error!(
                 "Panic occurred during plugin uninitialization: {}",
                 panic_info
             );
@@ -116,7 +116,7 @@ fn create_table_impl<T: OutputSingleton>(
     let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
     let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
-    log::info!("Creating OUTPUT_PLUGIN_TABLE");
+    tracing::info!("Creating OUTPUT_PLUGIN_TABLE");
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let plugin_info = plugin.plugin_info();
@@ -168,7 +168,7 @@ pub unsafe fn create_table_unwind<T: OutputSingleton>()
     match crate::utils::catch_unwind_with_panic_info(|| create_table_impl::<T>(true)) {
         Ok(table) => table,
         Err(panic_info) => {
-            log::error!("Panic occurred during create_table: {}", panic_info);
+            tracing::error!("Panic occurred during create_table: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             std::ptr::null_mut()
         }
@@ -186,7 +186,7 @@ extern "C" fn func_output<T: OutputSingleton>(oip: *mut aviutl2_sys::output2::OU
     match plugin.output(output_info) {
         Ok(()) => true,
         Err(e) => {
-            log::error!("Error during func_output: {}", e);
+            tracing::error!("Error during func_output: {}", e);
             let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
@@ -198,7 +198,7 @@ extern "C" fn func_output_unwind<T: OutputSingleton>(
     match crate::utils::catch_unwind_with_panic_info(|| func_output::<T>(oip)) {
         Ok(result) => result,
         Err(panic_info) => {
-            log::error!("Panic occurred during func_output: {}", panic_info);
+            tracing::error!("Panic occurred during func_output: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             false
         }
@@ -220,7 +220,7 @@ extern "C" fn func_config<T: OutputSingleton>(
     match plugin.config(handle) {
         Ok(()) => true,
         Err(e) => {
-            log::error!("Error during func_config: {}", e);
+            tracing::error!("Error during func_config: {}", e);
             let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
@@ -233,7 +233,7 @@ extern "C" fn func_config_unwind<T: OutputSingleton>(
     match crate::utils::catch_unwind_with_panic_info(|| func_config::<T>(hwnd, dll_hinst)) {
         Ok(result) => result,
         Err(panic_info) => {
-            log::error!("Panic occurred during func_config: {}", panic_info);
+            tracing::error!("Panic occurred during func_config: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             false
         }
@@ -250,7 +250,7 @@ extern "C" fn func_get_config_text<T: OutputSingleton>() -> *const u16 {
     match text {
         Ok(text) => plugin_state.leak_manager.leak_as_wide_string(&text),
         Err(e) => {
-            log::error!("Error during func_get_config_text: {}", e);
+            tracing::error!("Error during func_get_config_text: {}", e);
             plugin_state
                 .leak_manager
                 .leak_as_wide_string(format!("エラー：{}", e).as_str())
@@ -261,7 +261,7 @@ extern "C" fn func_get_config_text_unwind<T: OutputSingleton>() -> *const u16 {
     match crate::utils::catch_unwind_with_panic_info(|| func_get_config_text::<T>()) {
         Ok(text) => text,
         Err(panic_info) => {
-            log::error!("Panic occurred during func_get_config_text: {}", panic_info);
+            tracing::error!("Panic occurred during func_get_config_text: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             std::ptr::null()
         }

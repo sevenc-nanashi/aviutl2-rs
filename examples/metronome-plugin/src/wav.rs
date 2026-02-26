@@ -38,7 +38,7 @@ pub(crate) fn get_wav_sample(path: &Path, target_rate: u32) -> Option<Arc<Sample
         match result {
             Ok(sample) => Some(Arc::new(sample)),
             Err(err) => {
-                log::error!("Failed to load WAV sample from {:?}: {}", path, err);
+                tracing::error!("Failed to load WAV sample from {:?}: {}", path, err);
                 None
             }
         }

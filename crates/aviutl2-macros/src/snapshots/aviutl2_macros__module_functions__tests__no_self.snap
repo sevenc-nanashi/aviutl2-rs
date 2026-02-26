@@ -39,7 +39,7 @@ impl MyModule {
                     let fn_result = <MyModule>::my_function(hoge);
                     ::aviutl2::module::__push_return_value(&mut __handle, fn_result);
                 }) {
-                    ::aviutl2::log::error!(
+                    ::aviutl2::tracing::error!(
                         "Panic occurred during {}: {}",
                         "my_function",
                         panic_info

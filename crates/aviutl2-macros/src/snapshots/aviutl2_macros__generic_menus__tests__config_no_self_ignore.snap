@@ -23,7 +23,7 @@ impl MyPlugin {
                     let ret = <MyPlugin>::config_menu(rwh);
                     let _ = ret;
                 }) {
-                    ::aviutl2::log::error!(
+                    ::aviutl2::tracing::error!(
                         "Panic occurred during {}: {}",
                         "config_menu",
                         panic_info

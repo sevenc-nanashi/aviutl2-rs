@@ -381,7 +381,7 @@ impl MetronomeApp {
                 // TODO: 拍子情報も変更できるようにする
                 edit.set_grid_bpm(bpm as f32, 4, 0.0)
             });
-            log::info!("Applied BPM: {:?}", res);
+            tracing::info!("Applied BPM: {:?}", res);
         }
     }
 
@@ -393,7 +393,7 @@ impl MetronomeApp {
                 // TODO: 拍子情報も変更できるようにする
                 edit.set_grid_bpm(bpm as f32, 4, current_frame as f32 / fps)
             });
-            log::info!("Applied BPM: {:?}", res);
+            tracing::info!("Applied BPM: {:?}", res);
         }
     }
 }

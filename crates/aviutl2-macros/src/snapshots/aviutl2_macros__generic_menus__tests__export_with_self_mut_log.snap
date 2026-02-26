@@ -20,7 +20,7 @@ impl MyPlugin {
                         ::aviutl2::common::__log_and_beep_if_error(ret);
                     });
                 }) {
-                    ::aviutl2::log::error!(
+                    ::aviutl2::tracing::error!(
                         "Panic occurred during {}: {}",
                         "export_menu",
                         panic_info

@@ -208,7 +208,7 @@ impl FilterProcVideo {
         T: Copy + FromBytes + Immutable,
     {
         if self.video_object.width == 0 || self.video_object.height == 0 {
-            log::warn!("width or height is 0, perhaps the filter plugin is a custom object");
+            tracing::warn!("width or height is 0, perhaps the filter plugin is a custom object");
             return 0;
         }
         assert_eq!(

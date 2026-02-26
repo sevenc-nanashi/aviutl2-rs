@@ -43,7 +43,7 @@ impl MyModule {
                         },
                     );
                 }) {
-                    ::aviutl2::log::error!(
+                    ::aviutl2::tracing::error!(
                         "Panic occurred during {}: {}",
                         "my_function",
                         panic_info

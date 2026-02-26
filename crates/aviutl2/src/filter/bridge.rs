@@ -164,7 +164,7 @@ pub unsafe fn initialize_plugin_c<T: FilterSingleton>(version: u32) -> bool {
     match initialize_plugin::<T>(version) {
         Ok(_) => true,
         Err(e) => {
-            log::error!("Failed to initialize plugin: {}", e);
+            tracing::error!("Failed to initialize plugin: {}", e);
             let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
@@ -175,7 +175,7 @@ pub unsafe fn initialize_plugin_c_unwind<T: FilterSingleton>(version: u32) -> bo
     match catch_unwind_with_panic_info(|| unsafe { initialize_plugin_c::<T>(version) }) {
         Ok(result) => result,
         Err(panic_info) => {
-            log::error!(
+            tracing::error!(
                 "Panic occurred during plugin initialization: {}",
                 panic_info
             );
@@ -207,7 +207,7 @@ pub unsafe fn uninitialize_plugin_c_unwind<T: FilterSingleton>() {
     match crate::utils::catch_unwind_with_panic_info(|| unsafe { uninitialize_plugin::<T>() }) {
         Ok(()) => {}
         Err(panic_info) => {
-            log::error!(
+            tracing::error!(
                 "Panic occurred during plugin uninitialization: {}",
                 panic_info
             );
@@ -286,7 +286,7 @@ pub unsafe fn create_table_unwind<T: FilterSingleton>()
     match crate::utils::catch_unwind_with_panic_info(|| create_table_impl::<T>(true)) {
         Ok(table) => table,
         Err(panic_info) => {
-            log::error!("Panic occurred during create_table: {}", panic_info);
+            tracing::error!("Panic occurred during create_table: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             std::ptr::null_mut()
         }
@@ -327,7 +327,7 @@ extern "C" fn func_proc_video<T: FilterSingleton>(
     match proc_video_impl::<T>(video) {
         Ok(()) => true,
         Err(e) => {
-            log::error!("Error in proc_video: {}", e);
+            tracing::error!("Error in proc_video: {}", e);
             false
         }
     }
@@ -338,11 +338,11 @@ extern "C" fn func_proc_video_unwind<T: FilterSingleton>(
     match catch_unwind_with_panic_info(|| proc_video_impl::<T>(video)) {
         Ok(Ok(())) => true,
         Ok(Err(e)) => {
-            log::error!("Error in proc_video: {}", e);
+            tracing::error!("Error in proc_video: {}", e);
             false
         }
         Err(e) => {
-            log::error!("Panic in proc_video: {}", e);
+            tracing::error!("Panic in proc_video: {}", e);
             false
         }
     }
@@ -353,7 +353,7 @@ extern "C" fn func_proc_audio<T: FilterSingleton>(
     match proc_audio_impl::<T>(audio) {
         Ok(()) => true,
         Err(e) => {
-            log::error!("Error in proc_audio: {}", e);
+            tracing::error!("Error in proc_audio: {}", e);
             false
         }
     }
@@ -364,11 +364,11 @@ extern "C" fn func_proc_audio_unwind<T: FilterSingleton>(
     match catch_unwind_with_panic_info(|| proc_audio_impl::<T>(audio)) {
         Ok(Ok(())) => true,
         Ok(Err(e)) => {
-            log::error!("Error in proc_audio: {}", e);
+            tracing::error!("Error in proc_audio: {}", e);
             false
         }
         Err(e) => {
-            log::error!("Panic in proc_audio: {}", e);
+            tracing::error!("Panic in proc_audio: {}", e);
             false
         }
     }

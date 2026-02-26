@@ -107,7 +107,7 @@ unsafe impl Sync for LocalAliasPlugin {}
 impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
         Self::init_logging();
-        log::info!("Initializing Rusty Local Alias Plugin...");
+        tracing::info!("Initializing Rusty Local Alias Plugin...");
         let state = Arc::new(Mutex::new(AliasState::default()));
         let ui_state = Arc::clone(&state);
         let window =
@@ -133,7 +133,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
     fn on_project_load(&mut self, project: &mut aviutl2::generic::ProjectFile) {
         CURRENT_ALIAS.lock().unwrap().take();
         let aliases = project.deserialize("alias_entries").unwrap_or_else(|e| {
-            log::warn!("Failed to load alias entries from project: {}", e);
+            tracing::warn!("Failed to load alias entries from project: {}", e);
             Vec::new()
         });
         let mut state = self.state.lock().unwrap();
@@ -151,12 +151,14 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
 
 impl LocalAliasPlugin {
     fn init_logging() {
-        aviutl2::logger::LogBuilder::new()
-            .filter_level(if cfg!(debug_assertions) {
-                log::LevelFilter::Debug
+        aviutl2::tracing_subscriber::fmt()
+            .with_max_level(if cfg!(debug_assertions) {
+                tracing::Level::DEBUG
             } else {
-                log::LevelFilter::Info
+                tracing::Level::INFO
             })
+            .event_format(aviutl2::logger::AviUtl2Formatter)
+            .with_writer(aviutl2::logger::AviUtl2LogWriter)
             .init();
     }
 }

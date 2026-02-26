@@ -17,5 +17,5 @@ aviutl2 = { workspace = true, features = ["serde"] }
 aviutl2-eframe.workspace = true
 dashmap = "6.1.0"
 hound = "3.5.1"
-log = "0.4.29"
+tracing = "0.1.44"
 mplus.workspace = true

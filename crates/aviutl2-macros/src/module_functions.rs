@@ -226,7 +226,7 @@ fn create_bridge(
                         if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
                             #func_body
                         }) {
-                            ::aviutl2::log::error!(
+                            ::aviutl2::tracing::error!(
                                 "Panic occurred during {}: {}",
                                 #method_name_str,
                                 panic_info

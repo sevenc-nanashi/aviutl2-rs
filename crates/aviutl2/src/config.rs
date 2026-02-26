@@ -236,7 +236,7 @@ pub fn __initialize_config_handle_unwind(raw: *mut aviutl2_sys::config2::CONFIG_
     if let Err(panic_info) =
         crate::__catch_unwind_with_panic_info(|| __initialize_config_handle(raw))
     {
-        log::error!("Panic occurred during InitializeConfig: {}", panic_info);
+        tracing::error!("Panic occurred during InitializeConfig: {}", panic_info);
         let _ = crate::logger::write_error_log(&panic_info);
     }
 }

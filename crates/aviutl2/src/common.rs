@@ -339,7 +339,7 @@ impl LeakManager {
     }
 
     pub fn leak<T: IntoLeakedPtr>(&self, value: T) -> *const T {
-        log::debug!("Leaking memory for type {}", std::any::type_name::<T>());
+        tracing::debug!("Leaking memory for type {}", std::any::type_name::<T>());
         let mut ptrs = self.ptrs.lock().unwrap();
         let leaked = value.into_leaked_ptr();
         let ptr = leaked.1;
@@ -348,7 +348,7 @@ impl LeakManager {
     }
 
     pub fn leak_as_wide_string(&self, s: &str) -> *const u16 {
-        log::debug!("Leaking wide string: {}", s);
+        tracing::debug!("Leaking wide string: {}", s);
         let mut wide: Vec<u16> = s.encode_utf16().collect();
         wide.push(0); // Null-terminate the string
         let boxed = wide.into_boxed_slice();
@@ -359,7 +359,7 @@ impl LeakManager {
     }
 
     // pub fn leak_ptr_vec<T: IntoLeakedPtr>(&self, vec: Vec<T>) -> *const *const T {
-    //     log::debug!("Leaking vector of type {}", std::any::type_name::<T>());
+    //     tracing::debug!("Leaking vector of type {}", std::any::type_name::<T>());
     //     let mut raw_ptrs = Vec::with_capacity(vec.len() + 1);
     //     for item in vec {
     //         let leaked = item.into_leaked_ptr();
@@ -372,7 +372,7 @@ impl LeakManager {
     // }
 
     pub fn leak_value_vec<T: LeakableValue>(&self, vec: Vec<T>) -> *const T {
-        log::debug!(
+        tracing::debug!(
             "Leaking value vector of type {}",
             std::any::type_name::<T>()
         );

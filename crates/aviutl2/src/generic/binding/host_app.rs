@@ -299,7 +299,7 @@ where
     if let Err(panic_info) =
         crate::utils::catch_unwind_with_panic_info(std::panic::AssertUnwindSafe(callback))
     {
-        log::error!("Panic occurred in menu callback: {}", panic_info);
+        tracing::error!("Panic occurred in menu callback: {}", panic_info);
         let _ = crate::logger::write_error_log(&panic_info);
     }
 }

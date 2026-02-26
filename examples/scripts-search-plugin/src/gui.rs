@@ -1,4 +1,4 @@
-use aviutl2::{anyhow, config::translate as tr};
+use aviutl2::{anyhow, config::translate as tr, tracing};
 use aviutl2_eframe::{AviUtl2EframeHandle, eframe, egui};
 use itertools::Itertools;
 
@@ -391,7 +391,7 @@ impl ScriptsSearchApp {
                 } else {
                     Self::add_filter_as_object(effect)
                 };
-                log::debug!("Filter card clicked: {:?}", res);
+                tracing::debug!("Filter card clicked: {:?}", res);
             }
         } else {
             Self::handle_non_filter_click(effect, &response);
@@ -499,7 +499,7 @@ impl ScriptsSearchApp {
                             .on_hover_cursor(egui::CursorIcon::PointingHand);
                         if response.clicked() {
                             let res = action(effect);
-                            log::debug!("Filter action {}: {:?}", tooltip, res);
+                            tracing::debug!("Filter action {}: {:?}", tooltip, res);
                         }
                     };
 
@@ -559,7 +559,7 @@ impl ScriptsSearchApp {
                 e.focus_object(&created)?;
                 anyhow::Ok(())
             });
-            log::debug!("Effect added: {:?}", res);
+            tracing::debug!("Effect added: {:?}", res);
         }
     }
 

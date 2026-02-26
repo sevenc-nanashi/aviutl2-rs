@@ -1,7 +1,7 @@
 mod eq;
 use aviutl2::{
     filter::{FilterConfigItemSliceExt, FilterConfigItems},
-    log,
+    tracing,
 };
 
 #[aviutl2::filter::filter_config_items]
@@ -100,12 +100,14 @@ struct EqualizerFilter {
 
 impl aviutl2::filter::FilterPlugin for EqualizerFilter {
     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
-        aviutl2::logger::LogBuilder::new()
-            .filter_level(if cfg!(debug_assertions) {
-                log::LevelFilter::Debug
+        aviutl2::tracing_subscriber::fmt()
+            .with_max_level(if cfg!(debug_assertions) {
+                tracing::Level::DEBUG
             } else {
-                log::LevelFilter::Info
+                tracing::Level::INFO
             })
+            .event_format(aviutl2::logger::AviUtl2Formatter)
+            .with_writer(aviutl2::logger::AviUtl2LogWriter)
             .init();
         Ok(Self {
             q_states: dashmap::DashMap::new(),
@@ -143,7 +145,7 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
         let obj_id = audio.object.effect_id;
 
         let mut q_state = self.q_states.entry(obj_id).or_insert_with(|| {
-            log::info!("Creating new EQ state for object ID {}", obj_id);
+            tracing::info!("Creating new EQ state for object ID {}", obj_id);
 
             EqStates::new(sample_rate, &config)
         });
@@ -154,7 +156,7 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
                 && cache.left.len() == left_samples.len()
                 && cache.right.len() == right_samples.len()
             {
-                log::debug!(
+                tracing::debug!(
                     "Using cached EQ result for object ID {} at sample_index {}",
                     obj_id,
                     audio.audio_object.sample_index
@@ -165,7 +167,7 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
             }
         }
         if q_state.expected_next_index != audio.audio_object.sample_index {
-            log::debug!(
+            tracing::debug!(
                 "Audio discontinuity detected for object ID {}: expected {}, got {}",
                 obj_id,
                 q_state.expected_next_index,
@@ -173,7 +175,7 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
             );
             q_state.reset();
         }
-        log::debug!(
+        tracing::debug!(
             "Processing audio for object ID {}: sample_index {}, num_samples {}",
             obj_id,
             audio.audio_object.sample_index,

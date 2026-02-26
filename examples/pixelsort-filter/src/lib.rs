@@ -5,7 +5,7 @@ use aviutl2::{
         FilterConfigItemSliceExt, FilterConfigItems, FilterConfigSelectItems, FilterPlugin,
         FilterPluginFlags, FilterPluginTable, FilterProcVideo, RgbaPixel,
     },
-    log,
+    tracing,
 };
 
 pub use sort::pixelsort;
@@ -54,12 +54,14 @@ struct PixelSortFilter;
 
 impl FilterPlugin for PixelSortFilter {
     fn new(_info: AviUtl2Info) -> AnyResult<Self> {
-        aviutl2::logger::LogBuilder::new()
-            .filter_level(if cfg!(debug_assertions) {
-                log::LevelFilter::Debug
+        aviutl2::tracing_subscriber::fmt()
+            .with_max_level(if cfg!(debug_assertions) {
+                tracing::Level::DEBUG
             } else {
-                log::LevelFilter::Info
+                tracing::Level::INFO
             })
+            .event_format(aviutl2::logger::AviUtl2Formatter)
+            .with_writer(aviutl2::logger::AviUtl2LogWriter)
             .init();
         Ok(Self)
     }

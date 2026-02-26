@@ -1,6 +1,6 @@
 use aviutl2::{
     filter::{FilterConfigItemSliceExt, FilterConfigItems},
-    log,
+    tracing,
 };
 use ringbuffer::RingBuffer;
 
@@ -95,7 +95,7 @@ impl BinauralStates {
 
         let mut audio_cache = ringbuffer::AllocRingBuffer::new(cache_size);
         audio_cache.extend((0..cache_size).map(|_| 0.0));
-        log::debug!(
+        tracing::debug!(
             "BinauralStates::new: frame_size={}, frame_44100_size={}, block_size={}, cache_size={}",
             frame_size,
             frame_44100_size,
@@ -168,12 +168,14 @@ struct BinauralFilter {
 
 impl aviutl2::filter::FilterPlugin for BinauralFilter {
     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
-        aviutl2::logger::LogBuilder::new()
-            .filter_level(if cfg!(debug_assertions) {
-                log::LevelFilter::Debug
+        aviutl2::tracing_subscriber::fmt()
+            .with_max_level(if cfg!(debug_assertions) {
+                tracing::Level::DEBUG
             } else {
-                log::LevelFilter::Info
+                tracing::Level::INFO
             })
+            .event_format(aviutl2::logger::AviUtl2Formatter)
+            .with_writer(aviutl2::logger::AviUtl2LogWriter)
             .init();
         Ok(Self {
             states: dashmap::DashMap::new(),
@@ -203,14 +205,14 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
 
         let num_samples = audio.audio_object.sample_num as usize;
         if num_samples == 0 {
-            log::warn!("num_samples is zero");
+            tracing::warn!("num_samples is zero");
             return Ok(());
         }
         let mut states = self.states.entry(obj_id).or_try_insert_with(|| {
             BinauralStates::new(num_samples, audio.scene.sample_rate as f64)
         })?;
         if (((states.requested_sample_count as f32) * (3.0 / 4.0)) as usize) < num_samples {
-            log::info!(
+            tracing::info!(
                 "Frame size changed: {} -> {}",
                 states.requested_sample_count,
                 num_samples
@@ -231,7 +233,7 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
             || (states.tail_index < audio.audio_object.sample_index as usize)
             || expected_start < cache_start
         {
-            log::info!(
+            tracing::info!(
                 "Cache reset: sample_index={}, tail_index={}, cache_start={}, expected_start={}",
                 audio.audio_object.sample_index,
                 states.tail_index,

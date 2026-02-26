@@ -2,7 +2,7 @@
 //!
 //! AviUtl2の汎用プラグインでegui/eframeを扱うためのライブラリ。
 use anyhow::Context;
-use aviutl2::{AnyResult, log, raw_window_handle};
+use aviutl2::{AnyResult, raw_window_handle, tracing};
 use eframe::EframeWinitApplication;
 use std::{num::NonZeroIsize, sync::mpsc};
 use windows::Win32::{
@@ -67,7 +67,7 @@ impl eframe::App for WrappedApp {
                 .iter()
                 .any(|event| matches!(event, egui::Event::PointerButton { .. }));
             if is_clicked {
-                log::trace!("Egui window clicked while unfocused, forcing focus");
+                tracing::trace!("Egui window clicked while unfocused, forcing focus");
                 let focus_result = unsafe {
                     windows::Win32::UI::Input::KeyboardAndMouse::SetFocus(Some(HWND(
                         self.hwnd.get() as *mut std::ffi::c_void,
@@ -75,10 +75,10 @@ impl eframe::App for WrappedApp {
                 };
                 match focus_result {
                     Ok(_) => {
-                        log::trace!("SetFocus succeeded");
+                        tracing::trace!("SetFocus succeeded");
                     }
                     Err(e) => {
-                        log::warn!("SetFocus failed: {:?}", e);
+                        tracing::warn!("SetFocus failed: {:?}", e);
                     }
                 }
             }
@@ -101,7 +101,7 @@ struct WinitEventLoopApp<'a> {
 impl<'a> WinitEventLoopApp<'a> {
     fn trigger_exit_if_requested(&self, event_loop: &winit::event_loop::ActiveEventLoop) {
         if self.thread_terminator.get().is_some() {
-            log::debug!("Egui window thread exiting...");
+            tracing::debug!("Egui window thread exiting...");
             event_loop.exit();
         }
     }
@@ -266,7 +266,7 @@ impl EframeWindow {
                         let app = app_creator(cc, app_handle)?;
                         tx.send(Ok((hwnd.hwnd.get(), cc.egui_ctx.clone())))
                             .context("Failed to send HWND")?;
-                        log::debug!("Egui app created, with HWND: 0x{:016x}", hwnd.hwnd);
+                        tracing::debug!("Egui app created, with HWND: 0x{:016x}", hwnd.hwnd);
                         Ok(Box::new(WrappedApp {
                             hwnd: NonZeroIsize::new(hwnd.hwnd.get()).context("HWND is null")?,
                             internal_app: app,
@@ -280,7 +280,7 @@ impl EframeWindow {
                     thread_terminator,
                 };
                 let res = event_loop.run_app(&mut egui_app);
-                log::debug!("Egui event loop exited: {:?}", res);
+                tracing::debug!("Egui event loop exited: {:?}", res);
             }
         });
         let (hwnd, egui_ctx) = match rx.recv() {
@@ -387,7 +387,7 @@ impl Drop for EframeWindow {
     fn drop(&mut self) {
         // ウィンドウスレッドが終了するのを待つ
         if let Some(thread) = self.thread.take() {
-            log::debug!("Terminating Egui window thread...");
+            tracing::debug!("Terminating Egui window thread...");
             self.thread_terminator.set(()).ok();
             unsafe {
                 windows::Win32::UI::WindowsAndMessaging::PostMessageW(
@@ -398,9 +398,9 @@ impl Drop for EframeWindow {
                 )
                 .ok();
             }
-            log::debug!("Waiting for Egui window thread to exit...");
+            tracing::debug!("Waiting for Egui window thread to exit...");
             let _ = thread.join();
-            log::debug!("Egui window thread exited.");
+            tracing::debug!("Egui window thread exited.");
         }
     }
 }

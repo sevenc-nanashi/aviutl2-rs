@@ -114,7 +114,7 @@ pub unsafe fn initialize_plugin_c<T: InputSingleton>(version: u32) -> bool {
     match initialize_plugin::<T>(version) {
         Ok(_) => true,
         Err(e) => {
-            log::error!("Failed to initialize plugin: {}", e);
+            tracing::error!("Failed to initialize plugin: {}", e);
             let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
@@ -127,7 +127,7 @@ pub unsafe fn initialize_plugin_c_unwind<T: InputSingleton>(version: u32) -> boo
     }) {
         Ok(result) => result,
         Err(panic_info) => {
-            log::error!(
+            tracing::error!(
                 "Panic occurred during plugin initialization: {}",
                 panic_info
             );
@@ -160,7 +160,7 @@ pub unsafe fn uninitialize_plugin_c_unwind<T: InputSingleton>() {
     match crate::utils::catch_unwind_with_panic_info(|| unsafe { uninitialize_plugin::<T>() }) {
         Ok(()) => {}
         Err(panic_info) => {
-            log::error!(
+            tracing::error!(
                 "Panic occurred during plugin uninitialization: {}",
                 panic_info
             );
@@ -260,7 +260,7 @@ pub unsafe fn create_table_unwind<T: InputSingleton>()
     match crate::utils::catch_unwind_with_panic_info(|| create_table_impl::<T>(true)) {
         Ok(table) => table,
         Err(panic_info) => {
-            log::error!("Panic occurred during create_table: {}", panic_info);
+            tracing::error!("Panic occurred during create_table: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             std::ptr::null_mut()
         }
@@ -275,7 +275,7 @@ extern "C" fn func_open<T: InputSingleton>(
     let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
     plugin_state.leak_manager.free_leaked_memory();
     let path = unsafe { load_wide_string(file) };
-    log::info!("func_open called with path: {}", path);
+    tracing::info!("func_open called with path: {}", path);
     let plugin = &plugin_state.instance;
     match plugin.open(std::path::PathBuf::from(path)) {
         Ok(handle) => {
@@ -290,7 +290,7 @@ extern "C" fn func_open<T: InputSingleton>(
             Box::into_raw(boxed_handle) as aviutl2_sys::input2::INPUT_HANDLE
         }
         Err(e) => {
-            log::error!("Error during func_open: {}", e);
+            tracing::error!("Error during func_open: {}", e);
             std::ptr::null_mut()
         }
     }
@@ -301,7 +301,7 @@ extern "C" fn func_open_unwind<T: InputSingleton>(
     match crate::utils::catch_unwind_with_panic_info(|| func_open::<T>(file)) {
         Ok(handle) => handle,
         Err(panic_info) => {
-            log::error!("Panic occurred during func_open: {}", panic_info);
+            tracing::error!("Panic occurred during func_open: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             std::ptr::null_mut()
         }
@@ -317,7 +317,7 @@ extern "C" fn func_close<T: InputSingleton>(ih: aviutl2_sys::input2::INPUT_HANDL
     match plugin.close(handle.handle) {
         Ok(()) => true,
         Err(e) => {
-            log::error!("Error during func_close: {}", e);
+            tracing::error!("Error during func_close: {}", e);
             false
         }
     }
@@ -326,7 +326,7 @@ extern "C" fn func_close_unwind<T: InputSingleton>(ih: aviutl2_sys::input2::INPU
     match crate::utils::catch_unwind_with_panic_info(|| func_close::<T>(ih)) {
         Ok(result) => result,
         Err(panic_info) => {
-            log::error!("Panic occurred during func_close: {}", panic_info);
+            tracing::error!("Panic occurred during func_close: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             false
         }
@@ -396,7 +396,7 @@ extern "C" fn func_info_get<T: InputSingleton>(
             true
         }
         Err(e) => {
-            log::error!("Error during func_info_get: {}", e);
+            tracing::error!("Error during func_info_get: {}", e);
             false
         }
     }
@@ -408,7 +408,7 @@ extern "C" fn func_info_get_unwind<T: InputSingleton>(
     match crate::utils::catch_unwind_with_panic_info(|| func_info_get::<T>(ih, iip)) {
         Ok(result) => result,
         Err(panic_info) => {
-            log::error!("Panic occurred during func_info_get: {}", panic_info);
+            tracing::error!("Panic occurred during func_info_get: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             false
         }
@@ -453,7 +453,7 @@ extern "C" fn func_read_video<T: InputSingleton>(
             returner.written as i32
         }
         Err(e) => {
-            log::error!("Error during func_read_video: {}", e);
+            tracing::error!("Error during func_read_video: {}", e);
             0
         }
     }
@@ -467,7 +467,7 @@ extern "C" fn func_read_video_unwind<T: InputSingleton>(
     match crate::utils::catch_unwind_with_panic_info(|| func_read_video::<T>(ih, frame, buf)) {
         Ok(result) => result,
         Err(panic_info) => {
-            log::error!("Panic occurred during func_read_video: {}", panic_info);
+            tracing::error!("Panic occurred during func_read_video: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             0
         }
@@ -514,7 +514,7 @@ extern "C" fn func_read_audio<T: InputSingleton>(
             returner.written as i32
         }
         Err(e) => {
-            log::error!("Error during func_read_audio: {}", e);
+            tracing::error!("Error during func_read_audio: {}", e);
             0
         }
     }
@@ -531,7 +531,7 @@ extern "C" fn func_read_audio_unwind<T: InputSingleton>(
     }) {
         Ok(result) => result,
         Err(panic_info) => {
-            log::error!("Panic occurred during func_read_audio: {}", panic_info);
+            tracing::error!("Panic occurred during func_read_audio: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             0
         }
@@ -553,7 +553,7 @@ extern "C" fn func_config<T: InputSingleton>(
     match plugin.config(handle) {
         Ok(()) => true,
         Err(e) => {
-            log::error!("Error during func_config: {}", e);
+            tracing::error!("Error during func_config: {}", e);
             let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
@@ -566,7 +566,7 @@ extern "C" fn func_config_unwind<T: InputSingleton>(
     match crate::utils::catch_unwind_with_panic_info(|| func_config::<T>(hwnd, dll_hinst)) {
         Ok(result) => result,
         Err(panic_info) => {
-            log::error!("Panic occurred during func_config: {}", panic_info);
+            tracing::error!("Panic occurred during func_config: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             false
         }
@@ -587,7 +587,7 @@ extern "C" fn func_set_track<T: InputSingleton>(
         // track == -1：トラック数取得
         if handle.num_tracks.lock().unwrap().is_none() {
             let num_tracks = plugin.get_track_count(&mut handle.handle).map_err(|e| {
-                log::error!("Failed to get track count: {}", e);
+                tracing::error!("Failed to get track count: {}", e);
                 e
             });
 
@@ -612,12 +612,12 @@ extern "C" fn func_set_track<T: InputSingleton>(
                 } else if track_type == aviutl2_sys::input2::INPUT_PLUGIN_TABLE::TRACK_TYPE_AUDIO {
                     *audio_tracks as i32
                 } else {
-                    log::error!("Invalid track type: {}", track_type);
+                    tracing::error!("Invalid track type: {}", track_type);
                     -1 // Invalid track type
                 }
             }
             Some(Err(e)) => {
-                log::error!("Error occurred while getting track count: {}", e);
+                tracing::error!("Error occurred while getting track count: {}", e);
                 -1 // Error occurred
             }
             None => {
@@ -632,7 +632,7 @@ extern "C" fn func_set_track<T: InputSingleton>(
                     .can_set_video_track(&mut handle.handle, track as u32)
                     .map_or_else(
                         |e| {
-                            log::debug!("Failed to set video track: {}", e);
+                            tracing::debug!("Failed to set video track: {}", e);
                             -1
                         },
                         |t| t as i32,
@@ -648,7 +648,7 @@ extern "C" fn func_set_track<T: InputSingleton>(
                     .can_set_audio_track(&mut handle.handle, track as u32)
                     .map_or_else(
                         |e| {
-                            log::debug!("Failed to set audio track: {}", e);
+                            tracing::debug!("Failed to set audio track: {}", e);
                             -1
                         },
                         |t| t as i32,
@@ -672,7 +672,7 @@ extern "C" fn func_set_track_unwind<T: InputSingleton>(
     {
         Ok(result) => result,
         Err(panic_info) => {
-            log::error!("Panic occurred during func_set_track: {}", panic_info);
+            tracing::error!("Panic occurred during func_set_track: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             -1
         }
@@ -697,7 +697,7 @@ extern "C" fn func_time_to_frame<T: InputSingleton>(
     match T::time_to_frame(plugin, &mut handle.handle, video_track, time) {
         Ok(frame) => frame as i32,
         Err(e) => {
-            log::error!("Error during func_time_to_frame: {}", e);
+            tracing::error!("Error during func_time_to_frame: {}", e);
             0
         }
     }
@@ -709,7 +709,7 @@ extern "C" fn func_time_to_frame_unwind<T: InputSingleton>(
     match crate::utils::catch_unwind_with_panic_info(|| func_time_to_frame::<T>(ih, time)) {
         Ok(result) => result,
         Err(panic_info) => {
-            log::error!("Panic occurred during func_time_to_frame: {}", panic_info);
+            tracing::error!("Panic occurred during func_time_to_frame: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             0
         }

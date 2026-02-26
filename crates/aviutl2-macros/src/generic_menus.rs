@@ -254,7 +254,7 @@ pub fn generic_menus(
                         if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
                             #wrapper_body
                         }) {
-                            ::aviutl2::log::error!(
+                            ::aviutl2::tracing::error!(
                                 "Panic occurred during {}: {}",
                                 #method_name_str,
                                 panic_info
@@ -269,7 +269,7 @@ pub fn generic_menus(
                         if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
                             #wrapper_body
                         }) {
-                            ::aviutl2::log::error!(
+                            ::aviutl2::tracing::error!(
                                 "Panic occurred during {}: {}",
                                 #method_name_str,
                                 panic_info

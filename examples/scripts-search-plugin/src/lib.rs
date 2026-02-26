@@ -1,4 +1,4 @@
-use aviutl2::AnyResult;
+use aviutl2::{AnyResult, tracing};
 
 mod gui;
 
@@ -25,7 +25,7 @@ pub static EDIT_HANDLE: aviutl2::generic::GlobalEditHandle =
 impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
         Self::init_logging();
-        log::info!("Initializing Rusty Scripts Search Plugin...");
+        tracing::info!("Initializing Rusty Scripts Search Plugin...");
         let window =
             aviutl2_eframe::EframeWindow::new("RustyScriptsSearchPlugin", move |cc, handle| {
                 Ok(Box::new(gui::ScriptsSearchApp::new(cc, handle)))
@@ -51,12 +51,12 @@ impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
         let config = match maybe_config {
             Ok(cfg) => cfg,
             Err(e) => {
-                log::error!("Failed to load aviutl2.ini: {}", e);
+                tracing::error!("Failed to load aviutl2.ini: {}", e);
                 return;
             }
         };
         let Some(effects_table) = config.get_table("Effect") else {
-            log::error!("Effect section not found in aviutl2.ini");
+            tracing::error!("Effect section not found in aviutl2.ini");
             return;
         };
         EFFECTS.get_or_init(|| {
@@ -108,12 +108,14 @@ impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
 
 impl ScriptsSearchPlugin {
     fn init_logging() {
-        aviutl2::logger::LogBuilder::new()
-            .filter_level(if cfg!(debug_assertions) {
-                log::LevelFilter::Debug
+        aviutl2::tracing_subscriber::fmt()
+            .with_max_level(if cfg!(debug_assertions) {
+                tracing::Level::DEBUG
             } else {
-                log::LevelFilter::Info
+                tracing::Level::INFO
             })
+            .event_format(aviutl2::logger::AviUtl2Formatter)
+            .with_writer(aviutl2::logger::AviUtl2LogWriter)
             .init();
     }
 

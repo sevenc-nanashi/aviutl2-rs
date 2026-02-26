@@ -47,7 +47,7 @@ pub unsafe fn initialize_plugin_c<T: ScriptModuleSingleton>(version: u32) -> boo
     match initialize_plugin::<T>(version) {
         Ok(_) => true,
         Err(e) => {
-            log::error!("Failed to initialize plugin: {}", e);
+            tracing::error!("Failed to initialize plugin: {}", e);
             let _ = crate::logger::write_error_log(&format!("{e}"));
             false
         }
@@ -60,7 +60,7 @@ pub unsafe fn initialize_plugin_c_unwind<T: ScriptModuleSingleton>(version: u32)
     }) {
         Ok(result) => result,
         Err(panic_info) => {
-            log::error!(
+            tracing::error!(
                 "Panic occurred during plugin initialization: {}",
                 panic_info
             );
@@ -91,7 +91,7 @@ pub unsafe fn uninitialize_plugin_c_unwind<T: ScriptModuleSingleton>() {
     match crate::utils::catch_unwind_with_panic_info(|| unsafe { uninitialize_plugin::<T>() }) {
         Ok(()) => {}
         Err(panic_info) => {
-            log::error!(
+            tracing::error!(
                 "Panic occurred during plugin uninitialization: {}",
                 panic_info
             );
@@ -144,7 +144,7 @@ pub unsafe fn create_table_unwind<T: ScriptModuleSingleton>()
     match crate::utils::catch_unwind_with_panic_info(|| unsafe { create_table::<T>() }) {
         Ok(table) => table,
         Err(panic_info) => {
-            log::error!("Panic occurred during create_table: {}", panic_info);
+            tracing::error!("Panic occurred during create_table: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             std::ptr::null_mut()
         }

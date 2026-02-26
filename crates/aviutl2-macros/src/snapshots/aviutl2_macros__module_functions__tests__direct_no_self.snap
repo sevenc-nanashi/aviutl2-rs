@@ -22,7 +22,7 @@ impl MyModule {
                         unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
                     let () = <MyModule>::my_function(&mut __handle);
                 }) {
-                    ::aviutl2::log::error!(
+                    ::aviutl2::tracing::error!(
                         "Panic occurred during {}: {}",
                         "my_function",
                         panic_info

@@ -16,7 +16,7 @@ pub struct MetronomePlugin {
 impl aviutl2::generic::GenericPlugin for MetronomePlugin {
     fn new(info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
         Self::init_logging();
-        log::info!("Initializing Rusty Metronome Plugin...");
+        tracing::info!("Initializing Rusty Metronome Plugin...");
         let window =
             aviutl2_eframe::EframeWindow::new("RustyMetronomePlugin", move |cc, handle| {
                 Ok(Box::new(gui::MetronomeApp::new(cc, handle)))
@@ -48,12 +48,14 @@ impl aviutl2::generic::GenericPlugin for MetronomePlugin {
 
 impl MetronomePlugin {
     fn init_logging() {
-        aviutl2::logger::LogBuilder::new()
-            .filter_level(if cfg!(debug_assertions) {
-                log::LevelFilter::Debug
+        aviutl2::tracing_subscriber::fmt()
+            .with_max_level(if cfg!(debug_assertions) {
+                tracing::Level::DEBUG
             } else {
-                log::LevelFilter::Info
+                tracing::Level::INFO
             })
+            .event_format(aviutl2::logger::AviUtl2Formatter)
+            .with_writer(aviutl2::logger::AviUtl2LogWriter)
             .init();
     }
 }

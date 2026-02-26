@@ -15,5 +15,5 @@ crate-type = ["cdylib"]
 [dependencies]
 anyhow = "1.0.101"
 aviutl2.workspace = true
-log = "0.4.29"
+tracing = "0.1.44"
 rand = "0.10.0"

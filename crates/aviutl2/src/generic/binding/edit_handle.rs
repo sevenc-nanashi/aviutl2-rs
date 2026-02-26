@@ -416,7 +416,7 @@ impl GlobalEditHandle {
         let _ = self
             .edit_handle
             .set(edit_handle)
-            .map_err(|_| log::warn!("GlobalEditHandle was already initialized"));
+            .map_err(|_| tracing::warn!("GlobalEditHandle was already initialized"));
     }
 
     /// 初期化されているかどうかを確認します。
