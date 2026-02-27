@@ -192,6 +192,18 @@ impl EframeWindow {
         let thread = std::thread::spawn({
             let thread_terminator = thread_terminator.clone();
             move || {
+                std::panic::set_hook(Box::new(|panic_info| {
+                    let panic_message = if let Some(s) = panic_info.payload().downcast_ref::<&str>()
+                    {
+                        s.to_string()
+                    } else if let Some(s) = panic_info.payload().downcast_ref::<String>() {
+                        s.clone()
+                    } else {
+                        "<unknown panic>".to_string()
+                    };
+                    tracing::error!("Egui thread panicked: {}", panic_message);
+                    tracing::error!("occurred at: {:?}", panic_info.location());
+                }));
                 let native_options = eframe::NativeOptions {
                     viewport: egui::ViewportBuilder::default()
                         .with_visible(false)

@@ -4,10 +4,11 @@
 
 - **Breaking**: `log`から`tracing`に移行
   - 詳細は`aviutl2::logger`モジュールのドキュメントを参照してください。
+- eframe: panic時にログを吐くように
 
 ### デモプラグイン
 
-（なし）
+- scripts-search-plugin: スコアの順序を修正
 
 ## [0.19.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.19.0)
 

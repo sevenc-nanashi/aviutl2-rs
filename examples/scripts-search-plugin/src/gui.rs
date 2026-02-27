@@ -200,24 +200,31 @@ impl ScriptsSearchApp {
     }
 
     fn render_filtered_effects(&mut self, ui: &mut egui::Ui, effects: &[crate::EffectData]) {
-        let needle = nucleo_matcher::Utf32String::from(
+        let needle = nucleo_matcher::pattern::Pattern::parse(
             crate::normalize_kana_for_search(self.needle.trim()).as_str(),
+            nucleo_matcher::pattern::CaseMatching::Smart,
+            nucleo_matcher::pattern::Normalization::Smart,
         );
         let mut sorted_effects = effects
             .iter()
             .filter_map(|effect| {
                 let mut name_indices = vec![];
-                let name_score = self.matcher.fuzzy_indices(
+                let name_score = needle.indices(
                     effect.search_name.slice(..),
-                    needle.slice(..),
+                    &mut self.matcher,
                     &mut name_indices,
                 );
                 let mut label_indices = vec![];
-                let label_score = self.matcher.fuzzy_indices(
+                let label_score = needle.indices(
                     effect.search_label.slice(..),
-                    needle.slice(..),
+                    &mut self.matcher,
                     &mut label_indices,
                 );
+                // let label_score = self.matcher.fuzzy_indices(
+                //     effect.search_label.slice(..),
+                //     needle,
+                //     &mut label_indices,
+                // );
                 if name_score.is_none() && label_score.is_none() {
                     return None;
                 }
@@ -711,8 +718,8 @@ impl ScriptsSearchApp {
 
 #[derive(Debug, Clone, PartialEq)]
 struct EffectMatchInfo {
-    name_match: Option<(u16, Vec<u32>)>,
-    label_match: Option<(u16, Vec<u32>)>,
+    name_match: Option<(u32, Vec<u32>)>,
+    label_match: Option<(u32, Vec<u32>)>,
     effect: crate::EffectData,
 }
 
@@ -721,7 +728,8 @@ impl std::cmp::PartialOrd for EffectMatchInfo {
         // 名前がマッチしているものはラベルのみマッチしているものより優先
         if let Some((self_score, _)) = &self.name_match {
             if let Some((other_score, _)) = &other.name_match {
-                self_score.partial_cmp(other_score)
+                // 名前のスコアが高いものを優先
+                other_score.partial_cmp(self_score)
             } else {
                 Some(std::cmp::Ordering::Less)
             }
@@ -730,7 +738,8 @@ impl std::cmp::PartialOrd for EffectMatchInfo {
         } else {
             let (self_score, _) = self.label_match.as_ref().unwrap();
             let (other_score, _) = other.label_match.as_ref().unwrap();
-            self_score.partial_cmp(other_score)
+            // ラベルのスコアが高いものを優先
+            other_score.partial_cmp(self_score)
         }
     }
 }
