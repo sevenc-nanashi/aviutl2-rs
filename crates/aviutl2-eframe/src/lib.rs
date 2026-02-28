@@ -15,7 +15,6 @@ use winit::{platform::windows::EventLoopBuilderExtWindows, raw_window_handle::Ha
 
 pub use eframe;
 pub use eframe::egui;
-pub use windows;
 
 /// eframeのウィンドウを表す構造体。
 ///

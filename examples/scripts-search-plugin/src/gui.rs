@@ -4,13 +4,59 @@ use itertools::Itertools;
 
 pub(crate) struct ScriptsSearchApp {
     show_info: bool,
-    suppress_info_close_once: bool,
+    show_click_behavior_settings: bool,
     version: String,
     handle: AviUtl2EframeHandle,
     header_collapsed: bool,
+    filter_click_behavior_normal: FilterClickBehavior,
+    filter_click_behavior_shift: FilterClickBehavior,
+    filter_click_behavior_alt: FilterClickBehavior,
+    filter_click_behavior_ctrl: FilterClickBehavior,
 
     matcher: nucleo_matcher::Matcher,
     needle: String,
+}
+
+fn play_beep() {
+    let _ = unsafe {
+        windows::Win32::System::Diagnostics::Debug::MessageBeep(
+            windows::Win32::UI::WindowsAndMessaging::MB_ICONEXCLAMATION,
+        )
+    };
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(clippy::enum_variant_names)]
+enum FilterClickBehavior {
+    AddToFocusedObject,
+    AddAsObject,
+    AddAsFilterObject,
+}
+
+impl FilterClickBehavior {
+    fn from_u8(value: u8) -> Self {
+        match value {
+            0 => Self::AddToFocusedObject,
+            2 => Self::AddAsFilterObject,
+            _ => Self::AddAsObject,
+        }
+    }
+
+    fn as_u8(self) -> u8 {
+        match self {
+            Self::AddToFocusedObject => 0,
+            Self::AddAsObject => 1,
+            Self::AddAsFilterObject => 2,
+        }
+    }
+
+    fn label(self) -> String {
+        match self {
+            Self::AddToFocusedObject => tr("選択中のオブジェクトに追加"),
+            Self::AddAsObject => tr("フィルタ効果オブジェクトとして追加"),
+            Self::AddAsFilterObject => tr("フィルタオブジェクトとして追加"),
+        }
+    }
 }
 
 macro_rules! include_iconify {
@@ -24,12 +70,46 @@ macro_rules! include_iconify {
 
 impl ScriptsSearchApp {
     pub(crate) fn new(cc: &eframe::CreationContext<'_>, handle: AviUtl2EframeHandle) -> Self {
-        let header_collapsed = cc
-            .egui_ctx
-            .data_mut(|data| {
-                data.get_persisted::<bool>(egui::Id::new("header_collapsed_scripts_search"))
-            })
-            .unwrap_or(false);
+        let (
+            header_collapsed,
+            filter_click_behavior_normal,
+            filter_click_behavior_shift,
+            filter_click_behavior_alt,
+            filter_click_behavior_ctrl,
+        ) = cc.egui_ctx.data_mut(|data| {
+            let header_collapsed = data
+                .get_persisted::<bool>(egui::Id::new("header_collapsed_scripts_search"))
+                .unwrap_or(false);
+            let filter_click_behavior_normal = FilterClickBehavior::from_u8(
+                data.get_persisted::<u8>(egui::Id::new(
+                    "filter_click_behavior_scripts_search_normal",
+                ))
+                .unwrap_or(1),
+            );
+            let filter_click_behavior_shift = FilterClickBehavior::from_u8(
+                data.get_persisted::<u8>(egui::Id::new(
+                    "filter_click_behavior_scripts_search_shift",
+                ))
+                .unwrap_or(0),
+            );
+            let filter_click_behavior_alt = FilterClickBehavior::from_u8(
+                data.get_persisted::<u8>(egui::Id::new("filter_click_behavior_scripts_search_alt"))
+                    .unwrap_or(2),
+            );
+            let filter_click_behavior_ctrl = FilterClickBehavior::from_u8(
+                data.get_persisted::<u8>(egui::Id::new(
+                    "filter_click_behavior_scripts_search_ctrl",
+                ))
+                .unwrap_or(1),
+            );
+            (
+                header_collapsed,
+                filter_click_behavior_normal,
+                filter_click_behavior_shift,
+                filter_click_behavior_alt,
+                filter_click_behavior_ctrl,
+            )
+        });
         let mut fonts = egui::FontDefinitions::default();
         fonts.font_data.insert(
             "M+ 1p".to_owned(),
@@ -61,10 +141,14 @@ impl ScriptsSearchApp {
 
         Self {
             show_info: false,
-            suppress_info_close_once: false,
+            show_click_behavior_settings: false,
             version: env!("CARGO_PKG_VERSION").to_string(),
             handle,
             header_collapsed,
+            filter_click_behavior_normal,
+            filter_click_behavior_shift,
+            filter_click_behavior_alt,
+            filter_click_behavior_ctrl,
             matcher: nucleo_matcher::Matcher::new(config),
             needle: String::new(),
         }
@@ -98,10 +182,27 @@ impl eframe::App for ScriptsSearchApp {
         }
         self.render_main_panel(ctx);
         self.render_info_window(ctx);
+        self.render_click_behavior_settings_window(ctx);
         ctx.data_mut(|data| {
             data.insert_persisted(
                 egui::Id::new("header_collapsed_scripts_search"),
                 self.header_collapsed,
+            );
+            data.insert_persisted(
+                egui::Id::new("filter_click_behavior_scripts_search_normal"),
+                self.filter_click_behavior_normal.as_u8(),
+            );
+            data.insert_persisted(
+                egui::Id::new("filter_click_behavior_scripts_search_shift"),
+                self.filter_click_behavior_shift.as_u8(),
+            );
+            data.insert_persisted(
+                egui::Id::new("filter_click_behavior_scripts_search_alt"),
+                self.filter_click_behavior_alt.as_u8(),
+            );
+            data.insert_persisted(
+                egui::Id::new("filter_click_behavior_scripts_search_ctrl"),
+                self.filter_click_behavior_ctrl.as_u8(),
             );
         });
     }
@@ -151,7 +252,19 @@ impl ScriptsSearchApp {
                         .on_hover_text(tr("プラグイン情報"));
                     if resp.clicked() {
                         self.show_info = true;
-                        self.suppress_info_close_once = true;
+                    }
+                    let settings = ui
+                        .add_sized(
+                            egui::vec2(
+                                ui.text_style_height(&egui::TextStyle::Heading),
+                                ui.text_style_height(&egui::TextStyle::Heading),
+                            ),
+                            egui::Button::image(include_iconify!("mdi:tune-vertical")),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .on_hover_text(tr("クリック動作の設定"));
+                    if settings.clicked() {
+                        self.show_click_behavior_settings = true;
                     }
                     let collapse = ui
                         .add_sized(
@@ -267,7 +380,7 @@ impl ScriptsSearchApp {
         }
         let screen_rect = ctx.content_rect();
         let dim_color = egui::Color32::from_black_alpha(128);
-        let dim_response = egui::Area::new(egui::Id::new("info_window_dim_layer"))
+        egui::Area::new(egui::Id::new("info_window_dim_layer"))
             .order(egui::Order::Middle)
             .fixed_pos(screen_rect.min)
             .show(ctx, |ui| {
@@ -276,10 +389,9 @@ impl ScriptsSearchApp {
                     ui.allocate_exact_size(screen_rect.size(), egui::Sense::click());
                 ui.painter().rect_filled(rect, 0.0, dim_color);
                 response
-            })
-            .inner;
+            });
         let mut open = true;
-        let response = egui::Window::new("Rusty Scripts Search Plugin")
+        egui::Window::new("Rusty Scripts Search Plugin")
             .collapsible(false)
             .movable(false)
             .resizable(false)
@@ -307,15 +419,6 @@ impl ScriptsSearchApp {
                     ),
                 );
             });
-        if self.suppress_info_close_once {
-            self.suppress_info_close_once = false;
-        } else if dim_response.clicked() {
-            self.show_info = false;
-        } else if let Some(response) = response
-            && response.response.clicked_elsewhere()
-        {
-            self.show_info = false;
-        }
         if !open {
             self.show_info = false;
         }
@@ -387,9 +490,9 @@ impl ScriptsSearchApp {
             .interact(egui::Sense::click())
             .on_hover_cursor(egui::CursorIcon::PointingHand);
 
-        // フィルターエフェクトの場合、ホバー時にオーバーレイを表示
+        // フィルタ効果の場合、ホバー時にオーバーレイを表示
         if effect.effect.effect_type == aviutl2::generic::EffectType::Filter {
-            if !self.show_info {
+            if !self.show_info && !self.show_click_behavior_settings {
                 let clip_rect = ui.clip_rect();
                 let hovered = ui.ctx().pointer_hover_pos().is_some_and(|pos| {
                     Self::is_filter_actions_hovered(ui.ctx(), response.rect, clip_rect, effect, pos)
@@ -406,14 +509,17 @@ impl ScriptsSearchApp {
             }
             if response.clicked() {
                 let modifiers = response.ctx.input(|i| i.modifiers);
-                let res = if modifiers.alt && effect.effect.flag.as_filter {
-                    Self::add_filter_as_filter_object(effect)
-                } else if modifiers.shift {
-                    Self::add_filter_to_focused_object(effect)
-                } else {
-                    Self::add_filter_as_object(effect)
-                };
-                tracing::debug!("Filter card clicked: {:?}", res);
+                let behavior = self.filter_behavior_for_modifiers(modifiers);
+                let res = Self::add_filter_by_behavior(effect, behavior);
+                match res {
+                    Ok(_) => {
+                        tracing::debug!("Filter added successfully with behavior {:?}", behavior);
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to add filter: {}", e);
+                        play_beep();
+                    }
+                }
             }
         } else {
             Self::handle_non_filter_click(effect, &response);
@@ -526,6 +632,9 @@ impl ScriptsSearchApp {
                         if response.clicked() {
                             let res = action(effect);
                             tracing::debug!("Filter action {}: {:?}", tooltip, res);
+                            if res.is_err() {
+                                play_beep();
+                            }
                         }
                     };
 
@@ -579,14 +688,139 @@ impl ScriptsSearchApp {
 
     fn handle_non_filter_click(effect: &crate::EffectData, response: &egui::Response) {
         if response.clicked() {
-            let res = crate::EDIT_HANDLE.call_edit_section(|e| {
-                let created =
-                    e.create_object(&effect.effect.name, e.info.layer, e.info.frame, None)?;
-                e.focus_object(&created)?;
-                anyhow::Ok(())
-            });
-            tracing::debug!("Effect added: {:?}", res);
+            let res = crate::EDIT_HANDLE
+                .call_edit_section(|e| {
+                    let created =
+                        e.create_object(&effect.effect.name, e.info.layer, e.info.frame, None)?;
+                    e.focus_object(&created)?;
+                    anyhow::Ok(())
+                })
+                .map_err(anyhow::Error::from);
+
+            if let Err(e) = res {
+                play_beep();
+                tracing::error!("Failed to add effect: {}", e);
+            } else {
+                tracing::debug!("Effect added: {:?}", res);
+            }
         }
+    }
+
+    fn filter_behavior_for_modifiers(&self, modifiers: egui::Modifiers) -> FilterClickBehavior {
+        if modifiers.ctrl || modifiers.command {
+            self.filter_click_behavior_ctrl
+        } else if modifiers.alt {
+            self.filter_click_behavior_alt
+        } else if modifiers.shift {
+            self.filter_click_behavior_shift
+        } else {
+            self.filter_click_behavior_normal
+        }
+    }
+
+    fn add_filter_by_behavior(
+        effect: &crate::EffectData,
+        behavior: FilterClickBehavior,
+    ) -> anyhow::Result<()> {
+        match behavior {
+            FilterClickBehavior::AddToFocusedObject => Self::add_filter_to_focused_object(effect),
+            FilterClickBehavior::AddAsObject => Self::add_filter_as_object(effect),
+            FilterClickBehavior::AddAsFilterObject if effect.effect.flag.as_filter => {
+                Self::add_filter_as_filter_object(effect)
+            }
+            FilterClickBehavior::AddAsFilterObject => Self::add_filter_as_object(effect),
+        }
+    }
+
+    fn render_click_behavior_settings_window(&mut self, ctx: &egui::Context) {
+        if !self.show_click_behavior_settings {
+            return;
+        }
+        let screen_rect = ctx.content_rect();
+        let dim_color = egui::Color32::from_black_alpha(128);
+        egui::Area::new(egui::Id::new("click_behavior_settings_dim_layer"))
+            .order(egui::Order::Middle)
+            .fixed_pos(screen_rect.min)
+            .show(ctx, |ui| {
+                ui.set_min_size(screen_rect.size());
+                let (rect, response) =
+                    ui.allocate_exact_size(screen_rect.size(), egui::Sense::click());
+                ui.painter().rect_filled(rect, 0.0, dim_color);
+                response
+            });
+        let mut open = true;
+        egui::Window::new(tr("クリック動作設定"))
+            .collapsible(false)
+            .resizable(false)
+            .movable(false)
+            .open(&mut open)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+            .order(egui::Order::Foreground)
+            .show(ctx, |ui| {
+                ui.label(tr("フィルタ効果クリック時の動作を割り当てます。"));
+                ui.add_space(8.0);
+                Self::render_filter_click_behavior_selector(
+                    ui,
+                    tr("通常クリック"),
+                    "filter_click_behavior_selector_normal",
+                    &mut self.filter_click_behavior_normal,
+                );
+                Self::render_filter_click_behavior_selector(
+                    ui,
+                    tr("Shift+クリック"),
+                    "filter_click_behavior_selector_shift",
+                    &mut self.filter_click_behavior_shift,
+                );
+                Self::render_filter_click_behavior_selector(
+                    ui,
+                    tr("Alt+クリック"),
+                    "filter_click_behavior_selector_alt",
+                    &mut self.filter_click_behavior_alt,
+                );
+                Self::render_filter_click_behavior_selector(
+                    ui,
+                    tr("Ctrl+クリック"),
+                    "filter_click_behavior_selector_ctrl",
+                    &mut self.filter_click_behavior_ctrl,
+                );
+                ui.add_space(4.0);
+                ui.label(tr(
+                    "※「フィルタオブジェクトとして追加」は対応エフェクト以外では通常追加になります。",
+                ));
+            });
+        if !open {
+            self.show_click_behavior_settings = false;
+        }
+    }
+
+    fn render_filter_click_behavior_selector(
+        ui: &mut egui::Ui,
+        label: String,
+        id_source: &str,
+        behavior: &mut FilterClickBehavior,
+    ) {
+        ui.horizontal(|ui| {
+            ui.label(label);
+            egui::ComboBox::from_id_salt(id_source)
+                .selected_text(behavior.label())
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        behavior,
+                        FilterClickBehavior::AddToFocusedObject,
+                        FilterClickBehavior::AddToFocusedObject.label(),
+                    );
+                    ui.selectable_value(
+                        behavior,
+                        FilterClickBehavior::AddAsObject,
+                        FilterClickBehavior::AddAsObject.label(),
+                    );
+                    ui.selectable_value(
+                        behavior,
+                        FilterClickBehavior::AddAsFilterObject,
+                        FilterClickBehavior::AddAsFilterObject.label(),
+                    );
+                });
+        });
     }
 
     fn add_filter_to_focused_object(effect: &crate::EffectData) -> anyhow::Result<()> {

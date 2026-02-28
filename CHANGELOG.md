@@ -10,6 +10,7 @@
 ### デモプラグイン
 
 - scripts-search-plugin: スコアの順序を修正
+- scripts-search-plugin: 挙動設定を追加
 
 ## [0.19.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.19.0)
 
