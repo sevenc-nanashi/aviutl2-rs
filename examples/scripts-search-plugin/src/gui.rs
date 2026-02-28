@@ -73,6 +73,24 @@ impl ScriptsSearchApp {
 
 impl eframe::App for ScriptsSearchApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.input_mut(|i| {
+            // IMEの入力中にEnterキーのイベントが発生するのを防止する
+            let has_ime = i
+                .events
+                .iter()
+                .any(|event| matches!(event, egui::Event::Ime(_)));
+            if has_ime {
+                i.events.retain(|event| {
+                    !matches!(
+                        event,
+                        egui::Event::Key {
+                            key: egui::Key::Enter,
+                            ..
+                        }
+                    )
+                });
+            }
+        });
         if self.header_collapsed {
             self.render_collapsed_header(ctx);
         } else {
@@ -166,13 +184,10 @@ impl ScriptsSearchApp {
                 let count_label = tr("登録されているエフェクト数: {count}");
                 ui.label(count_label.replace("{count}", &effects.effects.len().to_string()));
                 ui.add_space(8.0);
-                let search_response = egui::TextEdit::singleline(&mut self.needle)
+                egui::TextEdit::singleline(&mut self.needle)
                     .desired_width(f32::INFINITY)
                     .hint_text(tr("検索..."))
                     .show(ui);
-                if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                    search_response.response.request_focus();
-                }
                 ui.add_space(8.0);
                 egui::ScrollArea::vertical()
                     .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
@@ -450,10 +465,14 @@ impl ScriptsSearchApp {
                 0.0,
                 egui::TextFormat {
                     font_id: font_id.clone(),
-                    color: if is_matched {
-                        ui.visuals().selection.bg_fill
-                    } else {
-                        ui.visuals().text_color()
+                    color: ui.visuals().text_color(),
+                    underline: egui::Stroke {
+                        width: if is_matched { 2.0 } else { 0.0 },
+                        color: if is_matched {
+                            ui.visuals().selection.bg_fill
+                        } else {
+                            egui::Color32::TRANSPARENT
+                        },
                     },
                     ..Default::default()
                 },

@@ -82,6 +82,12 @@ impl eframe::App for WrappedApp {
                     }
                 }
             }
+
+            let current_focus = unsafe { windows::Win32::UI::Input::KeyboardAndMouse::GetFocus() };
+            if (current_focus.0 as usize) == self.hwnd.get() as usize {
+                tracing::trace!("Egui window is now focused");
+                raw_input.focused = true;
+            }
         }
         self.internal_app.raw_input_hook(ctx, raw_input);
     }
