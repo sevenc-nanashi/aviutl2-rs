@@ -35,6 +35,7 @@ ruzstd = { version = "0.8.2", optional = true }
 serde = { version = "1.0.228", optional = true }
 thiserror = "2.0.18"
 tracing = "0.1.44"
+tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "tracing-log"] }
 windows = { version = "0.62.2", features = ["Win32_System_Diagnostics_Debug", "Win32_UI_WindowsAndMessaging"] }
 zerocopy = { version = "0.8.39", features = ["std"] }

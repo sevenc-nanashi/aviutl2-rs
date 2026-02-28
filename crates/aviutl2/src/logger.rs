@@ -38,6 +38,7 @@
 //! ```
 
 use crate::common::{CWString, NullByteError};
+use tracing_log::NormalizeEvent;
 use tracing_subscriber::fmt::FormatFields;
 
 // NOTE:
@@ -60,7 +61,9 @@ where
         mut writer: tracing_subscriber::fmt::format::Writer<'_>,
         event: &tracing::Event<'_>,
     ) -> std::fmt::Result {
-        let target = event.metadata().target();
+        let meta = event.normalized_metadata();
+        let meta = meta.as_ref().unwrap_or_else(|| event.metadata());
+        let target = meta.target();
         write!(writer, "[{target}] ")?;
         ctx.format_fields(writer.by_ref(), event)?;
         writer.write_str("\n")?;

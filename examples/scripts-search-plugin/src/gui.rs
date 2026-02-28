@@ -631,9 +631,18 @@ impl ScriptsSearchApp {
                             .on_hover_cursor(egui::CursorIcon::PointingHand);
                         if response.clicked() {
                             let res = action(effect);
-                            tracing::debug!("Filter action {}: {:?}", tooltip, res);
-                            if res.is_err() {
-                                play_beep();
+                            match res {
+                                Ok(_) => {
+                                    tracing::debug!("Action '{}' executed successfully", tooltip);
+                                }
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Failed to execute action '{}': {}",
+                                        tooltip,
+                                        e
+                                    );
+                                    play_beep();
+                                }
                             }
                         }
                     };
