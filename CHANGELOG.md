@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.20.1](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.20.1)
+
 - generic: `create_table`のデッドロックを修正
 
 ### デモプラグイン
