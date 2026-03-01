@@ -22,6 +22,16 @@ impl aviutl2::generic::GenericPlugin for SrtFilePlugin {
         EDIT_HANDLE.init(registry.create_edit_handle());
         registry.register_menus::<SrtFilePlugin>();
     }
+
+    fn plugin_info(&self) -> aviutl2::generic::GenericPluginTable {
+        aviutl2::generic::GenericPluginTable {
+            name: "Rusty SRT File Plugin".to_string(),
+            information: format!(
+                "SRT File I/O, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/srt-file-plugin",
+                version = env!("CARGO_PKG_VERSION")
+            ),
+        }
+    }
 }
 
 #[aviutl2::generic::menus]

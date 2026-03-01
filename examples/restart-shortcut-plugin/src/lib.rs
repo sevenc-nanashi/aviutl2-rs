@@ -25,11 +25,17 @@ impl aviutl2::generic::GenericPlugin for RestartHostAppPlugin {
         Ok(Self { config })
     }
 
+    fn plugin_info(&self) -> aviutl2::generic::GenericPluginTable {
+        aviutl2::generic::GenericPluginTable {
+            name: "Rusty Restart Shortcut Plugin".to_string(),
+            information: format!(
+                "Rusty Restart Shortcut Plugin, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/restart-shortcut-plugin",
+                version = env!("CARGO_PKG_VERSION")
+            ),
+        }
+    }
+
     fn register(&mut self, registry: &mut aviutl2::generic::HostAppHandle) {
-        registry.set_plugin_information(&format!(
-            "Rusty Restart Shortcut Plugin, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/restart-shortcut-plugin",
-            version = env!("CARGO_PKG_VERSION")
-        ));
         EDIT_HANDLE.init(registry.create_edit_handle());
         registry.register_menus::<RestartHostAppPlugin>();
     }

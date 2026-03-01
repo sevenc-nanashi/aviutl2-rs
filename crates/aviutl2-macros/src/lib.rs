@@ -584,6 +584,9 @@ pub fn plugin(
 /// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
 /// #         unimplemented!()
 /// #     }
+/// #     fn plugin_info(&self) -> aviutl2::generic::GenericPluginTable {
+/// #         unimplemented!()
+/// #     }
 /// #     fn register(&mut self, _handle: &mut aviutl2::generic::HostAppHandle<'_>) {
 /// #         unimplemented!()
 /// #     }
@@ -649,6 +652,9 @@ pub fn plugin(
 /// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
 /// #         unimplemented!()
 /// #     }
+/// #     fn plugin_info(&self) -> aviutl2::generic::GenericPluginTable {
+/// #         unimplemented!()
+/// #     }
 /// #     fn register(&mut self, _handle: &mut aviutl2::generic::HostAppHandle<'_>) {
 /// #         unimplemented!()
 /// #     }
@@ -688,6 +694,9 @@ pub fn plugin(
 /// struct MyGenericPlugin;
 /// # impl aviutl2::generic::GenericPlugin for MyGenericPlugin {
 /// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn plugin_info(&self) -> aviutl2::generic::GenericPluginTable {
 /// #         unimplemented!()
 /// #     }
 /// #     fn register(&mut self, _handle: &mut aviutl2::generic::HostAppHandle<'_>) {

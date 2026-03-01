@@ -34,11 +34,17 @@ impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
         Ok(ScriptsSearchPlugin { window })
     }
 
+    fn plugin_info(&self) -> aviutl2::generic::GenericPluginTable {
+        aviutl2::generic::GenericPluginTable {
+            name: "Rusty Scripts Search Plugin".to_string(),
+            information: format!(
+                "Scripts Search for AviUtl2, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/scripts-search-plugin",
+                version = env!("CARGO_PKG_VERSION")
+            ),
+        }
+    }
+
     fn register(&mut self, registry: &mut aviutl2::generic::HostAppHandle) {
-        registry.set_plugin_information(&format!(
-            "Scripts Search for AviUtl2, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/scripts-search-plugin",
-            version = env!("CARGO_PKG_VERSION")
-        ));
         registry
             .register_window_client("Rusty Scripts Search Plugin", &self.window)
             .unwrap();

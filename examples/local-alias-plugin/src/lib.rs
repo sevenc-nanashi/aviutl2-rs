@@ -118,12 +118,18 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
         Ok(LocalAliasPlugin { window, state })
     }
 
+    fn plugin_info(&self) -> aviutl2::generic::GenericPluginTable {
+        aviutl2::generic::GenericPluginTable {
+            name: "Rusty Local Alias Plugin".to_string(),
+            information: format!(
+                "Project Local Alias for AviUtl2, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/local-alias-plugin",
+                version = env!("CARGO_PKG_VERSION")
+            ),
+        }
+    }
+
     fn register(&mut self, registry: &mut aviutl2::generic::HostAppHandle) {
         EDIT_HANDLE.init(registry.create_edit_handle());
-        registry.set_plugin_information(&format!(
-            "Project Local Alias for AviUtl2, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/local-alias-plugin",
-            version = env!("CARGO_PKG_VERSION")
-        ));
         registry.register_menus::<LocalAliasPlugin>();
         registry
             .register_window_client("Rusty Local Alias Plugin", &self.window)

@@ -1,10 +1,23 @@
 use crate::common::{AnyResult, AviUtl2Info};
 
+/// 汎用プラグインの情報を表す構造体。
+#[derive(Debug, Clone)]
+pub struct GenericPluginTable {
+    /// プラグインの名前。
+    pub name: String,
+    /// プラグインの情報。
+    /// 「プラグイン情報」ダイアログで表示されます。
+    pub information: String,
+}
+
 /// 汎用プラグインのトレイト。
 /// このトレイトを実装し、[`crate::register_generic_plugin!`] マクロを使用してプラグインを登録します。
 pub trait GenericPlugin: Send + Sync + Sized {
     /// プラグインを初期化する。
     fn new(info: AviUtl2Info) -> AnyResult<Self>;
+
+    /// プラグインの情報を返す。
+    fn plugin_info(&self) -> GenericPluginTable;
 
     /// プラグインをホストに登録する。
     fn register(&mut self, registry: &mut self::host_app::HostAppHandle);

@@ -12,6 +12,15 @@ pub use windows_sys::Win32::Foundation::{HINSTANCE, HWND};
 
 pub type LPCSTR = *const c_char;
 
+/// 汎用プラグイン構造体
+#[repr(C)]
+pub struct COMMON_PLUGIN_TABLE {
+    /// プラグインの名前
+    pub name: LPCWSTR,
+    /// プラグインの情報
+    pub information: LPCWSTR,
+}
+
 /// オブジェクトハンドル
 pub type OBJECT_HANDLE = *mut c_void;
 
@@ -447,6 +456,7 @@ pub struct PROJECT_FILE {
 pub struct HOST_APP_TABLE {
     /// プラグインの情報を設定する
     /// information : プラグインの情報
+    #[deprecated(note = "現在はGetCommonPluginTable()を利用する方法が推奨になります")]
     pub set_plugin_information: unsafe extern "C" fn(information: LPCWSTR),
 
     /// 入力プラグインを登録する

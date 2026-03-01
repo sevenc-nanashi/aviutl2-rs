@@ -49,6 +49,39 @@ where
     }
 }
 
+pub unsafe fn create_table<T: GenericSingleton>() -> *mut aviutl2_sys::plugin2::COMMON_PLUGIN_TABLE
+{
+    let plugin_state = T::__get_singleton_state();
+    let mut plugin_state = plugin_state.write().unwrap();
+    let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
+    tracing::info!(
+        "Creating plugin table for plugin: {}",
+        std::any::type_name::<T>()
+    );
+    let info = <T as GenericSingleton>::with_instance(|instance| instance.plugin_info());
+    let table = Box::new(aviutl2_sys::plugin2::COMMON_PLUGIN_TABLE {
+        name: plugin_state
+            .global_leak_manager
+            .leak_as_wide_string(&info.name),
+        information: plugin_state
+            .global_leak_manager
+            .leak_as_wide_string(&info.information),
+    });
+    Box::into_raw(table)
+}
+
+pub unsafe fn create_table_unwind<T: GenericSingleton>()
+-> *mut aviutl2_sys::plugin2::COMMON_PLUGIN_TABLE {
+    match crate::utils::catch_unwind_with_panic_info(|| unsafe { create_table::<T>() }) {
+        Ok(table) => table,
+        Err(panic_info) => {
+            tracing::error!("Panic occurred during table creation: {}", panic_info);
+            let _ = crate::logger::write_error_log(&panic_info);
+            std::ptr::null_mut()
+        }
+    }
+}
+
 pub unsafe fn initialize_plugin_c<T: GenericSingleton>(version: u32) -> bool {
     match initialize_plugin::<T>(version) {
         Ok(_) => true,
@@ -315,6 +348,17 @@ macro_rules! register_generic_plugin {
                         } else {
                             $crate::generic::__bridge::initialize_plugin_c::<$struct>(version)
                         }
+                    }
+                }
+            }
+
+            #[unsafe(no_mangle)]
+            unsafe extern "C" fn GetCommonPluginTable() -> *mut $crate::sys::plugin2::COMMON_PLUGIN_TABLE {
+                $crate::comptime_if::comptime_if! {
+                    if unwind where (unwind = true, $( $key = $value ),* ) {
+                        unsafe { $crate::generic::__bridge::create_table_unwind::<$struct>() }
+                    } else {
+                        unsafe { $crate::generic::__bridge::create_table::<$struct>() }
                     }
                 }
             }

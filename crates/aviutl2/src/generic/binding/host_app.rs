@@ -53,18 +53,6 @@ impl<'plugin> HostAppHandle<'plugin> {
         }
     }
 
-    /// プラグインの情報を設定します。
-    /// 「プラグイン情報」ダイアログで表示されます。
-    pub fn set_plugin_information(&mut self, information: &str) {
-        self.assert_not_killed();
-        let information = information.to_string();
-        unsafe {
-            ((*self.internal).set_plugin_information)(
-                self.global_leak_manager.leak_as_wide_string(&information),
-            )
-        }
-    }
-
     /// プロジェクトデータ編集用のハンドルを登録します。
     pub fn create_edit_handle(&mut self) -> crate::generic::EditHandle {
         self.assert_not_killed();

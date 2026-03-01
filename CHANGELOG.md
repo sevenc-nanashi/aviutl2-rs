@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking**: 最小サポートをbeta35に引き上げ
 - **Breaking**: `log`から`tracing`に移行
   - 詳細は`aviutl2::logger`モジュールのドキュメントを参照してください。
 - eframe: panic時にログを吐くように
