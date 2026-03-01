@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.20.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.20.0)
+
 - **Breaking**: 最小サポートをbeta35に引き上げ
 - **Breaking**: `log`から`tracing`に移行
   - 詳細は`aviutl2::logger`モジュールのドキュメントを参照してください。
