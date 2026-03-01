@@ -58,7 +58,7 @@ pub unsafe fn create_table<T: GenericSingleton>() -> *mut aviutl2_sys::plugin2::
         "Creating plugin table for plugin: {}",
         std::any::type_name::<T>()
     );
-    let info = <T as GenericSingleton>::with_instance(|instance| instance.plugin_info());
+    let info = plugin_state.instance.plugin_info();
     let table = Box::new(aviutl2_sys::plugin2::COMMON_PLUGIN_TABLE {
         name: plugin_state
             .global_leak_manager
