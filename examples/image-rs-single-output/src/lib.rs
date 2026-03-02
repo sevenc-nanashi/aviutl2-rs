@@ -59,7 +59,20 @@ impl OutputPlugin for ImageRsOutputPlugin {
                 ])
             },
         ));
-        output.save(path)?;
+        match output.save(&path) {
+            Ok(_) => (),
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to save image to {}: {}. retry with RGBA8 format.",
+                    path.display(),
+                    e
+                );
+                output
+                    .to_rgba8()
+                    .save(&path)
+                    .context("Failed to save image with RGBA8 format")?;
+            }
+        }
 
         Ok(())
     }
