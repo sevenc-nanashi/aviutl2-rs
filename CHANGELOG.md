@@ -6,7 +6,7 @@
 
 ### デモプラグイン
 
-（なし）
+- image-rs-single-output: 画像の保存に失敗することがあるのを修正
 
 ## [0.20.1](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.20.1)
 
