@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.20.3](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.20.3)
+
 - output: Parsed系の画像が上下反転しているのを修正
 
 ### デモプラグイン
