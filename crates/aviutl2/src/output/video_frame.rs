@@ -236,8 +236,7 @@ impl FromRawVideoFrame for Yuy2VideoFrame {
                 let d_y2 = unsafe { *frame_data_ptr.add(i * 4 + 2) };
                 let d_v = unsafe { *frame_data_ptr.add(i * 4 + 3) };
 
-                frame_data_writer[(video.height as usize - 1 - y) * video.width as usize + x]
-                    .write((d_y1, d_u, d_y2, d_v));
+                frame_data_writer[y * (video.width as usize / 2) + x].write((d_y1, d_u, d_y2, d_v));
             }
         }
         unsafe {
@@ -271,13 +270,12 @@ impl FromRawVideoFrame for Hf64VideoFrame {
                 let pixel_g = unsafe { *frame_data_ptr.add(i * 4 + 1) };
                 let pixel_b = unsafe { *frame_data_ptr.add(i * 4 + 2) };
                 let pixel_a = unsafe { *frame_data_ptr.add(i * 4 + 3) };
-                frame_data_writer[(video.height as usize - 1 - y) * video.width as usize + x]
-                    .write((
-                        f16::from_bits(pixel_r),
-                        f16::from_bits(pixel_g),
-                        f16::from_bits(pixel_b),
-                        f16::from_bits(pixel_a),
-                    ));
+                frame_data_writer[y * video.width as usize + x].write((
+                    f16::from_bits(pixel_r),
+                    f16::from_bits(pixel_g),
+                    f16::from_bits(pixel_b),
+                    f16::from_bits(pixel_a),
+                ));
             }
         }
         unsafe {
@@ -309,12 +307,11 @@ impl FromRawVideoFrame for Yc48VideoFrame {
                 let pixel_y = unsafe { *frame_data_ptr.add(i * 3) };
                 let pixel_cr = unsafe { *frame_data_ptr.add(i * 3 + 1) };
                 let pixel_cb = unsafe { *frame_data_ptr.add(i * 3 + 2) };
-                frame_data_writer[(video.height as usize - 1 - y) * video.width as usize + x]
-                    .write(Yc48 {
-                        y: pixel_y,
-                        cr: pixel_cr,
-                        cb: pixel_cb,
-                    });
+                frame_data_writer[y * video.width as usize + x].write(Yc48 {
+                    y: pixel_y,
+                    cr: pixel_cr,
+                    cb: pixel_cb,
+                });
             }
         }
         unsafe {
@@ -347,7 +344,7 @@ impl FromRawVideoFrame for Pa64VideoFrame {
                 let pixel_g = unsafe { *frame_data_ptr.add(i * 4 + 1) };
                 let pixel_b = unsafe { *frame_data_ptr.add(i * 4 + 2) };
                 let pixel_a = unsafe { *frame_data_ptr.add(i * 4 + 3) };
-                frame_data_writer[(video.height as usize - 1 - y) * video.width as usize + x]
+                frame_data_writer[y * video.width as usize + x]
                     .write((pixel_r, pixel_g, pixel_b, pixel_a));
             }
         }

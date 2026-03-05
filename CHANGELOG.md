@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-（なし）
+- output: Parsed系の画像が上下反転しているのを修正
 
 ### デモプラグイン
 
