@@ -153,6 +153,38 @@ impl<'plugin> HostAppHandle<'plugin> {
         };
     }
 
+    /// ファイルをドロップしたときの処理を登録します。
+    ///
+    /// # Arguments
+    ///
+    /// - `name`: ドラッグ時のツールチップや入力プラグインの設定で表示する名称。
+    /// - `file_filter`: 対応するファイルフィルタ。
+    /// - `callback`: ドロップされたファイルのパスを受け取るコールバック関数。
+    pub fn register_file_drop_handler<F>(
+        &mut self,
+        name: &str,
+        file_filters: &[crate::common::FileFilter],
+        callback: F,
+    ) where
+        F: Fn(std::path::PathBuf) + 'static + Send + Sync,
+    {
+        self.assert_not_killed();
+        let callback_box = Box::new(callback);
+        let callback_ptr = Box::into_raw(callback_box);
+        let name_wide = self.global_leak_manager.leak_as_wide_string(name);
+        let file_filter_wide = self
+            .global_leak_manager
+            .leak_as_wide_string(&crate::common::format_file_filters(file_filters));
+        unsafe {
+            ((*self.internal).register_file_drop_param_handler)(
+                name_wide,
+                file_filter_wide,
+                callback_ptr as *mut std::ffi::c_void,
+                file_drop_trampoline::<F>,
+            );
+        }
+    }
+
     /// ウィンドウクライアントを登録します。
     ///
     /// # Panics
@@ -288,6 +320,25 @@ where
         crate::utils::catch_unwind_with_panic_info(std::panic::AssertUnwindSafe(callback))
     {
         tracing::error!("Panic occurred in menu callback: {}", panic_info);
+        let _ = crate::logger::write_error_log(&panic_info);
+    }
+}
+
+unsafe extern "C" fn file_drop_trampoline<F>(
+    param: *mut std::ffi::c_void,
+    file_path: aviutl2_sys::common::LPCWSTR,
+) where
+    F: Fn(std::path::PathBuf) + 'static + Send + Sync,
+{
+    let callback = unsafe { &mut *(param as *mut F) };
+    let path_str = unsafe { crate::common::load_wide_string(file_path) };
+    let path = std::path::PathBuf::from(path_str);
+    if let Err(panic_info) =
+        crate::utils::catch_unwind_with_panic_info(std::panic::AssertUnwindSafe(|| {
+            callback(path);
+        }))
+    {
+        tracing::error!("Panic occurred in file drop callback: {}", panic_info);
         let _ = crate::logger::write_error_log(&panic_info);
     }
 }

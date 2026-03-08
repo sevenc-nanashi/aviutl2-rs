@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: 最小サポートをbeta36に引き上げ
+- generic: file_drop_handlerを追加
 
 ### デモプラグイン
 

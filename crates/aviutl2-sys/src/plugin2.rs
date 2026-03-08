@@ -601,4 +601,26 @@ pub struct HOST_APP_TABLE {
         param: *mut c_void,
         func_proc_edit_menu: unsafe extern "C" fn(param: *mut c_void),
     ),
+
+    /// ファイルをD&Dした時に呼ばれる関数を登録する
+    /// name : ドラッグ時のツールチップや入力プラグインの設定で表示する名称
+    /// filefilter : D&Dに対応するファイルフィルタ
+    /// func_proc_file_drop : ファイルをD&Dした時のコールバック関数
+    pub register_file_drop_handler: unsafe extern "C" fn(
+        name: LPCWSTR,
+        filefilter: LPCWSTR,
+        func_proc_file_drop: unsafe extern "C" fn(edit_section: *mut EDIT_SECTION, file: LPCWSTR),
+    ),
+
+    /// ファイルをD&Dした時に呼ばれる関数を登録する
+    /// 引数paramを渡して編集セクションにしないでコールバックを呼び出します
+    /// name : ドラッグ時のツールチップや入力プラグインの設定で表示する名称
+    /// filefilter : D&Dに対応するファイルフィルタ
+    /// func_proc_file_drop : ファイルをD&Dした時のコールバック関数
+    pub register_file_drop_param_handler: unsafe extern "C" fn(
+        name: LPCWSTR,
+        filefilter: LPCWSTR,
+        param: *mut c_void,
+        func_proc_file_drop: unsafe extern "C" fn(param: *mut c_void, file: LPCWSTR),
+    ),
 }
