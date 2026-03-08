@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.21.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.21.0)
+
 - **Breaking**: 最小サポートをbeta36に引き上げ
 - generic: file_drop_handlerを追加
 
