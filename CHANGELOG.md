@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: 最小サポートをbeta38aに引き上げ
+- **Breaking**: filter: stepを10^-nなら何でも指定できるように
+- filter: filter_config_itemsに`salt = "..."`属性を追加
 
 ### デモプラグイン
 

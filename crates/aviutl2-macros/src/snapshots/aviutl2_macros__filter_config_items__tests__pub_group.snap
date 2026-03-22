@@ -1,5 +1,6 @@
 ---
 source: crates/aviutl2-macros/src/filter_config_items.rs
+assertion_line: 1869
 expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
 struct Config {
@@ -17,7 +18,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
                 name: "Frequency".to_string(),
                 value: 440f64,
                 range: 20f64..=20000f64,
-                step: ::aviutl2::filter::FilterConfigTrackStep::One,
+                step: 1f64,
             }),
             ::aviutl2::filter::FilterConfigItem::Checkbox(
                 ::aviutl2::filter::FilterConfigCheckbox {

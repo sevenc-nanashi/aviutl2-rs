@@ -10,17 +10,8 @@ pub struct TrackFlags {
 }
 
 /// トラックバーの移動単位。
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TrackStep {
-    /// 1。
-    One,
-    /// 0.1。
-    PointOne,
-    /// 0.01。
-    PointZeroOne,
-    /// 0.001。
-    PointZeroZeroOne,
-}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct TrackStep(pub u64);
 
 /// トラックバーの移動単位のパースエラー。
 #[derive(Debug, Clone, thiserror::Error)]
@@ -39,26 +30,21 @@ impl TrackStep {
         let abs_value_str = if maybe_negative { &value[1..] } else { value };
         let v: f64 = abs_value_str.parse()?;
         let dot_index = abs_value_str.find('.');
-        let step = match dot_index {
-            None => TrackStep::One,
-            Some(idx) => match abs_value_str.len() - idx - 1 {
-                1 => TrackStep::PointOne,
-                2 => TrackStep::PointZeroOne,
-                3 => TrackStep::PointZeroZeroOne,
-                _ => return Err(TrackStepParseError::InvalidPrecision),
-            },
-        };
+        let step = TrackStep(match dot_index {
+            None => 0,
+            Some(idx) => (abs_value_str.len() - idx - 1)
+                .try_into()
+                .map_err(|_| TrackStepParseError::InvalidPrecision)?,
+        });
         let final_value = if maybe_negative { -v } else { v };
         Ok((step, final_value))
     }
 
     /// 値を特定の精度に丸めて文字列化します。
     pub fn round_to_string(&self, value: f64) -> String {
-        match self {
-            TrackStep::One => format!("{}", value.round() as i64),
-            TrackStep::PointOne => format!("{:.1}", value),
-            TrackStep::PointZeroOne => format!("{:.2}", value),
-            TrackStep::PointZeroZeroOne => format!("{:.3}", value),
+        match self.0 {
+            0 => format!("{}", value.round() as i64),
+            precision => format!("{:.*}", precision as usize, value),
         }
     }
 }
@@ -67,23 +53,30 @@ impl TryFrom<f64> for TrackStep {
     type Error = ();
 
     fn try_from(value: f64) -> Result<Self, Self::Error> {
-        match value {
-            1.0 => Ok(TrackStep::One),
-            0.1 => Ok(TrackStep::PointOne),
-            0.01 => Ok(TrackStep::PointZeroOne),
-            0.001 => Ok(TrackStep::PointZeroZeroOne),
-            _ => Err(()),
+        if value == 1.0 {
+            return Ok(TrackStep(0));
+        }
+        if !(value > 0.0 && value < 1.0) {
+            return Err(());
+        }
+
+        let mut current = value;
+        let mut precision = 0u64;
+        loop {
+            if (current - 1.0).abs() < f64::EPSILON {
+                return Ok(TrackStep(precision));
+            }
+            if current > 1.0 || precision >= 15 {
+                return Err(());
+            }
+            current *= 10.0;
+            precision += 1;
         }
     }
 }
 impl From<TrackStep> for f64 {
     fn from(step: TrackStep) -> Self {
-        match step {
-            TrackStep::One => 1.0,
-            TrackStep::PointOne => 0.1,
-            TrackStep::PointZeroOne => 0.01,
-            TrackStep::PointZeroZeroOne => 0.001,
-        }
+        10f64.powi(-(step.0 as i32))
     }
 }
 impl TrackStep {
@@ -95,17 +88,10 @@ impl TrackStep {
 
 impl std::fmt::Display for TrackStep {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TrackStep::One => write!(f, "1"),
-            TrackStep::PointOne => write!(f, "0.1"),
-            TrackStep::PointZeroOne => write!(f, "0.01"),
-            TrackStep::PointZeroZeroOne => write!(f, "0.001"),
+        match self.0 {
+            0 => write!(f, "1"),
+            precision => write!(f, "0.{}1", "0".repeat(precision as usize - 1)),
         }
-    }
-}
-impl std::fmt::Debug for TrackStep {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "TrackStep({})", f64::from(*self))
     }
 }
 
@@ -513,7 +499,7 @@ mod tests {
         assert_eq!(
             animated_item,
             AnimatedTrackItem {
-                step: TrackStep::PointOne,
+                step: TrackStep(1),
                 values: vec![0.1, 0.2],
                 flags: TrackFlags {
                     ease_in: true,
@@ -564,11 +550,11 @@ mod tests {
     }
 
     #[rstest]
-    #[case("1", TrackStep::One, 1.0)]
-    #[case("0.1", TrackStep::PointOne, 0.1)]
-    #[case("0.01", TrackStep::PointZeroOne, 0.01)]
-    #[case("0.001", TrackStep::PointZeroZeroOne, 0.001)]
-    #[case("-2.34", TrackStep::PointZeroOne, -2.34)]
+    #[case("1", TrackStep(0), 1.0)]
+    #[case("0.1", TrackStep(1), 0.1)]
+    #[case("0.01", TrackStep(2), 0.01)]
+    #[case("0.001", TrackStep(3), 0.001)]
+    #[case("-2.34", TrackStep(2), -2.34)]
     fn test_track_step_parse_and_get(
         #[case] input: &str,
         #[case] expected_step: TrackStep,
@@ -580,10 +566,12 @@ mod tests {
     }
 
     #[rstest]
-    #[case(TrackStep::One, 2.34, "2")]
-    #[case(TrackStep::PointOne, 2.34, "2.3")]
-    #[case(TrackStep::PointZeroOne, 2.345, "2.35")]
-    #[case(TrackStep::PointZeroZeroOne, 2.3456, "2.346")]
+    #[case(TrackStep(0), 2.34, "2")]
+    #[case(TrackStep(1), 2.34, "2.3")]
+    #[case(TrackStep(2), 2.345, "2.35")]
+    #[case(TrackStep(3), 2.3456, "2.346")]
+    #[case(TrackStep(2), -2.345, "-2.35")]
+    #[case(TrackStep(0), -2.34, "-2")]
     fn test_track_step_round_to_string(
         #[case] step: TrackStep,
         #[case] value: f64,
@@ -591,5 +579,15 @@ mod tests {
     ) {
         let result_str = step.round_to_string(value);
         assert_eq!(result_str, expected_str);
+    }
+
+    #[rstest]
+    #[case(1.0, TrackStep(0))]
+    #[case(0.1, TrackStep(1))]
+    #[case(0.01, TrackStep(2))]
+    #[case(0.001, TrackStep(3))]
+    #[case(0.0001, TrackStep(4))]
+    fn test_track_step_try_from(#[case] input: f64, #[case] expected_step: TrackStep) {
+        assert_eq!(TrackStep::try_from(input).unwrap(), expected_step);
     }
 }

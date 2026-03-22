@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use quote::ToTokens;
+use std::str::FromStr;
 use syn::{parse::Parse, spanned::Spanned};
 
 pub fn filter_config_items(
@@ -178,7 +179,7 @@ enum FilterConfigField {
         default: f64,
         min: f64,
         max: f64,
-        step: TrackStep,
+        step: f64,
     },
     Check {
         id: String,
@@ -237,12 +238,10 @@ enum FilterConfigField {
     GroupEnd,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TrackStep {
-    One,
-    PointOne,
-    PointZeroOne,
-    PointZeroZeroOne,
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TrackStep {
+    value: decimal_rs::Decimal,
+    repr: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -252,29 +251,46 @@ enum ButtonErrorMode {
     Ignore,
 }
 
-impl std::str::FromStr for TrackStep {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "1.0" => Ok(TrackStep::One),
-            "0.1" => Ok(TrackStep::PointOne),
-            "0.01" => Ok(TrackStep::PointZeroOne),
-            "0.001" => Ok(TrackStep::PointZeroZeroOne),
-            _ => Err("expected 1.0, 0.1, 0.01, or 0.001"),
-        }
-    }
-}
 impl From<TrackStep> for decimal_rs::Decimal {
     fn from(value: TrackStep) -> Self {
-        match value {
-            TrackStep::One => "1.0",
-            TrackStep::PointOne => "0.1",
-            TrackStep::PointZeroOne => "0.01",
-            TrackStep::PointZeroZeroOne => "0.001",
+        value.value
+    }
+}
+
+impl TrackStep {
+    fn from_expr(expr: &syn::Expr) -> Result<Self, syn::Error> {
+        let compact = expr.to_token_stream().to_string().replace(' ', "");
+        if let Some(exponent) = compact.strip_prefix("10^-") {
+            let exponent = exponent.parse::<usize>().map_err(|_| {
+                syn::Error::new_spanned(expr, "step exponent must be a negative integer")
+            })?;
+            let repr = if exponent == 0 {
+                "1.0".to_string()
+            } else {
+                format!("0.{}", "0".repeat(exponent - 1) + "1")
+            };
+            let value = decimal_rs::Decimal::from_str(&repr).unwrap();
+            return Ok(Self { value, repr });
         }
-        .parse()
-        .unwrap()
+        let (value, repr) = match expr {
+            syn::Expr::Lit(syn::ExprLit { lit, .. }) => {
+                let (value, repr) = parse_decimal_lit(lit)?;
+                (value, repr)
+            }
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    expr,
+                    "step must be 1 or 10^-n (e.g., 0.01 or 10^-2)",
+                ));
+            }
+        };
+
+        validate_track_step(value, &repr, expr)?;
+        Ok(Self { value, repr })
+    }
+
+    fn as_f64(&self) -> f64 {
+        self.repr.parse().unwrap()
     }
 }
 
@@ -327,27 +343,13 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                 max,
                 step,
             } => {
-                let step_enum = match step {
-                    TrackStep::One => {
-                        quote::quote! { ::aviutl2::filter::FilterConfigTrackStep::One }
-                    }
-                    TrackStep::PointOne => {
-                        quote::quote! { ::aviutl2::filter::FilterConfigTrackStep::PointOne }
-                    }
-                    TrackStep::PointZeroOne => {
-                        quote::quote! { ::aviutl2::filter::FilterConfigTrackStep::PointZeroOne }
-                    }
-                    TrackStep::PointZeroZeroOne => {
-                        quote::quote! { ::aviutl2::filter::FilterConfigTrackStep::PointZeroZeroOne }
-                    }
-                };
                 quote::quote! {
                     ::aviutl2::filter::FilterConfigItem::Track(
                         ::aviutl2::filter::FilterConfigTrack {
                             name: #name.to_string(),
                             value: #default,
                             range: #min..=#max,
-                            step: #step_enum,
+                            step: #step,
                         }
                     )
                 }
@@ -633,7 +635,7 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
         .filter_map(|(i, f)| match f {
             FilterConfigField::Track { id, step, .. } => {
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
-                let to_value = if *step == TrackStep::One {
+                let to_value = if *step == 1.0 {
                     // 一回i32に変換する
                     quote::quote! {
                          (track.value as i32) as _
@@ -1030,6 +1032,7 @@ fn filter_config_field_track(
     recognized_attr: &syn::Attribute,
 ) -> Result<FilterConfigField, syn::Error> {
     let mut name = None;
+    let mut salt = None;
     let mut default = None;
     let mut min = None;
     let mut max = None;
@@ -1038,11 +1041,11 @@ fn filter_config_field_track(
     recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("salt") {
+            salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("step") {
-            let value_token = m.value()?.parse::<syn::LitFloat>()?;
-            let value = value_token.base10_parse::<TrackStep>()?;
-
-            step = Some(value);
+            let value = m.value()?.parse::<syn::Expr>()?;
+            step = Some(TrackStep::from_expr(&value)?);
         } else if m.path.is_ident("range") {
             let value_token = m.value()?;
             let expr = value_token.parse::<syn::Expr>()?;
@@ -1088,7 +1091,7 @@ fn filter_config_field_track(
         return Err(syn::Error::new_spanned(recognized_attr, "step is required"));
     };
 
-    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    let name = with_salt(name, salt, field.ident.as_ref().unwrap());
     let (Some(default), Some(min), Some(max)) = (default, min, max) else {
         return Err(syn::Error::new_spanned(
             recognized_attr,
@@ -1101,7 +1104,7 @@ fn filter_config_field_track(
             "default must be between min and max",
         ));
     }
-    let step_value = decimal_rs::Decimal::from(step);
+    let step_value = decimal_rs::Decimal::from(step.clone());
     match (min % step_value, max % step_value, default % step_value) {
         (d, _, _) if d != decimal_rs::Decimal::ZERO => {
             return Err(syn::Error::new_spanned(
@@ -1129,7 +1132,7 @@ fn filter_config_field_track(
         default: default.into(),
         min: min.into(),
         max: max.into(),
-        step,
+        step: step.as_f64(),
     })
 }
 
@@ -1138,11 +1141,14 @@ fn filter_config_field_check(
     recognized_attr: &syn::Attribute,
 ) -> Result<FilterConfigField, syn::Error> {
     let mut name = None;
+    let mut salt = None;
     let mut default = None;
 
     recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("salt") {
+            salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("default") {
             default = Some(m.value()?.parse::<syn::LitBool>()?.value);
         } else {
@@ -1151,7 +1157,7 @@ fn filter_config_field_check(
         Ok(())
     })?;
 
-    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    let name = with_salt(name, salt, field.ident.as_ref().unwrap());
     let Some(default) = default else {
         return Err(syn::Error::new_spanned(
             recognized_attr,
@@ -1170,11 +1176,14 @@ fn filter_config_field_color(
     recognized_attr: &syn::Attribute,
 ) -> Result<FilterConfigField, syn::Error> {
     let mut name = None;
+    let mut salt = None;
     let mut default = None;
 
     recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("salt") {
+            salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("default") {
             let lit = m.value()?;
             default = Some(
@@ -1200,7 +1209,7 @@ fn filter_config_field_color(
 
     })?;
 
-    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    let name = with_salt(name, salt, field.ident.as_ref().unwrap());
     let Some(default) = default else {
         return Err(syn::Error::new_spanned(
             recognized_attr,
@@ -1279,12 +1288,15 @@ fn filter_config_field_select(
     recognized_attr: &syn::Attribute,
 ) -> Result<FilterConfigField, syn::Error> {
     let mut name = None;
+    let mut salt = None;
     let mut default = None;
     let mut items = None;
 
     recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("salt") {
+            salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("default") {
             let value = m.value()?;
             let lookahead = value.lookahead1();
@@ -1337,7 +1349,7 @@ fn filter_config_field_select(
         Ok(())
     })?;
 
-    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    let name = with_salt(name, salt, field.ident.as_ref().unwrap());
     let (Some(default), Some(items)) = (default, items) else {
         return Err(syn::Error::new_spanned(
             recognized_attr,
@@ -1367,12 +1379,15 @@ fn filter_config_field_file(
     recognized_attr: &syn::Attribute,
 ) -> Result<FilterConfigField, syn::Error> {
     let mut name = None;
+    let mut salt = None;
     let mut filters = None;
     let mut default = None;
 
     recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("salt") {
+            salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("filters") {
             let content;
             syn::braced!(content in &m.value()?);
@@ -1390,7 +1405,7 @@ fn filter_config_field_file(
         Ok(())
     })?;
 
-    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    let name = with_salt(name, salt, field.ident.as_ref().unwrap());
     let Some(filters) = filters else {
         return Err(syn::Error::new_spanned(
             recognized_attr,
@@ -1410,12 +1425,15 @@ fn filter_config_field_data(
     recognized_attr: &syn::Attribute,
 ) -> Result<FilterConfigField, syn::Error> {
     let mut name = None;
+    let mut salt = None;
     let mut default = None;
 
     // 別になくても良いので、エラーにはしない
     let _ = recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("salt") {
+            salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("default") {
             default = Some(m.value()?.parse::<syn::Expr>()?);
         } else {
@@ -1424,7 +1442,7 @@ fn filter_config_field_data(
         Ok(())
     });
 
-    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    let name = with_salt(name, salt, field.ident.as_ref().unwrap());
     Ok(FilterConfigField::Data {
         id: field.ident.as_ref().unwrap().to_string(),
         name,
@@ -1438,11 +1456,14 @@ fn filter_config_field_string(
     recognized_attr: &syn::Attribute,
 ) -> Result<FilterConfigField, syn::Error> {
     let mut name = None;
+    let mut salt = None;
     let mut default = None;
 
     let _ = recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("salt") {
+            salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("default") {
             default = Some(m.value()?.parse::<syn::Expr>()?);
         } else {
@@ -1451,7 +1472,7 @@ fn filter_config_field_string(
         Ok(())
     });
 
-    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    let name = with_salt(name, salt, field.ident.as_ref().unwrap());
     Ok(FilterConfigField::String {
         id: field.ident.as_ref().unwrap().to_string(),
         name,
@@ -1464,11 +1485,14 @@ fn filter_config_field_text(
     recognized_attr: &syn::Attribute,
 ) -> Result<FilterConfigField, syn::Error> {
     let mut name = None;
+    let mut salt = None;
     let mut default = None;
 
     let _ = recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("salt") {
+            salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("default") {
             default = Some(m.value()?.parse::<syn::Expr>()?);
         } else {
@@ -1477,7 +1501,7 @@ fn filter_config_field_text(
         Ok(())
     });
 
-    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    let name = with_salt(name, salt, field.ident.as_ref().unwrap());
     Ok(FilterConfigField::Text {
         id: field.ident.as_ref().unwrap().to_string(),
         name,
@@ -1490,11 +1514,14 @@ fn filter_config_field_folder(
     recognized_attr: &syn::Attribute,
 ) -> Result<FilterConfigField, syn::Error> {
     let mut name = None;
+    let mut salt = None;
     let mut default = None;
 
     let _ = recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("salt") {
+            salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("default") {
             default = Some(m.value()?.parse::<syn::Expr>()?);
         } else {
@@ -1503,7 +1530,7 @@ fn filter_config_field_folder(
         Ok(())
     });
 
-    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    let name = with_salt(name, salt, field.ident.as_ref().unwrap());
     Ok(FilterConfigField::Folder {
         id: field.ident.as_ref().unwrap().to_string(),
         name,
@@ -1516,11 +1543,14 @@ fn filter_config_field_group_start(
     recognized_attr: &syn::Attribute,
 ) -> Result<FilterConfigField, syn::Error> {
     let mut name = None;
+    let mut salt = None;
     let mut opened = None;
 
     recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("salt") {
+            salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("opened") {
             opened = Some(m.value()?.parse::<syn::LitBool>()?.value);
         } else {
@@ -1530,7 +1560,7 @@ fn filter_config_field_group_start(
         Ok(())
     })?;
 
-    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    let name = with_salt(name, salt, field.ident.as_ref().unwrap());
     Ok(FilterConfigField::GroupStart { name, opened })
 }
 fn filter_config_field_group_end(
@@ -1545,12 +1575,15 @@ fn filter_config_field_button(
     recognized_attr: &syn::Attribute,
 ) -> Result<FilterConfigField, syn::Error> {
     let mut name = None;
+    let mut salt = None;
     let mut error_mode = ButtonErrorMode::Log;
     let mut unwind = true;
 
     recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("salt") {
+            salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("error") {
             let value: syn::LitStr = m.value()?.parse()?;
             match value.value().as_str() {
@@ -1573,7 +1606,7 @@ fn filter_config_field_button(
         Ok(())
     })?;
 
-    let name = name.unwrap_or_else(|| field.ident.as_ref().unwrap().to_string());
+    let name = with_salt(name, salt, field.ident.as_ref().unwrap());
     let callback = if let syn::Type::BareFn(_) = &field.ty {
         syn::parse2(field.ident.to_token_stream())?
     } else {
@@ -1627,6 +1660,67 @@ fn parse_int_or_float(expr: &syn::Expr) -> Result<decimal_rs::Decimal, syn::Erro
             current,
             "expected integer or float literal",
         )),
+    }
+}
+
+fn parse_decimal_lit(lit: &syn::Lit) -> Result<(decimal_rs::Decimal, String), syn::Error> {
+    match lit {
+        syn::Lit::Int(lit_int) => {
+            let repr = lit_int.to_string();
+            let value = lit_int.base10_parse::<decimal_rs::Decimal>()?;
+            Ok((value, repr))
+        }
+        syn::Lit::Float(lit_float) => {
+            let repr = lit_float.to_string();
+            let value = lit_float.base10_parse::<decimal_rs::Decimal>()?;
+            Ok((value, repr))
+        }
+        _ => Err(syn::Error::new_spanned(
+            lit,
+            "step must be 1 or 10^-n (e.g., 0.01 or 10^-2)",
+        )),
+    }
+}
+
+fn validate_track_step(
+    value: decimal_rs::Decimal,
+    _repr: &str,
+    expr: &syn::Expr,
+) -> Result<(), syn::Error> {
+    if value <= decimal_rs::Decimal::ZERO {
+        return Err(syn::Error::new_spanned(expr, "step must be positive"));
+    }
+
+    if is_negative_power_of_ten_decimal(value) {
+        Ok(())
+    } else {
+        Err(syn::Error::new_spanned(
+            expr,
+            "step must be 1 or 10^-n (e.g., 0.01 or 10^-2)",
+        ))
+    }
+}
+
+fn is_negative_power_of_ten_decimal(value: decimal_rs::Decimal) -> bool {
+    let mut current = value;
+    for _ in 0..30 {
+        if current == decimal_rs::Decimal::ONE {
+            return true;
+        }
+        if current > decimal_rs::Decimal::ONE {
+            return false;
+        }
+        current *= decimal_rs::Decimal::from(10);
+    }
+    false
+}
+
+fn with_salt(name: Option<String>, salt: Option<String>, field_ident: &syn::Ident) -> String {
+    let name = name.unwrap_or_else(|| field_ident.to_string());
+    if let Some(salt) = salt {
+        format!("{salt}::{name}")
+    } else {
+        name
     }
 }
 
@@ -1807,6 +1901,42 @@ mod tests {
                 reset: fn(),
                 #[button(name = "Apply")]
                 apply: on_apply_clicked,
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
+    fn test_track_with_salt() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[track(name = "Frequency", salt = "Audio", range = 20.0..=20000.0, step = 1.0, default = 440.0)]
+                frequency: f64,
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
+    fn test_track_with_exponent_step() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[track(name = "Frequency", range = 20.0..=20000.0, step = 10^-4, default = 440.0)]
+                frequency: f64,
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
+    fn test_track_with_decimal_step() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[track(name = "Frequency", range = 20.0..=20000.0, step = 0.01, default = 440.0)]
+                frequency: f64,
             }
         };
         let output = filter_config_items(input).unwrap();

@@ -1,6 +1,6 @@
 ---
 source: crates/aviutl2-macros/src/filter_config_items.rs
-assertion_line: 1738
+assertion_line: 1932
 expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
 struct Config {
@@ -14,14 +14,14 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
                 name: "Frequency".to_string(),
                 value: 440f64,
                 range: 20f64..=20000f64,
-                step: 1f64,
+                step: 0.0001f64,
             },
         )];
     }
     fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
         Self {
             frequency: match items[0usize] {
-                ::aviutl2::filter::FilterConfigItem::Track(ref track) => (track.value as i32) as _,
+                ::aviutl2::filter::FilterConfigItem::Track(ref track) => track.value as _,
                 _ => panic!("expected Track at index {}", 0usize),
             },
         }

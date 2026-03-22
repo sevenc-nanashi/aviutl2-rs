@@ -114,7 +114,6 @@ impl FilterConfigItem {
     pub(crate) fn to_raw(&self, leak_manager: &LeakManager) -> aviutl2_sys::filter2::FILTER_ITEM {
         match self {
             FilterConfigItem::Track(item) => {
-                let step: f64 = item.step.into();
                 aviutl2_sys::filter2::FILTER_ITEM {
                     track: aviutl2_sys::filter2::FILTER_ITEM_TRACK {
                         r#type: leak_manager.leak_as_wide_string("track"),
@@ -122,7 +121,7 @@ impl FilterConfigItem {
                         value: item.value,
                         s: *item.range.start(),
                         e: *item.range.end(),
-                        step,
+                        step: item.step,
                     },
                 }
             }
@@ -402,50 +401,7 @@ pub struct FilterConfigTrack {
     pub range: std::ops::RangeInclusive<f64>,
 
     /// 設定値の単位。
-    pub step: FilterConfigTrackStep,
-}
-
-/// トラックバーの設定値の単位。
-#[derive(Clone, Copy)]
-pub enum FilterConfigTrackStep {
-    /// 1.0
-    One,
-    /// 0.1
-    PointOne,
-    /// 0.01
-    PointZeroOne,
-    /// 0.001
-    PointZeroZeroOne,
-}
-impl TryFrom<f64> for FilterConfigTrackStep {
-    type Error = anyhow::Error;
-    fn try_from(value: f64) -> Result<Self, Self::Error> {
-        match value {
-            1.0 => Ok(FilterConfigTrackStep::One),
-            0.1 => Ok(FilterConfigTrackStep::PointOne),
-            0.01 => Ok(FilterConfigTrackStep::PointZeroOne),
-            0.001 => Ok(FilterConfigTrackStep::PointZeroZeroOne),
-            _ => Err(anyhow::anyhow!("Invalid step value: {}", value)),
-        }
-    }
-}
-impl From<FilterConfigTrackStep> for f64 {
-    fn from(value: FilterConfigTrackStep) -> Self {
-        match value {
-            FilterConfigTrackStep::One => 1.0,
-            FilterConfigTrackStep::PointOne => 0.1,
-            FilterConfigTrackStep::PointZeroOne => 0.01,
-            FilterConfigTrackStep::PointZeroZeroOne => 0.001,
-        }
-    }
-}
-impl std::fmt::Debug for FilterConfigTrackStep {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let value: f64 = (*self).into();
-        f.debug_tuple("FilterConfigTrackStep")
-            .field(&value)
-            .finish()
-    }
+    pub step: f64,
 }
 
 /// チェックボックス。

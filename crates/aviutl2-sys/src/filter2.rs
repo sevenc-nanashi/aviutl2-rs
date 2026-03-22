@@ -33,7 +33,7 @@ pub struct FILTER_ITEM_TRACK {
     pub s: f64,
     /// 設定値の最大
     pub e: f64,
-    /// 設定値の単位（1.0 / 0.1 / 0.01 / 0.001）
+    /// 設定値の単位
     pub step: f64,
 }
 
