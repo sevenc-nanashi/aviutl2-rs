@@ -1,5 +1,7 @@
 # aviutl2-rs
 
+[![sm45355531](https://niconi-commons-badge.sevenc7c.workers.dev/badge/sm45355531)](https://commons.nicovideo.jp/works/sm45355531)
+
 AviUtl2 SDKのRust版です。
 
 紹介動画：<https://www.nicovideo.jp/watch/sm45355531>
