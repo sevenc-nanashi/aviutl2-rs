@@ -744,9 +744,40 @@ impl<'a> FromScriptModuleParamTable<'a> for i32 {
         Some(param.get_int(key))
     }
 }
+#[duplicate::duplicate_item(
+    Integer Failable;
+    [i8]    [true];
+    [i16]   [true];
+    [i64]   [false];
+    [i128]  [false];
+    [isize] [false];
+    [u8]    [true];
+    [u16]   [true];
+    [u32]   [true];
+    [u64]   [false];
+    [u128]  [false];
+    [usize] [false];
+)]
+impl<'a> FromScriptModuleParamTable<'a> for Integer {
+    fn from_param_table(param: &'a ScriptModuleParamTable, key: &str) -> Option<Self> {
+        let value = param.get_int(key);
+        comptime_if::comptime_if!(
+            if failable where (failable = Failable) {
+                value.try_into().ok()
+            } else {
+                Some(value as Integer)
+            }
+        )
+    }
+}
 impl<'a> FromScriptModuleParamTable<'a> for f64 {
     fn from_param_table(param: &'a ScriptModuleParamTable, key: &str) -> Option<Self> {
         Some(param.get_float(key))
+    }
+}
+impl<'a> FromScriptModuleParamTable<'a> for f32 {
+    fn from_param_table(param: &'a ScriptModuleParamTable, key: &str) -> Option<Self> {
+        Some(param.get_float(key) as f32)
     }
 }
 impl<'a> FromScriptModuleParamTable<'a> for String {

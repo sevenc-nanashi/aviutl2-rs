@@ -356,7 +356,7 @@ pub fn filter_config_select_items(item: proc_macro::TokenStream) -> proc_macro::
 
 /// `FromScriptModuleParam` を自動で実装するためのマクロ。
 ///
-/// このマクロを利用するには、構造体の各フィールドが `aviutl2::module::FromScriptModuleParamValue`
+/// このマクロを利用するには、構造体の各フィールドが `aviutl2::module::FromScriptModuleParamTable`
 /// トレイトを実装している必要があります。
 ///
 /// # Example
