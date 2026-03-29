@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::common::{AnyResult, AviUtl2Info, FileFilter, Rational32, Win32WindowHandle, Yc48, f16};
+use crate::common::{FileFilter, Rational32, Yc48, f16};
 use zerocopy::IntoBytes;
 
 /// 入力プラグインの情報を表す構造体。
@@ -166,7 +166,7 @@ impl std::ops::Deref for ImageBuffer {
 
 /// 画像データを `ImageBuffer` に変換するトレイト。
 pub trait IntoImage {
-    fn into_image(self) -> ImageBuffer;
+    fn into_image(self) -> crate::input::ImageBuffer;
 }
 
 impl<T: AsImage> IntoImage for T {
@@ -319,7 +319,7 @@ impl std::ops::Deref for AudioBuffer {
 
 /// 音声データを `AudioBuffer` に変換するトレイト。
 pub trait IntoAudio {
-    fn into_audio(self) -> AudioBuffer;
+    fn into_audio(self) -> crate::input::AudioBuffer;
 }
 
 impl<T: AsAudio> IntoAudio for T {
@@ -377,18 +377,21 @@ pub trait InputPlugin: Send + Sync + Sized {
     type InputHandle: std::any::Any + Send + Sync;
 
     /// プラグインを初期化する。
-    fn new(info: AviUtl2Info) -> AnyResult<Self>;
+    fn new(info: crate::common::AviUtl2Info) -> crate::common::AnyResult<Self>;
 
     /// プラグインの情報を返す。
-    fn plugin_info(&self) -> InputPluginTable;
+    fn plugin_info(&self) -> crate::input::InputPluginTable;
 
     /// 入力を開く。
-    fn open(&self, file: std::path::PathBuf) -> AnyResult<Self::InputHandle>;
+    fn open(&self, file: std::path::PathBuf) -> crate::common::AnyResult<Self::InputHandle>;
     /// 入力を閉じる。
-    fn close(&self, handle: Self::InputHandle) -> AnyResult<()>;
+    fn close(&self, handle: Self::InputHandle) -> crate::common::AnyResult<()>;
 
     /// 動画・音声のトラック数を取得する。
-    fn get_track_count(&self, handle: &mut Self::InputHandle) -> AnyResult<(u32, u32)> {
+    fn get_track_count(
+        &self,
+        handle: &mut Self::InputHandle,
+    ) -> crate::common::AnyResult<(u32, u32)> {
         let info = self.get_input_info(handle, 0, 0)?;
         let video_tracks = info.video.as_ref().map_or(0, |_| 1);
         let audio_tracks = info.audio.as_ref().map_or(0, |_| 1);
@@ -401,7 +404,7 @@ pub trait InputPlugin: Send + Sync + Sized {
         handle: &mut Self::InputHandle,
         video_track: u32,
         audio_track: u32,
-    ) -> AnyResult<InputInfo>;
+    ) -> crate::common::AnyResult<crate::input::InputInfo>;
 
     /// 動画・画像を読み込む。
     ///
@@ -415,8 +418,8 @@ pub trait InputPlugin: Send + Sync + Sized {
         &self,
         handle: &Self::InputHandle,
         frame: u32,
-        returner: &mut ImageReturner,
-    ) -> AnyResult<()> {
+        returner: &mut crate::input::ImageReturner,
+    ) -> crate::common::AnyResult<()> {
         let _ = (handle, frame, returner);
         Result::<(), anyhow::Error>::Err(anyhow::anyhow!(
             "read_video is not implemented for this plugin"
@@ -435,8 +438,8 @@ pub trait InputPlugin: Send + Sync + Sized {
         &self,
         handle: &mut Self::InputHandle,
         frame: u32,
-        returner: &mut ImageReturner,
-    ) -> AnyResult<()> {
+        returner: &mut crate::input::ImageReturner,
+    ) -> crate::common::AnyResult<()> {
         self.read_video(handle, frame, returner)
     }
 
@@ -445,7 +448,11 @@ pub trait InputPlugin: Send + Sync + Sized {
     /// # Returns
     /// トラック番号を返します。基本的には `track` をそのまま返します。
     /// これがErrを返した場合、トラックの変更が失敗したものとして扱われます。
-    fn can_set_video_track(&self, _handle: &mut Self::InputHandle, track: u32) -> AnyResult<u32> {
+    fn can_set_video_track(
+        &self,
+        _handle: &mut Self::InputHandle,
+        track: u32,
+    ) -> crate::common::AnyResult<u32> {
         Ok(track)
     }
 
@@ -457,7 +464,7 @@ pub trait InputPlugin: Send + Sync + Sized {
         handle: &mut Self::InputHandle,
         track: u32,
         time: f64,
-    ) -> AnyResult<u32> {
+    ) -> crate::common::AnyResult<u32> {
         const RESOLUTION: i32 = 1000; // ミリ秒単位での解像度
         let info = self.get_input_info(handle, track, 0)?;
         if let Some(video_info) = &info.video {
@@ -483,8 +490,8 @@ pub trait InputPlugin: Send + Sync + Sized {
         handle: &Self::InputHandle,
         start: i32,
         length: i32,
-        returner: &mut AudioReturner,
-    ) -> AnyResult<()> {
+        returner: &mut crate::input::AudioReturner,
+    ) -> crate::common::AnyResult<()> {
         let _ = (handle, start, length, returner);
         Result::<(), anyhow::Error>::Err(anyhow::anyhow!(
             "read_audio is not implemented for this plugin"
@@ -504,8 +511,8 @@ pub trait InputPlugin: Send + Sync + Sized {
         handle: &mut Self::InputHandle,
         start: i32,
         length: i32,
-        returner: &mut AudioReturner,
-    ) -> AnyResult<()> {
+        returner: &mut crate::input::AudioReturner,
+    ) -> crate::common::AnyResult<()> {
         self.read_audio(handle, start, length, returner)
     }
 
@@ -514,12 +521,16 @@ pub trait InputPlugin: Send + Sync + Sized {
     /// # Returns
     /// トラック番号を返します。基本的には `track` をそのまま返します。
     /// これがErrを返した場合、トラックの変更が失敗したものとして扱われます。
-    fn can_set_audio_track(&self, _handle: &mut Self::InputHandle, track: u32) -> AnyResult<u32> {
+    fn can_set_audio_track(
+        &self,
+        _handle: &mut Self::InputHandle,
+        track: u32,
+    ) -> crate::common::AnyResult<u32> {
         Ok(track)
     }
 
     /// 設定ダイアログを表示する。
-    fn config(&self, _hwnd: Win32WindowHandle) -> AnyResult<()> {
+    fn config(&self, _hwnd: crate::common::Win32WindowHandle) -> crate::common::AnyResult<()> {
         Ok(())
     }
 

@@ -270,9 +270,10 @@ extern "C" fn func_get_config_text_unwind<T: OutputSingleton>() -> *const u16 {
 
 pub trait OutputSingleton
 where
-    Self: 'static + Send + Sync + OutputPlugin,
+    Self: 'static + Send + Sync + crate::output::OutputPlugin,
 {
-    fn __get_singleton_state() -> &'static std::sync::RwLock<Option<InternalOutputPluginState<Self>>>;
+    fn __get_singleton_state()
+    -> &'static std::sync::RwLock<Option<crate::output::__bridge::InternalOutputPluginState<Self>>>;
     fn with_instance<R>(f: impl FnOnce(&Self) -> R) -> R {
         let lock = Self::__get_singleton_state();
         let guard = lock.read().unwrap();

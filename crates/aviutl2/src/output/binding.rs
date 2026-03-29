@@ -4,7 +4,7 @@ use std::sync::{
 };
 
 use crate::{
-    common::{AnyResult, AviUtl2Info, FileFilter, Rational32, Win32WindowHandle, load_wide_string},
+    common::{FileFilter, Rational32, load_wide_string},
     output::video_frame::FromRawVideoFrame,
 };
 use aviutl2_sys::output2::OUTPUT_INFO;
@@ -97,22 +97,22 @@ pub struct AudioOutputInfo {
 /// このトレイトを実装し、[`crate::register_output_plugin!`] マクロを使用してプラグインを登録します。
 pub trait OutputPlugin: Send + Sync + Sized {
     /// プラグインを初期化する。
-    fn new(info: AviUtl2Info) -> AnyResult<Self>;
+    fn new(info: crate::common::AviUtl2Info) -> crate::common::AnyResult<Self>;
 
     /// プラグインの情報を返す。
-    fn plugin_info(&self) -> OutputPluginTable;
+    fn plugin_info(&self) -> crate::output::OutputPluginTable;
 
     /// 出力を開始する。
-    fn output(&self, info: OutputInfo) -> AnyResult<()>;
+    fn output(&self, info: crate::output::OutputInfo) -> crate::common::AnyResult<()>;
 
     /// 出力設定のダイアログを表示する。
-    fn config(&self, _hwnd: Win32WindowHandle) -> AnyResult<()> {
+    fn config(&self, _hwnd: crate::common::Win32WindowHandle) -> crate::common::AnyResult<()> {
         Ok(())
     }
 
     /// 出力設定のテキスト情報を返す。
     /// 出力ダイアログの下の設定ボタンの隣に表示されます。
-    fn config_text(&self) -> AnyResult<String> {
+    fn config_text(&self) -> crate::common::AnyResult<String> {
         Ok(String::new())
     }
 

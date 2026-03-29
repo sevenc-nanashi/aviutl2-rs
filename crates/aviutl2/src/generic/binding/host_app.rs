@@ -352,7 +352,7 @@ unsafe extern "C" fn file_drop_trampoline<F>(
 ///
 /// </div>
 pub trait GenericPluginMenus {
-    fn register_menus(host: &mut HostAppHandle);
+    fn register_menus(host: &mut crate::generic::HostAppHandle);
 }
 
 #[doc(inline)]

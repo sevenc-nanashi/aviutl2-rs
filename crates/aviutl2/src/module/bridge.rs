@@ -24,9 +24,10 @@ impl<T: Send + Sync + ScriptModule> InternalScriptModuleState<T> {
 
 pub trait ScriptModuleSingleton
 where
-    Self: ScriptModule + Sized + Send + Sync + 'static,
+    Self: crate::module::ScriptModule + Sized + Send + Sync + 'static,
 {
-    fn __get_singleton_state() -> &'static std::sync::RwLock<Option<InternalScriptModuleState<Self>>>;
+    fn __get_singleton_state()
+    -> &'static std::sync::RwLock<Option<crate::module::__bridge::InternalScriptModuleState<Self>>>;
 
     fn with_instance<R>(f: impl FnOnce(&Self) -> R) -> R {
         let lock = Self::__get_singleton_state();

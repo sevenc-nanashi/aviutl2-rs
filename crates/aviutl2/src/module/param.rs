@@ -434,7 +434,7 @@ impl From<*mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM> for ScriptModuleCallHa
 /// このtraitはDeriveマクロを使用して実装することもできます。
 /// 詳細は[`derive@FromScriptModuleParam`]のドキュメントを参照してください。
 pub trait FromScriptModuleParam<'a>: Sized {
-    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self>;
+    fn from_param(param: &'a crate::module::ScriptModuleCallHandle, index: usize) -> Option<Self>;
 }
 
 pub use aviutl2_macros::FromScriptModuleParam;
@@ -736,7 +736,10 @@ impl<'a> FromScriptModuleParam<'a> for Vec<f64> {
 
 /// 連想配列の値として使える型。
 pub trait FromScriptModuleParamTable<'a>: Sized {
-    fn from_param_table(param: &'a ScriptModuleParamTable, key: &str) -> Option<Self>;
+    fn from_param_table(
+        param: &'a crate::module::ScriptModuleParamTable,
+        key: &str,
+    ) -> Option<Self>;
 }
 
 impl<'a> FromScriptModuleParamTable<'a> for i32 {
@@ -833,11 +836,11 @@ where
 {
     type Err: Send + Sync + 'static + Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
 
-    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err>;
+    fn into_return_values(self) -> Result<Vec<crate::module::ScriptModuleReturnValue>, Self::Err>;
     fn push_into(
         self,
-        param: &mut ScriptModuleCallHandle,
-    ) -> Result<(), IntoScriptModuleReturnValueError<Self::Err>> {
+        param: &mut crate::module::ScriptModuleCallHandle,
+    ) -> Result<(), crate::module::IntoScriptModuleReturnValueError<Self::Err>> {
         for value in self
             .into_return_values()
             .map_err(IntoScriptModuleReturnValueError::ConversionFailed)?

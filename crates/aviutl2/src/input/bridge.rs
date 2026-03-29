@@ -718,9 +718,10 @@ extern "C" fn func_time_to_frame_unwind<T: InputSingleton>(
 
 pub trait InputSingleton
 where
-    Self: 'static + Send + Sync + InputPlugin,
+    Self: 'static + Send + Sync + crate::input::InputPlugin,
 {
-    fn __get_singleton_state() -> &'static std::sync::RwLock<Option<InternalInputPluginState<Self>>>;
+    fn __get_singleton_state()
+    -> &'static std::sync::RwLock<Option<crate::input::__bridge::InternalInputPluginState<Self>>>;
     fn with_instance<R>(f: impl FnOnce(&Self) -> R) -> R {
         let lock = Self::__get_singleton_state();
         let guard = lock.read().unwrap();

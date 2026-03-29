@@ -1,5 +1,3 @@
-use crate::common::{AnyResult, AviUtl2Info};
-
 /// スクリプトモジュールプラグインの情報を表す構造体。
 #[derive(Debug, Clone)]
 pub struct ScriptModuleTable {
@@ -26,17 +24,19 @@ pub use aviutl2_macros::module_functions as functions;
 /// [`macro@functions`]マクロで実装できます。
 pub trait ScriptModuleFunctions: Sized + Send + Sync + 'static {
     /// プラグインが提供する関数の一覧を返す。
-    fn functions() -> Vec<ModuleFunction>;
+    fn functions() -> Vec<crate::module::ModuleFunction>;
 }
 
 /// スクリプトモジュールプラグインのトレイト。
 /// このトレイトを実装し、[`crate::register_script_module!`] マクロを使用してプラグインを登録します。
-pub trait ScriptModule: Sized + Send + Sync + 'static + ScriptModuleFunctions {
+pub trait ScriptModule:
+    Sized + Send + Sync + 'static + crate::module::ScriptModuleFunctions
+{
     /// プラグインを初期化する。
-    fn new(info: AviUtl2Info) -> AnyResult<Self>;
+    fn new(info: crate::common::AviUtl2Info) -> crate::common::AnyResult<Self>;
 
     /// プラグインの情報を返す。
-    fn plugin_info(&self) -> ScriptModuleTable;
+    fn plugin_info(&self) -> crate::module::ScriptModuleTable;
 
     /// シングルトンインスタンスを参照するためのヘルパーメソッド。
     ///

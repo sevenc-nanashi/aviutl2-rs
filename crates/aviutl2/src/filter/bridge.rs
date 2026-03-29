@@ -143,9 +143,10 @@ fn update_configs<T: Send + Sync + FilterPlugin>(
 
 pub trait FilterSingleton
 where
-    Self: 'static + Send + Sync + FilterPlugin,
+    Self: 'static + Send + Sync + crate::filter::FilterPlugin,
 {
-    fn __get_singleton_state() -> &'static std::sync::RwLock<Option<InternalFilterPluginState<Self>>>;
+    fn __get_singleton_state()
+    -> &'static std::sync::RwLock<Option<crate::filter::__bridge::InternalFilterPluginState<Self>>>;
     fn with_instance<R>(f: impl FnOnce(&Self) -> R) -> R {
         let lock = Self::__get_singleton_state();
         let guard = lock.read().unwrap();

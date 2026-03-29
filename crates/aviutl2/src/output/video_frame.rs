@@ -18,14 +18,14 @@ pub trait FromRawVideoFrame {
     /// 動画フレームのフォーマットが出力情報に適合するかをチェックする。
     /// 例えば、[`Yuy2VideoFrame`]（YUV
     /// 4:2:2）を使用する場合は、出力情報の幅と高さが偶数であることを確認します。
-    fn check(video: &VideoOutputInfo) -> Result<(), String>;
+    fn check(video: &crate::output::VideoOutputInfo) -> Result<(), String>;
 
     /// 動画フレームを生のポインタから取得する。
     ///
     /// # Safety
     /// func_get_videoの戻り値のポインタのみが許容される。
     unsafe fn from_raw(
-        video: &VideoOutputInfo,
+        video: &crate::output::VideoOutputInfo,
         frame_data_ptr: *const u8,
         last_frame_id: Arc<AtomicUsize>,
         frame_id: usize,

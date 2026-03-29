@@ -19,14 +19,14 @@ use std::{ffi::c_void, ptr::NonNull};
 /// [`macro@filter_config_items`]
 pub trait FilterConfigItems: Sized {
     /// [`Vec<FilterConfigItem>`] に変換します。
-    fn to_config_items() -> Vec<FilterConfigItem>;
+    fn to_config_items() -> Vec<crate::filter::FilterConfigItem>;
 
     /// [`Vec<FilterConfigItem>`] から変換します。
     ///
     /// # Panics
     ///
     /// `items` の内容が不正な場合、パニックします。
-    fn from_config_items(items: &[FilterConfigItem]) -> Self;
+    fn from_config_items(items: &[crate::filter::FilterConfigItem]) -> Self;
 }
 #[doc(inline)]
 pub use aviutl2_macros::filter_config_items;
@@ -34,7 +34,7 @@ pub use aviutl2_macros::filter_config_items;
 /// `&[FilterConfigItem]` に対する拡張トレイト。
 pub trait FilterConfigItemSliceExt {
     /// `&[FilterConfigItem]` から指定した構造体に変換します。
-    fn to_struct<T: FilterConfigItems>(&self) -> T;
+    fn to_struct<T: crate::filter::FilterConfigItems>(&self) -> T;
 }
 
 impl FilterConfigItemSliceExt for &[FilterConfigItem] {
@@ -513,7 +513,7 @@ pub struct FilterConfigSelectItem {
 /// [derive@FilterConfigSelectItems]
 pub trait FilterConfigSelectItems {
     /// [`Vec<FilterConfigSelectItem>`] に変換します。
-    fn to_select_items() -> Vec<FilterConfigSelectItem>;
+    fn to_select_items() -> Vec<crate::filter::FilterConfigSelectItem>;
 
     /// [`i32`] から変換します。
     ///

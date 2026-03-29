@@ -31,10 +31,11 @@ impl<T: Send + Sync + GenericPlugin> InternalGenericPluginState<T> {
 
 pub trait GenericSingleton
 where
-    Self: 'static + Send + Sync + GenericPlugin,
+    Self: 'static + Send + Sync + crate::generic::GenericPlugin,
 {
-    fn __get_singleton_state()
-    -> &'static std::sync::RwLock<Option<InternalGenericPluginState<Self>>>;
+    fn __get_singleton_state() -> &'static std::sync::RwLock<
+        Option<crate::generic::__bridge::InternalGenericPluginState<Self>>,
+    >;
     fn with_instance<R>(f: impl FnOnce(&Self) -> R) -> R {
         let lock = Self::__get_singleton_state();
         let guard = lock.read().unwrap();

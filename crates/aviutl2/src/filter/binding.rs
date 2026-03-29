@@ -2,7 +2,7 @@ use parking_lot::lock_api::RawRwLock;
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 use super::{ErasedFilterConfigData, config};
-use crate::common::{AnyResult, AviUtl2Info, Rational32};
+use crate::common::Rational32;
 
 /// 入力プラグインの情報を表す構造体。
 #[derive(Debug, Clone)]
@@ -53,10 +53,10 @@ define_bitflag! {
 /// このトレイトを実装し、[`crate::register_filter_plugin!`] マクロを使用してプラグインを登録します。
 pub trait FilterPlugin: Send + Sync + Sized {
     /// プラグインを初期化する。
-    fn new(info: AviUtl2Info) -> AnyResult<Self>;
+    fn new(info: crate::common::AviUtl2Info) -> crate::common::AnyResult<Self>;
 
     /// プラグインの情報を返す。
-    fn plugin_info(&self) -> FilterPluginTable;
+    fn plugin_info(&self) -> crate::filter::FilterPluginTable;
 
     /// 画像フィルタ処理関数。
     ///
@@ -65,18 +65,18 @@ pub trait FilterPlugin: Send + Sync + Sized {
     /// フィルタオブジェクトの場合、画像サイズは変更できません。
     fn proc_video(
         &self,
-        _config: &[config::FilterConfigItem],
-        _video: &mut FilterProcVideo,
-    ) -> AnyResult<()> {
+        _config: &[crate::filter::FilterConfigItem],
+        _video: &mut crate::filter::FilterProcVideo,
+    ) -> crate::common::AnyResult<()> {
         anyhow::bail!("proc_video is not implemented");
     }
 
     /// 音声フィルタ処理関数。
     fn proc_audio(
         &self,
-        _config: &[config::FilterConfigItem],
-        _audio: &mut FilterProcAudio,
-    ) -> AnyResult<()> {
+        _config: &[crate::filter::FilterConfigItem],
+        _audio: &mut crate::filter::FilterProcAudio,
+    ) -> crate::common::AnyResult<()> {
         anyhow::bail!("proc_audio is not implemented");
     }
 
