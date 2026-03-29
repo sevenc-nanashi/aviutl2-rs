@@ -3,6 +3,7 @@ Rusty Scripts Search Plugin=Rusty Scripts Search Plugin
 エフェクト情報を読み込み中...=Loading effect information...
 登録されているエフェクト数: {count}=Registered effects: {count}
 検索...=Search...
+クリア=Clear
 一致するエフェクトが見つかりませんでした。=No matching effects were found.
 バージョン: {version}=Version: {version}
 オブジェクト・エフェクトを検索するプラグイン。=A plugin to search for objects and effects.

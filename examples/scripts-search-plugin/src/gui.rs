@@ -279,10 +279,33 @@ impl ScriptsSearchApp {
                 let count_label = tr("登録されているエフェクト数: {count}");
                 ui.label(count_label.replace("{count}", &effects.effects.len().to_string()));
                 ui.add_space(8.0);
-                egui::TextEdit::singleline(&mut self.needle)
-                    .desired_width(f32::INFINITY)
-                    .hint_text(tr("検索..."))
-                    .show(ui);
+                ui.horizontal(|ui| {
+                    let font_height = ui.text_style_height(&egui::TextStyle::Body);
+                    let button_side = font_height + 2.0 * ui.spacing().button_padding.y;
+                    let te_width = (ui.available_width()
+                        - button_side
+                        - ui.spacing().item_spacing.x)
+                        .max(0.0);
+                    let te = egui::TextEdit::singleline(&mut self.needle)
+                        .desired_width(te_width)
+                        .hint_text(tr("検索..."))
+                        .show(ui);
+                    let actual_height = te.response.rect.height();
+                    let clicked = ui
+                        .add_enabled_ui(!self.needle.is_empty(), |ui| {
+                            ui.add_sized(
+                                egui::vec2(actual_height, actual_height),
+                                egui::Button::image(include_iconify!("mdi:close")),
+                            )
+                        })
+                        .inner
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .on_hover_text(tr("クリア"))
+                        .clicked();
+                    if clicked {
+                        self.needle.clear();
+                    }
+                });
                 ui.add_space(8.0);
                 egui::ScrollArea::vertical()
                     .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)

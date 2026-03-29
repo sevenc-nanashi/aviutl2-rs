@@ -10,7 +10,7 @@
 
 ### デモプラグイン
 
-（なし）
+- scripts-search-plugin: クリアボタンを追加
 
 ## [0.21.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.21.0)
 
