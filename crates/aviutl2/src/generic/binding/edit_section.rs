@@ -279,7 +279,7 @@ impl EditSection {
     /// 対象エフェクトの数。存在しない場合は0を返します。
     pub fn count_object_effect(
         &self,
-        object: &ObjectHandle,
+        object: ObjectHandle,
         effect: &str,
     ) -> EditSectionResult<usize> {
         self.ensure_object_exists(object)?;
@@ -292,7 +292,7 @@ impl EditSection {
     /// 指定のオブジェクトのレイヤーとフレーム情報を取得する。
     pub fn get_object_layer_frame(
         &self,
-        object: &ObjectHandle,
+        object: ObjectHandle,
     ) -> EditSectionResult<ObjectLayerFrame> {
         self.ensure_object_exists(object)?;
         let object = unsafe { ((*self.internal).get_object_layer_frame)(object.internal) };
@@ -304,7 +304,7 @@ impl EditSection {
     }
 
     /// オブジェクトの情報をエイリアスデータとして取得する。
-    pub fn get_object_alias(&self, object: &ObjectHandle) -> EditSectionResult<String> {
+    pub fn get_object_alias(&self, object: ObjectHandle) -> EditSectionResult<String> {
         self.ensure_object_exists(object)?;
         let alias_ptr = unsafe { ((*self.internal).get_object_alias)(object.internal) };
         if alias_ptr.is_null() {
@@ -320,7 +320,7 @@ impl EditSection {
     /// # Returns
     ///
     /// 標準の名前の場合は`None`を返します。
-    pub fn get_object_name(&self, object: &ObjectHandle) -> EditSectionResult<Option<String>> {
+    pub fn get_object_name(&self, object: ObjectHandle) -> EditSectionResult<Option<String>> {
         self.ensure_object_exists(object)?;
         let name_ptr = unsafe { ((*self.internal).get_object_name)(object.internal) };
         if name_ptr.is_null() {
@@ -336,7 +336,7 @@ impl EditSection {
     /// `name`に`None`や空文字を指定すると、標準の名前になります。
     pub fn set_object_name(
         &self,
-        object: &ObjectHandle,
+        object: ObjectHandle,
         name: Option<&str>,
     ) -> EditSectionResult<()> {
         self.ensure_object_exists(object)?;
@@ -365,7 +365,7 @@ impl EditSection {
     /// - `item`：設定項目の名前。（エイリアスファイルのキーの名前）
     pub fn get_object_effect_item(
         &self,
-        object: &ObjectHandle,
+        object: ObjectHandle,
         effect_name: &str,
         effect_index: usize,
         item: &str,
@@ -396,7 +396,7 @@ impl EditSection {
     #[cfg(feature = "aviutl2-alias")]
     pub fn get_object_effect_item_parsed<T: aviutl2_alias::FromTableValue>(
         &self,
-        object: &ObjectHandle,
+        object: ObjectHandle,
         effect_name: &str,
         effect_index: usize,
         item: &str,
@@ -419,7 +419,7 @@ impl EditSection {
     /// - `value`：設定する値。
     pub fn set_object_effect_item(
         &self,
-        object: &ObjectHandle,
+        object: ObjectHandle,
         effect_name: &str,
         effect_index: usize,
         item: &str,
@@ -446,7 +446,7 @@ impl EditSection {
     /// オブジェクトを移動する。
     pub fn move_object(
         &self,
-        object: &ObjectHandle,
+        object: ObjectHandle,
         new_layer: usize,
         new_start_frame: usize,
     ) -> EditSectionResult<()> {
@@ -465,7 +465,7 @@ impl EditSection {
     }
 
     /// オブジェクトを削除する。
-    pub fn delete_object(&self, object: &ObjectHandle) -> EditSectionResult<()> {
+    pub fn delete_object(&self, object: ObjectHandle) -> EditSectionResult<()> {
         self.ensure_object_exists(object)?;
         unsafe { ((*self.internal).delete_object)(object.internal) };
         Ok(())
@@ -504,7 +504,7 @@ impl EditSection {
     /// # Note
     ///
     /// コールバック処理の終了時に設定されます。
-    pub fn focus_object(&self, object: &ObjectHandle) -> EditSectionResult<()> {
+    pub fn focus_object(&self, object: ObjectHandle) -> EditSectionResult<()> {
         self.ensure_object_exists(object)?;
         unsafe { ((*self.internal).set_focus_object)(object.internal) };
         Ok(())
@@ -811,12 +811,12 @@ impl EditSection {
     /// # Note
     ///
     /// 内部的には、get_object_layer_frame を呼び出してレイヤー番号が -1 でないかを確認しています。
-    pub fn object_exists(&self, object: &ObjectHandle) -> bool {
+    pub fn object_exists(&self, object: ObjectHandle) -> bool {
         let object = unsafe { ((*self.internal).get_object_layer_frame)(object.internal) };
         object.layer != -1
     }
 
-    fn ensure_object_exists(&self, object: &ObjectHandle) -> EditSectionResult<()> {
+    fn ensure_object_exists(&self, object: ObjectHandle) -> EditSectionResult<()> {
         if !self.object_exists(object) {
             return Err(EditSectionError::ObjectDoesNotExist);
         }
@@ -859,19 +859,19 @@ impl<'a> EditSectionObjectCaller<'a> {
 
     /// オブジェクトのレイヤーとフレーム情報を取得する。
     pub fn get_layer_frame(&self) -> EditSectionResult<ObjectLayerFrame> {
-        self.edit_section.get_object_layer_frame(self.handle)
+        self.edit_section.get_object_layer_frame(*self.handle)
     }
 
     /// オブジェクトの情報をエイリアスデータとして取得する。
     pub fn get_alias(&self) -> EditSectionResult<String> {
-        self.edit_section.get_object_alias(self.handle)
+        self.edit_section.get_object_alias(*self.handle)
     }
 
     /// オブジェクトの情報をエイリアスデータとして取得し、パースする。
     #[cfg(feature = "aviutl2-alias")]
     pub fn get_alias_parsed(&self) -> EditSectionResult<aviutl2_alias::Table> {
         self.edit_section
-            .get_object_alias(self.handle)?
+            .get_object_alias(*self.handle)?
             .parse()
             .map_err(Into::into)
     }
@@ -886,7 +886,7 @@ impl<'a> EditSectionObjectCaller<'a> {
     ///
     /// 対象エフェクトの数。存在しない場合は0を返します。
     pub fn count_effect(&self, effect: &str) -> EditSectionResult<usize> {
-        self.edit_section.count_object_effect(self.handle, effect)
+        self.edit_section.count_object_effect(*self.handle, effect)
     }
 
     /// オブジェクトの設定項目の値を文字列で取得する。
@@ -903,7 +903,7 @@ impl<'a> EditSectionObjectCaller<'a> {
         item: &str,
     ) -> EditSectionResult<String> {
         self.edit_section
-            .get_object_effect_item(self.handle, effect_name, effect_index, item)
+            .get_object_effect_item(*self.handle, effect_name, effect_index, item)
     }
 
     /// オブジェクトの設定項目の値を取得し、パースする。
@@ -941,7 +941,7 @@ impl<'a> EditSectionObjectCaller<'a> {
         value: &str,
     ) -> EditSectionResult<()> {
         self.edit_section.set_object_effect_item(
-            self.handle,
+            *self.handle,
             effect_name,
             effect_index,
             item,
@@ -957,12 +957,12 @@ impl<'a> EditSectionObjectCaller<'a> {
     /// - `new_start_frame`：移動先の開始フレーム番号（0始まり）。
     pub fn move_object(&self, new_layer: usize, new_start_frame: usize) -> EditSectionResult<()> {
         self.edit_section
-            .move_object(self.handle, new_layer, new_start_frame)
+            .move_object(*self.handle, new_layer, new_start_frame)
     }
 
     /// オブジェクトを削除する。
     pub fn delete_object(&self) -> EditSectionResult<()> {
-        self.edit_section.delete_object(self.handle)
+        self.edit_section.delete_object(*self.handle)
     }
 
     /// オブジェクト設定ウィンドウでこのオブジェクトを選択状態にする。
@@ -971,12 +971,12 @@ impl<'a> EditSectionObjectCaller<'a> {
     ///
     /// コールバック処理の終了時に設定されます。
     pub fn focus_object(&self) -> EditSectionResult<()> {
-        self.edit_section.focus_object(self.handle)
+        self.edit_section.focus_object(*self.handle)
     }
 
     /// このオブジェクトが存在するかどうか調べる。
     pub fn exists(&self) -> bool {
-        self.edit_section.object_exists(self.handle)
+        self.edit_section.object_exists(*self.handle)
     }
 
     /// オブジェクトの名前を取得する。
@@ -985,13 +985,13 @@ impl<'a> EditSectionObjectCaller<'a> {
     ///
     /// 標準の名前の場合は`None`を返します。
     pub fn get_name(&self) -> EditSectionResult<Option<String>> {
-        self.edit_section.get_object_name(self.handle)
+        self.edit_section.get_object_name(*self.handle)
     }
 
     /// オブジェクトの名前を設定する。
     /// `name`に`None`や空文字を指定すると、標準の名前になります。
     pub fn set_name(&self, name: Option<&str>) -> EditSectionResult<()> {
-        self.edit_section.set_object_name(self.handle, name)
+        self.edit_section.set_object_name(*self.handle, name)
     }
 }
 
@@ -1144,7 +1144,7 @@ impl<'a> Iterator for EditSectionLayerObjectsIterator<'a> {
             return None;
         };
 
-        let lf = match self.edit_section.get_object_layer_frame(&handle) {
+        let lf = match self.edit_section.get_object_layer_frame(handle) {
             Ok(lf) => lf,
             Err(_) => return None,
         };

@@ -178,7 +178,7 @@ impl LocalAliasPlugin {
         let alias = EDIT_HANDLE.call_edit_section(|edit_section| {
             edit_section
                 .get_focused_object()?
-                .map(|obj| edit_section.get_object_alias(&obj))
+                .map(|obj| edit_section.get_object_alias(obj))
                 .transpose()
         })??;
         let Some(alias) = alias else {

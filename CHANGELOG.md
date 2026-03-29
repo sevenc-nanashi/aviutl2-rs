@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: generic: `&ObjectHandle`を`ObjectHandle`に変更
+- module: FromScriptModuleParamTableを実装する型を追加
 
 ### デモプラグイン
 

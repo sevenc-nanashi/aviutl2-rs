@@ -85,7 +85,7 @@ impl SrtFilePlugin {
                 usize::MAX
             };
             if existing_start_frame + total_frames as usize > existing_next_frame {
-                edit_section.focus_object(obj.handle)?;
+                edit_section.focus_object(*obj.handle)?;
                 anyhow::bail!("字幕を追加すると既存のオブジェクトと重なってしまいます。");
             }
 
