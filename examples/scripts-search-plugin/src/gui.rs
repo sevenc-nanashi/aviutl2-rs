@@ -282,10 +282,8 @@ impl ScriptsSearchApp {
                 ui.horizontal(|ui| {
                     let font_height = ui.text_style_height(&egui::TextStyle::Body);
                     let button_side = font_height + 2.0 * ui.spacing().button_padding.y;
-                    let te_width = (ui.available_width()
-                        - button_side
-                        - ui.spacing().item_spacing.x)
-                        .max(0.0);
+                    let te_width =
+                        (ui.available_width() - button_side - ui.spacing().item_spacing.x).max(0.0);
                     let te = egui::TextEdit::singleline(&mut self.needle)
                         .desired_width(te_width)
                         .hint_text(tr("検索..."))

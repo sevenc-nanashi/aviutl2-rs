@@ -113,18 +113,16 @@ impl FilterConfigItem {
 
     pub(crate) fn to_raw(&self, leak_manager: &LeakManager) -> aviutl2_sys::filter2::FILTER_ITEM {
         match self {
-            FilterConfigItem::Track(item) => {
-                aviutl2_sys::filter2::FILTER_ITEM {
-                    track: aviutl2_sys::filter2::FILTER_ITEM_TRACK {
-                        r#type: leak_manager.leak_as_wide_string("track"),
-                        name: leak_manager.leak_as_wide_string(&item.name),
-                        value: item.value,
-                        s: *item.range.start(),
-                        e: *item.range.end(),
-                        step: item.step,
-                    },
-                }
-            }
+            FilterConfigItem::Track(item) => aviutl2_sys::filter2::FILTER_ITEM {
+                track: aviutl2_sys::filter2::FILTER_ITEM_TRACK {
+                    r#type: leak_manager.leak_as_wide_string("track"),
+                    name: leak_manager.leak_as_wide_string(&item.name),
+                    value: item.value,
+                    s: *item.range.start(),
+                    e: *item.range.end(),
+                    step: item.step,
+                },
+            },
             FilterConfigItem::Checkbox(item) => aviutl2_sys::filter2::FILTER_ITEM {
                 checkbox: aviutl2_sys::filter2::FILTER_ITEM_CHECKBOX {
                     r#type: leak_manager.leak_as_wide_string("check"),
