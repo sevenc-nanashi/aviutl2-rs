@@ -4,7 +4,7 @@
 use anyhow::Context;
 use aviutl2::{AnyResult, raw_window_handle, tracing};
 use eframe::EframeWinitApplication;
-use std::{num::NonZeroIsize, sync::mpsc};
+use std::{num::NonZeroIsize, os::windows::io::AsRawHandle, sync::mpsc};
 use windows::Win32::{
     Foundation::{HWND, SetLastError},
     UI::WindowsAndMessaging::{
@@ -21,10 +21,39 @@ pub use eframe::egui;
 /// この構造体は、別スレッドで動作するegui/eframeウィンドウを管理します。
 /// ウィンドウのハンドル（HWND）やeguiのコンテキストへのアクセスを提供します。
 pub struct EframeWindow {
-    hwnd: NonZeroIsize,
+    hwnd: std::sync::OnceLock<NonZeroIsize>,
+    egui_ctx: std::sync::OnceLock<egui::Context>,
+    #[expect(clippy::type_complexity)]
+    init_rx: std::sync::Mutex<
+        Option<
+            mpsc::Receiver<
+                Result<(isize, egui::Context), Box<dyn std::error::Error + Send + Sync>>,
+            >,
+        >,
+    >,
     thread: Option<std::thread::JoinHandle<()>>,
-    egui_ctx: egui::Context,
     thread_terminator: std::sync::Arc<std::sync::OnceLock<()>>,
+    panic_message: std::sync::Arc<std::sync::OnceLock<String>>,
+}
+
+/// EframeWindowのウィンドウハンドル。
+///
+/// `EframeWindow::handle()` で取得できます。
+pub struct EframeWindowHandle {
+    hwnd: NonZeroIsize,
+}
+
+impl raw_window_handle::HasWindowHandle for EframeWindowHandle {
+    fn window_handle(
+        &self,
+    ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
+        let handle = raw_window_handle::Win32WindowHandle::new(self.hwnd);
+        Ok(unsafe {
+            raw_window_handle::WindowHandle::borrow_raw(raw_window_handle::RawWindowHandle::Win32(
+                handle,
+            ))
+        })
+    }
 }
 
 struct WrappedApp {
@@ -188,6 +217,8 @@ impl EframeWindow {
     /// 新しいEframeWindowを作成する。
     ///
     /// `app_creator`は`eframe::run_native`と同様のclosureです。
+    /// この関数はすぐに返り、ウィンドウの初期化はバックグラウンドで行われます。
+    /// ウィンドウハンドルが必要な場合は `handle()` を呼び出してください。
     pub fn new<F>(name: &str, app_creator: F) -> AnyResult<Self>
     where
         F: 'static
@@ -203,20 +234,27 @@ impl EframeWindow {
         >();
         let name = name.to_string();
         let thread_terminator = std::sync::Arc::new(std::sync::OnceLock::new());
+        let panic_message = std::sync::Arc::new(std::sync::OnceLock::<String>::new());
         let thread = std::thread::spawn({
             let thread_terminator = thread_terminator.clone();
+            let panic_message = panic_message.clone();
             move || {
-                std::panic::set_hook(Box::new(|panic_info| {
-                    let panic_message = if let Some(s) = panic_info.payload().downcast_ref::<&str>()
-                    {
+                // Painc hookはtracing等のロックを取得しないようにする。
+                // （tracing-subscriberなどとデッドロックしかねないため）
+                // メッセージはArcで共有し、Dropで安全にログに記録する。
+                std::panic::set_hook(Box::new(move |panic_info| {
+                    let msg = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
                         s.to_string()
                     } else if let Some(s) = panic_info.payload().downcast_ref::<String>() {
                         s.clone()
                     } else {
                         "<unknown panic>".to_string()
                     };
-                    tracing::error!("Egui thread panicked: {}", panic_message);
-                    tracing::error!("occurred at: {:?}", panic_info.location());
+                    let location = panic_info
+                        .location()
+                        .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+                        .unwrap_or_else(|| "<unknown location>".to_string());
+                    panic_message.set(format!("{msg} (at {location})")).ok();
                 }));
                 let native_options = eframe::NativeOptions {
                     viewport: egui::ViewportBuilder::default()
@@ -309,41 +347,62 @@ impl EframeWindow {
                 tracing::debug!("Egui event loop exited: {:?}", res);
             }
         });
-        let (hwnd, egui_ctx) = match rx.recv() {
-            Ok(Ok((hwnd, egui_ctx))) => (hwnd, egui_ctx),
-            Ok(Err(e)) => {
-                return Err(anyhow::anyhow!("Failed to create Egui app: {}", e));
-            }
-            Err(e) => {
-                if thread.is_finished() {
-                    let thread_err = thread.join();
-                    if let Err(join_err) = thread_err {
-                        if let Some(panic_info) = join_err.downcast_ref::<String>() {
-                            return Err(anyhow::anyhow!("Egui thread panicked: {}", panic_info));
-                        } else if let Some(panic_info) = join_err.downcast_ref::<&str>() {
-                            return Err(anyhow::anyhow!("Egui thread panicked: {}", panic_info));
-                        } else {
-                            return Err(anyhow::anyhow!("Egui thread panicked with unknown type"));
-                        }
-                    }
-                }
-                return Err(anyhow::anyhow!("Failed to receive HWND: {}", e));
-            }
-        };
-
-        let hwnd = NonZeroIsize::new(hwnd).context("Received null HWND from Egui thread")?;
-
         Ok(Self {
-            hwnd,
+            hwnd: std::sync::OnceLock::new(),
+            egui_ctx: std::sync::OnceLock::new(),
+            init_rx: std::sync::Mutex::new(Some(rx)),
             thread: Some(thread),
-            egui_ctx,
             thread_terminator,
+            panic_message,
         })
     }
 
-    /// eguiのコンテキストへの参照を取得する。
-    pub fn egui_ctx(&self) -> &egui::Context {
-        &self.egui_ctx
+    fn resolve_init(&self) -> AnyResult<()> {
+        if self.hwnd.get().is_some() {
+            return Ok(());
+        }
+        let rx = self.init_rx.lock().unwrap().take();
+        let Some(rx) = rx else {
+            while self.hwnd.get().is_none() {
+                std::thread::yield_now();
+            }
+            return Ok(());
+        };
+        let (hwnd, egui_ctx) = match rx.recv() {
+            Ok(Ok(v)) => v,
+            Ok(Err(e)) => return Err(anyhow::anyhow!("Failed to create Egui app: {}", e)),
+            Err(e) => {
+                return Err(anyhow::anyhow!(
+                    "Failed to receive init data from Egui thread: {}",
+                    e
+                ));
+            }
+        };
+        let hwnd = NonZeroIsize::new(hwnd).context("Received null HWND from Egui thread")?;
+        self.hwnd.set(hwnd).ok();
+        self.egui_ctx.set(egui_ctx).ok();
+        Ok(())
+    }
+
+    /// ウィンドウハンドルを取得する。
+    ///
+    /// 初回呼び出し時にウィンドウの初期化が完了するまでブロックします。
+    pub fn handle(&self) -> AnyResult<EframeWindowHandle> {
+        self.resolve_init()?;
+        let hwnd = *self.hwnd.get().expect("hwnd set after resolve_init");
+        Ok(EframeWindowHandle { hwnd })
+    }
+
+    /// eguiのコンテキストを取得する。
+    ///
+    /// 初回呼び出し時にウィンドウの初期化が完了するまでブロックします。
+    pub fn egui_ctx(&self) -> AnyResult<egui::Context> {
+        self.resolve_init()?;
+        Ok(self
+            .egui_ctx
+            .get()
+            .expect("egui_ctx set after resolve_init")
+            .clone())
     }
 }
 
@@ -415,32 +474,65 @@ impl Drop for EframeWindow {
         if let Some(thread) = self.thread.take() {
             tracing::debug!("Terminating Egui window thread...");
             self.thread_terminator.set(()).ok();
-            unsafe {
-                windows::Win32::UI::WindowsAndMessaging::PostMessageW(
-                    Some(HWND(self.hwnd.get() as *mut std::ffi::c_void)),
-                    windows::Win32::UI::WindowsAndMessaging::WM_NULL,
-                    windows::Win32::Foundation::WPARAM(0),
-                    windows::Win32::Foundation::LPARAM(0),
-                )
-                .ok();
+            // スレッドがすでに終了している場合（パニックなど）はすぐに返る
+            if let Some(msg) = self.panic_message.get() {
+                tracing::error!("Egui thread panicked: {}", msg);
+                tracing::warn!("Forcing termination of Egui window thread due to panic...");
+                let res = unsafe {
+                    windows::Win32::System::Threading::TerminateThread(
+                        windows::Win32::Foundation::HANDLE(thread.as_raw_handle() as _),
+                        0,
+                    )
+                };
+                match res {
+                    Ok(_) => tracing::debug!("Egui window thread terminated successfully."),
+                    Err(e) => tracing::error!("Failed to terminate Egui window thread: {:?}", e),
+                }
+                return;
+            }
+            if let Some(hwnd) = self.hwnd.get() {
+                let res = unsafe {
+                    windows::Win32::UI::WindowsAndMessaging::PostMessageW(
+                        Some(HWND(hwnd.get() as *mut std::ffi::c_void)),
+                        windows::Win32::UI::WindowsAndMessaging::WM_CLOSE,
+                        windows::Win32::Foundation::WPARAM(0),
+                        windows::Win32::Foundation::LPARAM(0),
+                    )
+                };
+                match res {
+                    Ok(_) => tracing::debug!("Posted WM_CLOSE to Egui window successfully."),
+                    Err(e) => tracing::warn!("Failed to post WM_CLOSE to Egui window: {:?}", e),
+                }
             }
             tracing::debug!("Waiting for Egui window thread to exit...");
-            let _ = thread.join();
+            let mut is_finished = false;
+            for _ in 0..50 {
+                if thread.is_finished() {
+                    is_finished = true;
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            if is_finished {
+                tracing::debug!("Egui window thread exited successfully.");
+            } else {
+                tracing::warn!(
+                    "Egui window thread did not exit within timeout, forcing termination."
+                );
+                // 強制終了（安全ではないが、どうしようもないので…）
+                let res = unsafe {
+                    windows::Win32::System::Threading::TerminateThread(
+                        windows::Win32::Foundation::HANDLE(thread.as_raw_handle() as _),
+                        0,
+                    )
+                };
+                match res {
+                    Ok(_) => tracing::debug!("Egui window thread terminated successfully."),
+                    Err(e) => tracing::error!("Failed to terminate Egui window thread: {:?}", e),
+                }
+            }
             tracing::debug!("Egui window thread exited.");
         }
-    }
-}
-
-impl raw_window_handle::HasWindowHandle for EframeWindow {
-    fn window_handle(
-        &self,
-    ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
-        let handle = raw_window_handle::Win32WindowHandle::new(self.hwnd);
-        Ok(unsafe {
-            raw_window_handle::WindowHandle::borrow_raw(raw_window_handle::RawWindowHandle::Win32(
-                handle,
-            ))
-        })
     }
 }
 

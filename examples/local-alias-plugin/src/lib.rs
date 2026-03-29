@@ -131,9 +131,11 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
     fn register(&mut self, registry: &mut aviutl2::generic::HostAppHandle) {
         EDIT_HANDLE.init(registry.create_edit_handle());
         registry.register_menus::<LocalAliasPlugin>();
-        registry
-            .register_window_client("Rusty Local Alias Plugin", &self.window)
-            .unwrap();
+        if let Ok(handle) = self.window.handle() {
+            registry
+                .register_window_client("Rusty Local Alias Plugin", &handle)
+                .unwrap();
+        }
     }
 
     fn on_project_load(&mut self, project: &mut aviutl2::generic::ProjectFile) {
@@ -145,7 +147,7 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
         let mut state = self.state.lock().unwrap();
         state.set_aliases(aliases);
         state.set_selected_index(None);
-        self.window.egui_ctx().request_repaint();
+        let _ = self.window.egui_ctx().map(|ctx| ctx.request_repaint());
     }
 
     fn on_project_save(&mut self, project: &mut aviutl2::generic::ProjectFile) {
@@ -186,7 +188,7 @@ impl LocalAliasPlugin {
             name: "New Alias".to_string(),
             alias,
         });
-        self.window.egui_ctx().request_repaint();
+        self.window.egui_ctx()?.request_repaint();
         Ok(())
     }
 

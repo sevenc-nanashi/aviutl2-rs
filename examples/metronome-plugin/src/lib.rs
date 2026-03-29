@@ -40,9 +40,11 @@ impl aviutl2::generic::GenericPlugin for MetronomePlugin {
 
     fn register(&mut self, registry: &mut aviutl2::generic::HostAppHandle) {
         registry.register_filter_plugin(&self.metronome);
-        registry
-            .register_window_client("Rusty Metronome Plugin", &self.window)
-            .unwrap();
+        if let Ok(handle) = self.window.handle() {
+            registry
+                .register_window_client("Rusty Metronome Plugin", &handle)
+                .unwrap();
+        }
         let edit_handle = registry.create_edit_handle();
         EDIT_HANDLE.init(edit_handle);
     }

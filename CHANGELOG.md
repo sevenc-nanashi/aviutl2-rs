@@ -5,6 +5,7 @@
 - **Breaking**: 最小サポートをbeta39に引き上げ
 - **Breaking**: 依存関係を更新
 - **Breaking**: filter: stepを10^-nなら何でも指定できるように（その影響により、シグネチャを変更）
+- **Breaking**: eframe: newを非同期に
 - filter: filter_config_itemsに`salt = "..."`属性を追加
 - module: push_result_table_boolean、push_result_array_boolean、get_param_table_booleanを追加
 

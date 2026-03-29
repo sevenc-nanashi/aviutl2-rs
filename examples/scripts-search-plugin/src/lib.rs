@@ -45,9 +45,11 @@ impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
     }
 
     fn register(&mut self, registry: &mut aviutl2::generic::HostAppHandle) {
-        registry
-            .register_window_client("Rusty Scripts Search Plugin", &self.window)
-            .unwrap();
+        if let Ok(handle) = self.window.handle() {
+            registry
+                .register_window_client("Rusty Scripts Search Plugin", &handle)
+                .unwrap();
+        }
         let edit_handle = registry.create_edit_handle();
         EDIT_HANDLE.init(edit_handle);
     }
