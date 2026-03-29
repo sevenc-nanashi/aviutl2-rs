@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.22.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.22.0)
+
 - **Breaking**: 最小サポートをbeta39に引き上げ
 - **Breaking**: 依存関係を更新
 - **Breaking**: filter: stepを10^-nなら何でも指定できるように（その影響により、シグネチャを変更）
