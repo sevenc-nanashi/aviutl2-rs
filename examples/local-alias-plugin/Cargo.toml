@@ -12,7 +12,7 @@ name = "rusty_local_alias_plugin"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.101"
+anyhow = "1.0.102"
 aviutl2 = { workspace = true, features = ["serde"] }
 aviutl2-eframe.workspace = true
 serde = { version = "1.0.228", features = ["derive"] }

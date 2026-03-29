@@ -15,16 +15,16 @@ targets = []
 all-features = true
 
 [dependencies]
-anyhow = "1.0.101"
+anyhow = "1.0.102"
 aviutl2-alias = { workspace = true, optional = true }
 aviutl2-macros.workspace = true
 aviutl2-sys.workspace = true
 comptime-if = "0.1.1"
 dashmap = "6.1.0"
 duplicate = "2.0.1"
-env_filter = "0.1.4"
+env_filter = "1.0.1"
 half = { version = "2.7.1", features = ["zerocopy"] }
-image = { version = "0.25.9", optional = true }
+image = { version = "0.25.10", optional = true }
 num-rational = "0.4.2"
 parking_lot = "0.12.5"
 pastey = "0.2.1"
@@ -36,9 +36,9 @@ serde = { version = "1.0.228", optional = true }
 thiserror = "2.0.18"
 tracing = "0.1.44"
 tracing-log = "0.2.0"
-tracing-subscriber = { version = "0.3.22", features = ["env-filter", "tracing-log"] }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "tracing-log"] }
 windows = { version = "0.62.2", features = ["Win32_System_Diagnostics_Debug", "Win32_UI_WindowsAndMessaging"] }
-zerocopy = { version = "0.8.39", features = ["std"] }
+zerocopy = { version = "0.8.48", features = ["std"] }
 
 [features]
 default = [

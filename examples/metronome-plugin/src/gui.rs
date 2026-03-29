@@ -66,31 +66,31 @@ impl MetronomeApp {
 }
 
 impl eframe::App for MetronomeApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         // 常に再描画を要求して、リアルタイムに反応するようにする
-        ctx.request_repaint();
+        ui.request_repaint();
 
-        if ctx.input(|i| i.key_pressed(egui::Key::Space)) {
+        if ui.input(|i| i.key_pressed(egui::Key::Space)) {
             self.register_tap();
         }
         if self.header_collapsed {
-            self.render_collapsed_header(ctx);
+            self.render_collapsed_header(ui);
         } else {
-            self.render_toolbar(ctx);
+            self.render_toolbar(ui);
         }
-        self.render_main_panel(ctx);
-        self.render_info_window(ctx);
-        ctx.data_mut(|data| {
+        self.render_main_panel(ui);
+        self.render_info_window(ui);
+        ui.data_mut(|data| {
             data.insert_persisted(egui::Id::new("header_collapsed"), self.header_collapsed);
         });
     }
 }
 
 impl MetronomeApp {
-    fn render_collapsed_header(&mut self, ctx: &egui::Context) {
-        let toolbar = egui::TopBottomPanel::top("header")
-            .exact_height(8.0)
-            .show(ctx, |_ui| {});
+    fn render_collapsed_header(&mut self, ui: &mut egui::Ui) {
+        let toolbar = egui::Panel::top("header")
+            .exact_size(8.0)
+            .show_inside(ui, |_ui| {});
         let response = toolbar
             .response
             .on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -106,8 +106,8 @@ impl MetronomeApp {
             self.header_collapsed = false;
         }
     }
-    fn render_toolbar(&mut self, ctx: &egui::Context) {
-        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+    fn render_toolbar(&mut self, ui: &mut egui::Ui) {
+        egui::Panel::top("toolbar").show_inside(ui, |ui| {
             ui.horizontal(|ui| {
                 let clicked = ui
                     .heading(tr("Rusty Metronome Plugin"))
@@ -149,8 +149,8 @@ impl MetronomeApp {
         });
     }
 
-    fn render_main_panel(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn render_main_panel(&mut self, ui: &mut egui::Ui) {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(16.0);
                 if let Some(last_tap) = self.last_tap {

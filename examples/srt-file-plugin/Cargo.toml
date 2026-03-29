@@ -12,8 +12,8 @@ name = "rusty_srt_file_plugin"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.101"
+anyhow = "1.0.102"
 aviutl2.workspace = true
-easy-ext = "1.0.2"
+easy-ext = "1.0.3"
 native-dialog = "0.9.6"
 srtlib = "0.2.0"

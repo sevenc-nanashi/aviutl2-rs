@@ -32,8 +32,8 @@ impl FfmpegOutputConfigDialog {
 }
 
 impl eframe::App for FfmpegOutputConfigDialog {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             egui::Grid::new("main-grid")
                 .min_col_width(ui.available_width() / 2.0)
                 .min_row_height(ui.available_height())
@@ -125,7 +125,7 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                                 pixel_format: self.pixel_format,
                                             })
                                             .expect("Failed to send args");
-                                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                                        ui.send_viewport_cmd(egui::ViewportCommand::Close);
                                     }
                                     if ui.button(tr("リセット")).clicked() {
                                         self.pixel_format =
@@ -133,7 +133,7 @@ impl eframe::App for FfmpegOutputConfigDialog {
                                         self.args_buffer = DEFAULT_ARGS.join("\n");
                                     }
                                     if ui.button(tr("キャンセル")).clicked() {
-                                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                                        ui.send_viewport_cmd(egui::ViewportCommand::Close);
                                     }
                                 });
                             });

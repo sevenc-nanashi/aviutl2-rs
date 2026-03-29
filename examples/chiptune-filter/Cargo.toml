@@ -12,6 +12,6 @@ name = "rusty_chiptune_filter"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.101"
+anyhow = "1.0.102"
 aviutl2.workspace = true
 rand = "0.10.0"

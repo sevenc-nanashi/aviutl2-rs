@@ -156,34 +156,16 @@ impl ScriptsSearchApp {
 }
 
 impl eframe::App for ScriptsSearchApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        ctx.input_mut(|i| {
-            // IMEの入力中にEnterキーのイベントが発生するのを防止する
-            let has_ime = i
-                .events
-                .iter()
-                .any(|event| matches!(event, egui::Event::Ime(_)));
-            if has_ime {
-                i.events.retain(|event| {
-                    !matches!(
-                        event,
-                        egui::Event::Key {
-                            key: egui::Key::Enter,
-                            ..
-                        }
-                    )
-                });
-            }
-        });
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         if self.header_collapsed {
-            self.render_collapsed_header(ctx);
+            self.render_collapsed_header(ui);
         } else {
-            self.render_toolbar(ctx);
+            self.render_toolbar(ui);
         }
-        self.render_main_panel(ctx);
-        self.render_info_window(ctx);
-        self.render_click_behavior_settings_window(ctx);
-        ctx.data_mut(|data| {
+        self.render_main_panel(ui);
+        self.render_info_window(ui);
+        self.render_click_behavior_settings_window(ui);
+        ui.data_mut(|data| {
             data.insert_persisted(
                 egui::Id::new("header_collapsed_scripts_search"),
                 self.header_collapsed,
@@ -209,10 +191,10 @@ impl eframe::App for ScriptsSearchApp {
 }
 
 impl ScriptsSearchApp {
-    fn render_collapsed_header(&mut self, ctx: &egui::Context) {
-        let toolbar = egui::TopBottomPanel::top("header")
-            .exact_height(8.0)
-            .show(ctx, |_ui| {});
+    fn render_collapsed_header(&mut self, ui: &mut egui::Ui) {
+        let toolbar = egui::Panel::top("header")
+            .exact_size(8.0)
+            .show_inside(ui, |_ui| {});
         let response = toolbar
             .response
             .on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -229,9 +211,9 @@ impl ScriptsSearchApp {
         }
     }
 
-    fn render_toolbar(&mut self, ctx: &egui::Context) {
+    fn render_toolbar(&mut self, ui: &mut egui::Ui) {
         // TODO: toolbarの右クリックイベントに右クリックメニューを割り当てる
-        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+        egui::Panel::top("toolbar").show_inside(ui, |ui| {
             ui.horizontal(|ui| {
                 let clicked = ui
                     .heading("Rusty Scripts Search Plugin")
@@ -284,14 +266,14 @@ impl ScriptsSearchApp {
         });
     }
 
-    fn render_main_panel(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| match crate::EFFECTS.get() {
+    fn render_main_panel(&mut self, ui: &mut egui::Ui) {
+        egui::CentralPanel::default().show_inside(ui, |ui| match crate::EFFECTS.get() {
             None => {
                 ui.label(tr("エフェクト情報を読み込み中..."));
 
                 // NOTE: エフェクトが読み込まれるまでは常に再描画する
                 // 本来はlib.rsからrequest_repaintを呼ぶべきだが、まぁ面倒なので...
-                ctx.request_repaint();
+                ui.request_repaint();
             }
             Some(effects) => {
                 let count_label = tr("登録されているエフェクト数: {count}");
@@ -374,16 +356,16 @@ impl ScriptsSearchApp {
         }
     }
 
-    fn render_info_window(&mut self, ctx: &egui::Context) {
+    fn render_info_window(&mut self, ui: &mut egui::Ui) {
         if !self.show_info {
             return;
         }
-        let screen_rect = ctx.content_rect();
+        let screen_rect = ui.content_rect();
         let dim_color = egui::Color32::from_black_alpha(128);
         egui::Area::new(egui::Id::new("info_window_dim_layer"))
             .order(egui::Order::Middle)
             .fixed_pos(screen_rect.min)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ui.set_min_size(screen_rect.size());
                 let (rect, response) =
                     ui.allocate_exact_size(screen_rect.size(), egui::Sense::click());
@@ -398,7 +380,7 @@ impl ScriptsSearchApp {
             .open(&mut open)
             .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
             .order(egui::Order::Foreground)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 let version_label = tr("バージョン: {version}");
                 ui.label(version_label.replace("{version}", &self.version));
                 ui.label(tr("オブジェクト・エフェクトを検索するプラグイン。"));
@@ -495,11 +477,11 @@ impl ScriptsSearchApp {
             if !self.show_info && !self.show_click_behavior_settings {
                 let clip_rect = ui.clip_rect();
                 let hovered = ui.ctx().pointer_hover_pos().is_some_and(|pos| {
-                    Self::is_filter_actions_hovered(ui.ctx(), response.rect, clip_rect, effect, pos)
+                    Self::is_filter_actions_hovered(ui, response.rect, clip_rect, effect, pos)
                 });
                 if hovered || response.hovered() {
                     Self::render_filter_actions_overlay(
-                        ui.ctx(),
+                        ui,
                         response.id,
                         response.rect,
                         clip_rect,
@@ -588,7 +570,7 @@ impl ScriptsSearchApp {
     }
 
     fn render_filter_actions_overlay(
-        ctx: &egui::Context,
+        ui: &mut egui::Ui,
         id: egui::Id,
         rect: egui::Rect,
         clip_rect: egui::Rect,
@@ -614,7 +596,7 @@ impl ScriptsSearchApp {
         egui::Area::new(actions_id)
             .order(egui::Order::Middle)
             .fixed_pos(top_left)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ui.spacing_mut().item_spacing.x = gap;
                 ui.set_min_size(egui::vec2(total_width, button_size.y));
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
@@ -669,7 +651,7 @@ impl ScriptsSearchApp {
     }
 
     fn is_filter_actions_hovered(
-        _ctx: &egui::Context,
+        _ui: &mut egui::Ui,
         rect: egui::Rect,
         clip_rect: egui::Rect,
         effect: &crate::EffectData,
@@ -741,16 +723,16 @@ impl ScriptsSearchApp {
         }
     }
 
-    fn render_click_behavior_settings_window(&mut self, ctx: &egui::Context) {
+    fn render_click_behavior_settings_window(&mut self, ui: &mut egui::Ui) {
         if !self.show_click_behavior_settings {
             return;
         }
-        let screen_rect = ctx.content_rect();
+        let screen_rect = ui.content_rect();
         let dim_color = egui::Color32::from_black_alpha(128);
         egui::Area::new(egui::Id::new("click_behavior_settings_dim_layer"))
             .order(egui::Order::Middle)
             .fixed_pos(screen_rect.min)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ui.set_min_size(screen_rect.size());
                 let (rect, response) =
                     ui.allocate_exact_size(screen_rect.size(), egui::Sense::click());
@@ -765,7 +747,7 @@ impl ScriptsSearchApp {
             .open(&mut open)
             .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
             .order(egui::Order::Foreground)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ui.label(tr("フィルタ効果クリック時の動作を割り当てます。"));
                 ui.add_space(8.0);
                 Self::render_filter_click_behavior_selector(

@@ -18,5 +18,5 @@ indexmap = "2.13.0"
 thiserror = "2.0.18"
 
 [dev-dependencies]
-insta = "1.46.3"
+insta = "1.47.1"
 rstest = "0.26.1"

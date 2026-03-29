@@ -33,7 +33,16 @@ struct WrappedApp {
 }
 
 impl eframe::App for WrappedApp {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        self.internal_app.ui(ui, frame);
+    }
+
+    fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        self.internal_app.logic(ctx, frame);
+    }
+
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        #[expect(deprecated)]
         self.internal_app.update(ctx, frame);
     }
 

@@ -100,17 +100,17 @@ impl LocalAliasApp {
 }
 
 impl eframe::App for LocalAliasApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let (aliases, selected_index) = self.snapshot();
 
         // TODO: toolbarの右クリックイベントに右クリックメニューを割り当てる
         if self.header_collapsed {
-            self.render_collapsed_header(ctx);
+            self.render_collapsed_header(ui);
         } else {
-            self.render_toolbar(ctx);
+            self.render_toolbar(ui);
         }
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             if aliases.is_empty() {
                 ui.label(tr(
                     "エイリアスがありません。オブジェクトを選択して「ローカルエイリアスに追加」メニューで追加してください。",
@@ -180,7 +180,7 @@ impl eframe::App for LocalAliasApp {
                 .collapsible(false)
                 .resizable(false)
                 .open(&mut open)
-                .show(ctx, |ui| {
+                .show(ui, |ui| {
                     ui.label(format!("バージョン: {}", self.version));
                     ui.label(
                         "プロジェクトローカルなエイリアスを管理するAviUtl2プラグイン。\nここでエイリアスを選択した後、「ローカルエイリアスを配置」メニューで配置してください。",
@@ -219,7 +219,7 @@ impl eframe::App for LocalAliasApp {
                     .collapsible(false)
                     .resizable(false)
                     .open(&mut open)
-                    .show(ctx, |ui| {
+                    .show(ui, |ui| {
                         ui.label(tr("新しいエイリアス名"));
                         let response = ui.text_edit_singleline(&mut dialog.buffer);
                         let pressed_enter =
@@ -263,7 +263,7 @@ impl eframe::App for LocalAliasApp {
                     .collapsible(false)
                     .resizable(false)
                     .open(&mut open)
-                    .show(ctx, |ui| {
+                    .show(ui, |ui| {
                         let template = tr("エイリアス \"{}\" を削除しますか？");
                         let message = template.replace("{}", &dialog.name);
                         ui.label(message);
@@ -292,7 +292,7 @@ impl eframe::App for LocalAliasApp {
             self.delete_alias(index);
         }
 
-        ctx.data_mut(|data| {
+        ui.data_mut(|data| {
             data.insert_persisted(
                 egui::Id::new("header_collapsed_local_alias"),
                 self.header_collapsed,
@@ -306,10 +306,10 @@ impl eframe::App for LocalAliasApp {
 }
 
 impl LocalAliasApp {
-    fn render_collapsed_header(&mut self, ctx: &egui::Context) {
-        let toolbar = egui::TopBottomPanel::top("header")
-            .exact_height(8.0)
-            .show(ctx, |_ui| {});
+    fn render_collapsed_header(&mut self, ui: &mut egui::Ui) {
+        let toolbar = egui::Panel::top("header")
+            .exact_size(8.0)
+            .show_inside(ui, |_ui| {});
         let response = toolbar
             .response
             .on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -326,8 +326,8 @@ impl LocalAliasApp {
         }
     }
 
-    fn render_toolbar(&mut self, ctx: &egui::Context) {
-        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+    fn render_toolbar(&mut self, ui: &mut egui::Ui) {
+        egui::Panel::top("toolbar").show_inside(ui, |ui| {
             ui.horizontal(|ui| {
                 let clicked = ui
                     .heading("Rusty Local Alias Plugin")

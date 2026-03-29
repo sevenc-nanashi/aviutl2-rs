@@ -16,14 +16,14 @@ decimal-rs = "0.1.43"
 either = "1.15.0"
 itertools = "0.14.0"
 proc-macro2 = "1.0.106"
-quote = "1.0.44"
-strum = { version = "0.27.2", features = ["derive"] }
-syn = { version = "2.0.114", features = ["full"] }
+quote = "1.0.45"
+strum = { version = "0.28.0", features = ["derive"] }
+syn = { version = "2.0.117", features = ["full"] }
 
 [dev-dependencies]
-anyhow = "1.0.101"
+anyhow = "1.0.102"
 # https://github.com/rust-lang/cargo/issues/4242 のワークアラウンド。
 # aviutl2.workspace = true
 aviutl2 = { path = "../aviutl2" }
-insta = "1.46.3"
+insta = "1.47.1"
 rustfmt-wrapper = "0.2.1"

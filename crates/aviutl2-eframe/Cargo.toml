@@ -10,9 +10,9 @@ publish = true
 categories = ["gui"]
 
 [dependencies]
-anyhow = "1.0.101"
+anyhow = "1.0.102"
 aviutl2.workspace = true
-eframe = { version = "0.33.3", default-features = false, features = ["glow", "persistence"] }
-winit = "0.30.12"
+eframe = { version = "0.34.1", default-features = false, features = ["glow", "persistence"] }
+winit = "0.30.13"
 windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse"] }
 
