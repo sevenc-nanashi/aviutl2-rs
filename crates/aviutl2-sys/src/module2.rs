@@ -252,6 +252,36 @@ pub struct SCRIPT_MODULE_PARAM {
     ///
     /// * `value` - 戻り値
     pub push_result_boolean: unsafe extern "C" fn(value: bool),
+
+    /// 引数の連想配列要素をブール値で取得する
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - 引数の位置(0〜)
+    /// * `key` - キー名(UTF-8)
+    ///
+    /// # Returns
+    ///
+    /// 引数の値 (取得出来ない場合はfalse)
+    pub get_param_table_boolean: unsafe extern "C" fn(index: c_int, key: *const c_char) -> bool,
+
+    /// ブール値配列の戻り値を追加する
+    ///
+    /// # Arguments
+    ///
+    /// * `value` - 戻り値の配列
+    /// * `num` - 配列の要素数
+    pub push_result_array_boolean: unsafe extern "C" fn(value: *const bool, num: c_int),
+
+    /// ブール値連想配列の戻り値を追加する
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - キー名(UTF-8)の配列
+    /// * `value` - 戻り値の配列
+    /// * `num` - 配列の要素数
+    pub push_result_table_boolean:
+        unsafe extern "C" fn(key: *const *const c_char, value: *const bool, num: c_int),
 }
 
 /// スクリプトモジュール関数定義構造体

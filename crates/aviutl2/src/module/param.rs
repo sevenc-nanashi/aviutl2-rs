@@ -159,6 +159,21 @@ impl ScriptModuleCallHandle {
         }
     }
 
+    /// 引数のテーブルの要素をブール値として取得する。
+    ///
+    /// # Note
+    ///
+    /// 引数を取得できない場合は`false`を返します。
+    pub fn get_param_table_boolean(
+        &self,
+        index: usize,
+        key: &str,
+    ) -> ScriptModuleCallHandleResult<bool> {
+        let c_key = std::ffi::CString::new(key)
+            .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
+        Ok(unsafe { ((*self.internal).get_param_table_boolean)(index as i32, c_key.as_ptr()) })
+    }
+
     /// 引数の配列の要素の数を取得する。
     pub fn get_param_array_len(&self, index: usize) -> usize {
         unsafe { ((*self.internal).get_param_array_num)(index as i32) as usize }
@@ -318,6 +333,30 @@ impl ScriptModuleCallHandle {
         Ok(())
     }
 
+    /// 関数の返り値にブール値の連想配列を追加する。
+    pub fn push_result_table_boolean<'a, T>(&mut self, table: T) -> ScriptModuleCallHandleResult<()>
+    where
+        T: std::iter::IntoIterator<Item = (&'a str, bool)>,
+    {
+        let mut keys = Vec::new();
+        let mut values = Vec::new();
+        for (key, value) in table {
+            let c_key = std::ffi::CString::new(key)
+                .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
+            keys.push(c_key);
+            values.push(value);
+        }
+        let key_ptrs: Vec<*const std::os::raw::c_char> = keys.iter().map(|k| k.as_ptr()).collect();
+        unsafe {
+            ((*self.internal).push_result_table_boolean)(
+                key_ptrs.as_ptr(),
+                values.as_ptr(),
+                key_ptrs.len() as i32,
+            );
+        }
+        Ok(())
+    }
+
     /// 関数の返り値に整数の配列を追加する。
     pub fn push_result_array_int(&mut self, values: &[i32]) -> ScriptModuleCallHandleResult<()> {
         if values.len() > i32::MAX as usize {
@@ -357,6 +396,20 @@ impl ScriptModuleCallHandle {
                 c_value_ptrs.as_ptr(),
                 c_value_ptrs.len() as i32,
             );
+        }
+        Ok(())
+    }
+
+    /// 関数の返り値にブール値の配列を追加する。
+    pub fn push_result_array_boolean(
+        &mut self,
+        values: &[bool],
+    ) -> ScriptModuleCallHandleResult<()> {
+        if values.len() > i32::MAX as usize {
+            return Err(ScriptModuleCallHandleError::TooManyElements);
+        }
+        unsafe {
+            ((*self.internal).push_result_array_boolean)(values.as_ptr(), values.len() as i32);
         }
         Ok(())
     }
@@ -628,6 +681,12 @@ impl<'a> ScriptModuleParamTable<'a> {
             }
         }
     }
+
+    /// 連想配列の要素をブール値として取得する。
+    pub fn get_boolean(&self, key: &str) -> bool {
+        let c_key = std::ffi::CString::new(key).unwrap();
+        unsafe { ((*self.ptr).get_param_table_boolean)(self.index as i32, c_key.as_ptr()) }
+    }
 }
 
 impl<'a> FromScriptModuleParam<'a> for ScriptModuleParamTable<'a> {
@@ -693,6 +752,11 @@ impl<'a> FromScriptModuleParamTable<'a> for f64 {
 impl<'a> FromScriptModuleParamTable<'a> for String {
     fn from_param_table(param: &'a ScriptModuleParamTable, key: &str) -> Option<Self> {
         param.get_str(key)
+    }
+}
+impl<'a> FromScriptModuleParamTable<'a> for bool {
+    fn from_param_table(param: &'a ScriptModuleParamTable, key: &str) -> Option<Self> {
+        Some(param.get_boolean(key))
     }
 }
 impl<'a, T: FromScriptModuleParamTable<'a>> FromScriptModuleParamTable<'a> for Option<T> {
