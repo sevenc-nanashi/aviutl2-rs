@@ -8,5 +8,5 @@ runs:
       shell: bash
       working-directory: examples/statistics-output/page
       run: |
-        bun install --frozen-lockfile
-        bun run build
+        ni --frozen
+        nr build

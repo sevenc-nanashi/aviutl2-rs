@@ -26,26 +26,19 @@ jobs:
       - name: Update Cargo.toml
         run: |
           cargo set-version ${{ github.event.inputs.version }}
+          ruby ./scripts/set_aviutl2_version.rb ${{ github.event.inputs.version }}
           cargo update --workspace
 
-      - name: Build Page
-        uses: ./.github/actions/prepare-resources
-
-      - name: Build project
-        run: |
-          cargo build --release
-
       - name: Prepare release
-        shell: bash
         run: |
-          bundle exec rake release[${{ github.event.inputs.version }}]
+          mise exec -c "au2 release"
           cp ./release/CHANGELOG.md ./CHANGELOG.md
 
       - name: Commit version change
         run: |
           git config --local user.name "GitHub Actions"
           git config --local user.email "actions@github.com"
-          git add Cargo.toml Cargo.lock CHANGELOG.md
+          git add Cargo.toml Cargo.lock CHANGELOG.md aviutl2.toml
           git commit -m "release: v${{ github.event.inputs.version }}"
 
       - name: Login to crates.io

@@ -1,0 +1,294 @@
+[project]
+id = "sevenc-nanashi.aviutl2-rs"
+name = "AviUtl2-rs Demo Plugins"
+version = "0.21.0"
+
+[build_group]
+debug_all = ["ruby ./scripts/build_statistics_page.rb", "cargo build"]
+release_all = ["ruby ./scripts/build_statistics_page.rb", "cargo build --release"]
+
+[development]
+aviutl2_version = "latest"
+install_dir = "./test_environment"
+
+[preview]
+aviutl2_version = "latest"
+install_dir = "./.aviutl2-cli/preview"
+profile = "release"
+
+[release]
+output_dir = "release"
+package_template = "./.aviutl2-cli/package.txt"
+package_id = "sevenc-nanashi.aviutl2-rs"
+package_name = "AviUtl2-rs Demo Plugins v{version}"
+package_information = "AviUtl2-rs Demo Plugins v{version}"
+zip_name = "aviutl2-rs-v{version}"
+profile = "release"
+prebuild = "ruby ./scripts/prepare_package_txt.rb"
+postbuild = ["ruby ./scripts/generate_release_files.rb"]
+
+[artifacts.rusty_binaural]
+destination = "Plugin/rusty_binaural.auf2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_binaural.profiles.debug]
+source = "target/debug/rusty_binaural_filter.dll"
+
+[artifacts.rusty_binaural.profiles.release]
+source = "target/release/rusty_binaural_filter.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_binaural]
+source = "examples/binaural-filter/i18n/English.rusty_binaural_filter.aul2"
+destination = "Language/English.rusty_binaural_filter.aul2"
+
+[artifacts.rusty_chiptune]
+destination = "Plugin/rusty_chiptune.auf2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_chiptune.profiles.debug]
+source = "target/debug/rusty_chiptune_filter.dll"
+
+[artifacts.rusty_chiptune.profiles.release]
+source = "target/release/rusty_chiptune_filter.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_chiptune]
+source = "examples/chiptune-filter/i18n/English.rusty_chiptune_filter.aul2"
+destination = "Language/English.rusty_chiptune_filter.aul2"
+
+[artifacts.rusty_equalizer]
+destination = "Plugin/rusty_equalizer.auf2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_equalizer.profiles.debug]
+source = "target/debug/rusty_equalizer_filter.dll"
+
+[artifacts.rusty_equalizer.profiles.release]
+source = "target/release/rusty_equalizer_filter.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_equalizer]
+source = "examples/equalizer-filter/i18n/English.rusty_equalizer_filter.aul2"
+destination = "Language/English.rusty_equalizer_filter.aul2"
+
+[artifacts.rusty_ffmpeg]
+destination = "Plugin/rusty_ffmpeg.auo2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_ffmpeg.profiles.debug]
+source = "target/debug/rusty_ffmpeg_output.dll"
+
+[artifacts.rusty_ffmpeg.profiles.release]
+source = "target/release/rusty_ffmpeg_output.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_ffmpeg]
+source = "examples/ffmpeg-output/i18n/English.rusty_ffmpeg_output.aul2"
+destination = "Language/English.rusty_ffmpeg_output.aul2"
+
+[artifacts.rusty_image_rs_input]
+destination = "Plugin/rusty_image_rs.aui2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_image_rs_input.profiles.debug]
+source = "target/debug/rusty_image_rs_input.dll"
+
+[artifacts.rusty_image_rs_input.profiles.release]
+source = "target/release/rusty_image_rs_input.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_image_rs_input]
+source = "examples/image-rs-input/i18n/English.rusty_image_rs_input.aul2"
+destination = "Language/English.rusty_image_rs_input.aul2"
+
+[artifacts.rusty_image_rs_output]
+destination = "Plugin/rusty_image_rs.auo2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_image_rs_output.profiles.debug]
+source = "target/debug/rusty_image_rs_output.dll"
+
+[artifacts.rusty_image_rs_output.profiles.release]
+source = "target/release/rusty_image_rs_output.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_image_rs_output]
+source = "examples/image-rs-output/i18n/English.rusty_image_rs_output.aul2"
+destination = "Language/English.rusty_image_rs_output.aul2"
+
+[artifacts.rusty_image_rs_single]
+destination = "Plugin/rusty_image_rs_single.auo2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_image_rs_single.profiles.debug]
+source = "target/debug/rusty_image_rs_single_output.dll"
+
+[artifacts.rusty_image_rs_single.profiles.release]
+source = "target/release/rusty_image_rs_single_output.dll"
+build = { group = "release_all" }
+
+[artifacts.rusty_local_alias]
+destination = "Plugin/rusty_local_alias.aux2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_local_alias.profiles.debug]
+source = "target/debug/rusty_local_alias_plugin.dll"
+
+[artifacts.rusty_local_alias.profiles.release]
+source = "target/release/rusty_local_alias_plugin.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_local_alias]
+source = "examples/local-alias-plugin/i18n/English.rusty_local_alias_plugin.aul2"
+destination = "Language/English.rusty_local_alias_plugin.aul2"
+
+[artifacts.rusty_metronome]
+destination = "Plugin/rusty_metronome.aux2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_metronome.profiles.debug]
+source = "target/debug/rusty_metronome_plugin.dll"
+
+[artifacts.rusty_metronome.profiles.release]
+source = "target/release/rusty_metronome_plugin.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_metronome]
+source = "examples/metronome-plugin/i18n/English.rusty_metronome_plugin.aul2"
+destination = "Language/English.rusty_metronome_plugin.aul2"
+
+[artifacts.rusty_midi_player]
+destination = "Plugin/rusty_midi_player.aui2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_midi_player.profiles.debug]
+source = "target/debug/rusty_midi_player_input.dll"
+
+[artifacts.rusty_midi_player.profiles.release]
+source = "target/release/rusty_midi_player_input.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_midi_player]
+source = "examples/midi-player-input/i18n/English.rusty_midi_player_input.aul2"
+destination = "Language/English.rusty_midi_player_input.aul2"
+
+[artifacts.rusty_pixel_format_test]
+destination = "Plugin/rusty_pixel_format_test.aui2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_pixel_format_test.profiles.debug]
+source = "target/debug/rusty_pixel_format_test_input.dll"
+
+[artifacts.rusty_pixel_format_test.profiles.release]
+source = "target/release/rusty_pixel_format_test_input.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_pixel_format_test]
+source = "examples/pixel-format-test-input/i18n/English.rusty_pixel_format_test_input.aul2"
+destination = "Language/English.rusty_pixel_format_test_input.aul2"
+
+[artifacts.rusty_pixelsort]
+destination = "Plugin/rusty_pixelsort.auf2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_pixelsort.profiles.debug]
+source = "target/debug/rusty_pixelsort_filter.dll"
+
+[artifacts.rusty_pixelsort.profiles.release]
+source = "target/release/rusty_pixelsort_filter.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_pixelsort]
+source = "examples/pixelsort-filter/i18n/English.rusty_pixelsort_filter.aul2"
+destination = "Language/English.rusty_pixelsort_filter.aul2"
+
+[artifacts.rusty_random_color]
+destination = "Plugin/rusty_random_color.auf2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_random_color.profiles.debug]
+source = "target/debug/rusty_random_color_filter.dll"
+
+[artifacts.rusty_random_color.profiles.release]
+source = "target/release/rusty_random_color_filter.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_random_color]
+source = "examples/random-color-filter/i18n/English.rusty_random_color_filter.aul2"
+destination = "Language/English.rusty_random_color_filter.aul2"
+
+[artifacts.rusty_restart_shortcut]
+destination = "Plugin/rusty_restart_shortcut.aux2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_restart_shortcut.profiles.debug]
+source = "target/debug/rusty_restart_shortcut_plugin.dll"
+
+[artifacts.rusty_restart_shortcut.profiles.release]
+source = "target/release/rusty_restart_shortcut_plugin.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_restart_shortcut]
+source = "examples/restart-shortcut-plugin/i18n/English.rusty_restart_shortcut_plugin.aul2"
+destination = "Language/English.rusty_restart_shortcut_plugin.aul2"
+
+[artifacts.rusty_scripts_search]
+destination = "Plugin/rusty_scripts_search.aux2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_scripts_search.profiles.debug]
+source = "target/debug/rusty_scripts_search_plugin.dll"
+
+[artifacts.rusty_scripts_search.profiles.release]
+source = "target/release/rusty_scripts_search_plugin.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_scripts_search]
+source = "examples/scripts-search-plugin/i18n/English.rusty_scripts_search_plugin.aul2"
+destination = "Language/English.rusty_scripts_search_plugin.aul2"
+
+[artifacts.rusty_srt_file]
+destination = "Plugin/rusty_srt_file.aux2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_srt_file.profiles.debug]
+source = "target/debug/rusty_srt_file_plugin.dll"
+
+[artifacts.rusty_srt_file.profiles.release]
+source = "target/release/rusty_srt_file_plugin.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_srt_file]
+source = "examples/srt-file-plugin/i18n/English.rusty_srt_file_plugin.aul2"
+destination = "Language/English.rusty_srt_file_plugin.aul2"
+
+[artifacts.rusty_statistics]
+destination = "Plugin/rusty_statistics.auo2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_statistics.profiles.debug]
+source = "target/debug/rusty_statistics_output.dll"
+
+[artifacts.rusty_statistics.profiles.release]
+source = "target/release/rusty_statistics_output.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_statistics]
+source = "examples/statistics-output/i18n/English.rusty_statistics_output.aul2"
+destination = "Language/English.rusty_statistics_output.aul2"
+
+[artifacts.rusty_username]
+destination = "Script/rusty_username.mod2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_username.profiles.debug]
+source = "target/debug/rusty_username_module.dll"
+
+[artifacts.rusty_username.profiles.release]
+source = "target/release/rusty_username_module.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_username]
+source = "examples/username-module/i18n/English.rusty_username_module.aul2"
+destination = "Language/English.rusty_username_module.aul2"

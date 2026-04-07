@@ -25,6 +25,10 @@ jobs:
       - name: Build Page
         uses: ./.github/actions/prepare-resources
 
+      - name: Validate aviutl2 config
+        run: |
+          mise exec -c "au2 prepare:schema"
+
       - name: Check format
         run: |
           bundle exec rake check_format

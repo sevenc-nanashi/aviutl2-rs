@@ -24,9 +24,13 @@ AviUtl2は現在このプラグインを設計している時点（2025/09/08）
 - `rake lint`：コードのLintを行います。
 - `rake test`：テストを実行します。
 
-- `rake install[debug | release]`：AviUtl2のプラグインディレクトリにビルドしたDLLをコピーします。`debug`または`release`を指定します。
-- `rake debug_setup`：AviUtl2の環境をデバッグ用にセットアップします。
-- `rake release`：`./release`ディレクトリにリリース用のビルドとドキュメントを出力します。
+- `mise exec -c "au2 prepare"`：`./test_environment` にAviUtl2の開発環境をセットアップします。
+- `mise exec -c "au2 develop"`：debugビルドの成果物を開発環境に配置します。
+- `mise exec -c "au2 preview --skip-start"`：releaseビルドの成果物をプレビュー用ディレクトリに配置します。
+- `mise exec -c "au2 release"`：`./release` ディレクトリにリリース用のパッケージを出力します。
+- `rake install[debug | release]`：互換用です。従来どおりビルド済みDLLを直接コピーします。
+- `rake debug_setup`：互換用です。内部では `au2 prepare` を呼び出します。
+- `rake release[tag]`：互換用です。内部では `au2 release --set-version` を呼び出します。
 
 <!--
 ## 個人用メモ
