@@ -10,6 +10,7 @@ release_all = ["ruby ./scripts/build_statistics_page.rb", "cargo build --release
 [development]
 aviutl2_version = "latest"
 install_dir = "./test_environment"
+catalog_dependencies = ["sevenc-nanashi.tinted-aviutl2"]
 
 [preview]
 aviutl2_version = "latest"

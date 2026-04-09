@@ -8,7 +8,7 @@
 
 ### デモプラグイン
 
-（なし）
+- scripts-search-plugin: ライトテーマでの表示を修正
 
 ## [0.22.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.22.0)
 
