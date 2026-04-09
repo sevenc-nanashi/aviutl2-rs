@@ -8,5 +8,5 @@ runs:
       shell: bash
       working-directory: examples/statistics-output/page
       run: |
-        ni --frozen
-        nr build
+        bun i --frozen
+        bun run build
