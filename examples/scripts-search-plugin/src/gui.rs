@@ -228,7 +228,8 @@ impl ScriptsSearchApp {
                                 ui.text_style_height(&egui::TextStyle::Heading),
                                 ui.text_style_height(&egui::TextStyle::Heading),
                             ),
-                            egui::Button::image(include_iconify!("mdi:information-outline")).image_tint_follows_text_color(true)
+                            egui::Button::image(include_iconify!("mdi:information-outline"))
+                                .image_tint_follows_text_color(true),
                         )
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
                         .on_hover_text(tr("プラグイン情報"));
@@ -241,7 +242,8 @@ impl ScriptsSearchApp {
                                 ui.text_style_height(&egui::TextStyle::Heading),
                                 ui.text_style_height(&egui::TextStyle::Heading),
                             ),
-                            egui::Button::image(include_iconify!("mdi:tune-vertical")).image_tint_follows_text_color(true),
+                            egui::Button::image(include_iconify!("mdi:tune-vertical"))
+                                .image_tint_follows_text_color(true),
                         )
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
                         .on_hover_text(tr("クリック動作の設定"));
@@ -254,7 +256,8 @@ impl ScriptsSearchApp {
                                 ui.text_style_height(&egui::TextStyle::Heading),
                                 ui.text_style_height(&egui::TextStyle::Heading),
                             ),
-                            egui::Button::image(include_iconify!("mdi:chevron-up")).image_tint_follows_text_color(true),
+                            egui::Button::image(include_iconify!("mdi:chevron-up"))
+                                .image_tint_follows_text_color(true),
                         )
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
                         .on_hover_text(tr("ヘッダーを折りたたむ"));
@@ -293,7 +296,8 @@ impl ScriptsSearchApp {
                         .add_enabled_ui(!self.needle.is_empty(), |ui| {
                             ui.add_sized(
                                 egui::vec2(actual_height, actual_height),
-                                egui::Button::image(include_iconify!("mdi:close")).image_tint_follows_text_color(true)
+                                egui::Button::image(include_iconify!("mdi:close"))
+                                    .image_tint_follows_text_color(true),
                             )
                         })
                         .inner
