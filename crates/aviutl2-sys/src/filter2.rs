@@ -17,6 +17,7 @@ pub union FILTER_ITEM {
     pub string: FILTER_ITEM_STRING,
     pub text: FILTER_ITEM_TEXT,
     pub folder: FILTER_ITEM_FOLDER,
+    pub separator: FILTER_ITEM_SEPARATOR,
 }
 
 /// トラックバー項目構造体
@@ -188,6 +189,16 @@ pub struct FILTER_ITEM_FOLDER {
     pub name: LPCWSTR,
     /// 設定値（フィルタ処理の呼び出し時に現在の値のポインタに更新されます）
     pub value: LPCWSTR,
+}
+
+/// セパレーター項目構造体
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_SEPARATOR {
+    /// 設定の種別（L"separator"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
 }
 
 /// RGBA32bit構造体

@@ -401,6 +401,9 @@ pub struct EDIT_HANDLE {
 
     /// ホストアプリケーションのメインウィンドウのハンドルを取得します
     pub get_host_app_window: unsafe extern "C" fn() -> HWND,
+
+    /// 編集状態を取得します
+    pub get_edit_state: unsafe extern "C" fn() -> i32,
 }
 
 impl EDIT_HANDLE {
@@ -416,6 +419,12 @@ impl EDIT_HANDLE {
     pub const EFFECT_FLAG_AUDIO: i32 = 2;
     /// エフェクトフラグ：フィルタオブジェクトをサポート ※今後追加される可能性があります
     pub const EFFECT_FLAG_FILTER: i32 = 4;
+    /// 編集状態：編集中
+    pub const EDIT_STATE_EDIT: i32 = 0;
+    /// 編集状態：プレビュー再生中
+    pub const EDIT_STATE_PLAY: i32 = 1;
+    /// 編集状態：ファイル出力中
+    pub const EDIT_STATE_SAVE: i32 = 2;
 }
 
 /// プロジェクトファイル構造体

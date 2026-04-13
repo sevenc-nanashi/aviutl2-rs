@@ -101,14 +101,10 @@ impl EditHandle {
     }
 
     /// 編集情報を取得する。
-    ///
-    /// # Note
-    ///
-    /// 既に編集処理中（`call_edit_section` 内）である場合、デッドロックします。
     pub fn get_edit_info(&self) -> crate::generic::EditInfo {
         assert!(
             self.is_ready(),
-            "call_edit_section cannot be called before register_plugin is done"
+            "get_edit_info cannot be called before register_plugin is done"
         );
         let mut raw_info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::EDIT_INFO>::uninit();
         unsafe {
@@ -125,7 +121,7 @@ impl EditHandle {
     pub fn restart_host_app(&self) {
         assert!(
             self.is_ready(),
-            "call_edit_section cannot be called before register_plugin is done"
+            "restart_host_app cannot be called before register_plugin is done"
         );
         unsafe {
             ((*self.internal).restart_host_app)();
@@ -139,7 +135,7 @@ impl EditHandle {
     {
         assert!(
             self.is_ready(),
-            "call_edit_section cannot be called before register_plugin is done"
+            "enumerate_effects cannot be called before register_plugin is done"
         );
         type CallbackParam<F> = ChildKillablePointer<F>;
 
@@ -181,7 +177,7 @@ impl EditHandle {
     pub fn get_effects(&self) -> Vec<Effect> {
         assert!(
             self.is_ready(),
-            "call_edit_section cannot be called before register_plugin is done"
+            "get_effects cannot be called before register_plugin is done"
         );
         let mut effects = Vec::new();
         self.enumerate_effects(|effect| {
@@ -197,7 +193,7 @@ impl EditHandle {
     {
         assert!(
             self.is_ready(),
-            "call_edit_section cannot be called before register_plugin is done"
+            "enumerate_modules cannot be called before register_plugin is done"
         );
         type CallbackParam<F> = ChildKillablePointer<F>;
 
@@ -235,7 +231,7 @@ impl EditHandle {
     pub fn get_modules(&self) -> Vec<ModuleInfo> {
         assert!(
             self.is_ready(),
-            "call_edit_section cannot be called before register_plugin is done"
+            "get_modules cannot be called before register_plugin is done"
         );
         let mut modules = Vec::new();
         self.enumerate_modules(|module| {
@@ -261,6 +257,16 @@ impl EditHandle {
                 handle,
             ))
         })
+    }
+
+    /// 編集状態を取得する。
+    pub fn get_edit_state(&self) -> EditState {
+        assert!(
+            self.is_ready(),
+            "get_edit_state cannot be called before register_plugin is done"
+        );
+        let state = unsafe { ((*self.internal).get_edit_state)() };
+        EditState::from(state)
     }
 }
 
@@ -391,6 +397,39 @@ impl From<ModuleType> for i32 {
             ModuleType::PluginFilter => 8,
             ModuleType::PluginGeneric => 9,
             ModuleType::Other(other) => other,
+        }
+    }
+}
+
+/// 編集状態。
+pub enum EditState {
+    /// 編集中
+    Edit,
+    /// プレビュー再生中
+    Preview,
+    /// ファイル出力中
+    Save,
+    /// その他
+    Other(i32),
+}
+
+impl From<i32> for EditState {
+    fn from(value: i32) -> Self {
+        match value {
+            0 => EditState::Edit,
+            1 => EditState::Preview,
+            2 => EditState::Save,
+            other => EditState::Other(other),
+        }
+    }
+}
+impl From<EditState> for i32 {
+    fn from(value: EditState) -> Self {
+        match value {
+            EditState::Edit => 0,
+            EditState::Preview => 1,
+            EditState::Save => 2,
+            EditState::Other(other) => other,
         }
     }
 }

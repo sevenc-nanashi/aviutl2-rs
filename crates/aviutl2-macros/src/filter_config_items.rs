@@ -236,6 +236,9 @@ enum FilterConfigField {
         opened: Option<bool>,
     },
     GroupEnd,
+    Separator {
+        name: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -556,6 +559,15 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     )
                 }
             }
+            FilterConfigField::Separator { name } => {
+                quote::quote! {
+                    ::aviutl2::filter::FilterConfigItem::Separator(
+                        ::aviutl2::filter::FilterConfigSeparator {
+                            name: #name.to_string(),
+                        }
+                    )
+                }
+            }
             FilterConfigField::Button {
                 id,
                 name,
@@ -754,7 +766,9 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                     }
                 })
             }
-            FilterConfigField::GroupStart { .. } | FilterConfigField::GroupEnd => {
+            FilterConfigField::GroupStart { .. }
+            | FilterConfigField::GroupEnd
+            | FilterConfigField::Separator { .. } => {
                 None
             }
             FilterConfigField::Button { .. } => {
@@ -861,6 +875,7 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
         }
         FilterConfigField::GroupStart { .. }
         | FilterConfigField::GroupEnd
+        | FilterConfigField::Separator { .. }
         | FilterConfigField::Button { .. } => None,
     });
     quote::quote! {
@@ -889,6 +904,7 @@ fn validate_filter_config(
             FilterConfigField::Data { name, .. } => name,
             FilterConfigField::GroupStart { name, .. } => name,
             FilterConfigField::GroupEnd => "__internal_group_end",
+            FilterConfigField::Separator { name, .. } => name,
             // NOTE:
             // ボタンは他のフィールドと名前が重複しても問題ないが、ボタン同士では重複してはいけない
             // 本来はformat!("button_{}", name)のようなキーで区別するべきだが、まぁ面倒なので...
@@ -933,6 +949,7 @@ static RECOGNIZED_FIELDS: &[&str] = &[
     "data",
     "__internal_group_start",
     "__internal_group_end",
+    "separator",
     "button",
 ];
 fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Error> {
@@ -983,6 +1000,7 @@ fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Err
         "data" => filter_config_field_data(field, recognized_attr),
         "__internal_group_start" => filter_config_field_group_start(field, recognized_attr),
         "__internal_group_end" => filter_config_field_group_end(field, recognized_attr),
+        "separator" => filter_config_field_separator(field, recognized_attr),
         "button" => filter_config_field_button(field, recognized_attr),
 
         _ => unreachable!(),
@@ -1001,7 +1019,9 @@ fn clean_fields(fields: &syn::Fields) -> syn::Fields {
                     }
                 });
             let attr_type = recognized_attrs[0].path().get_ident().unwrap().to_string();
-            let should_delete = attr_type.starts_with("__internal_") || attr_type == "button";
+            let should_delete = attr_type.starts_with("__internal_")
+                || attr_type == "separator"
+                || attr_type == "button";
             if should_delete {
                 None
             } else {
@@ -1570,6 +1590,28 @@ fn filter_config_field_group_end(
     Ok(FilterConfigField::GroupEnd)
 }
 
+fn filter_config_field_separator(
+    field: &syn::Field,
+    recognized_attr: &syn::Attribute,
+) -> Result<FilterConfigField, syn::Error> {
+    let mut name = None;
+    let mut salt = None;
+
+    recognized_attr.parse_nested_meta(|m| {
+        if m.path.is_ident("name") {
+            name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("salt") {
+            salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else {
+            return Err(m.error("Unknown attribute for separator"));
+        }
+        Ok(())
+    })?;
+
+    let name = with_salt(name, salt, field.ident.as_ref().unwrap());
+    Ok(FilterConfigField::Separator { name })
+}
+
 fn filter_config_field_button(
     field: &syn::Field,
     recognized_attr: &syn::Attribute,
@@ -1901,6 +1943,22 @@ mod tests {
                 reset: fn(),
                 #[button(name = "Apply")]
                 apply: on_apply_clicked,
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
+    fn test_separator() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[check(name = "Enable", default = true)]
+                enable: bool,
+                #[separator(name = "Advanced")]
+                advanced_separator: (),
+                #[track(name = "Frequency", range = 20.0..=20000.0, step = 1.0, default = 440.0)]
+                frequency: f64,
             }
         };
         let output = filter_config_items(input).unwrap();

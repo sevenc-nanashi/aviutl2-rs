@@ -67,6 +67,8 @@ pub enum FilterConfigItem {
     Data(ErasedFilterConfigData),
     /// グループ。
     Group(FilterConfigGroup),
+    /// セパレーター。
+    Separator(FilterConfigSeparator),
     /// ボタン。
     Button(FilterConfigButton),
 }
@@ -107,6 +109,7 @@ impl FilterConfigItem {
             FilterConfigItem::Folder(item) => &item.name,
             FilterConfigItem::Data(item) => &item.name,
             FilterConfigItem::Group(item) => item.name.as_deref().unwrap_or(""),
+            FilterConfigItem::Separator(item) => &item.name,
             FilterConfigItem::Button(item) => &item.name,
         }
     }
@@ -219,6 +222,12 @@ impl FilterConfigItem {
                     r#type: leak_manager.leak_as_wide_string("group"),
                     name: leak_manager.leak_as_wide_string(item.name.as_deref().unwrap_or("")),
                     default_visible: item.opened,
+                },
+            },
+            FilterConfigItem::Separator(item) => aviutl2_sys::filter2::FILTER_ITEM {
+                separator: aviutl2_sys::filter2::FILTER_ITEM_SEPARATOR {
+                    r#type: leak_manager.leak_as_wide_string("separator"),
+                    name: leak_manager.leak_as_wide_string(&item.name),
                 },
             },
             FilterConfigItem::Button(item) => aviutl2_sys::filter2::FILTER_ITEM {
@@ -746,4 +755,11 @@ impl FilterConfigGroup {
             opened: false,
         }
     }
+}
+
+/// セパレーター。
+#[derive(Debug, Clone)]
+pub struct FilterConfigSeparator {
+    /// セパレーターに表示するテキスト。
+    pub name: String,
 }

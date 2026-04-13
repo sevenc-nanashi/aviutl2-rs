@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking**: 最小サポートをbeta41aに引き上げ
 - **Breaking**: generic: `&ObjectHandle`を`ObjectHandle`に変更
 - module: FromScriptModuleParamTableを実装する型を追加
 - traitの型をRust Analyzerが扱いやすくなるように変更
