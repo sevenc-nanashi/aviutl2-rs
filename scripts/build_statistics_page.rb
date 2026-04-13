@@ -17,5 +17,5 @@ unless Dir.exist?(PAGE_DIR)
 end
 
 FileUtils.mkdir_p(File.join(PAGE_DIR, "dist"))
-run!("ni", "--frozen", chdir: PAGE_DIR)
-run!("nr", "build", chdir: PAGE_DIR)
+run!("bun", "i", "--frozen", chdir: PAGE_DIR)
+run!("bun", "run", "build", chdir: PAGE_DIR)
