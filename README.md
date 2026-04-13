@@ -52,7 +52,6 @@ AviUtl2 SDKのRust版です。
     - [`./examples/metronome-plugin`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_metronome_plugin)：クリックに合わせてBPMを調整したり、メトロノーム音を再生したりする汎用プラグインのサンプル。
     - [`./examples/local-alias-plugin`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_local_alias_plugin)：プロジェクトローカルにオブジェクトを保存する汎用プラグインのサンプル。
     - [`./examples/srt-file-plugin`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_srt_file)：SRTファイルをインポート/エクスポートする汎用プラグインのサンプル。
-    - [`./examples/restart-shortcut-plugin`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_restart_shortcut)：AviUtl2を再起動する編集メニューを追加する汎用プラグインのサンプル。
     - [`./examples/scripts-search-plugin`](https://aviutl2-catalog-badge.sevenc7c.workers.dev/package/sevenc-nanashi.aviutl2-rs.rusty_scripts_search)：オブジェクト・エフェクトを検索してタイムラインに配置する汎用プラグインのサンプル。
 
 ## ライセンス

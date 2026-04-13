@@ -219,21 +219,6 @@ build = { group = "release_all" }
 source = "examples/random-color-filter/i18n/English.rusty_random_color_filter.aul2"
 destination = "Language/English.rusty_random_color_filter.aul2"
 
-[artifacts.rusty_restart_shortcut]
-destination = "Plugin/rusty_restart_shortcut.aux2"
-build = { group = "debug_all" }
-
-[artifacts.rusty_restart_shortcut.profiles.debug]
-source = "target/debug/rusty_restart_shortcut_plugin.dll"
-
-[artifacts.rusty_restart_shortcut.profiles.release]
-source = "target/release/rusty_restart_shortcut_plugin.dll"
-build = { group = "release_all" }
-
-[artifacts.english_rusty_restart_shortcut]
-source = "examples/restart-shortcut-plugin/i18n/English.rusty_restart_shortcut_plugin.aul2"
-destination = "Language/English.rusty_restart_shortcut_plugin.aul2"
-
 [artifacts.rusty_scripts_search]
 destination = "Plugin/rusty_scripts_search.aux2"
 build = { group = "debug_all" }
