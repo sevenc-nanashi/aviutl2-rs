@@ -32,7 +32,7 @@ jobs:
       - name: Prepare release
         run: |
           mise exec -c "au2 release"
-          ruby scripts/write_release_changelog.rb
+          ruby scripts/update_release_changelog.rb
           cp ./release/CHANGELOG.md ./CHANGELOG.md
 
       - name: Commit version change
