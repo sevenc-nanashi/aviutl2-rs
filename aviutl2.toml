@@ -1,7 +1,7 @@
 [project]
 id = "sevenc-nanashi.aviutl2-rs"
 name = "AviUtl2-rs Demo Plugins"
-version = "0.21.0"
+version = "0.23.0"
 
 [build_group]
 debug_all = ["ruby ./scripts/build_statistics_page.rb", "cargo build"]

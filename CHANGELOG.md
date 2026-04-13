@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.23.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.23.0)
+
 - **Breaking**: 最小サポートをbeta41aに引き上げ
 - **Breaking**: generic: `&ObjectHandle`を`ObjectHandle`に変更
 - module: FromScriptModuleParamTableを実装する型を追加
