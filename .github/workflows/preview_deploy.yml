@@ -8,21 +8,30 @@ on:
 
 jobs:
   failure:
-    if: ${{ github.event.workflow_run.pull_requests[0] != null && github.event.workflow_run.conclusion == 'failure' }}
+    if: ${{ github.event.workflow_run.conclusion == 'failure' && (github.event.workflow_run.pull_requests[0] != null || github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
       statuses: write
     steps:
+      - name: Read preview target
+        id: preview-target
+        run: |
+          if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
+            echo "SHA=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+          else
+            echo "SHA=${{ github.event.workflow_run.pull_requests[0].head.sha }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create check run
         uses: guibranco/github-status-action-v2@latest
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
+          sha: ${{ steps.preview-target.outputs.SHA }}
           context: "Documentation Preview"
           state: failure
 
-  deploy:
+  deploy-pr:
     if: ${{ github.event.workflow_run.pull_requests[0] != null && github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
@@ -83,5 +92,49 @@ jobs:
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
+          context: "Documentation Preview"
+          state: failure
+
+  deploy-main:
+    if: ${{ github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: preview-doc
+          path: ./target/doc/
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.event.workflow_run.repository.full_name }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.WORKERS_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "latest"
+          command: versions upload --preview-alias main
+
+      - name: Create check run (Success)
+        uses: guibranco/github-status-action-v2@latest
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ github.event.workflow_run.head_sha }}
+          context: "Documentation Preview"
+          state: success
+          target_url: https://main-aviutl2-rs-doc.sevenc7c.workers.dev
+
+      - name: Create check run (Failure)
+        if: failure()
+        uses: guibranco/github-status-action-v2@latest
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ github.event.workflow_run.head_sha }}
           context: "Documentation Preview"
           state: failure

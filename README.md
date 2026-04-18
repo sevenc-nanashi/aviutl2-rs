@@ -9,6 +9,8 @@ AviUtl2 SDKのRust版です。
 > [!WARNING]
 > このcrateはできてから日が浅く、まだ不安定です。APIが大きく変わる可能性があります。
 
+現在のmainブランチのドキュメントは <https://main-aviutl2-rs-doc.sevenc7c.workers.dev> にホストされています。
+
 ## 開発フロー
 
 `AviUtl2` 向けの開発・配布は [`aviutl2-cli`](https://docs.rs/aviutl2-cli/latest/aviutl2_cli/) を前提にしています。
