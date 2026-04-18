@@ -1,7 +1,7 @@
 use std::num::NonZeroIsize;
 
 use crate::common::{ChildKillablePointer, KillablePointer};
-use crate::generic::EditSection;
+use crate::generic::{EditSection, ReadSection};
 
 /// 編集ハンドル。
 ///
@@ -86,6 +86,66 @@ impl EditHandle {
 
         let success = unsafe {
             ((*self.internal).call_edit_section_param)(
+                param_ptr as *mut std::ffi::c_void,
+                trampoline_static,
+            )
+        };
+
+        drop(unsafe { Box::from_raw(param_ptr) });
+
+        if success {
+            Ok(result.expect("Callback did not set result"))
+        } else {
+            Err(EditHandleError::ApiCallFailed)
+        }
+    }
+
+    /// プロジェクトデータの参照を開始する。
+    ///
+    /// # Note
+    ///
+    /// 内部では call_read_section_param を使用しています。
+    pub fn call_read_section<'a, T, F>(&self, callback: F) -> Result<T, EditHandleError>
+    where
+        T: Send + 'static,
+        F: FnOnce(&ReadSection) -> T + Send + 'a,
+    {
+        assert!(
+            self.is_ready(),
+            "call_read_section cannot be called before register_plugin is done"
+        );
+
+        type CallbackParam<'a, F, T> = (ChildKillablePointer<Option<F>>, &'a mut Option<T>);
+
+        let closure = Some(callback);
+        let param = KillablePointer::new(closure);
+        let child_param = param.create_child();
+
+        extern "C" fn trampoline<F, T>(
+            param: *mut std::ffi::c_void,
+            read_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
+        ) where
+            T: Send + 'static,
+            F: FnOnce(&ReadSection) -> T,
+        {
+            unsafe {
+                let (child_param, result_ptr) = &mut *(param as *mut CallbackParam<F, T>);
+                let callback = child_param.as_mut().take().expect("Callback already taken");
+                let read_section = ReadSection::from_raw(read_section);
+                let res = callback(&read_section);
+                result_ptr.replace(res);
+            }
+        }
+
+        let trampoline_static = trampoline::<F, T>
+            as extern "C" fn(*mut std::ffi::c_void, *mut aviutl2_sys::plugin2::EDIT_SECTION);
+
+        let mut result = None;
+        let param = Box::<CallbackParam<F, T>>::new((child_param, &mut result));
+        let param_ptr = Box::into_raw(param);
+
+        let success = unsafe {
+            ((*self.internal).call_read_section_param)(
                 param_ptr as *mut std::ffi::c_void,
                 trampoline_static,
             )

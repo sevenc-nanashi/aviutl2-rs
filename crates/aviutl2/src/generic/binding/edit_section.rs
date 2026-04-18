@@ -184,6 +184,12 @@ pub enum EditSectionParsedError<E: std::error::Error + Send + Sync + 'static> {
 
 pub type EditSectionResult<T> = Result<T, EditSectionError>;
 
+/// 読み取り専用の編集セクションハンドル。
+#[derive(Debug)]
+pub struct ReadSection {
+    pub(crate) internal: *mut aviutl2_sys::plugin2::EDIT_SECTION,
+}
+
 /// 編集セクションのハンドル。
 #[derive(Debug)]
 pub struct EditSection {
@@ -191,6 +197,245 @@ pub struct EditSection {
     pub info: EditInfo,
 
     pub(crate) internal: *mut aviutl2_sys::plugin2::EDIT_SECTION,
+    read_section: ReadSection,
+}
+
+impl std::ops::Deref for EditSection {
+    type Target = ReadSection;
+
+    fn deref(&self) -> &Self::Target {
+        &self.read_section
+    }
+}
+
+impl ReadSection {
+    /// 生ポインタから `ReadSection` を作成する。
+    ///
+    /// # Safety
+    ///
+    /// 有効な `EDIT_SECTION` ポインタである必要があります。
+    pub unsafe fn from_raw(ptr: *mut aviutl2_sys::plugin2::EDIT_SECTION) -> Self {
+        Self { internal: ptr }
+    }
+
+    /// 指定のフレーム番号以降にあるオブジェクトを検索する。
+    ///
+    /// # Arguments
+    ///
+    /// - `layer`：検索するレイヤー番号（0始まり）。
+    /// - `frame`：検索を開始するフレーム番号（0始まり）。
+    pub fn find_object_after(
+        &self,
+        layer: usize,
+        frame: usize,
+    ) -> EditSectionResult<Option<ObjectHandle>> {
+        let object_handle =
+            unsafe { ((*self.internal).find_object)(layer.try_into()?, frame.try_into()?) };
+        if object_handle.is_null() {
+            Ok(None)
+        } else {
+            Ok(Some(ObjectHandle {
+                internal: object_handle,
+            }))
+        }
+    }
+
+    /// オブジェクトに対象エフェクトが何個存在するかを取得する。
+    pub fn count_object_effect(
+        &self,
+        object: ObjectHandle,
+        effect: &str,
+    ) -> EditSectionResult<usize> {
+        self.ensure_object_exists(object)?;
+        let c_effect = crate::common::CWString::new(effect)?;
+        let count =
+            unsafe { ((*self.internal).count_object_effect)(object.internal, c_effect.as_ptr()) };
+        Ok(count.try_into()?)
+    }
+
+    /// 指定のオブジェクトのレイヤーとフレーム情報を取得する。
+    pub fn get_object_layer_frame(
+        &self,
+        object: ObjectHandle,
+    ) -> EditSectionResult<ObjectLayerFrame> {
+        self.ensure_object_exists(object)?;
+        let object = unsafe { ((*self.internal).get_object_layer_frame)(object.internal) };
+        Ok(ObjectLayerFrame {
+            layer: object.layer.try_into()?,
+            start: object.start.try_into()?,
+            end: object.end.try_into()?,
+        })
+    }
+
+    /// オブジェクトの情報をエイリアスデータとして取得する。
+    pub fn get_object_alias(&self, object: ObjectHandle) -> EditSectionResult<String> {
+        self.ensure_object_exists(object)?;
+        let alias_ptr = unsafe { ((*self.internal).get_object_alias)(object.internal) };
+        if alias_ptr.is_null() {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        let c_str = unsafe { std::ffi::CStr::from_ptr(alias_ptr) };
+        let alias = c_str.to_str()?.to_owned();
+        Ok(alias)
+    }
+
+    /// オブジェクト名を取得する。
+    pub fn get_object_name(&self, object: ObjectHandle) -> EditSectionResult<Option<String>> {
+        self.ensure_object_exists(object)?;
+        let name_ptr = unsafe { ((*self.internal).get_object_name)(object.internal) };
+        if name_ptr.is_null() {
+            return Ok(None);
+        }
+        Ok(Some(unsafe { crate::common::load_wide_string(name_ptr) }))
+    }
+
+    /// オブジェクトの設定項目の値を文字列で取得する。
+    pub fn get_object_effect_item(
+        &self,
+        object: ObjectHandle,
+        effect_name: &str,
+        effect_index: usize,
+        item: &str,
+    ) -> EditSectionResult<String> {
+        self.ensure_object_exists(object)?;
+        let c_effect_name = crate::common::CWString::new(&effect_key(effect_name, effect_index))?;
+        let c_item = crate::common::CWString::new(item)?;
+        let value_ptr = unsafe {
+            ((*self.internal).get_object_item_value)(
+                object.internal,
+                c_effect_name.as_ptr(),
+                c_item.as_ptr(),
+            )
+        };
+        if value_ptr.is_null() {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        let c_str = unsafe { std::ffi::CStr::from_ptr(value_ptr) };
+        let value = c_str.to_str()?.to_owned();
+        Ok(value)
+    }
+
+    /// オブジェクトの設定項目の値を取得し、パースする。
+    #[cfg(feature = "aviutl2-alias")]
+    pub fn get_object_effect_item_parsed<T: aviutl2_alias::FromTableValue>(
+        &self,
+        object: ObjectHandle,
+        effect_name: &str,
+        effect_index: usize,
+        item: &str,
+    ) -> Result<T, EditSectionParsedError<<T as aviutl2_alias::FromTableValue>::Err>>
+    where
+        <T as aviutl2_alias::FromTableValue>::Err: std::error::Error + Sync + Send + 'static,
+    {
+        let value_str = self.get_object_effect_item(object, effect_name, effect_index, item)?;
+        T::from_table_value(&value_str).map_err(EditSectionParsedError::ParseError)
+    }
+
+    /// 現在、オブジェクト設定ウィンドウで選択されているオブジェクトを取得する。
+    pub fn get_focused_object(&self) -> EditSectionResult<Option<ObjectHandle>> {
+        let object_handle = unsafe { ((*self.internal).get_focus_object)() };
+        if object_handle.is_null() {
+            Ok(None)
+        } else {
+            Ok(Some(ObjectHandle {
+                internal: object_handle,
+            }))
+        }
+    }
+
+    /// 現在選択されているオブジェクトの一覧を取得する。
+    pub fn get_selected_objects(&self) -> EditSectionResult<Vec<ObjectHandle>> {
+        let mut handles = Vec::new();
+        let num_objects = unsafe { ((*self.internal).get_selected_object_num)() };
+        for i in 0..num_objects {
+            let object_handle = unsafe { ((*self.internal).get_selected_object)(i) };
+            if object_handle.is_null() {
+                return Err(EditSectionError::ApiCallFailed);
+            }
+            handles.push(ObjectHandle {
+                internal: object_handle,
+            });
+        }
+        Ok(handles)
+    }
+
+    /// 指定のメディアファイルがサポートされているかどうか調べる。
+    pub fn is_support_media_file<P: AsRef<std::path::Path>>(
+        &self,
+        file_path: P,
+        mode: MediaFileSupportMode,
+    ) -> EditSectionResult<bool> {
+        let c_file_path = crate::common::CWString::new(&file_path.as_ref().to_string_lossy())?;
+        let is_supported = unsafe {
+            match mode {
+                MediaFileSupportMode::ExtensionOnly => {
+                    ((*self.internal).is_support_media_file)(c_file_path.as_ptr(), false)
+                }
+                MediaFileSupportMode::Strict => {
+                    ((*self.internal).is_support_media_file)(c_file_path.as_ptr(), true)
+                }
+            }
+        };
+        Ok(is_supported)
+    }
+
+    /// 指定のメディアファイルの情報を取得する。
+    pub fn get_media_info<P: AsRef<std::path::Path>>(
+        &self,
+        file_path: P,
+    ) -> EditSectionResult<MediaInfo> {
+        let c_file_path = crate::common::CWString::new(&file_path.as_ref().to_string_lossy())?;
+        let mut media_info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::MEDIA_INFO>::uninit();
+        let success = unsafe {
+            ((*self.internal).get_media_info)(
+                c_file_path.as_ptr(),
+                media_info.as_mut_ptr(),
+                std::mem::size_of::<aviutl2_sys::plugin2::MEDIA_INFO>() as i32,
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        let media_info = unsafe { media_info.assume_init() };
+        Ok(MediaInfo {
+            video_track_num: NonZero::new(media_info.video_track_num.try_into()?),
+            audio_track_num: NonZero::new(media_info.audio_track_num.try_into()?),
+            total_time: media_info.total_time,
+            width: media_info.width.try_into()?,
+            height: media_info.height.try_into()?,
+        })
+    }
+
+    /// レイヤーの名前を取得する。
+    pub fn get_layer_name(&self, layer: usize) -> EditSectionResult<Option<String>> {
+        let name_ptr = unsafe { ((*self.internal).get_layer_name)(layer.try_into()?) };
+        if name_ptr.is_null() {
+            return Ok(None);
+        }
+        Ok(Some(unsafe { crate::common::load_wide_string(name_ptr) }))
+    }
+
+    /// シーン名を取得する。
+    pub fn get_scene_name(&self) -> EditSectionResult<String> {
+        let name_ptr = unsafe { ((*self.internal).get_scene_name)() };
+        if name_ptr.is_null() {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(unsafe { crate::common::load_wide_string(name_ptr) })
+    }
+
+    /// オブジェクトが存在するかどうか調べる。
+    pub fn object_exists(&self, object: ObjectHandle) -> bool {
+        let object = unsafe { ((*self.internal).get_object_layer_frame)(object.internal) };
+        object.layer != -1
+    }
+
+    fn ensure_object_exists(&self, object: ObjectHandle) -> EditSectionResult<()> {
+        if !self.object_exists(object) {
+            return Err(EditSectionError::ObjectDoesNotExist);
+        }
+        Ok(())
+    }
 }
 
 impl EditSection {
@@ -200,9 +445,11 @@ impl EditSection {
     ///
     /// 有効な `EDIT_SECTION` ポインタである必要があります。
     pub unsafe fn from_raw(ptr: *mut aviutl2_sys::plugin2::EDIT_SECTION) -> Self {
+        let info = unsafe { EditInfo::from_raw((*ptr).info) };
         Self {
             internal: ptr,
-            info: unsafe { EditInfo::from_raw((*ptr).info) },
+            info,
+            read_section: ReadSection { internal: ptr },
         }
     }
 
@@ -245,90 +492,6 @@ impl EditSection {
         })
     }
 
-    /// 指定のフレーム番号以降にあるオブジェクトを検索する。
-    ///
-    /// # Arguments
-    ///
-    /// - `layer`：検索するレイヤー番号（0始まり）。
-    /// - `frame`：検索を開始するフレーム番号（0始まり）。
-    pub fn find_object_after(
-        &self,
-        layer: usize,
-        frame: usize,
-    ) -> EditSectionResult<Option<ObjectHandle>> {
-        let object_handle =
-            unsafe { ((*self.internal).find_object)(layer.try_into()?, frame.try_into()?) };
-        if object_handle.is_null() {
-            Ok(None)
-        } else {
-            Ok(Some(ObjectHandle {
-                internal: object_handle,
-            }))
-        }
-    }
-
-    /// オブジェクトに対象エフェクトが何個存在するかを取得する。
-    ///
-    /// # Arguments
-    ///
-    /// - `object`：対象のオブジェクトハンドル。
-    /// - `effect`：対象のエフェクト名。（エイリアスファイルの effect.name の値）
-    ///
-    /// # Returns
-    ///
-    /// 対象エフェクトの数。存在しない場合は0を返します。
-    pub fn count_object_effect(
-        &self,
-        object: ObjectHandle,
-        effect: &str,
-    ) -> EditSectionResult<usize> {
-        self.ensure_object_exists(object)?;
-        let c_effect = crate::common::CWString::new(effect)?;
-        let count =
-            unsafe { ((*self.internal).count_object_effect)(object.internal, c_effect.as_ptr()) };
-        Ok(count.try_into()?)
-    }
-
-    /// 指定のオブジェクトのレイヤーとフレーム情報を取得する。
-    pub fn get_object_layer_frame(
-        &self,
-        object: ObjectHandle,
-    ) -> EditSectionResult<ObjectLayerFrame> {
-        self.ensure_object_exists(object)?;
-        let object = unsafe { ((*self.internal).get_object_layer_frame)(object.internal) };
-        Ok(ObjectLayerFrame {
-            layer: object.layer.try_into()?,
-            start: object.start.try_into()?,
-            end: object.end.try_into()?,
-        })
-    }
-
-    /// オブジェクトの情報をエイリアスデータとして取得する。
-    pub fn get_object_alias(&self, object: ObjectHandle) -> EditSectionResult<String> {
-        self.ensure_object_exists(object)?;
-        let alias_ptr = unsafe { ((*self.internal).get_object_alias)(object.internal) };
-        if alias_ptr.is_null() {
-            return Err(EditSectionError::ApiCallFailed);
-        }
-        let c_str = unsafe { std::ffi::CStr::from_ptr(alias_ptr) };
-        let alias = c_str.to_str()?.to_owned();
-        Ok(alias)
-    }
-
-    /// オブジェクト名を取得する。
-    ///
-    /// # Returns
-    ///
-    /// 標準の名前の場合は`None`を返します。
-    pub fn get_object_name(&self, object: ObjectHandle) -> EditSectionResult<Option<String>> {
-        self.ensure_object_exists(object)?;
-        let name_ptr = unsafe { ((*self.internal).get_object_name)(object.internal) };
-        if name_ptr.is_null() {
-            return Ok(None);
-        }
-        Ok(Some(unsafe { crate::common::load_wide_string(name_ptr) }))
-    }
-
     /// オブジェクト名を設定する。
     ///
     /// # Note
@@ -339,7 +502,7 @@ impl EditSection {
         object: ObjectHandle,
         name: Option<&str>,
     ) -> EditSectionResult<()> {
-        self.ensure_object_exists(object)?;
+        self.read_section.ensure_object_exists(object)?;
         match name {
             None => {
                 unsafe { ((*self.internal).set_object_name)(object.internal, std::ptr::null()) };
@@ -353,59 +516,6 @@ impl EditSection {
                 Ok(())
             }
         }
-    }
-
-    /// オブジェクトの設定項目の値を文字列で取得する。
-    ///
-    /// # Arguments
-    ///
-    /// - `object`：対象のオブジェクトハンドル。
-    /// - `effect_name`：設定項目の名前。
-    /// - `effect_index`：同じ名前の設定項目が複数ある場合のインデックス（0始まり）。
-    /// - `item`：設定項目の名前。（エイリアスファイルのキーの名前）
-    pub fn get_object_effect_item(
-        &self,
-        object: ObjectHandle,
-        effect_name: &str,
-        effect_index: usize,
-        item: &str,
-    ) -> EditSectionResult<String> {
-        self.ensure_object_exists(object)?;
-        let c_effect_name = crate::common::CWString::new(&effect_key(effect_name, effect_index))?;
-        let c_item = crate::common::CWString::new(item)?;
-        let value_ptr = unsafe {
-            ((*self.internal).get_object_item_value)(
-                object.internal,
-                c_effect_name.as_ptr(),
-                c_item.as_ptr(),
-            )
-        };
-        if value_ptr.is_null() {
-            return Err(EditSectionError::ApiCallFailed);
-        }
-        let c_str = unsafe { std::ffi::CStr::from_ptr(value_ptr) };
-        let value = c_str.to_str()?.to_owned();
-        Ok(value)
-    }
-
-    /// オブジェクトの設定項目の値を取得し、パースする。
-    ///
-    /// # See Also
-    ///
-    /// [`EditSection::get_object_effect_item`]
-    #[cfg(feature = "aviutl2-alias")]
-    pub fn get_object_effect_item_parsed<T: aviutl2_alias::FromTableValue>(
-        &self,
-        object: ObjectHandle,
-        effect_name: &str,
-        effect_index: usize,
-        item: &str,
-    ) -> Result<T, EditSectionParsedError<<T as aviutl2_alias::FromTableValue>::Err>>
-    where
-        <T as aviutl2_alias::FromTableValue>::Err: std::error::Error + Sync + Send + 'static,
-    {
-        let value_str = self.get_object_effect_item(object, effect_name, effect_index, item)?;
-        T::from_table_value(&value_str).map_err(EditSectionParsedError::ParseError)
     }
 
     /// オブジェクトの設定項目の値を文字列で設定する。
@@ -425,7 +535,7 @@ impl EditSection {
         item: &str,
         value: &str,
     ) -> EditSectionResult<()> {
-        self.ensure_object_exists(object)?;
+        self.read_section.ensure_object_exists(object)?;
         let c_effect_name = crate::common::CWString::new(&effect_key(effect_name, effect_index))?;
         let c_item = crate::common::CWString::new(item)?;
         let c_value = std::ffi::CString::new(value)?;
@@ -450,7 +560,7 @@ impl EditSection {
         new_layer: usize,
         new_start_frame: usize,
     ) -> EditSectionResult<()> {
-        self.ensure_object_exists(object)?;
+        self.read_section.ensure_object_exists(object)?;
         let success = unsafe {
             ((*self.internal).move_object)(
                 object.internal,
@@ -466,37 +576,9 @@ impl EditSection {
 
     /// オブジェクトを削除する。
     pub fn delete_object(&self, object: ObjectHandle) -> EditSectionResult<()> {
-        self.ensure_object_exists(object)?;
+        self.read_section.ensure_object_exists(object)?;
         unsafe { ((*self.internal).delete_object)(object.internal) };
         Ok(())
-    }
-
-    /// 現在、オブジェクト設定ウィンドウで選択されているオブジェクトを取得する。
-    pub fn get_focused_object(&self) -> EditSectionResult<Option<ObjectHandle>> {
-        let object_handle = unsafe { ((*self.internal).get_focus_object)() };
-        if object_handle.is_null() {
-            Ok(None)
-        } else {
-            Ok(Some(ObjectHandle {
-                internal: object_handle,
-            }))
-        }
-    }
-
-    /// 現在選択されているオブジェクトの一覧を取得する。
-    pub fn get_selected_objects(&self) -> EditSectionResult<Vec<ObjectHandle>> {
-        let mut handles = Vec::new();
-        let num_objects = unsafe { ((*self.internal).get_selected_object_num)() };
-        for i in 0..num_objects {
-            let object_handle = unsafe { ((*self.internal).get_selected_object)(i) };
-            if object_handle.is_null() {
-                return Err(EditSectionError::ApiCallFailed);
-            }
-            handles.push(ObjectHandle {
-                internal: object_handle,
-            });
-        }
-        Ok(handles)
     }
 
     /// オブジェクト設定ウィンドウで指定のオブジェクトを選択状態にする。
@@ -505,7 +587,7 @@ impl EditSection {
     ///
     /// コールバック処理の終了時に設定されます。
     pub fn focus_object(&self, object: ObjectHandle) -> EditSectionResult<()> {
-        self.ensure_object_exists(object)?;
+        self.read_section.ensure_object_exists(object)?;
         unsafe { ((*self.internal).set_focus_object)(object.internal) };
         Ok(())
     }
@@ -554,57 +636,6 @@ impl EditSection {
         } else {
             Ok(None)
         }
-    }
-
-    /// 指定のメディアファイルがサポートされているかどうか調べる。
-    pub fn is_support_media_file<P: AsRef<std::path::Path>>(
-        &self,
-        file_path: P,
-        mode: MediaFileSupportMode,
-    ) -> EditSectionResult<bool> {
-        let c_file_path = crate::common::CWString::new(&file_path.as_ref().to_string_lossy())?;
-        let is_supported = unsafe {
-            match mode {
-                MediaFileSupportMode::ExtensionOnly => {
-                    ((*self.internal).is_support_media_file)(c_file_path.as_ptr(), false)
-                }
-                MediaFileSupportMode::Strict => {
-                    ((*self.internal).is_support_media_file)(c_file_path.as_ptr(), true)
-                }
-            }
-        };
-        Ok(is_supported)
-    }
-
-    /// 指定のメディアファイルの情報を取得する。
-    ///
-    /// # Note
-    ///
-    /// 動画、音声、画像ファイル以外では取得出来ません。
-    pub fn get_media_info<P: AsRef<std::path::Path>>(
-        &self,
-        file_path: P,
-    ) -> EditSectionResult<MediaInfo> {
-        let c_file_path = crate::common::CWString::new(&file_path.as_ref().to_string_lossy())?;
-        let mut media_info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::MEDIA_INFO>::uninit();
-        let success = unsafe {
-            ((*self.internal).get_media_info)(
-                c_file_path.as_ptr(),
-                media_info.as_mut_ptr(),
-                std::mem::size_of::<aviutl2_sys::plugin2::MEDIA_INFO>() as i32,
-            )
-        };
-        if !success {
-            return Err(EditSectionError::ApiCallFailed);
-        }
-        let media_info = unsafe { media_info.assume_init() };
-        Ok(MediaInfo {
-            video_track_num: NonZero::new(media_info.video_track_num.try_into()?),
-            audio_track_num: NonZero::new(media_info.audio_track_num.try_into()?),
-            total_time: media_info.total_time,
-            width: media_info.width.try_into()?,
-            height: media_info.height.try_into()?,
-        })
     }
 
     /// 指定の位置にメディアファイルからオブジェクトを作成する。
@@ -723,15 +754,6 @@ impl EditSection {
         Ok(())
     }
 
-    /// レイヤーの名前を取得する。
-    pub fn get_layer_name(&self, layer: usize) -> EditSectionResult<Option<String>> {
-        let name_ptr = unsafe { ((*self.internal).get_layer_name)(layer.try_into()?) };
-        if name_ptr.is_null() {
-            return Ok(None);
-        }
-        Ok(Some(unsafe { crate::common::load_wide_string(name_ptr) }))
-    }
-
     /// レイヤーの名前を設定する。
     /// `name`に`None`や空文字を指定すると、標準の名前になります。
     pub fn set_layer_name(&self, layer: usize, name: Option<&str>) -> EditSectionResult<()> {
@@ -748,15 +770,6 @@ impl EditSection {
                 Ok(())
             }
         }
-    }
-
-    /// シーン名を取得する。
-    pub fn get_scene_name(&self) -> EditSectionResult<String> {
-        let name_ptr = unsafe { ((*self.internal).get_scene_name)() };
-        if name_ptr.is_null() {
-            return Err(EditSectionError::ApiCallFailed);
-        }
-        Ok(unsafe { crate::common::load_wide_string(name_ptr) })
     }
 
     /// シーン名を設定する。
@@ -802,23 +815,6 @@ impl EditSection {
     pub fn set_scene_sample_rate(&self, sample_rate: usize) -> EditSectionResult<()> {
         unsafe {
             ((*self.internal).set_scene_sample_rate)(sample_rate.try_into()?);
-        }
-        Ok(())
-    }
-
-    /// オブジェクトが存在するかどうか調べる。
-    ///
-    /// # Note
-    ///
-    /// 内部的には、get_object_layer_frame を呼び出してレイヤー番号が -1 でないかを確認しています。
-    pub fn object_exists(&self, object: ObjectHandle) -> bool {
-        let object = unsafe { ((*self.internal).get_object_layer_frame)(object.internal) };
-        object.layer != -1
-    }
-
-    fn ensure_object_exists(&self, object: ObjectHandle) -> EditSectionResult<()> {
-        if !self.object_exists(object) {
-            return Err(EditSectionError::ObjectDoesNotExist);
         }
         Ok(())
     }
