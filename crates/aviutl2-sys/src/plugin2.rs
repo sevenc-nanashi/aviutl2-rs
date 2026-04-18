@@ -404,6 +404,23 @@ pub struct EDIT_HANDLE {
 
     /// 編集状態を取得します
     pub get_edit_state: unsafe extern "C" fn() -> i32,
+
+    /// プロジェクトデータを参照する為のコールバック関数(func_proc_read_section)を呼び出します
+    /// 参照中にデータが更新されないように参照ロック状態のコールバック関数内で処理をする形になります
+    /// EDIT_SECTIONの更新系の関数等は利用出来ません
+    /// コールバック関数は呼び出し元と同じスレッドで呼ばれます
+    /// func_proc_read_section : コールバック関数
+    /// 戻り値 : trueなら成功（参照が出来ない場合は失敗します）
+    pub call_read_section: unsafe extern "C" fn(
+        func_proc_read_section: unsafe extern "C" fn(edit: *mut EDIT_SECTION),
+    ) -> bool,
+
+    /// call_read_section()に引数paramを渡せるようにした関数です
+    /// param : 任意のユーザーデータのポインタ
+    pub call_read_section_param: unsafe extern "C" fn(
+        param: *mut c_void,
+        func_proc_read_section: unsafe extern "C" fn(param: *mut c_void, edit: *mut EDIT_SECTION),
+    ) -> bool,
 }
 
 impl EDIT_HANDLE {

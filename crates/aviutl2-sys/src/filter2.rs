@@ -254,6 +254,13 @@ pub struct OBJECT_INFO {
     /// オブジェクトの内の対象エフェクトのID (アプリ起動毎の固有ID)
     /// ※処理対象のフィルタ効果、オブジェクト入出力の固有ID
     pub effect_id: i64,
+    /// フラグ
+    pub flag: i32,
+}
+
+impl OBJECT_INFO {
+    /// フィルタオブジェクトか？
+    pub const FLAG_FILTER_OBJECT: i32 = 1;
 }
 
 /// 画像フィルタ処理用構造体
