@@ -143,7 +143,7 @@ pub struct MediaInfo {
     pub height: usize,
 }
 
-/// [`EditSection::is_support_media_file`] のモード。
+/// [`ReadSection::is_support_media_file`] のモード。
 #[derive(Debug, Clone, Copy)]
 pub enum MediaFileSupportMode {
     /// 拡張子が対応しているかどうかのみを確認します。
@@ -173,7 +173,7 @@ pub enum EditSectionError {
     ParseFailed(#[from] aviutl2_alias::TableParseError),
 }
 
-/// [`EditSection::get_object_effect_item_parsed`] などのエラー。
+/// [`ReadSection::get_object_effect_item_parsed`] などのエラー。
 #[derive(thiserror::Error, Debug)]
 pub enum EditSectionParsedError<E: std::error::Error + Send + Sync + 'static> {
     #[error(transparent)]
@@ -960,7 +960,7 @@ where
     ///
     /// # See Also
     ///
-    /// [`EditSection::get_object_effect_item`]
+    /// [`EditSectionObjectCaller::get_effect_item`]
     #[cfg(feature = "aviutl2-alias")]
     pub fn get_effect_item_parsed<T: aviutl2_alias::FromTableValue>(
         &self,
