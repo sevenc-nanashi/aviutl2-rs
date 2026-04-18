@@ -135,6 +135,8 @@ pub struct ObjectInfo {
     pub time: f64,
     /// オブジェクトの総時間（秒）。
     pub time_total: f64,
+    /// オブジェクトがフィルタオブジェクトかどうか。
+    pub is_filter_object: bool,
 }
 
 /// 画像フィルタのオブジェクト情報。

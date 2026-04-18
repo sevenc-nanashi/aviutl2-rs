@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: 最小サポートをbeta42に引き上げ
+- filter: ObjectInfo.is_filter_objectを追加
 
 ### デモプラグイン
 
