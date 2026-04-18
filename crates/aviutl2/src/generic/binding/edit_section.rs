@@ -436,6 +436,27 @@ impl ReadSection {
         }
         Ok(())
     }
+
+    /// 特定のレイヤー内のオブジェクトをイテレータで取得する。
+    pub fn objects_in_layer(
+        &self,
+        layer: usize,
+    ) -> EditSectionLayerObjectsIterator<'_, ReadSection> {
+        EditSectionLayerObjectsIterator::new(self, layer)
+    }
+
+    /// [EditSectionLayerCaller] を作成する。
+    pub fn layer<'a>(&'a self, layer: usize) -> EditSectionLayerCaller<'a, ReadSection> {
+        EditSectionLayerCaller::new(self, layer)
+    }
+
+    /// [EditSectionObjectCaller] を作成する。
+    pub fn object<'a>(
+        &'a self,
+        object: &'a ObjectHandle,
+    ) -> EditSectionObjectCaller<'a, ReadSection> {
+        EditSectionObjectCaller::new(self, object)
+    }
 }
 
 impl EditSection {
@@ -824,49 +845,80 @@ impl EditSection {
         EditSectionLayersIterator::new(self)
     }
     /// 特定のレイヤー内のオブジェクトをイテレータで取得する。
-    pub fn objects_in_layer(&self, layer: usize) -> EditSectionLayerObjectsIterator<'_> {
+    pub fn objects_in_layer(
+        &self,
+        layer: usize,
+    ) -> EditSectionLayerObjectsIterator<'_, EditSection> {
         EditSectionLayerObjectsIterator::new(self, layer)
     }
 
     /// [EditSectionLayerCaller] を作成する。
-    pub fn layer<'a>(&'a self, layer: usize) -> EditSectionLayerCaller<'a> {
+    pub fn layer<'a>(&'a self, layer: usize) -> EditSectionLayerCaller<'a, EditSection> {
         EditSectionLayerCaller::new(self, layer)
     }
     /// [EditSectionObjectCaller] を作成する。
-    pub fn object<'a>(&'a self, object: &'a ObjectHandle) -> EditSectionObjectCaller<'a> {
+    pub fn object<'a>(
+        &'a self,
+        object: &'a ObjectHandle,
+    ) -> EditSectionObjectCaller<'a, EditSection> {
         EditSectionObjectCaller::new(self, object)
+    }
+}
+
+trait ReadSectionProvider {
+    fn as_read_section(&self) -> &ReadSection;
+}
+
+impl ReadSectionProvider for ReadSection {
+    fn as_read_section(&self) -> &ReadSection {
+        self
+    }
+}
+
+impl ReadSectionProvider for EditSection {
+    fn as_read_section(&self) -> &ReadSection {
+        &self.read_section
     }
 }
 
 /// オブジェクト主体で関数を呼び出すための構造体。
 /// EditSection と ObjectHandle の組をまとめ、対象オブジェクトに対する
 /// 操作を簡潔に呼び出せるようにします。
-pub struct EditSectionObjectCaller<'a> {
-    edit_section: &'a EditSection,
+pub struct EditSectionObjectCaller<'a, S> {
+    edit_section: &'a S,
     pub handle: &'a ObjectHandle,
 }
-impl<'a> EditSectionObjectCaller<'a> {
-    pub fn new(edit_section: &'a EditSection, object: &'a ObjectHandle) -> Self {
+impl<'a, S> EditSectionObjectCaller<'a, S> {
+    pub fn new(edit_section: &'a S, object: &'a ObjectHandle) -> Self {
         Self {
             edit_section,
             handle: object,
         }
     }
+}
+
+impl<S> EditSectionObjectCaller<'_, S>
+where
+    S: ReadSectionProvider,
+{
+    fn read_section(&self) -> &ReadSection {
+        self.edit_section.as_read_section()
+    }
 
     /// オブジェクトのレイヤーとフレーム情報を取得する。
     pub fn get_layer_frame(&self) -> EditSectionResult<ObjectLayerFrame> {
-        self.edit_section.get_object_layer_frame(*self.handle)
+        self.read_section().get_object_layer_frame(*self.handle)
     }
 
     /// オブジェクトの情報をエイリアスデータとして取得する。
     pub fn get_alias(&self) -> EditSectionResult<String> {
-        self.edit_section.get_object_alias(*self.handle)
+        self.read_section().get_object_alias(*self.handle)
     }
 
     /// オブジェクトの情報をエイリアスデータとして取得し、パースする。
     #[cfg(feature = "aviutl2-alias")]
     pub fn get_alias_parsed(&self) -> EditSectionResult<aviutl2_alias::Table> {
-        self.edit_section
+        self.read_section()
             .get_object_alias(*self.handle)?
             .parse()
             .map_err(Into::into)
@@ -882,7 +934,8 @@ impl<'a> EditSectionObjectCaller<'a> {
     ///
     /// 対象エフェクトの数。存在しない場合は0を返します。
     pub fn count_effect(&self, effect: &str) -> EditSectionResult<usize> {
-        self.edit_section.count_object_effect(*self.handle, effect)
+        self.read_section()
+            .count_object_effect(*self.handle, effect)
     }
 
     /// オブジェクトの設定項目の値を文字列で取得する。
@@ -898,7 +951,7 @@ impl<'a> EditSectionObjectCaller<'a> {
         effect_index: usize,
         item: &str,
     ) -> EditSectionResult<String> {
-        self.edit_section
+        self.read_section()
             .get_object_effect_item(*self.handle, effect_name, effect_index, item)
     }
 
@@ -921,6 +974,22 @@ impl<'a> EditSectionObjectCaller<'a> {
         T::from_table_value(&value_str).map_err(EditSectionParsedError::ParseError)
     }
 
+    /// このオブジェクトが存在するかどうか調べる。
+    pub fn exists(&self) -> bool {
+        self.read_section().object_exists(*self.handle)
+    }
+
+    /// オブジェクトの名前を取得する。
+    ///
+    /// # Returns
+    ///
+    /// 標準の名前の場合は`None`を返します。
+    pub fn get_name(&self) -> EditSectionResult<Option<String>> {
+        self.read_section().get_object_name(*self.handle)
+    }
+}
+
+impl EditSectionObjectCaller<'_, EditSection> {
     /// オブジェクトの設定項目の値を文字列で設定する。
     ///
     /// # Arguments
@@ -970,20 +1039,6 @@ impl<'a> EditSectionObjectCaller<'a> {
         self.edit_section.focus_object(*self.handle)
     }
 
-    /// このオブジェクトが存在するかどうか調べる。
-    pub fn exists(&self) -> bool {
-        self.edit_section.object_exists(*self.handle)
-    }
-
-    /// オブジェクトの名前を取得する。
-    ///
-    /// # Returns
-    ///
-    /// 標準の名前の場合は`None`を返します。
-    pub fn get_name(&self) -> EditSectionResult<Option<String>> {
-        self.edit_section.get_object_name(*self.handle)
-    }
-
     /// オブジェクトの名前を設定する。
     /// `name`に`None`や空文字を指定すると、標準の名前になります。
     pub fn set_name(&self, name: Option<&str>) -> EditSectionResult<()> {
@@ -994,16 +1049,25 @@ impl<'a> EditSectionObjectCaller<'a> {
 /// レイヤー主体で関数を呼び出すための構造体。
 /// EditSection と レイヤー番号 の組をまとめ、対象レイヤーに対する
 /// 操作を簡潔に呼び出せるようにします。
-pub struct EditSectionLayerCaller<'a> {
-    edit_section: &'a EditSection,
+pub struct EditSectionLayerCaller<'a, S> {
+    edit_section: &'a S,
     pub index: usize,
 }
-impl<'a> EditSectionLayerCaller<'a> {
-    pub fn new(edit_section: &'a EditSection, layer: usize) -> Self {
+impl<'a, S> EditSectionLayerCaller<'a, S> {
+    pub fn new(edit_section: &'a S, layer: usize) -> Self {
         Self {
             edit_section,
             index: layer,
         }
+    }
+}
+
+impl<S> EditSectionLayerCaller<'_, S>
+where
+    S: ReadSectionProvider,
+{
+    fn read_section(&self) -> &ReadSection {
+        self.edit_section.as_read_section()
     }
 
     /// 指定のフレーム番号以降にあるオブジェクトを検索する。
@@ -1012,9 +1076,22 @@ impl<'a> EditSectionLayerCaller<'a> {
     ///
     /// - `frame`：検索を開始するフレーム番号（0始まり）。
     pub fn find_object_after(&self, frame: usize) -> EditSectionResult<Option<ObjectHandle>> {
-        self.edit_section.find_object_after(self.index, frame)
+        self.read_section().find_object_after(self.index, frame)
     }
 
+    /// レイヤーの名前を取得する。
+    pub fn get_name(&self) -> EditSectionResult<Option<String>> {
+        self.read_section().get_layer_name(self.index)
+    }
+
+    /// このレイヤーに存在するすべてのオブジェクトを、
+    /// 開始フレームの昇順で走査するイテレータを返す。
+    pub fn objects(&self) -> EditSectionLayerObjectsIterator<'_, S> {
+        EditSectionLayerObjectsIterator::new(self.edit_section, self.index)
+    }
+}
+
+impl EditSectionLayerCaller<'_, EditSection> {
     /// オブジェクトエイリアスから指定の位置にオブジェクトを作成する。
     ///
     /// # See Also
@@ -1060,21 +1137,10 @@ impl<'a> EditSectionLayerCaller<'a> {
             .create_object(effect, self.index, frame, length)
     }
 
-    /// レイヤーの名前を取得する。
-    pub fn get_name(&self) -> EditSectionResult<Option<String>> {
-        self.edit_section.get_layer_name(self.index)
-    }
-
     /// レイヤーの名前を設定する。
     /// `name`に`None`や空文字を指定すると、標準の名前になります。
     pub fn set_name(&self, name: Option<&str>) -> EditSectionResult<()> {
         self.edit_section.set_layer_name(self.index, name)
-    }
-
-    /// このレイヤーに存在するすべてのオブジェクトを、
-    /// 開始フレームの昇順で走査するイテレータを返す。
-    pub fn objects(&self) -> EditSectionLayerObjectsIterator<'a> {
-        EditSectionLayerObjectsIterator::new(self.edit_section, self.index)
     }
 }
 
@@ -1097,7 +1163,7 @@ impl<'a> EditSectionLayersIterator<'a> {
 }
 
 impl<'a> Iterator for EditSectionLayersIterator<'a> {
-    type Item = EditSectionLayerCaller<'a>;
+    type Item = EditSectionLayerCaller<'a, EditSection>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current > self.total {
@@ -1112,14 +1178,14 @@ impl<'a> Iterator for EditSectionLayersIterator<'a> {
 /// レイヤー内のオブジェクトを走査するイテレータ。
 /// アイテムは `(オブジェクトのレイヤー・フレーム情報, ハンドル)` の組です。
 #[derive(Debug, Clone)]
-pub struct EditSectionLayerObjectsIterator<'a> {
-    edit_section: &'a EditSection,
+pub struct EditSectionLayerObjectsIterator<'a, S> {
+    edit_section: &'a S,
     layer: usize,
     next_frame: usize,
 }
 
-impl<'a> EditSectionLayerObjectsIterator<'a> {
-    fn new(edit_section: &'a EditSection, layer: usize) -> Self {
+impl<'a, S> EditSectionLayerObjectsIterator<'a, S> {
+    fn new(edit_section: &'a S, layer: usize) -> Self {
         Self {
             edit_section,
             layer,
@@ -1128,19 +1194,20 @@ impl<'a> EditSectionLayerObjectsIterator<'a> {
     }
 }
 
-impl<'a> Iterator for EditSectionLayerObjectsIterator<'a> {
+impl<S> Iterator for EditSectionLayerObjectsIterator<'_, S>
+where
+    S: ReadSectionProvider,
+{
     type Item = (ObjectLayerFrame, ObjectHandle);
 
     fn next(&mut self) -> Option<Self::Item> {
+        let read_section = self.edit_section.as_read_section();
         // 検索・取得でエラーが出た場合は None を返して終了する。
-        let Ok(Some(handle)) = self
-            .edit_section
-            .find_object_after(self.layer, self.next_frame)
-        else {
+        let Ok(Some(handle)) = read_section.find_object_after(self.layer, self.next_frame) else {
             return None;
         };
 
-        let lf = match self.edit_section.get_object_layer_frame(handle) {
+        let lf = match read_section.get_object_layer_frame(handle) {
             Ok(lf) => lf,
             Err(_) => return None,
         };
