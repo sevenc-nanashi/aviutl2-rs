@@ -897,6 +897,7 @@ impl<'a, S> EditSectionObjectCaller<'a, S> {
     }
 }
 
+#[expect(private_bounds)]
 impl<S> EditSectionObjectCaller<'_, S>
 where
     S: ReadSectionProvider,
@@ -1062,6 +1063,7 @@ impl<'a, S> EditSectionLayerCaller<'a, S> {
     }
 }
 
+#[expect(private_bounds)]
 impl<S> EditSectionLayerCaller<'_, S>
 where
     S: ReadSectionProvider,
