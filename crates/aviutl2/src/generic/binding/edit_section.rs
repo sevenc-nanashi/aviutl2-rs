@@ -464,7 +464,7 @@ impl EditSection {
     ///
     /// # Safety
     ///
-    /// 有効な `EDIT_SECTION` ポインタである必要があります。
+    /// call_edit_section から取得した、有効な `EDIT_SECTION` ポインタである必要があります。
     pub unsafe fn from_raw(ptr: *mut aviutl2_sys::plugin2::EDIT_SECTION) -> Self {
         let info = unsafe { EditInfo::from_raw((*ptr).info) };
         Self {
