@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.24.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.24.0)
+
 - **Breaking**: 最小サポートをbeta42に引き上げ
 - **Breaking**: EditSectionObjectCaller、EditSectionLayerCallerに型引数を追加
 - filter: ObjectInfo.is_filter_objectを追加
