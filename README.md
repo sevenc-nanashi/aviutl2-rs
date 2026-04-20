@@ -11,17 +11,6 @@ AviUtl2 SDKのRust版です。
 
 現在のmainブランチのドキュメントは <https://main-aviutl2-rs-doc.sevenc7c.workers.dev> にホストされています。
 
-## 開発フロー
-
-`AviUtl2` 向けの開発・配布は [`aviutl2-cli`](https://docs.rs/aviutl2-cli/latest/aviutl2_cli/) を前提にしています。
-
-- 開発環境のセットアップ：`mise exec -c "au2 prepare"`
-- debug成果物の配置：`mise exec -c "au2 develop"`
-- release成果物のプレビュー：`mise exec -c "au2 preview --skip-start"`
-- リリースパッケージの生成：`mise exec -c "au2 release"`
-
-既存の `rake install` / `rake debug_setup` / `rake release` も互換用に残していますが、AviUtl2 固有の作業は `au2` を正規の入口として扱います。
-
 ## 構成
 
 - `./crates/`：ライブラリとして提供するクレート群。
