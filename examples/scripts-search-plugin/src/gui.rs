@@ -528,8 +528,14 @@ impl ScriptsSearchApp {
                     }
                 }
             }
+        } else if effect.effect.effect_type == aviutl2::generic::EffectType::Output {
+            if response.clicked() {
+                Self::handle_output_click(effect);
+            }
         } else {
-            Self::handle_non_filter_click(effect, &response);
+            if response.clicked() {
+                Self::handle_non_filter_click(effect);
+            }
         }
     }
 
@@ -705,22 +711,88 @@ impl ScriptsSearchApp {
             && actions_rect.contains(pos)
     }
 
-    fn handle_non_filter_click(effect: &crate::EffectData, response: &egui::Response) {
-        if response.clicked() {
-            let res = crate::EDIT_HANDLE
-                .call_edit_section(|e| {
-                    let created =
-                        e.create_object(&effect.effect.name, e.info.layer, e.info.frame, None)?;
-                    e.focus_object(created)?;
-                    anyhow::Ok(())
-                })
-                .map_err(anyhow::Error::from);
+    fn handle_non_filter_click(effect: &crate::EffectData) {
+        let res = crate::EDIT_HANDLE
+            .call_edit_section(|e| {
+                let created =
+                    e.create_object(&effect.effect.name, e.info.layer, e.info.frame, None)?;
+                e.focus_object(created)?;
+                anyhow::Ok(())
+            })
+            .map_err(anyhow::Error::from)
+            .flatten();
 
-            if let Err(e) = res {
+        if let Err(e) = res {
+            play_beep();
+            tracing::error!("Failed to add effect: {}", e);
+        } else {
+            tracing::debug!("Effect added: {:?}", res);
+        }
+    }
+
+    fn handle_output_click(effect: &crate::EffectData) {
+        let res = crate::EDIT_HANDLE
+            .call_edit_section(|e| {
+                // メディア出力の設定は選択したオブジェクトを対象にして変更するという挙動にする
+                let Some(target) = e.get_focused_object()? else {
+                    anyhow::bail!("オブジェクトが選択されていません。");
+                };
+                let original_alias = e.object(target).get_alias_parsed()?;
+                let mut alias = original_alias.clone();
+                let Some(output_table) = alias.get_table("Object.1").cloned() else {
+                    anyhow::bail!("選択中のオブジェクトは出力効果を設定できません。");
+                };
+                let maybe_output_effect_name = output_table
+                    .get_value("effect.name")
+                    .map_or("", |v| v.as_str());
+                if !crate::EFFECTS.get().unwrap().effects.iter().any(|eff| {
+                    eff.effect.effect_type == aviutl2::generic::EffectType::Output
+                        && eff.name == maybe_output_effect_name
+                }) {
+                    anyhow::bail!("選択中のオブジェクトは出力効果を設定できません。");
+                }
+
+                let mut new_table = aviutl2::alias::Table::new();
+                new_table.insert_value("effect.name", &effect.name);
+                alias.insert_table("Object.1", new_table);
+                let position = e.object(target).get_layer_frame()?;
+                e.object(target).delete_object()?;
+                let created = e.create_object_from_alias(
+                    &alias.to_string(),
+                    position.layer,
+                    position.start,
+                    0,
+                );
+                match created {
+                    Ok(created) => {
+                        e.focus_object(created)?;
+                        tracing::debug!("Output effect added successfully");
+                    }
+                    Err(err) => {
+                        tracing::warn!("Failed to add output effect, reverting changes: {}", err);
+                        // エラーが発生した場合は元の状態に戻す
+                        let restored = e.create_object_from_alias(
+                            &original_alias.to_string(),
+                            position.layer,
+                            position.start,
+                            0,
+                        )?;
+                        e.focus_object(restored)?;
+                        return Err(anyhow::anyhow!("Failed to add output effect: {}", err));
+                    }
+                }
+                anyhow::Ok(())
+            })
+            .map_err(anyhow::Error::from)
+            .flatten();
+
+        match res {
+            Ok(_) => {
+                tracing::debug!("Output effect added successfully");
+            }
+            Err(e) => {
                 play_beep();
-                tracing::error!("Failed to add effect: {}", e);
-            } else {
-                tracing::debug!("Effect added: {:?}", res);
+                tracing::error!("Failed to add output effect: {}", e);
             }
         }
     }
@@ -848,7 +920,7 @@ impl ScriptsSearchApp {
             let focused_object = edit
                 .get_focused_object()?
                 .ok_or_else(|| anyhow::anyhow!("オブジェクトが選択されていません。"))?;
-            let alias_str = edit.object(&focused_object).get_alias()?;
+            let alias_str = edit.object(focused_object).get_alias()?;
             let mut alias: aviutl2::alias::Table = alias_str
                 .parse()
                 .map_err(|e| anyhow::anyhow!("Failed to parse alias: {}", e))?;
@@ -869,8 +941,8 @@ impl ScriptsSearchApp {
                 table.insert_value("effect.name", &effect.effect.name);
                 table
             });
-            let base_position = edit.object(&focused_object).get_layer_frame()?;
-            edit.object(&focused_object).delete_object()?;
+            let base_position = edit.object(focused_object).get_layer_frame()?;
+            edit.object(focused_object).delete_object()?;
             match edit.create_object_from_alias(
                 &alias.to_string(),
                 base_position.layer,
@@ -905,8 +977,8 @@ impl ScriptsSearchApp {
         crate::EDIT_HANDLE.call_edit_section(|e| {
             let filter =
                 e.create_object("フィルタオブジェクト", e.info.layer, e.info.frame, None)?;
-            let mut filter_alias = e.object(&filter).get_alias_parsed()?;
-            e.object(&filter).delete_object()?;
+            let mut filter_alias = e.object(filter).get_alias_parsed()?;
+            e.object(filter).delete_object()?;
             filter_alias
                 .get_table_mut("Object")
                 .expect("Failed to get Object table")
@@ -983,7 +1055,13 @@ impl ScriptsSearchApp {
                 "シーンチェンジ",
                 include_iconify!("material-symbols:transition-chop"),
             ),
-            _ => ("その他", include_iconify!("mdi:puzzle-outline")),
+            aviutl2::generic::EffectType::Control => (
+                "オブジェクト制御",
+                include_iconify!("material-symbols:stacks"),
+            ),
+            aviutl2::generic::EffectType::Output => {
+                ("出力", include_iconify!("material-symbols:output"))
+            }
         }
     }
 }

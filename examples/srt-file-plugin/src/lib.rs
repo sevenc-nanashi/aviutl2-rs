@@ -43,7 +43,7 @@ impl SrtFilePlugin {
             let Some(obj) = current_object else {
                 anyhow::bail!("オブジェクトが選択されていません。");
             };
-            let obj = edit_section.object(&obj);
+            let obj = edit_section.object(obj);
             if obj.get_effect_item("テキスト", 0, "テキスト").is_err() {
                 anyhow::bail!("選択されたオブジェクトはテキストオブジェクトではありません。");
             }
@@ -77,7 +77,7 @@ impl SrtFilePlugin {
             let last_subtitle_ms = last_subtitle.end_time.to_milliseconds();
             let total_frames = (last_subtitle_ms as f64 / 1000.0 * fps).ceil() as u32;
             let next_object = layer.find_object_after(existing_end_frame + 1)?;
-            let existing_next_frame = if let Some(next_object) = next_object.as_ref() {
+            let existing_next_frame = if let Some(next_object) = next_object {
                 let next_obj = edit_section.object(next_object);
                 let next_layer_frame = next_obj.get_layer_frame()?;
                 next_layer_frame.start
@@ -85,7 +85,7 @@ impl SrtFilePlugin {
                 usize::MAX
             };
             if existing_start_frame + total_frames as usize > existing_next_frame {
-                edit_section.focus_object(*obj.handle)?;
+                edit_section.focus_object(obj.handle)?;
                 anyhow::bail!("字幕を追加すると既存のオブジェクトと重なってしまいます。");
             }
 
@@ -123,7 +123,7 @@ impl SrtFilePlugin {
                     start_frame,
                     end_frame - start_frame + 1,
                 )?;
-                let new_obj = edit_section.object(&new_obj);
+                let new_obj = edit_section.object(new_obj);
                 new_obj.set_effect_item("テキスト", 0, "テキスト", &subtitle.text)?;
                 next_frame = end_frame + 1;
             }
@@ -140,7 +140,7 @@ impl SrtFilePlugin {
             let Some(obj) = focused_object else {
                 anyhow::bail!("オブジェクトが選択されていません。");
             };
-            let layer = edit_section.object(&obj).get_layer_frame()?.layer;
+            let layer = edit_section.object(obj).get_layer_frame()?.layer;
             let layer = edit_section.layer(layer);
             let fps = edit_section.info.fps;
             let fps = *fps.numer() as f64 / *fps.denom() as f64;
@@ -148,7 +148,7 @@ impl SrtFilePlugin {
             let mut subtitles = Vec::new();
             let mut num = 0;
             for (layer_frame, object) in objects {
-                let obj = edit_section.object(&object);
+                let obj = edit_section.object(object);
                 let start_frame = layer_frame.start;
                 let end_frame = layer_frame.end;
                 let start_ms = ((start_frame as f64) / fps * 1000.0).round() as u32;

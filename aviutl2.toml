@@ -9,7 +9,7 @@ release_all = ["ruby ./scripts/build_statistics_page.rb", "cargo build --release
 
 [development]
 aviutl2_version = "latest"
-catalog_dependencies = ["sevenc-nanashi.tinted-aviutl2"]
+catalog_dependencies = ["sevenc-nanashi.tinted-aviutl2", "KuroNeko.CopyAlias"]
 
 [preview]
 aviutl2_version = "latest"

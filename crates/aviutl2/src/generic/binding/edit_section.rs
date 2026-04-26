@@ -451,10 +451,7 @@ impl ReadSection {
     }
 
     /// [EditSectionObjectCaller] を作成する。
-    pub fn object<'a>(
-        &'a self,
-        object: &'a ObjectHandle,
-    ) -> EditSectionObjectCaller<'a, ReadSection> {
+    pub fn object<'a>(&'a self, object: ObjectHandle) -> EditSectionObjectCaller<'a, ReadSection> {
         EditSectionObjectCaller::new(self, object)
     }
 }
@@ -857,10 +854,7 @@ impl EditSection {
         EditSectionLayerCaller::new(self, layer)
     }
     /// [EditSectionObjectCaller] を作成する。
-    pub fn object<'a>(
-        &'a self,
-        object: &'a ObjectHandle,
-    ) -> EditSectionObjectCaller<'a, EditSection> {
+    pub fn object<'a>(&'a self, object: ObjectHandle) -> EditSectionObjectCaller<'a, EditSection> {
         EditSectionObjectCaller::new(self, object)
     }
 }
@@ -886,10 +880,10 @@ impl ReadSectionProvider for EditSection {
 /// 操作を簡潔に呼び出せるようにします。
 pub struct EditSectionObjectCaller<'a, S> {
     edit_section: &'a S,
-    pub handle: &'a ObjectHandle,
+    pub handle: ObjectHandle,
 }
 impl<'a, S> EditSectionObjectCaller<'a, S> {
-    pub fn new(edit_section: &'a S, object: &'a ObjectHandle) -> Self {
+    pub fn new(edit_section: &'a S, object: ObjectHandle) -> Self {
         Self {
             edit_section,
             handle: object,
@@ -908,19 +902,19 @@ where
 
     /// オブジェクトのレイヤーとフレーム情報を取得する。
     pub fn get_layer_frame(&self) -> EditSectionResult<ObjectLayerFrame> {
-        self.read_section().get_object_layer_frame(*self.handle)
+        self.read_section().get_object_layer_frame(self.handle)
     }
 
     /// オブジェクトの情報をエイリアスデータとして取得する。
     pub fn get_alias(&self) -> EditSectionResult<String> {
-        self.read_section().get_object_alias(*self.handle)
+        self.read_section().get_object_alias(self.handle)
     }
 
     /// オブジェクトの情報をエイリアスデータとして取得し、パースする。
     #[cfg(feature = "aviutl2-alias")]
     pub fn get_alias_parsed(&self) -> EditSectionResult<aviutl2_alias::Table> {
         self.read_section()
-            .get_object_alias(*self.handle)?
+            .get_object_alias(self.handle)?
             .parse()
             .map_err(Into::into)
     }
@@ -935,8 +929,7 @@ where
     ///
     /// 対象エフェクトの数。存在しない場合は0を返します。
     pub fn count_effect(&self, effect: &str) -> EditSectionResult<usize> {
-        self.read_section()
-            .count_object_effect(*self.handle, effect)
+        self.read_section().count_object_effect(self.handle, effect)
     }
 
     /// オブジェクトの設定項目の値を文字列で取得する。
@@ -953,7 +946,7 @@ where
         item: &str,
     ) -> EditSectionResult<String> {
         self.read_section()
-            .get_object_effect_item(*self.handle, effect_name, effect_index, item)
+            .get_object_effect_item(self.handle, effect_name, effect_index, item)
     }
 
     /// オブジェクトの設定項目の値を取得し、パースする。
@@ -977,7 +970,7 @@ where
 
     /// このオブジェクトが存在するかどうか調べる。
     pub fn exists(&self) -> bool {
-        self.read_section().object_exists(*self.handle)
+        self.read_section().object_exists(self.handle)
     }
 
     /// オブジェクトの名前を取得する。
@@ -986,7 +979,7 @@ where
     ///
     /// 標準の名前の場合は`None`を返します。
     pub fn get_name(&self) -> EditSectionResult<Option<String>> {
-        self.read_section().get_object_name(*self.handle)
+        self.read_section().get_object_name(self.handle)
     }
 }
 
@@ -1007,7 +1000,7 @@ impl EditSectionObjectCaller<'_, EditSection> {
         value: &str,
     ) -> EditSectionResult<()> {
         self.edit_section.set_object_effect_item(
-            *self.handle,
+            self.handle,
             effect_name,
             effect_index,
             item,
@@ -1023,12 +1016,12 @@ impl EditSectionObjectCaller<'_, EditSection> {
     /// - `new_start_frame`：移動先の開始フレーム番号（0始まり）。
     pub fn move_object(&self, new_layer: usize, new_start_frame: usize) -> EditSectionResult<()> {
         self.edit_section
-            .move_object(*self.handle, new_layer, new_start_frame)
+            .move_object(self.handle, new_layer, new_start_frame)
     }
 
     /// オブジェクトを削除する。
     pub fn delete_object(&self) -> EditSectionResult<()> {
-        self.edit_section.delete_object(*self.handle)
+        self.edit_section.delete_object(self.handle)
     }
 
     /// オブジェクト設定ウィンドウでこのオブジェクトを選択状態にする。
@@ -1037,13 +1030,13 @@ impl EditSectionObjectCaller<'_, EditSection> {
     ///
     /// コールバック処理の終了時に設定されます。
     pub fn focus_object(&self) -> EditSectionResult<()> {
-        self.edit_section.focus_object(*self.handle)
+        self.edit_section.focus_object(self.handle)
     }
 
     /// オブジェクトの名前を設定する。
     /// `name`に`None`や空文字を指定すると、標準の名前になります。
     pub fn set_name(&self, name: Option<&str>) -> EditSectionResult<()> {
-        self.edit_section.set_object_name(*self.handle, name)
+        self.edit_section.set_object_name(self.handle, name)
     }
 }
 
