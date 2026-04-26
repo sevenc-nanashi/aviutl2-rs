@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.25.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.25.0)
+
 - **Breaking**: 最小サポートをbeta43に引き上げ
 - **Breaking**: generic: `Other`を削除し、スキップまたは呼び出し側のエラーとして扱うように
     - **Breaking**: その影響で、`EditHandle::get_edit_state`の戻り値をResultに変更
