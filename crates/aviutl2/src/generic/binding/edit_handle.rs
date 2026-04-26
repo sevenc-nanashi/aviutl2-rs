@@ -25,6 +25,12 @@ unsafe impl Sync for EditHandle {}
 pub enum EditHandleError {
     #[error("api call failed")]
     ApiCallFailed,
+    #[error("effect does not exist")]
+    EffectNotFound,
+    #[error("input utf-16 string contains null byte")]
+    InputCwstrContainsNull(#[from] crate::common::NullByteError),
+    #[error("unknown edit state: {0}")]
+    UnknownEditState(i32),
 }
 
 impl EditHandle {
@@ -189,6 +195,10 @@ impl EditHandle {
     }
 
     /// エフェクトの一覧をコールバック関数で取得する。
+    ///
+    /// # Note
+    ///
+    /// 不明なエフェクト種別があった場合はスキップされます。
     pub fn enumerate_effects<F>(&self, callback: F)
     where
         F: FnMut(Effect),
@@ -210,12 +220,16 @@ impl EditHandle {
             let callback = unsafe { &mut *(param as *mut CallbackParam<F>) };
             let callback = unsafe { callback.as_mut() };
             let name_str = unsafe { crate::common::load_wide_string(name) };
-            let effect = Effect {
-                name: name_str,
-                effect_type: EffectType::from(r#type),
-                flag: EffectFlag::from_bits(flag),
-            };
-            callback(effect);
+            if let Ok(effect_type) = EffectType::try_from(r#type) {
+                let effect = Effect {
+                    name: name_str,
+                    effect_type,
+                    flag: EffectFlag::from_bits(flag),
+                };
+                callback(effect);
+            } else {
+                tracing::warn!("Unknown effect type: {}", r#type);
+            }
         }
 
         let trampoline_static = trampoline::<F>
@@ -246,6 +260,84 @@ impl EditHandle {
         effects
     }
 
+    /// エフェクトの設定項目一覧をコールバック関数で取得する。
+    ///
+    /// # Arguments
+    ///
+    /// - `effect`: 対象のエフェクト名。エイリアスファイルの `effect.name` を指定します。
+    ///
+    /// # Note
+    ///
+    /// 不明な設定項目種別があった場合はスキップされます。
+    pub fn enumerate_effect_items<F>(
+        &self,
+        effect: &str,
+        callback: F,
+    ) -> Result<(), EditHandleError>
+    where
+        F: FnMut(EffectItemInfo),
+    {
+        assert!(
+            self.is_ready(),
+            "enumerate_effect_items cannot be called before register_plugin is done"
+        );
+        type CallbackParam<F> = ChildKillablePointer<F>;
+
+        unsafe extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            name: aviutl2_sys::common::LPCWSTR,
+            r#type: i32,
+        ) where
+            F: FnMut(EffectItemInfo),
+        {
+            let callback = unsafe { &mut *(param as *mut CallbackParam<F>) };
+            let callback = unsafe { callback.as_mut() };
+            let name = unsafe { crate::common::load_wide_string(name) };
+            if let Some(info) = effect_item_info_from_raw(name, r#type) {
+                callback(info);
+            }
+        }
+
+        let effect = crate::common::CWString::new(effect)?;
+        let trampoline_static = trampoline::<F>
+            as unsafe extern "C" fn(*mut std::ffi::c_void, aviutl2_sys::common::LPCWSTR, i32);
+        let callback_guard = KillablePointer::new(callback);
+        let child_param = callback_guard.create_child();
+        let param = Box::new(child_param);
+        let param_ptr = Box::into_raw(param);
+        let success = unsafe {
+            ((*self.internal).enum_effect_item)(
+                effect.as_ptr(),
+                param_ptr as *mut std::ffi::c_void,
+                trampoline_static,
+            )
+        };
+        drop(unsafe { Box::from_raw(param_ptr) });
+
+        if success {
+            Ok(())
+        } else {
+            Err(EditHandleError::EffectNotFound)
+        }
+    }
+
+    /// エフェクトの設定項目一覧を取得する。
+    ///
+    /// # Arguments
+    ///
+    /// - `effect`: 対象のエフェクト名。エイリアスファイルの `effect.name` を指定します。
+    pub fn get_effect_items(&self, effect: &str) -> Result<Vec<EffectItemInfo>, EditHandleError> {
+        assert!(
+            self.is_ready(),
+            "get_effect_items cannot be called before register_plugin is done"
+        );
+        let mut items = Vec::new();
+        self.enumerate_effect_items(effect, |item| {
+            items.push(item);
+        })?;
+        Ok(items)
+    }
+
     /// モジュールの一覧をコールバック関数で取得する。
     pub fn enumerate_modules<F>(&self, callback: F)
     where
@@ -265,12 +357,9 @@ impl EditHandle {
         {
             let callback = unsafe { &mut *(param as *mut CallbackParam<F>) };
             let callback = unsafe { callback.as_mut() };
-            let module_info = ModuleInfo {
-                module_type: ModuleType::from(unsafe { (*module).r#type }),
-                name: unsafe { crate::common::load_wide_string((*module).name) },
-                information: unsafe { crate::common::load_wide_string((*module).information) },
-            };
-            callback(module_info);
+            if let Some(module_info) = module_info_from_raw(module) {
+                callback(module_info);
+            }
         }
         let trampoline_static = trampoline::<F>
             as unsafe extern "C" fn(*mut std::ffi::c_void, *mut aviutl2_sys::plugin2::MODULE_INFO);
@@ -320,13 +409,13 @@ impl EditHandle {
     }
 
     /// 編集状態を取得する。
-    pub fn get_edit_state(&self) -> EditState {
+    pub fn get_edit_state(&self) -> Result<EditState, EditHandleError> {
         assert!(
             self.is_ready(),
             "get_edit_state cannot be called before register_plugin is done"
         );
         let state = unsafe { ((*self.internal).get_edit_state)() };
-        EditState::from(state)
+        EditState::try_from(state).map_err(|_| EditHandleError::UnknownEditState(state))
     }
 }
 
@@ -341,6 +430,15 @@ pub struct Effect {
     pub flag: EffectFlag,
 }
 
+/// エフェクトの設定項目情報。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EffectItemInfo {
+    /// 設定項目名。
+    pub name: String,
+    /// 設定項目種別。
+    pub item_type: EffectItemType,
+}
+
 /// エフェクト種別。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EffectType {
@@ -350,8 +448,47 @@ pub enum EffectType {
     Input,
     /// シーンチェンジ。
     SceneChange,
-    /// その他。
-    Other(i32),
+    /// オブジェクト制御。
+    Control,
+    /// メディア出力。
+    Output,
+}
+
+/// 設定項目種別。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EffectItemType {
+    /// 整数。
+    Integer,
+    /// 数値。
+    Number,
+    /// チェックボックス。
+    Check,
+    /// テキスト。
+    Text,
+    /// 文字列。
+    String,
+    /// ファイル。
+    File,
+    /// 色。
+    Color,
+    /// リスト選択。
+    Select,
+    /// シーン。
+    Scene,
+    /// レイヤー範囲。
+    Range,
+    /// リストと文字の複合。
+    Combo,
+    /// マスク。
+    Mask,
+    /// フォント。
+    Font,
+    /// 図形。
+    Figure,
+    /// データ。
+    Data,
+    /// フォルダ。
+    Folder,
 }
 
 define_bitflag! {
@@ -370,13 +507,17 @@ define_bitflag! {
     }
 }
 
-impl From<i32> for EffectType {
-    fn from(value: i32) -> Self {
+impl TryFrom<i32> for EffectType {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
         match value {
-            1 => EffectType::Filter,
-            2 => EffectType::Input,
-            3 => EffectType::SceneChange,
-            other => EffectType::Other(other),
+            1 => Ok(EffectType::Filter),
+            2 => Ok(EffectType::Input),
+            3 => Ok(EffectType::SceneChange),
+            4 => Ok(EffectType::Control),
+            5 => Ok(EffectType::Output),
+            _ => Err(()),
         }
     }
 }
@@ -386,7 +527,56 @@ impl From<EffectType> for i32 {
             EffectType::Filter => 1,
             EffectType::Input => 2,
             EffectType::SceneChange => 3,
-            EffectType::Other(other) => other,
+            EffectType::Control => 4,
+            EffectType::Output => 5,
+        }
+    }
+}
+
+impl TryFrom<i32> for EffectItemType {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(EffectItemType::Integer),
+            2 => Ok(EffectItemType::Number),
+            3 => Ok(EffectItemType::Check),
+            4 => Ok(EffectItemType::Text),
+            5 => Ok(EffectItemType::String),
+            6 => Ok(EffectItemType::File),
+            7 => Ok(EffectItemType::Color),
+            8 => Ok(EffectItemType::Select),
+            9 => Ok(EffectItemType::Scene),
+            10 => Ok(EffectItemType::Range),
+            11 => Ok(EffectItemType::Combo),
+            12 => Ok(EffectItemType::Mask),
+            13 => Ok(EffectItemType::Font),
+            14 => Ok(EffectItemType::Figure),
+            15 => Ok(EffectItemType::Data),
+            16 => Ok(EffectItemType::Folder),
+            _ => Err(()),
+        }
+    }
+}
+impl From<EffectItemType> for i32 {
+    fn from(value: EffectItemType) -> Self {
+        match value {
+            EffectItemType::Integer => 1,
+            EffectItemType::Number => 2,
+            EffectItemType::Check => 3,
+            EffectItemType::Text => 4,
+            EffectItemType::String => 5,
+            EffectItemType::File => 6,
+            EffectItemType::Color => 7,
+            EffectItemType::Select => 8,
+            EffectItemType::Scene => 9,
+            EffectItemType::Range => 10,
+            EffectItemType::Combo => 11,
+            EffectItemType::Mask => 12,
+            EffectItemType::Font => 13,
+            EffectItemType::Figure => 14,
+            EffectItemType::Data => 15,
+            EffectItemType::Folder => 16,
         }
     }
 }
@@ -423,24 +613,23 @@ pub enum ModuleType {
     PluginFilter,
     /// 汎用プラグイン。
     PluginGeneric,
-
-    /// その他。
-    Other(i32),
 }
 
-impl From<i32> for ModuleType {
-    fn from(value: i32) -> Self {
+impl TryFrom<i32> for ModuleType {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
         match value {
-            1 => ModuleType::ScriptFilter,
-            2 => ModuleType::ScriptObject,
-            3 => ModuleType::ScriptCamera,
-            4 => ModuleType::ScriptTrack,
-            5 => ModuleType::ScriptModule,
-            6 => ModuleType::PluginInput,
-            7 => ModuleType::PluginOutput,
-            8 => ModuleType::PluginFilter,
-            9 => ModuleType::PluginGeneric,
-            other => ModuleType::Other(other),
+            1 => Ok(ModuleType::ScriptFilter),
+            2 => Ok(ModuleType::ScriptObject),
+            3 => Ok(ModuleType::ScriptCamera),
+            4 => Ok(ModuleType::ScriptTrack),
+            5 => Ok(ModuleType::ScriptModule),
+            6 => Ok(ModuleType::PluginInput),
+            7 => Ok(ModuleType::PluginOutput),
+            8 => Ok(ModuleType::PluginFilter),
+            9 => Ok(ModuleType::PluginGeneric),
+            _ => Err(()),
         }
     }
 }
@@ -456,12 +645,12 @@ impl From<ModuleType> for i32 {
             ModuleType::PluginOutput => 7,
             ModuleType::PluginFilter => 8,
             ModuleType::PluginGeneric => 9,
-            ModuleType::Other(other) => other,
         }
     }
 }
 
 /// 編集状態。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EditState {
     /// 編集中
     Edit,
@@ -469,17 +658,17 @@ pub enum EditState {
     Preview,
     /// ファイル出力中
     Save,
-    /// その他
-    Other(i32),
 }
 
-impl From<i32> for EditState {
-    fn from(value: i32) -> Self {
+impl TryFrom<i32> for EditState {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
         match value {
-            0 => EditState::Edit,
-            1 => EditState::Preview,
-            2 => EditState::Save,
-            other => EditState::Other(other),
+            0 => Ok(EditState::Edit),
+            1 => Ok(EditState::Preview),
+            2 => Ok(EditState::Save),
+            _ => Err(()),
         }
     }
 }
@@ -489,7 +678,6 @@ impl From<EditState> for i32 {
             EditState::Edit => 0,
             EditState::Preview => 1,
             EditState::Save => 2,
-            EditState::Other(other) => other,
         }
     }
 }
@@ -539,5 +727,78 @@ impl std::ops::Deref for GlobalEditHandle {
         self.edit_handle
             .get()
             .expect("GlobalEditHandle is not initialized")
+    }
+}
+
+fn effect_item_info_from_raw(name: String, item_type: i32) -> Option<EffectItemInfo> {
+    if let Ok(item_type) = EffectItemType::try_from(item_type) {
+        Some(EffectItemInfo { name, item_type })
+    } else {
+        tracing::warn!("Unknown effect item type: {}", item_type);
+        None
+    }
+}
+
+fn module_info_from_raw(raw: *mut aviutl2_sys::plugin2::MODULE_INFO) -> Option<ModuleInfo> {
+    let module_type = unsafe { (*raw).r#type };
+    if let Ok(module_type) = ModuleType::try_from(module_type) {
+        Some(ModuleInfo {
+            module_type,
+            name: unsafe { crate::common::load_wide_string((*raw).name) },
+            information: unsafe { crate::common::load_wide_string((*raw).information) },
+        })
+    } else {
+        tracing::warn!("Unknown module type: {}", module_type);
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn effect_item_type_try_from_known_values() {
+        assert_eq!(EffectItemType::try_from(1), Ok(EffectItemType::Integer));
+        assert_eq!(EffectItemType::try_from(8), Ok(EffectItemType::Select));
+        assert_eq!(EffectItemType::try_from(16), Ok(EffectItemType::Folder));
+    }
+
+    #[test]
+    fn effect_item_type_try_from_unknown_value_fails() {
+        assert_eq!(EffectItemType::try_from(999), Err(()));
+    }
+
+    #[test]
+    fn effect_item_type_into_i32() {
+        assert_eq!(i32::from(EffectItemType::Integer), 1);
+        assert_eq!(i32::from(EffectItemType::Combo), 11);
+        assert_eq!(i32::from(EffectItemType::Folder), 16);
+    }
+
+    #[test]
+    fn effect_item_info_from_raw_returns_none_for_unknown_type() {
+        assert_eq!(effect_item_info_from_raw("test".to_string(), 999), None);
+    }
+
+    #[test]
+    fn effect_item_info_from_raw_builds_info_for_known_type() {
+        assert_eq!(
+            effect_item_info_from_raw("test".to_string(), 4),
+            Some(EffectItemInfo {
+                name: "test".to_string(),
+                item_type: EffectItemType::Text,
+            })
+        );
+    }
+
+    #[test]
+    fn module_type_try_from_unknown_value_fails() {
+        assert_eq!(ModuleType::try_from(999), Err(()));
+    }
+
+    #[test]
+    fn edit_state_try_from_unknown_value_fails() {
+        assert_eq!(EditState::try_from(999), Err(()));
     }
 }
