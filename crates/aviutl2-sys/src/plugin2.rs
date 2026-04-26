@@ -356,7 +356,7 @@ pub struct EDIT_HANDLE {
     /// プロジェクトデータの編集をする為のコールバック関数(func_proc_edit)を呼び出します
     /// 編集情報を排他制御する為に更新ロック状態のコールバック関数内で編集処理をする形になります
     /// コールバック関数内で編集したオブジェクトは纏めてUndoに登録されます
-    /// コールバック関数はメインスレッドから呼ばれます
+    /// コールバック関数は呼び出し元のスレッドで呼ばれます
     /// func_proc_edit : 編集処理のコールバック関数
     /// 戻り値   : trueなら成功
     ///        編集が出来ない場合(出力中等)に失敗します
@@ -421,6 +421,21 @@ pub struct EDIT_HANDLE {
         param: *mut c_void,
         func_proc_read_section: unsafe extern "C" fn(param: *mut c_void, edit: *mut EDIT_SECTION),
     ) -> bool,
+
+    /// エフェクトの設定項目の一覧をコールバック関数（func_proc_enum_effect_item）で取得します
+    /// effect : 対象のエフェクト名（エイリアスファイルのeffect.nameの値）
+    /// param : 任意のユーザーデータのポインタ
+    /// func_proc_enum_effect_item : エフェクトの設定項目の取得処理のコールバック関数
+    /// 戻り値 : 取得出来た場合はtrue（対象が見つからない場合は失敗します）
+    pub enum_effect_item: unsafe extern "C" fn(
+        effect: LPCWSTR,
+        param: *mut c_void,
+        func_proc_enum_effect_item: unsafe extern "C" fn(
+            param: *mut c_void,
+            name: LPCWSTR,
+            r#type: i32,
+        ),
+    ) -> bool,
 }
 
 impl EDIT_HANDLE {
@@ -430,6 +445,10 @@ impl EDIT_HANDLE {
     pub const EFFECT_TYPE_INPUT: i32 = 2;
     /// エフェクト種別：シーンチェンジ ※今後追加される可能性があります
     pub const EFFECT_TYPE_TRANSITION: i32 = 3;
+    /// エフェクト種別：オブジェクト制御 ※今後追加される可能性があります
+    pub const EFFECT_TYPE_CONTROL: i32 = 4;
+    /// エフェクト種別：メディア出力 ※今後追加される可能性があります
+    pub const EFFECT_TYPE_OUTPUT: i32 = 5;
     /// エフェクトフラグ：画像をサポート ※今後追加される可能性があります
     pub const EFFECT_FLAG_VIDEO: i32 = 1;
     /// エフェクトフラグ：音声をサポート ※今後追加される可能性があります
@@ -442,6 +461,38 @@ impl EDIT_HANDLE {
     pub const EDIT_STATE_PLAY: i32 = 1;
     /// 編集状態：ファイル出力中
     pub const EDIT_STATE_SAVE: i32 = 2;
+    /// 設定項目種別：整数 ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_INTEGER: i32 = 1;
+    /// 設定項目種別：数値 ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_NUMBER: i32 = 2;
+    /// 設定項目種別：チェックボックス ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_CHECK: i32 = 3;
+    /// 設定項目種別：テキスト ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_TEXT: i32 = 4;
+    /// 設定項目種別：文字列 ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_STRING: i32 = 5;
+    /// 設定項目種別：ファイル ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_FILE: i32 = 6;
+    /// 設定項目種別：色 ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_COLOR: i32 = 7;
+    /// 設定項目種別：リスト選択 ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_SELECT: i32 = 8;
+    /// 設定項目種別：シーン ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_SCENE: i32 = 9;
+    /// 設定項目種別：レイヤー範囲 ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_RANGE: i32 = 10;
+    /// 設定項目種別：リストと文字の複合 ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_COMBO: i32 = 11;
+    /// 設定項目種別：マスク ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_MASK: i32 = 12;
+    /// 設定項目種別：フォント ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_FONT: i32 = 13;
+    /// 設定項目種別：図形 ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_FIGURE: i32 = 14;
+    /// 設定項目種別：データ ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_DATA: i32 = 15;
+    /// 設定項目種別：フォルダ ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_FOLDER: i32 = 16;
 }
 
 /// プロジェクトファイル構造体
