@@ -49,7 +49,7 @@ checksum = "sha256:2ab7cb878041529617dcb86f9e8cb59539779ecb5ebe115a9eba2fa836173
 url = "https://github.com/oven-sh/bun/releases/download/bun-v1.3.6/bun-windows-x64-baseline.zip"
 
 [[tools."cargo:aviutl2-cli"]]
-version = "0.8.1"
+version = "0.8.2"
 backend = "cargo:aviutl2-cli"
 
 [[tools."cargo:cargo-about"]]

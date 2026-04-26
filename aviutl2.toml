@@ -4,12 +4,11 @@ name = "AviUtl2-rs Demo Plugins"
 version = "0.24.0"
 
 [build_group]
-debug_all = ["ruby ./scripts/build_statistics_page.rb", "cargo build"]
+debug_all = ["cargo build"]
 release_all = ["ruby ./scripts/build_statistics_page.rb", "cargo build --release"]
 
 [development]
 aviutl2_version = "latest"
-install_dir = "./test_environment"
 catalog_dependencies = ["sevenc-nanashi.tinted-aviutl2"]
 
 [preview]
