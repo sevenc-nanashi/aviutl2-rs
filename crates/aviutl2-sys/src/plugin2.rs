@@ -455,6 +455,8 @@ impl EDIT_HANDLE {
     pub const EFFECT_FLAG_AUDIO: i32 = 2;
     /// エフェクトフラグ：フィルタオブジェクトをサポート ※今後追加される可能性があります
     pub const EFFECT_FLAG_FILTER: i32 = 4;
+    /// エフェクトフラグ：フィルタオブジェクトをサポート ※今後追加される可能性があります
+    pub const EFFECT_FLAG_CAMERA: i32 = 8;
     /// 編集状態：編集中
     pub const EDIT_STATE_EDIT: i32 = 0;
     /// 編集状態：プレビュー再生中

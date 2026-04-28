@@ -504,6 +504,9 @@ define_bitflag! {
 
         /// フィルタオブジェクトをサポートするかどうか。
         as_filter: aviutl2_sys::plugin2::EDIT_HANDLE::EFFECT_FLAG_FILTER,
+
+        /// カメラ効果をサポートするかどうか。
+        camera: aviutl2_sys::plugin2::EDIT_HANDLE::EFFECT_FLAG_CAMERA,
     }
 }
 

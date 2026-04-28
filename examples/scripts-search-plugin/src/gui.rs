@@ -1031,6 +1031,9 @@ impl ScriptsSearchApp {
                 _ => ("入力", include_iconify!("mdi:file")),
             },
             aviutl2::generic::EffectType::Filter => match effect.effect.flag {
+                aviutl2::generic::EffectFlag { camera: true, .. } => {
+                    ("カメラ効果", include_iconify!("material-symbols:videocam-rounded"))
+                }
                 aviutl2::generic::EffectFlag {
                     video: true,
                     audio: true,

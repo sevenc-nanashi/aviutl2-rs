@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: 最小サポートをbeta43bに引き上げ
+- generic: EffectFlag::cameraを追加
 
 ### デモプラグイン
 

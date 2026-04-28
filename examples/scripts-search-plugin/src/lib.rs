@@ -63,10 +63,11 @@ impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
                 return;
             }
         };
-        let Some(effects_table) = config.get_table("Effect") else {
-            tracing::error!("Effect section not found in aviutl2.ini");
-            return;
-        };
+        let empty_table = aviutl2::alias::Table::new();
+        let effects_table = config.get_table("Effect").unwrap_or_else(|| {
+            tracing::warn!("Effect section not found in aviutl2.ini");
+            &empty_table
+        });
         EFFECTS.get_or_init(|| {
             let effects = EDIT_HANDLE.get_effects();
             let mut has_missing_label = false;
