@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.26.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.26.0)
+
 - **Breaking**: 最小サポートをbeta43bに引き上げ
 - generic: EffectFlag::cameraを追加
 
