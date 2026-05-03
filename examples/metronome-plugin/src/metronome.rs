@@ -38,7 +38,7 @@ impl aviutl2::filter::FilterPlugin for MetronomeFilter {
             ),
             flags: aviutl2::bitflag!(aviutl2::filter::FilterPluginFlags {
                 audio: true,
-                as_object: true,
+                input: true,
             }),
             config_items: MetronomeFilterConfig::to_config_items(),
         }

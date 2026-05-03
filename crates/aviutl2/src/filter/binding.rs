@@ -38,14 +38,14 @@ define_bitflag! {
         /// 音声フィルタをサポートするかどうか。
         audio: aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_AUDIO,
 
-        /// カスタムオブジェクトにするかどうか。
+        /// 入力として動作するかどうか。
         /// `true` の場合、カスタムオブジェクトとして動作します。
         /// `false` の場合、フィルタ効果として動作します。
-        as_object: aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_INPUT,
+        input: aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_INPUT,
 
         /// フィルタオブジェクトをサポートするかどうか。
         /// `true` の場合、フィルタオブジェクトとして使えるようになります。
-        as_filter: aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_FILTER,
+        filter: aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_FILTER,
     }
 }
 

@@ -84,7 +84,7 @@ impl FilterPlugin for ChiptuneFilter {
             ),
             flags: aviutl2::bitflag!(aviutl2::filter::FilterPluginFlags {
                 audio: true,
-                as_object: true,
+                input: true,
             }),
             config_items: FilterConfig::to_config_items(),
         }

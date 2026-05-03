@@ -45,7 +45,7 @@ impl FilterPlugin for RandomColorFilter {
             ),
             flags: aviutl2::bitflag!(aviutl2::filter::FilterPluginFlags {
                 video: true,
-                as_object: true,
+                input: true,
             }),
             config_items: FilterConfig::to_config_items(),
         }

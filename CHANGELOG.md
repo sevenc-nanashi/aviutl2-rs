@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: `aviutl2::filter::FilterPluginFlags`の`as_object`を`input`、`as_filter`を`filter`に改名
 
 ### デモプラグイン
 
