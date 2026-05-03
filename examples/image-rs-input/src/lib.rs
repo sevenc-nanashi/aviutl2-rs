@@ -1,5 +1,6 @@
 mod alpha;
 mod codecs;
+mod jpeg_xl;
 use aviutl2::input::{AnyResult, ImageBuffer, ImageReturner, InputPlugin, IntoImage, Rational32};
 use image::{AnimationDecoder, GenericImageView};
 use ordered_float::OrderedFloat;
@@ -10,6 +11,7 @@ struct ImageInputPlugin {}
 
 enum ImageReader {
     Animated(OwnedFrames),
+    Jxl(jpeg_xl::Reader),
     Single(Box<dyn image::ImageDecoder>),
     SingleCached(ImageBuffer),
 }
@@ -80,6 +82,19 @@ impl InputPlugin for ImageInputPlugin {
     }
 
     fn open(&self, file: std::path::PathBuf) -> AnyResult<Self::InputHandle> {
+        if jpeg_xl::is_file(&file)? {
+            let image = jpeg_xl::open(file)?;
+            return Ok(ImageHandle {
+                current_frame: 0,
+                reader: Some(ImageReader::Jxl(image.reader)),
+                format: image.format,
+                frame_timings: image.frame_timings,
+                length_in_seconds: image.length_in_seconds,
+                width: image.width,
+                height: image.height,
+            });
+        }
+
         let decoder = image::ImageReader::open(&file)?.with_guessed_format()?;
         let format = decoder
             .format()
@@ -240,6 +255,15 @@ impl InputPlugin for ImageInputPlugin {
                 aviutl2::utils::rgba_to_bgra_bytes(&mut img);
                 returner.write(&img);
                 handle.reader = Some(ImageReader::Animated(frames));
+            }
+            Some(ImageReader::Jxl(reader)) => {
+                let buffer = jpeg_xl::decode_frame(&reader, frame)?;
+                returner.write(&buffer);
+                if handle.frame_timings.len() == 1 {
+                    handle.reader = Some(ImageReader::SingleCached(buffer));
+                } else {
+                    handle.reader = Some(ImageReader::Jxl(reader));
+                }
             }
             Some(ImageReader::Single(decoder)) => {
                 let img = image::DynamicImage::from_decoder(decoder)?;

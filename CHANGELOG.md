@@ -6,7 +6,7 @@
 
 ### デモプラグイン
 
-（なし）
+- image-rs-input: JPEG XLに対応
 
 ## [0.26.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.26.0)
 
