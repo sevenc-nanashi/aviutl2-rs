@@ -122,6 +122,18 @@ pub struct ObjectLayerFrame {
     pub end: usize,
 }
 
+impl ObjectLayerFrame {
+    /// フレームの範囲をRangeで取得する。
+    pub fn frame_range(&self) -> std::ops::Range<usize> {
+        self.start..(self.end + 1)
+    }
+
+    /// フレームの範囲をRangeInclusiveで取得する。
+    pub fn frame_range_inclusive(&self) -> std::ops::RangeInclusive<usize> {
+        self.start..=self.end
+    }
+}
+
 /// レイヤーとフレーム情報。
 #[derive(Debug, Clone, Copy)]
 pub struct LayerFrameData {
