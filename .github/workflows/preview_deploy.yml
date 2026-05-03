@@ -41,6 +41,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+
       - name: Download artifact
         uses: actions/download-artifact@v5
         with:
@@ -103,6 +106,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
 
       - name: Download artifact
         uses: actions/download-artifact@v5
