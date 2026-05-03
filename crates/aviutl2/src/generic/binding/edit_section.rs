@@ -903,6 +903,14 @@ impl<'a, S> EditSectionObjectCaller<'a, S> {
     }
 }
 
+impl<S> std::ops::Deref for EditSectionObjectCaller<'_, S> {
+    type Target = ObjectHandle;
+
+    fn deref(&self) -> &Self::Target {
+        &self.handle
+    }
+}
+
 #[expect(private_bounds)]
 impl<S> EditSectionObjectCaller<'_, S>
 where
@@ -1156,7 +1164,7 @@ impl EditSectionLayerCaller<'_, EditSection> {
 pub struct EditSectionLayersIterator<'a> {
     edit_section: &'a EditSection,
     current: usize,
-    total: usize,
+    end: usize,
 }
 
 impl<'a> EditSectionLayersIterator<'a> {
@@ -1164,7 +1172,7 @@ impl<'a> EditSectionLayersIterator<'a> {
         Self {
             edit_section,
             current: 0,
-            total: edit_section.info.layer_max,
+            end: edit_section.info.layer_max.saturating_add(1),
         }
     }
 }
@@ -1173,14 +1181,31 @@ impl<'a> Iterator for EditSectionLayersIterator<'a> {
     type Item = EditSectionLayerCaller<'a, EditSection>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current > self.total {
+        if self.current >= self.end {
             return None;
         }
         let layer = self.current;
         self.current += 1;
         Some(EditSectionLayerCaller::new(self.edit_section, layer))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.end.saturating_sub(self.current);
+        (len, Some(len))
+    }
 }
+
+impl<'a> DoubleEndedIterator for EditSectionLayersIterator<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.current >= self.end {
+            return None;
+        }
+        self.end -= 1;
+        Some(EditSectionLayerCaller::new(self.edit_section, self.end))
+    }
+}
+
+impl ExactSizeIterator for EditSectionLayersIterator<'_> {}
 
 /// レイヤー内のオブジェクトを走査するイテレータ。
 /// アイテムは `(オブジェクトのレイヤー・フレーム情報, ハンドル)` の組です。

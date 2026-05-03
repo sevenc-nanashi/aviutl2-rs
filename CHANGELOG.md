@@ -4,6 +4,8 @@
 
 - **Breaking**: `aviutl2::filter::FilterPluginFlags`の`as_object`を`input`、`as_filter`を`filter`に改名
 - generic: `ObjectLayerFrame::frame_range`、`ObjectLayerFrame::frame_range_inclusive`を追加
+- generic: `EditSectionLayersIterator`に`DoubleEndedIterator`を実装
+- generic: `EditSectionObjectCaller`に`Deref<Target=ObjectHandle>`を実装
 
 ### デモプラグイン
 
