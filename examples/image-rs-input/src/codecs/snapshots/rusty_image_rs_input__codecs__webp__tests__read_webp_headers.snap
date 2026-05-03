@@ -1,5 +1,5 @@
 ---
-source: examples/image-rs-input/src/codecs.rs
+source: examples/image-rs-input/src/codecs/webp.rs
 expression: animation_info
 ---
 AnimationInfo {

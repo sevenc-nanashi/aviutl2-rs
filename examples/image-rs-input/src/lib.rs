@@ -1,6 +1,5 @@
 mod alpha;
 mod codecs;
-mod jpeg_xl;
 use aviutl2::input::{AnyResult, ImageBuffer, ImageReturner, InputPlugin, IntoImage, Rational32};
 use image::{AnimationDecoder, GenericImageView};
 use ordered_float::OrderedFloat;
@@ -11,7 +10,7 @@ struct ImageInputPlugin {}
 
 enum ImageReader {
     Animated(OwnedFrames),
-    Jxl(jpeg_xl::Reader),
+    Jxl(codecs::jpeg_xl::Reader),
     Single(Box<dyn image::ImageDecoder>),
     SingleCached(ImageBuffer),
 }
@@ -82,8 +81,8 @@ impl InputPlugin for ImageInputPlugin {
     }
 
     fn open(&self, file: std::path::PathBuf) -> AnyResult<Self::InputHandle> {
-        if jpeg_xl::is_file(&file)? {
-            let image = jpeg_xl::open(file)?;
+        if codecs::jpeg_xl::is_file(&file)? {
+            let image = codecs::jpeg_xl::open(file)?;
             return Ok(ImageHandle {
                 current_frame: 0,
                 reader: Some(ImageReader::Jxl(image.reader)),
@@ -103,9 +102,9 @@ impl InputPlugin for ImageInputPlugin {
             image::ImageFormat::Png | image::ImageFormat::Gif | image::ImageFormat::WebP => {
                 let mut file = std::io::BufReader::new(std::fs::File::open(&file)?);
                 let animation_info = match format {
-                    image::ImageFormat::Png => codecs::read_apng_headers(&mut file)?,
-                    image::ImageFormat::Gif => codecs::read_gif_headers(&mut file)?,
-                    image::ImageFormat::WebP => codecs::read_webp_headers(&mut file)?,
+                    image::ImageFormat::Png => codecs::apng::read_headers(&mut file)?,
+                    image::ImageFormat::Gif => codecs::gif::read_headers(&mut file)?,
+                    image::ImageFormat::WebP => codecs::webp::read_headers(&mut file)?,
                     _ => unreachable!(),
                 };
                 if animation_info.frame_timings.len() > 1 {
@@ -257,7 +256,7 @@ impl InputPlugin for ImageInputPlugin {
                 handle.reader = Some(ImageReader::Animated(frames));
             }
             Some(ImageReader::Jxl(reader)) => {
-                let buffer = jpeg_xl::decode_frame(&reader, frame)?;
+                let buffer = codecs::jpeg_xl::decode_frame(&reader, frame)?;
                 returner.write(&buffer);
                 if handle.frame_timings.len() == 1 {
                     handle.reader = Some(ImageReader::SingleCached(buffer));

@@ -1,5 +1,5 @@
 ---
-source: examples/image-rs-input/src/codecs.rs
+source: examples/image-rs-input/src/codecs/gif.rs
 expression: animation_info
 ---
 AnimationInfo {
@@ -106,6 +106,7 @@ AnimationInfo {
         3.8799975: 97,
         3.9199975: 98,
         3.9599974: 99,
+        3.9999974: 100,
     },
     length_in_seconds: 3.9999974,
 }
