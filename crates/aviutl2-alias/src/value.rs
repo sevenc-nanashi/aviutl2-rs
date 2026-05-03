@@ -215,6 +215,22 @@ const _: () = {
     }
 };
 
+impl FromTableValue for f32 {
+    type Err = std::num::ParseFloatError;
+
+    fn from_table_value(value: &str) -> Result<Self, Self::Err> {
+        value.parse()
+    }
+}
+
+impl FromTableValue for f64 {
+    type Err = std::num::ParseFloatError;
+
+    fn from_table_value(value: &str) -> Result<Self, Self::Err> {
+        value.parse()
+    }
+}
+
 impl FromTableValue for crate::TrackItem {
     type Err = crate::TrackItemParseError;
 
