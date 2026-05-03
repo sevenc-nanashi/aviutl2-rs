@@ -6,6 +6,7 @@
 - generic: `ObjectLayerFrame::frame_range`、`ObjectLayerFrame::frame_range_inclusive`を追加
 - generic: `EditSectionLayersIterator`に`DoubleEndedIterator`を実装
 - generic: `EditSectionObjectCaller`に`Deref<Target=ObjectHandle>`を実装
+- generic: `ReadSection`に`get_object_alias_parsed`を追加
 
 ### デモプラグイン
 

@@ -291,6 +291,17 @@ impl ReadSection {
         Ok(alias)
     }
 
+    /// オブジェクトの情報をエイリアスデータとして取得し、パースする。
+    #[cfg(feature = "aviutl2-alias")]
+    pub fn get_object_alias_parsed(
+        &self,
+        object: ObjectHandle,
+    ) -> Result<aviutl2_alias::Table, EditSectionParsedError<aviutl2_alias::TableParseError>> {
+        let alias_str = self.get_object_alias(object)?;
+        let alias_data = alias_str.parse().map_err(EditSectionParsedError::ParseError)?;
+        Ok(alias_data)
+    }
+
     /// オブジェクト名を取得する。
     pub fn get_object_name(&self, object: ObjectHandle) -> EditSectionResult<Option<String>> {
         self.ensure_object_exists(object)?;
