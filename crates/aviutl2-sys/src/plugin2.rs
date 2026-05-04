@@ -702,4 +702,39 @@ pub struct HOST_APP_TABLE {
         param: *mut c_void,
         func_proc_file_drop: unsafe extern "C" fn(param: *mut c_void, file: LPCWSTR),
     ),
+
+    /// オブジェクト編集の設定項目メニューを登録する (オブジェクト編集の右クリックメニューに追加されます)
+    /// name : 設定項目メニューの名称
+    /// allow_effect_only : エフェクトのみを許可するか? ※trueの場合はitemがnullptrで呼ばれるケースを許可します
+    /// func_proc_item_menu : 設定項目メニュー選択時のコールバック関数
+    /// ※コールバック関数の引数はget_object_item_value()の引数と同じ形式になります
+    pub register_object_item_menu: unsafe extern "C" fn(
+        name: LPCWSTR,
+        allow_effect_only: bool,
+        func_proc_item_menu: unsafe extern "C" fn(
+            edit: *mut EDIT_SECTION,
+            object: OBJECT_HANDLE,
+            effect: LPCWSTR,
+            item: LPCWSTR,
+        ),
+    ),
+
+    /// オブジェクト編集の設定項目メニューを登録する (オブジェクト編集の右クリックメニューに追加されます)
+    /// 引数paramを渡して編集セクションにしないでコールバックを呼び出します
+    /// name : 設定項目メニューの名称
+    /// allow_effect_only : エフェクトのみを許可するか? ※trueの場合はitemがnullptrで呼ばれるケースを許可します
+    /// param : 任意のユーザーデータのポインタ
+    /// func_proc_item_menu : 設定項目メニュー選択時のコールバック関数
+    /// ※コールバック関数の引数はget_object_item_value()の引数と同じ形式になります
+    pub register_object_item_menu_param: unsafe extern "C" fn(
+        name: LPCWSTR,
+        allow_effect_only: bool,
+        param: *mut c_void,
+        func_proc_item_menu: unsafe extern "C" fn(
+            param: *mut c_void,
+            object: OBJECT_HANDLE,
+            effect: LPCWSTR,
+            item: LPCWSTR,
+        ),
+    ),
 }
