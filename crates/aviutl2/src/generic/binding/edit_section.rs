@@ -298,7 +298,9 @@ impl ReadSection {
         object: ObjectHandle,
     ) -> Result<aviutl2_alias::Table, EditSectionParsedError<aviutl2_alias::TableParseError>> {
         let alias_str = self.get_object_alias(object)?;
-        let alias_data = alias_str.parse().map_err(EditSectionParsedError::ParseError)?;
+        let alias_data = alias_str
+            .parse()
+            .map_err(EditSectionParsedError::ParseError)?;
         Ok(alias_data)
     }
 
