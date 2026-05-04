@@ -1,0 +1,49 @@
+---
+source: crates/aviutl2-macros/src/generic_menus.rs
+assertion_line: 519
+expression: format_tokens(output)
+---
+impl MyPlugin {
+    fn object_item_and_effect_menu(
+        object: ::aviutl2::generic::ObjectHandle,
+        effect: &str,
+        index: usize,
+        item: Option<&str>,
+    ) -> Result<(), ()> {
+        let _ = (object, effect, index, item);
+        Ok(())
+    }
+}
+::aviutl2::__internal_module! {
+    impl ::aviutl2::generic::GenericPluginMenus for MyPlugin {
+        fn register_menus(host: &mut ::aviutl2::generic::HostAppHandle) {
+            host.register_object_item_and_effect_menu(
+                "ObjectItemAndEffect",
+                bridge_object_item_and_effect_menu,
+            );
+            return;
+            fn bridge_object_item_and_effect_menu(
+                object_handle: ::aviutl2::generic::ObjectHandle,
+                effect_name: &str,
+                effect_index: usize,
+                item_name: Option<&str>,
+            ) {
+                if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
+                    let ret = <MyPlugin>::object_item_and_effect_menu(
+                        object_handle,
+                        effect_name,
+                        effect_index,
+                        item_name,
+                    );
+                    let _ = ret;
+                }) {
+                    ::aviutl2::tracing::error!(
+                        "Panic occurred during {}: {}",
+                        "object_item_and_effect_menu",
+                        panic_info
+                    );
+                }
+            }
+        }
+    }
+}

@@ -634,6 +634,75 @@ pub fn plugin(
 /// オブジェクトメニューとして登録します。
 /// パラメーター、シグネチャは`import`属性と同様です。
 ///
+/// ### `object_item`
+///
+/// オブジェクト編集の設定項目メニューとして登録します。
+/// 関数は以下のシグネチャのうちいずれかを持つ必要があります：
+///
+/// ```rust
+/// # #[aviutl2::plugin(GenericPlugin)]
+/// # struct MyGenericPlugin;
+/// # impl aviutl2::generic::GenericPlugin for MyGenericPlugin {
+/// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn plugin_info(&self) -> aviutl2::generic::GenericPluginTable {
+/// #         unimplemented!()
+/// #     }
+/// #     fn register(&mut self, _handle: &mut aviutl2::generic::HostAppHandle<'_>) {
+/// #         unimplemented!()
+/// #     }
+/// # }
+/// # type E = aviutl2::anyhow::Error;
+/// # #[aviutl2::generic::menus]
+/// # impl MyGenericPlugin {
+/// #     #[object_item(name = "")]
+/// fn func1(object: aviutl2::generic::ObjectHandle, effect: &str, index: usize, item: &str) -> ()
+/// #     {}
+/// #     #[object_item(name = "")]
+/// fn func2(&self, object: aviutl2::generic::ObjectHandle, effect: &str, index: usize, item: &str) -> Result<(), E>
+/// #     { unimplemented!() }
+/// #     #[object_item(name = "")]
+/// fn func3(&mut self, object: aviutl2::generic::ObjectHandle, effect: &str, index: usize, item: &str) -> Result<(), E>
+/// #     { unimplemented!() }
+/// # }
+/// ```
+///
+/// ### `object_item_and_effect`
+///
+/// オブジェクト編集の設定項目メニューとして登録します。
+/// `object_item`と違い、エフェクトそのものに対してもメニューが表示されます。
+/// 関数は以下のシグネチャのうちいずれかを持つ必要があります：
+///
+/// ```rust
+/// # #[aviutl2::plugin(GenericPlugin)]
+/// # struct MyGenericPlugin;
+/// # impl aviutl2::generic::GenericPlugin for MyGenericPlugin {
+/// #     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #         unimplemented!()
+/// #     }
+/// #     fn plugin_info(&self) -> aviutl2::generic::GenericPluginTable {
+/// #         unimplemented!()
+/// #     }
+/// #     fn register(&mut self, _handle: &mut aviutl2::generic::HostAppHandle<'_>) {
+/// #         unimplemented!()
+/// #     }
+/// # }
+/// # type E = aviutl2::anyhow::Error;
+/// # #[aviutl2::generic::menus]
+/// # impl MyGenericPlugin {
+/// #     #[object_item_and_effect(name = "")]
+/// fn func1(object: aviutl2::generic::ObjectHandle, effect: &str, index: usize, item: Option<&str>) -> ()
+/// #     {}
+/// #     #[object_item_and_effect(name = "")]
+/// fn func2(&self, object: aviutl2::generic::ObjectHandle, effect: &str, index: usize, item: Option<&str>) -> Result<(), E>
+/// #     { unimplemented!() }
+/// #     #[object_item_and_effect(name = "")]
+/// fn func3(&mut self, object: aviutl2::generic::ObjectHandle, effect: &str, index: usize, item: Option<&str>) -> Result<(), E>
+/// #     { unimplemented!() }
+/// # }
+/// ```
+///
 /// ### `edit`
 ///
 /// 編集メニューとして登録します。
@@ -726,6 +795,17 @@ pub fn plugin(
 ///
 ///     #[object(name = "オブジェクトを削除")]
 ///     fn delete_object() -> aviutl2::AnyResult<()> {
+///         // ...
+/// #       Ok(())
+///     }
+///
+///     #[object_item(name = "設定項目を編集")]
+///     fn edit_object_item(
+///         _object: aviutl2::generic::ObjectHandle,
+///         _effect: &str,
+///         _index: usize,
+///         _item: &str,
+///     ) -> aviutl2::AnyResult<()> {
 ///         // ...
 /// #       Ok(())
 ///     }

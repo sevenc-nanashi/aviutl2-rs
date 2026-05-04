@@ -153,6 +153,122 @@ impl<'plugin> HostAppHandle<'plugin> {
         };
     }
 
+    /// オブジェクト編集の設定項目メニューを登録します。
+    /// オブジェクト編集の右クリックメニューに追加されます。
+    /// [Self::register_object_item_and_effect_menu]と違い、これはエフェクトそのものに対してはメニューが表示されず、設定項目に対してのみメニューが表示されるようになります。
+    ///
+    /// # Arguments
+    ///
+    /// - `name`: メニューの名称。
+    /// - `callback`: メニューが選択されたときのコールバック関数。
+    ///
+    /// # Note
+    ///
+    /// `register_object_item_menu`の`allow_effect_only = false`に相当します。
+    pub fn register_object_item_menu<F>(&mut self, name: &str, callback: F)
+    where
+        F: Fn(crate::generic::ObjectHandle, &str, usize, &str) + 'static + Send + Sync,
+    {
+        self.assert_not_killed();
+        let trampoline_param: Box<F> = Box::new(callback);
+        let trampoline_param_ptr = Box::into_raw(trampoline_param);
+        let name_wide = self.global_leak_manager.leak_as_wide_string(name);
+        unsafe {
+            ((*self.internal).register_object_item_menu_param)(
+                name_wide,
+                false,
+                trampoline_param_ptr as *mut std::ffi::c_void,
+                trampoline::<F>,
+            );
+        }
+
+        unsafe extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            object_handle: aviutl2_sys::plugin2::OBJECT_HANDLE,
+            name_and_index: aviutl2_sys::common::LPCWSTR,
+            item_name: aviutl2_sys::common::LPCWSTR,
+        ) where
+            F: Fn(crate::generic::ObjectHandle, &str, usize, &str) + 'static + Send + Sync,
+        {
+            let callback = unsafe { &mut *(param as *mut F) };
+            let object_handle = crate::generic::ObjectHandle::from(object_handle);
+            let name_and_index_str = unsafe { crate::common::load_wide_string(name_and_index) };
+            let (name_str, index) = parse_name_and_index(&name_and_index_str);
+            let item_name_str = unsafe { crate::common::load_wide_string(item_name) };
+            if let Err(panic_info) =
+                crate::utils::catch_unwind_with_panic_info(std::panic::AssertUnwindSafe(|| {
+                    callback(object_handle, name_str, index, &item_name_str);
+                }))
+            {
+                tracing::error!(
+                    "Panic occurred in object item menu callback: {}",
+                    panic_info
+                );
+                let _ = crate::logger::write_error_log(&panic_info);
+            }
+        }
+    }
+
+    /// オブジェクト編集の設定項目メニューを登録します。
+    /// オブジェクト編集の右クリックメニューに追加されます。
+    /// [Self::register_object_item_menu]と違い、これはエフェクトそのものに対してもメニューが表示されるようになります。
+    ///
+    /// # Arguments
+    ///
+    /// - `name`: メニューの名称。
+    /// - `callback`: メニューが選択されたときのコールバック関数。
+    ///
+    /// # Note
+    ///
+    /// `register_object_item_menu`の`allow_effect_only = true`に相当します。
+    pub fn register_object_item_and_effect_menu<F>(&mut self, name: &str, callback: F)
+    where
+        F: Fn(crate::generic::ObjectHandle, &str, usize, Option<&str>) + 'static + Send + Sync,
+    {
+        self.assert_not_killed();
+        let trampoline_param: Box<F> = Box::new(callback);
+        let trampoline_param_ptr = Box::into_raw(trampoline_param);
+        let name_wide = self.global_leak_manager.leak_as_wide_string(name);
+        unsafe {
+            ((*self.internal).register_object_item_menu_param)(
+                name_wide,
+                true,
+                trampoline_param_ptr as *mut std::ffi::c_void,
+                trampoline::<F>,
+            );
+        }
+
+        unsafe extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            object_handle: aviutl2_sys::plugin2::OBJECT_HANDLE,
+            effect_name_and_index: aviutl2_sys::common::LPCWSTR,
+            item_name: aviutl2_sys::common::LPCWSTR,
+        ) where
+            F: Fn(crate::generic::ObjectHandle, &str, usize, Option<&str>) + 'static + Send + Sync,
+        {
+            let callback = unsafe { &mut *(param as *mut F) };
+            let object_handle = crate::generic::ObjectHandle::from(object_handle);
+            let effect_name_and_index =
+                unsafe { crate::common::load_wide_string(effect_name_and_index) };
+            let item_name = (!item_name.is_null())
+                .then(|| unsafe { crate::common::load_wide_string(item_name) });
+
+            let (effect_name_str, index) = parse_name_and_index(&effect_name_and_index);
+            let item_name_option = item_name.as_deref();
+            if let Err(panic_info) =
+                crate::utils::catch_unwind_with_panic_info(std::panic::AssertUnwindSafe(|| {
+                    callback(object_handle, effect_name_str, index, item_name_option);
+                }))
+            {
+                tracing::error!(
+                    "Panic occurred in object item menu with effect callback: {}",
+                    panic_info
+                );
+                let _ = crate::logger::write_error_log(&panic_info);
+            }
+        }
+    }
+
     /// ファイルをドロップしたときの処理を登録します。
     ///
     /// # Arguments
@@ -310,7 +426,21 @@ impl<'plugin> HostAppHandle<'plugin> {
     }
 }
 
+fn parse_name_and_index(name_and_index: &str) -> (&str, usize) {
+    let Some(pos) = name_and_index.rfind(':') else {
+        return (name_and_index, 0);
+    };
+    let index_str = &name_and_index[pos + 1..];
+    if let Ok(index) = index_str.parse::<usize>() {
+        let name = &name_and_index[..pos];
+        (name, index)
+    } else {
+        (name_and_index, 0)
+    }
+}
+
 type MenuTrampolineParam<F> = F;
+
 unsafe extern "C" fn menu_trampoline<F>(param: *mut std::ffi::c_void)
 where
     F: Fn() + 'static + Send + Sync,

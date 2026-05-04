@@ -38,6 +38,10 @@ enum EntryType {
     Export,
     Layer,
     Object,
+    #[strum(serialize = "object_item")]
+    ObjectItem,
+    #[strum(serialize = "object_item_and_effect")]
+    ObjectItemAndEffect,
     Edit,
     Config,
 }
@@ -197,6 +201,12 @@ pub fn generic_menus(
             EntryType::Object => {
                 quote::quote! { host.register_object_menu(#name_str, #wrapper_ident); }
             }
+            EntryType::ObjectItem => {
+                quote::quote! { host.register_object_item_menu(#name_str, #wrapper_ident); }
+            }
+            EntryType::ObjectItemAndEffect => {
+                quote::quote! { host.register_object_item_and_effect_menu(#name_str, #wrapper_ident); }
+            }
             EntryType::Edit => {
                 quote::quote! { host.register_edit_menu(#name_str, #wrapper_ident); }
             }
@@ -226,6 +236,21 @@ pub fn generic_menus(
                         #call_on_error
                     });
                 }
+            } else if e.entry_type == EntryType::ObjectItem
+                || e.entry_type == EntryType::ObjectItemAndEffect
+            {
+                quote::quote! {
+                    <#impl_token as ::aviutl2::generic::GenericPlugin>::#with_fn(|__self| {
+                        let ret = <#impl_token>::#method_ident(
+                            __self,
+                            object_handle,
+                            effect_name,
+                            effect_index,
+                            item_name,
+                        );
+                        #call_on_error
+                    });
+                }
             } else {
                 quote::quote! {
                     <#impl_token as ::aviutl2::generic::GenericPlugin>::#with_fn(|__self| {
@@ -238,6 +263,18 @@ pub fn generic_menus(
             quote::quote! {
                 let mut rwh = unsafe { ::aviutl2::generic::__internal_rwh_from_raw(hwnd, hinstance) };
                 let ret = <#impl_token>::#method_ident(rwh);
+                #call_on_error
+            }
+        } else if e.entry_type == EntryType::ObjectItem
+            || e.entry_type == EntryType::ObjectItemAndEffect
+        {
+            quote::quote! {
+                let ret = <#impl_token>::#method_ident(
+                    object_handle,
+                    effect_name,
+                    effect_index,
+                    item_name,
+                );
                 #call_on_error
             }
         } else {
@@ -263,6 +300,44 @@ pub fn generic_menus(
                         }
                     }
                 }
+            } else if e.entry_type == EntryType::ObjectItem {
+                quote::quote! {
+                    fn #wrapper_ident(
+                        object_handle: ::aviutl2::generic::ObjectHandle,
+                        effect_name: &str,
+                        effect_index: usize,
+                        item_name: &str,
+                    ) {
+                        if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
+                            #wrapper_body
+                        }) {
+                            ::aviutl2::tracing::error!(
+                                "Panic occurred during {}: {}",
+                                #method_name_str,
+                                panic_info
+                            );
+                        }
+                    }
+                }
+            } else if e.entry_type == EntryType::ObjectItemAndEffect {
+                quote::quote! {
+                    fn #wrapper_ident(
+                        object_handle: ::aviutl2::generic::ObjectHandle,
+                        effect_name: &str,
+                        effect_index: usize,
+                        item_name: Option<&str>,
+                    ) {
+                        if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
+                            #wrapper_body
+                        }) {
+                            ::aviutl2::tracing::error!(
+                                "Panic occurred during {}: {}",
+                                #method_name_str,
+                                panic_info
+                            );
+                        }
+                    }
+                }
             } else {
                 quote::quote! {
                     fn #wrapper_ident() {
@@ -281,6 +356,28 @@ pub fn generic_menus(
         } else if e.entry_type == EntryType::Config {
             quote::quote! {
                 extern "C" fn #wrapper_ident(hwnd: ::aviutl2::sys::plugin2::HWND, hinstance: ::aviutl2::sys::plugin2::HINSTANCE) {
+                    #wrapper_body
+                }
+            }
+        } else if e.entry_type == EntryType::ObjectItem {
+            quote::quote! {
+                fn #wrapper_ident(
+                    object_handle: ::aviutl2::generic::ObjectHandle,
+                    effect_name: &str,
+                    effect_index: usize,
+                    item_name: &str,
+                ) {
+                    #wrapper_body
+                }
+            }
+        } else if e.entry_type == EntryType::ObjectItemAndEffect {
+            quote::quote! {
+                fn #wrapper_ident(
+                    object_handle: ::aviutl2::generic::ObjectHandle,
+                    effect_name: &str,
+                    effect_index: usize,
+                    item_name: Option<&str>,
+                ) {
                     #wrapper_body
                 }
             }
@@ -373,6 +470,47 @@ mod tests {
                 #[config(error = "ignore")]
                 fn config_menu(rwh: ::aviutl2::generic::RawWindowHandle) -> Result<(), ()> {
                     let _ = rwh;
+                    Ok(())
+                }
+            }
+        };
+        let output = generic_menus(proc_macro2::TokenStream::new(), input).unwrap();
+        insta::assert_snapshot!(format_tokens(output));
+    }
+
+    #[test]
+    fn test_object_item_with_self_mut_log() {
+        let input = quote::quote! {
+            impl MyPlugin {
+                #[object_item(name = "ObjectItem", error = "log")]
+                fn object_item_menu(
+                    &mut self,
+                    object: ::aviutl2::generic::ObjectHandle,
+                    effect: &str,
+                    index: usize,
+                    item: &str,
+                ) -> Result<(), ()> {
+                    let _ = (object, effect, index, item);
+                    Ok(())
+                }
+            }
+        };
+        let output = generic_menus(proc_macro2::TokenStream::new(), input).unwrap();
+        insta::assert_snapshot!(format_tokens(output));
+    }
+
+    #[test]
+    fn test_object_item_and_effect_no_self_ignore() {
+        let input = quote::quote! {
+            impl MyPlugin {
+                #[object_item_and_effect(name = "ObjectItemAndEffect", error = "ignore")]
+                fn object_item_and_effect_menu(
+                    object: ::aviutl2::generic::ObjectHandle,
+                    effect: &str,
+                    index: usize,
+                    item: Option<&str>,
+                ) -> Result<(), ()> {
+                    let _ = (object, effect, index, item);
                     Ok(())
                 }
             }
