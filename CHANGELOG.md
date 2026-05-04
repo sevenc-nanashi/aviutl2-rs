@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.27.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.27.0)
+
 - **Breaking**: 最小サポートをbeta44に引き上げ
 - **Breaking**: `aviutl2::filter::FilterPluginFlags`の`as_object`を`input`、`as_filter`を`filter`に改名
 - generic: `ObjectLayerFrame::frame_range`、`ObjectLayerFrame::frame_range_inclusive`を追加
