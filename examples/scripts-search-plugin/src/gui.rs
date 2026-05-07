@@ -15,6 +15,7 @@ pub(crate) struct ScriptsSearchApp {
 
     matcher: nucleo_matcher::Matcher,
     needle: String,
+    last_match: Option<(String, Vec<EffectMatchInfo>)>,
 }
 
 fn play_beep() {
@@ -151,6 +152,7 @@ impl ScriptsSearchApp {
             filter_click_behavior_ctrl,
             matcher: nucleo_matcher::Matcher::new(config),
             needle: String::new(),
+            last_match: None,
         }
     }
 }
@@ -328,7 +330,14 @@ impl ScriptsSearchApp {
         });
     }
 
-    fn render_filtered_effects(&mut self, ui: &mut egui::Ui, effects: &[crate::EffectData]) {
+    fn filter_effects(&mut self, effects: &[crate::EffectData]) -> Vec<EffectMatchInfo> {
+        if self
+            .last_match
+            .as_ref()
+            .is_some_and(|(last_needle, _)| last_needle == &self.needle)
+        {
+            return self.last_match.as_ref().unwrap().1.clone();
+        }
         let needle = nucleo_matcher::pattern::Pattern::parse(
             crate::normalize_kana_for_search(self.needle.trim()).as_str(),
             nucleo_matcher::pattern::CaseMatching::Smart,
@@ -364,10 +373,17 @@ impl ScriptsSearchApp {
                 })
             })
             .collect::<Vec<_>>();
+
+        sorted_effects.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        self.last_match = Some((self.needle.clone(), sorted_effects.clone()));
+        sorted_effects
+    }
+
+    fn render_filtered_effects(&mut self, ui: &mut egui::Ui, effects: &[crate::EffectData]) {
+        let sorted_effects = self.filter_effects(effects);
         if sorted_effects.is_empty() {
             ui.label(tr("一致するエフェクトが見つかりませんでした。"));
         } else {
-            sorted_effects.sort_by(|a, b| a.partial_cmp(b).unwrap());
             let visible_effects = sorted_effects.iter().take(100).collect::<Vec<_>>();
             self.render_effect_cards_rows(ui, visible_effects.len(), |ui, row| {
                 let effect = visible_effects[row];
