@@ -309,12 +309,7 @@ impl ScriptsSearchApp {
                     }
                 });
                 ui.add_space(8.0);
-                egui::ScrollArea::vertical()
-                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        self.render_effects_list(ui, &effects.effects);
-                    });
+                self.render_effects_list(ui, &effects.effects);
             }
         });
     }
@@ -328,10 +323,9 @@ impl ScriptsSearchApp {
     }
 
     fn render_all_effects(&self, ui: &mut egui::Ui, effects: &[crate::EffectData]) {
-        for effect in effects.iter() {
-            ui.add_space(4.0);
-            self.render_effect_card(ui, effect, None);
-        }
+        self.render_effect_cards_rows(ui, effects.len(), |ui, row| {
+            self.render_effect_card(ui, &effects[row], None);
+        });
     }
 
     fn render_filtered_effects(&mut self, ui: &mut egui::Ui, effects: &[crate::EffectData]) {
@@ -374,11 +368,32 @@ impl ScriptsSearchApp {
             ui.label(tr("一致するエフェクトが見つかりませんでした。"));
         } else {
             sorted_effects.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            for effect in sorted_effects.iter().take(100) {
-                ui.add_space(4.0);
+            let visible_effects = sorted_effects.iter().take(100).collect::<Vec<_>>();
+            self.render_effect_cards_rows(ui, visible_effects.len(), |ui, row| {
+                let effect = visible_effects[row];
                 self.render_effect_card(ui, &effect.effect, Some(effect));
-            }
+            });
         }
+    }
+
+    fn render_effect_cards_rows(
+        &self,
+        ui: &mut egui::Ui,
+        total_rows: usize,
+        mut render_row: impl FnMut(&mut egui::Ui, usize),
+    ) {
+        ui.scope(|ui| {
+            ui.spacing_mut().item_spacing.y = 4.0;
+            let row_height = Self::effect_card_height(ui);
+            egui::ScrollArea::vertical()
+                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
+                .auto_shrink([false, false])
+                .show_rows(ui, row_height, total_rows, |ui, row_range| {
+                    for row in row_range {
+                        render_row(ui, row);
+                    }
+                });
+        });
     }
 
     fn render_info_window(&mut self, ui: &mut egui::Ui) {
@@ -443,7 +458,7 @@ impl ScriptsSearchApp {
             .inner_margin(egui::Margin::symmetric(8, 4));
         let available_width = ui.available_width();
         let response = ui.allocate_ui_with_layout(
-            egui::vec2(available_width, 0.0),
+            egui::vec2(available_width, Self::effect_card_height(ui)),
             egui::Layout::top_down(egui::Align::Min),
             |ui| {
                 frame
@@ -537,6 +552,13 @@ impl ScriptsSearchApp {
                 Self::handle_non_filter_click(effect);
             }
         }
+    }
+
+    fn effect_card_height(ui: &egui::Ui) -> f32 {
+        let text_height = ui.text_style_height(&egui::TextStyle::Body)
+            + ui.spacing().item_spacing.y
+            + ui.text_style_height(&egui::TextStyle::Small);
+        text_height.max(24.0) + 8.0
     }
 
     fn build_highlighted_label_with_style(
