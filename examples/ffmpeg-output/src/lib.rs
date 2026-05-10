@@ -458,13 +458,18 @@ impl OutputPlugin for FfmpegOutputPlugin {
             .config
             .lock()
             .map_err(|e| anyhow::anyhow!("Failed to lock FFmpeg Output Plugin config: {}", e))?;
-        *config = load_project_config(project).unwrap_or_else(|_| {
-            aviutl2::lprintln!(
-                info,
-                "Failed to load FFmpeg Output Plugin config from project file, using default config"
-            );
-            FfmpegOutputConfig::default()
-        });
+        match load_project_config(project) {
+            Ok(loaded_config) => {
+                *config = loaded_config;
+            }
+            Err(e) => {
+                aviutl2::lprintln!(
+                    info,
+                    "Failed to load FFmpeg output plugin config from project file: {}",
+                    e
+                );
+            }
+        }
         Ok(())
     }
 

@@ -99,7 +99,7 @@ pub fn load_project_config(
     project: &aviutl2::generic::ProjectFile<'_>,
 ) -> anyhow::Result<FfmpegOutputConfig> {
     match project.deserialize::<FfmpegOutputConfigContainer>(PROJECT_CONFIG_KEY) {
-        Ok(container) => container.try_into(),
+        Ok(container) => FfmpegOutputConfig::try_from(container),
         Err(container_error) => project
             .deserialize::<FfmpegOutputConfig>(PROJECT_CONFIG_KEY)
             .with_context(|| {

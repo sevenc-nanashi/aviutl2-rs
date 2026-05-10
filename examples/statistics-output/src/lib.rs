@@ -37,6 +37,7 @@ impl OutputPlugin for StatisticsPlugin {
                 "Raw Statistics Data" => ["json"],
             },
             can_config: false,
+            project_config: false,
         }
     }
 

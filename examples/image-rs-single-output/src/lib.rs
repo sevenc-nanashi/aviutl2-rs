@@ -34,6 +34,7 @@ impl OutputPlugin for ImageRsOutputPlugin {
                 version = env!("CARGO_PKG_VERSION")
             ),
             can_config: false,
+            project_config: false,
         }
     }
 

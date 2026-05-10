@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1.0.102"
-aviutl2.workspace = true
+aviutl2 = { workspace = true, features = ["serde"] }
 chrono = "0.4.44"
 dedent = "0.1.1"
 eframe = { version = "0.34.1", default-features = false, features = ["glow"] }
