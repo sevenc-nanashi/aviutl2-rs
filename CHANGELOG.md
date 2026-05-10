@@ -6,7 +6,7 @@
 
 ### デモプラグイン
 
-（なし）
+- ffmpeg-output: 設定をプロジェクト内に保存するように
 
 ## [0.27.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.27.0)
 
