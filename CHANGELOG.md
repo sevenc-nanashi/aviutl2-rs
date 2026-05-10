@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.28.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.28.0)
+
 - **Breaking**: 最小サポートをbeta45に引き上げ
 
 ### デモプラグイン
