@@ -1,6 +1,6 @@
 #![allow(non_snake_case, non_camel_case_types, non_upper_case_globals)]
 
-use crate::common::LPCWSTR;
+use crate::{common::LPCWSTR, plugin2::PROJECT_FILE};
 use std::ffi::c_void;
 
 pub use windows_sys::Win32::{
@@ -102,6 +102,12 @@ pub struct OUTPUT_PLUGIN_TABLE {
     /// # Returns
     /// 出力設定のテキスト情報(次に関数が呼ばれるまで内容を有効にしておく)
     pub func_get_config_text: Option<extern "C" fn() -> LPCWSTR>,
+    /// プロジェクトファイル側から出力設定の読み込み要求時に呼ばれる関数へのポインタ
+    /// (FLAG_PROJECT_CONFIGが有効の時のみ呼ばれます)
+    pub func_load_project_config: Option<extern "C" fn(project: *mut PROJECT_FILE) -> bool>,
+    /// プロジェクトファイル側への出力設定の書き込み要求時に呼ばれる関数へのポインタ
+    /// (FLAG_PROJECT_CONFIGが有効の時のみ呼ばれます)
+    pub func_save_project_config: Option<extern "C" fn(project: *mut PROJECT_FILE) -> bool>,
 }
 
 impl OUTPUT_PLUGIN_TABLE {
@@ -112,4 +118,7 @@ impl OUTPUT_PLUGIN_TABLE {
     /// 静止画出力のみサポートする (OUTPUT_INFOが1フレーム出力になります)
     /// ※静止画出力では出力完了時の通知やサウンド再生をしません
     pub const FLAG_IMAGE: i32 = 4;
+    /// プロジェクトファイルの設定保持をサポートする
+    /// ※プロジェクトファイル側に出力設定を保持する場合に指定します
+    pub const FLAG_PROJECT_CONFIG: i32 = 8;
 }

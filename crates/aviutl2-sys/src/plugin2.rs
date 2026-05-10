@@ -347,6 +347,35 @@ pub struct EDIT_SECTION {
     /// シーンのサンプリングレートを設定します ※シーンの操作は現状Undoに非対応です
     /// sample_rate : サンプリングレート
     pub set_scene_sample_rate: unsafe extern "C" fn(sample_rate: i32),
+
+    /// レイヤーの表示・非表示状態を取得します
+    /// layer : レイヤー番号
+    /// 戻り値 : レイヤーが表示状態の場合はtrue
+    pub get_layer_enable: unsafe extern "C" fn(layer: i32) -> bool,
+
+    /// レイヤーの表示・非表示状態を設定します (call_read_section利用不可)
+    /// layer : レイヤー番号
+    /// enable : 設定するレイヤーの表示状態
+    pub set_layer_enable: unsafe extern "C" fn(layer: i32, enable: bool),
+
+    /// レイヤーのロック状態を取得します
+    /// layer : レイヤー番号
+    /// 戻り値 : レイヤーがロック状態の場合はtrue
+    pub get_layer_lock: unsafe extern "C" fn(layer: i32) -> bool,
+
+    /// レイヤーのロック状態を設定します (call_read_section利用不可)
+    /// layer : レイヤー番号
+    /// lock : 設定するレイヤーのロック状態
+    pub set_layer_lock: unsafe extern "C" fn(layer: i32, lock: bool),
+
+    /// オブジェクトの区間の数を取得します
+    /// object : オブジェクトのハンドル
+    /// 戻り値 : 区間の数
+    pub get_object_section_num: unsafe extern "C" fn(object: OBJECT_HANDLE) -> i32,
+
+    /// 選択中オブジェクトの区間の位置を取得します
+    /// 戻り値 : 区間の番号 (未選択の場合は-1を返却)
+    pub get_focus_object_section: unsafe extern "C" fn() -> i32,
 }
 
 /// 編集ハンドル構造体
@@ -737,4 +766,10 @@ pub struct HOST_APP_TABLE {
             item: LPCWSTR,
         ),
     ),
+
+    /// スクリプトモジュールをモジュール名を指定して登録する
+    /// script_module_table : スクリプトモジュール構造体
+    /// module_name : モジュール名
+    pub register_script_module_name:
+        unsafe extern "C" fn(script_module_table: *mut SCRIPT_MODULE_TABLE, module_name: LPCWSTR),
 }
