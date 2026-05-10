@@ -601,16 +601,86 @@ impl_plugin_registry!(
     crate::filter::__bridge::FilterSingleton,
     aviutl2_sys::filter2::FILTER_PLUGIN_TABLE
 );
-impl_plugin_registry!(
-    "スクリプトモジュール",
-    "module",
-    module,
-    script_module,
-    register_script_module,
-    crate::module::ScriptModule,
-    crate::module::__bridge::ScriptModuleSingleton,
-    aviutl2_sys::module2::SCRIPT_MODULE_TABLE
-);
+#[cfg(feature = "module")]
+impl<T> SubPlugin<T> {
+    /// スクリプトモジュールの新しいインスタンスを作成します。
+    pub fn new_script_module(info: &AviUtl2Info) -> crate::AnyResult<Self>
+    where
+        T: crate::module::ScriptModule + crate::module::__bridge::ScriptModuleSingleton + 'static,
+    {
+        crate::module::__bridge::initialize_plugin::<T>(info.version.into())?;
+        let internal = std::sync::Arc::new(InternalReferenceHandle {
+            uninitialize_fn: || unsafe {
+                crate::module::__bridge::uninitialize_plugin::<T>();
+            },
+        });
+        Ok(Self {
+            plugin: std::marker::PhantomData,
+            internal,
+        })
+    }
+}
+
+#[cfg(feature = "module")]
+impl<'a> HostAppHandle<'a> {
+    /// スクリプトモジュールを登録します。
+    ///
+    /// # Arguments
+    ///
+    /// - `name`: モジュール名。
+    pub fn register_script_module<
+        T: crate::module::ScriptModule + crate::module::__bridge::ScriptModuleSingleton + 'static,
+    >(
+        &mut self,
+        name: Option<&str>,
+        handle: &SubPlugin<T>,
+    ) {
+        self.assert_not_killed();
+        unsafe {
+            if let Some(name_str) = name {
+                ((*self.internal).register_script_module_name)(
+                    crate::module::__bridge::create_table_unwind::<T>(),
+                    self.global_leak_manager.leak_as_wide_string(name_str),
+                )
+            } else {
+                ((*self.internal).register_script_module)(
+                    crate::module::__bridge::create_table_unwind::<T>(),
+                )
+            }
+        };
+        self.plugin_registry
+            .script_modules
+            .push(std::sync::Arc::clone(&handle.internal));
+    }
+
+    /// unwindなしでスクリプトモジュールを登録します。
+    ///
+    /// # Arguments
+    ///
+    /// - `name`: モジュール名。
+    pub fn register_script_module_nounwind<
+        T: crate::module::ScriptModule + crate::module::__bridge::ScriptModuleSingleton + 'static,
+    >(
+        &mut self,
+        name: Option<&str>,
+        handle: &SubPlugin<T>,
+    ) {
+        self.assert_not_killed();
+        unsafe {
+            if let Some(name_str) = name {
+                ((*self.internal).register_script_module_name)(
+                    crate::module::__bridge::create_table::<T>(),
+                    self.global_leak_manager.leak_as_wide_string(name_str),
+                )
+            } else {
+                ((*self.internal).register_script_module)(crate::module::__bridge::create_table::<T>());
+            }
+        };
+        self.plugin_registry
+            .script_modules
+            .push(std::sync::Arc::clone(&handle.internal));
+    }
+}
 
 #[doc(hidden)]
 pub unsafe fn __internal_rwh_from_raw(

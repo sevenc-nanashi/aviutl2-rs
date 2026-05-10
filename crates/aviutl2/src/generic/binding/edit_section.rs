@@ -449,6 +449,35 @@ impl ReadSection {
         Ok(unsafe { crate::common::load_wide_string(name_ptr) })
     }
 
+    /// レイヤーの表示・非表示を取得する。
+    pub fn get_layer_enable(&self, layer: usize) -> EditSectionResult<bool> {
+        let visible = unsafe { ((*self.internal).get_layer_enable)(layer.try_into()?) };
+        Ok(visible)
+    }
+
+    /// レイヤーのロック状態を取得する。
+    pub fn get_layer_lock(&self, layer: usize) -> EditSectionResult<bool> {
+        let locked = unsafe { ((*self.internal).get_layer_lock)(layer.try_into()?) };
+        Ok(locked)
+    }
+
+    /// オブジェクトの区間の数を取得する。
+    pub fn get_object_section_num(&self, object: ObjectHandle) -> EditSectionResult<usize> {
+        self.ensure_object_exists(object)?;
+        let count = unsafe { ((*self.internal).get_object_section_num)(object.internal) };
+        Ok(count.try_into()?)
+    }
+
+    /// 選択中オブジェクトの区間の位置を取得する。
+    pub fn get_focus_object_section(&self) -> EditSectionResult<Option<usize>> {
+        let section = unsafe { ((*self.internal).get_focus_object_section)() };
+        if section == -1 {
+            Ok(None)
+        } else {
+            Ok(Some(section.try_into()?))
+        }
+    }
+
     /// オブジェクトが存在するかどうか調べる。
     pub fn object_exists(&self, object: ObjectHandle) -> bool {
         let object = unsafe { ((*self.internal).get_object_layer_frame)(object.internal) };
@@ -862,6 +891,22 @@ impl EditSection {
         Ok(())
     }
 
+    /// レイヤーの表示・非表示を設定する。
+    pub fn set_layer_enable(&self, layer: usize, enable: bool) -> EditSectionResult<()> {
+        unsafe {
+            ((*self.internal).set_layer_enable)(layer.try_into()?, enable);
+        }
+        Ok(())
+    }
+
+    /// レイヤーのロック状態を設定する。
+    pub fn set_layer_lock(&self, layer: usize, lock: bool) -> EditSectionResult<()> {
+        unsafe {
+            ((*self.internal).set_layer_lock)(layer.try_into()?, lock);
+        }
+        Ok(())
+    }
+
     /// すべてのレイヤーをイテレータで取得する。
     pub fn layers(&self) -> EditSectionLayersIterator<'_> {
         EditSectionLayersIterator::new(self)
@@ -1014,6 +1059,11 @@ where
     pub fn get_name(&self) -> EditSectionResult<Option<String>> {
         self.read_section().get_object_name(self.handle)
     }
+
+    /// オブジェクトの区間の数を取得する。
+    pub fn get_section_num(&self) -> EditSectionResult<usize> {
+        self.read_section().get_object_section_num(self.handle)
+    }
 }
 
 impl EditSectionObjectCaller<'_, EditSection> {
@@ -1112,6 +1162,16 @@ where
         self.read_section().get_layer_name(self.index)
     }
 
+    /// レイヤーの表示・非表示を取得する。
+    pub fn get_enable(&self) -> EditSectionResult<bool> {
+        self.read_section().get_layer_enable(self.index)
+    }
+
+    /// レイヤーのロック状態を取得する。
+    pub fn get_lock(&self) -> EditSectionResult<bool> {
+        self.read_section().get_layer_lock(self.index)
+    }
+
     /// このレイヤーに存在するすべてのオブジェクトを、
     /// 開始フレームの昇順で走査するイテレータを返す。
     pub fn objects(&self) -> EditSectionLayerObjectsIterator<'_, S> {
@@ -1169,6 +1229,16 @@ impl EditSectionLayerCaller<'_, EditSection> {
     /// `name`に`None`や空文字を指定すると、標準の名前になります。
     pub fn set_name(&self, name: Option<&str>) -> EditSectionResult<()> {
         self.edit_section.set_layer_name(self.index, name)
+    }
+
+    /// レイヤーの表示・非表示を設定する。
+    pub fn set_enable(&self, enable: bool) -> EditSectionResult<()> {
+        self.edit_section.set_layer_enable(self.index, enable)
+    }
+
+    /// レイヤーのロック状態を設定する。
+    pub fn set_lock(&self, lock: bool) -> EditSectionResult<()> {
+        self.edit_section.set_layer_lock(self.index, lock)
     }
 }
 
