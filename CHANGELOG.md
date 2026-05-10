@@ -2,11 +2,11 @@
 
 ## Unreleased
 
-（なし）
+- alias: テーブル名で改行を許可
 
 ### デモプラグイン
 
-（なし）
+- scripts-search-plugin: [エイプリルゴシック](https://booth.pm/ja/items/6764171)によってプラグインが起動できなくなるのを修正
 
 ## [0.28.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.28.0)
 

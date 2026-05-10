@@ -404,15 +404,26 @@ impl std::str::FromStr for Table {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut root = Table::new();
         let mut current_path: Vec<String> = Vec::new();
+        let mut section_line: Option<String> = None;
 
-        for line in s.lines() {
-            if line.trim().is_empty() {
+        for (line, line_ending) in SourceLines::new(s) {
+            if let Some(mut section) = section_line.take() {
+                section.push_str(line);
+                if section.ends_with(']') {
+                    parse_section_line(&section, &mut current_path)?;
+                } else {
+                    section.push_str(line_ending);
+                    section_line = Some(section);
+                }
+            } else if line.trim().is_empty() {
                 continue;
-            } else if line.starts_with('[') && line.ends_with(']') {
-                let section = &line[1..line.len() - 1];
-                current_path.clear();
-                if !section.is_empty() {
-                    current_path.extend(section.split('.').map(|part| part.to_string()));
+            } else if line.starts_with('[') {
+                if line.ends_with(']') {
+                    parse_section_line(line, &mut current_path)?;
+                } else {
+                    let mut section = line.to_string();
+                    section.push_str(line_ending);
+                    section_line = Some(section);
                 }
             } else if let Some((key, value)) = line.split_once('=') {
                 let target = ensure_path(&mut root, &current_path);
@@ -421,8 +432,59 @@ impl std::str::FromStr for Table {
                 return Err(TableParseError::InvalidLine(line.to_string()));
             }
         }
+        if let Some(section) = section_line {
+            return Err(TableParseError::InvalidLine(section));
+        }
 
         Ok(root)
+    }
+}
+
+fn parse_section_line(line: &str, current_path: &mut Vec<String>) -> Result<(), TableParseError> {
+    if !(line.starts_with('[') && line.ends_with(']')) {
+        return Err(TableParseError::InvalidLine(line.to_string()));
+    }
+
+    let section = &line[1..line.len() - 1];
+    current_path.clear();
+    if !section.is_empty() {
+        current_path.extend(section.split('.').map(|part| part.to_string()));
+    }
+    Ok(())
+}
+
+struct SourceLines<'a> {
+    rest: &'a str,
+}
+
+impl<'a> SourceLines<'a> {
+    fn new(s: &'a str) -> Self {
+        Self { rest: s }
+    }
+}
+
+impl<'a> Iterator for SourceLines<'a> {
+    type Item = (&'a str, &'a str);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.rest.is_empty() {
+            return None;
+        }
+
+        if let Some(newline_index) = self.rest.find('\n') {
+            let (line_with_ending, rest) = self.rest.split_at(newline_index + 1);
+            self.rest = rest;
+
+            if let Some(line) = line_with_ending.strip_suffix("\r\n") {
+                Some((line, "\r\n"))
+            } else {
+                Some((&line_with_ending[..line_with_ending.len() - 1], "\n"))
+            }
+        } else {
+            let line = self.rest;
+            self.rest = "";
+            Some((line, ""))
+        }
     }
 }
 
@@ -527,6 +589,23 @@ mod tests {
             effect1.get_value("effect.name"),
             Some(&"標準描画".to_string())
         );
+    }
+
+    #[test]
+    fn test_parse_table_name_with_line_break() {
+        let input = "[parent.child\r\nname]\r\nkey=value\r\n";
+        let table: Table = input.parse().unwrap();
+
+        assert_eq!(
+            table
+                .get_table("parent")
+                .unwrap()
+                .get_table("child\r\nname")
+                .unwrap()
+                .get_value("key"),
+            Some(&"value".to_string())
+        );
+        assert_eq!(table.to_string(), input);
     }
 
     #[test]
