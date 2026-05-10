@@ -181,15 +181,17 @@ duplicate::duplicate! {
 impl FromRawVideoFrame for RgbVideoFrame {
     const FORMAT: u32 = aviutl2_sys::common::BI_RGB;
 
-    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+    fn check(video: &VideoOutputInfo) -> Result<(), String> {
+        let _ = video;
         Ok(())
     }
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _last_frame_id: Arc<AtomicUsize>,
-        _frame_id: usize,
+        last_frame_id: Arc<AtomicUsize>,
+        frame_id: usize,
     ) -> Self {
+        let _ = (last_frame_id, frame_id);
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
         for y in 0..video.height as usize {
@@ -222,9 +224,10 @@ impl FromRawVideoFrame for Yuy2VideoFrame {
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _last_frame_id: Arc<AtomicUsize>,
-        _frame_id: usize,
+        last_frame_id: Arc<AtomicUsize>,
+        frame_id: usize,
     ) -> Self {
+        let _ = (last_frame_id, frame_id);
         let mut frame_buffer = Vec::with_capacity((video.width * video.height / 2) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
         for y in 0..video.height as usize {
@@ -250,15 +253,17 @@ impl FromRawVideoFrame for Yuy2VideoFrame {
 impl FromRawVideoFrame for Hf64VideoFrame {
     const FORMAT: u32 = aviutl2_sys::common::BI_HF64;
 
-    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+    fn check(video: &VideoOutputInfo) -> Result<(), String> {
+        let _ = video;
         Ok(())
     }
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _last_frame_id: Arc<AtomicUsize>,
-        _frame_id: usize,
+        last_frame_id: Arc<AtomicUsize>,
+        frame_id: usize,
     ) -> Self {
+        let _ = (last_frame_id, frame_id);
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
         let frame_data_ptr = frame_data_ptr as *const u16;
@@ -288,15 +293,17 @@ impl FromRawVideoFrame for Hf64VideoFrame {
 impl FromRawVideoFrame for Yc48VideoFrame {
     const FORMAT: u32 = aviutl2_sys::common::BI_YC48;
 
-    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+    fn check(video: &VideoOutputInfo) -> Result<(), String> {
+        let _ = video;
         Ok(())
     }
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _last_frame_id: Arc<AtomicUsize>,
-        _frame_id: usize,
+        last_frame_id: Arc<AtomicUsize>,
+        frame_id: usize,
     ) -> Self {
+        let _ = (last_frame_id, frame_id);
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
         let frame_data_ptr = frame_data_ptr as *const i16;
@@ -324,15 +331,17 @@ impl FromRawVideoFrame for Yc48VideoFrame {
 impl FromRawVideoFrame for Pa64VideoFrame {
     const FORMAT: u32 = aviutl2_sys::common::BI_PA64;
 
-    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+    fn check(video: &VideoOutputInfo) -> Result<(), String> {
+        let _ = video;
         Ok(())
     }
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _last_frame_id: Arc<AtomicUsize>,
-        _frame_id: usize,
+        last_frame_id: Arc<AtomicUsize>,
+        frame_id: usize,
     ) -> Self {
+        let _ = (last_frame_id, frame_id);
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
         let frame_data_ptr = frame_data_ptr as *const u16;
@@ -367,15 +376,17 @@ impl FromRawVideoFrame for Pa64VideoFrame {
 impl FromRawVideoFrame for Name {
     const FORMAT: u32 = FMT;
 
-    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+    fn check(video: &VideoOutputInfo) -> Result<(), String> {
+        let _ = video;
         Ok(())
     }
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _last_frame_id: Arc<AtomicUsize>,
-        _frame_id: usize,
+        last_frame_id: Arc<AtomicUsize>,
+        frame_id: usize,
     ) -> Self {
+        let _ = (last_frame_id, frame_id);
         let frame_buffer = unsafe {
             #[allow(clippy::unnecessary_cast)]
             std::slice::from_raw_parts(
@@ -400,7 +411,8 @@ impl FromRawVideoFrame for Name {
 impl FromRawVideoFrame for Name {
     const FORMAT: u32 = FMT;
 
-    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+    fn check(video: &VideoOutputInfo) -> Result<(), String> {
+        let _ = video;
         Ok(())
     }
     unsafe fn from_raw(
@@ -425,15 +437,17 @@ impl FromRawVideoFrame for Name {
 impl FromRawVideoFrame for image::RgbImage {
     const FORMAT: u32 = aviutl2_sys::common::BI_RGB;
 
-    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+    fn check(video: &VideoOutputInfo) -> Result<(), String> {
+        let _ = video;
         Ok(())
     }
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _last_frame_id: Arc<AtomicUsize>,
-        _frame_id: usize,
+        last_frame_id: Arc<AtomicUsize>,
+        frame_id: usize,
     ) -> Self {
+        let _ = (last_frame_id, frame_id);
         let mut buffer = unsafe {
             std::slice::from_raw_parts(frame_data_ptr, (video.width * video.height * 3) as usize)
                 .to_owned()
@@ -448,15 +462,17 @@ impl FromRawVideoFrame for image::RgbImage {
 impl FromRawVideoFrame for image::ImageBuffer<image::Rgba<u16>, Vec<u16>> {
     const FORMAT: u32 = aviutl2_sys::common::BI_PA64;
 
-    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+    fn check(video: &VideoOutputInfo) -> Result<(), String> {
+        let _ = video;
         Ok(())
     }
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _last_frame_id: Arc<AtomicUsize>,
-        _frame_id: usize,
+        last_frame_id: Arc<AtomicUsize>,
+        frame_id: usize,
     ) -> Self {
+        let _ = (last_frame_id, frame_id);
         let frame_data_ptr = frame_data_ptr as *const u16;
         let buffer = unsafe {
             std::slice::from_raw_parts(frame_data_ptr, (video.width * video.height * 4) as usize)
@@ -470,15 +486,17 @@ impl FromRawVideoFrame for image::ImageBuffer<image::Rgba<u16>, Vec<u16>> {
 impl FromRawVideoFrame for image::Rgba32FImage {
     const FORMAT: u32 = aviutl2_sys::common::BI_HF64;
 
-    fn check(_video: &VideoOutputInfo) -> Result<(), String> {
+    fn check(video: &VideoOutputInfo) -> Result<(), String> {
+        let _ = video;
         Ok(())
     }
     unsafe fn from_raw(
         video: &VideoOutputInfo,
         frame_data_ptr: *const u8,
-        _last_frame_id: Arc<AtomicUsize>,
-        _frame_id: usize,
+        last_frame_id: Arc<AtomicUsize>,
+        frame_id: usize,
     ) -> Self {
+        let _ = (last_frame_id, frame_id);
         let frame_data_ptr = frame_data_ptr as *const f16;
         let buffer = unsafe {
             std::slice::from_raw_parts(frame_data_ptr, (video.width * video.height * 4) as usize)

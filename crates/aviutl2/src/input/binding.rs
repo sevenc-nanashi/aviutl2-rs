@@ -450,9 +450,10 @@ pub trait InputPlugin: Send + Sync + Sized {
     /// これがErrを返した場合、トラックの変更が失敗したものとして扱われます。
     fn can_set_video_track(
         &self,
-        _handle: &mut Self::InputHandle,
+        handle: &mut Self::InputHandle,
         track: u32,
     ) -> crate::common::AnyResult<u32> {
+        let _ = handle;
         Ok(track)
     }
 
@@ -523,14 +524,16 @@ pub trait InputPlugin: Send + Sync + Sized {
     /// これがErrを返した場合、トラックの変更が失敗したものとして扱われます。
     fn can_set_audio_track(
         &self,
-        _handle: &mut Self::InputHandle,
+        handle: &mut Self::InputHandle,
         track: u32,
     ) -> crate::common::AnyResult<u32> {
+        let _ = handle;
         Ok(track)
     }
 
     /// 設定ダイアログを表示する。
-    fn config(&self, _hwnd: crate::common::Win32WindowHandle) -> crate::common::AnyResult<()> {
+    fn config(&self, hwnd: crate::common::Win32WindowHandle) -> crate::common::AnyResult<()> {
+        let _ = hwnd;
         Ok(())
     }
 

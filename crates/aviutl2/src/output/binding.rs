@@ -113,7 +113,8 @@ pub trait OutputPlugin: Send + Sync + Sized {
     /// # Note
     ///
     /// [`crate::output::OutputPluginTable::can_config`] が `true` の場合にのみ呼び出されます。
-    fn config(&self, _hwnd: crate::common::Win32WindowHandle) -> crate::common::AnyResult<()> {
+    fn config(&self, hwnd: crate::common::Win32WindowHandle) -> crate::common::AnyResult<()> {
+        let _ = hwnd;
         Ok(())
     }
 
@@ -130,8 +131,9 @@ pub trait OutputPlugin: Send + Sync + Sized {
     /// [`crate::output::OutputPluginTable::project_config`] が `true` の場合にのみ呼び出されます。
     fn load_project_config(
         &self,
-        _project: &mut crate::generic::ProjectFile,
+        project: &mut crate::generic::ProjectFile,
     ) -> crate::common::AnyResult<()> {
+        let _ = project;
         Ok(())
     }
 
@@ -142,8 +144,9 @@ pub trait OutputPlugin: Send + Sync + Sized {
     /// [`crate::output::OutputPluginTable::project_config`] が `true` の場合にのみ呼び出されます。
     fn save_project_config(
         &self,
-        _project: &mut crate::generic::ProjectFile,
+        project: &mut crate::generic::ProjectFile,
     ) -> crate::common::AnyResult<()> {
+        let _ = project;
         Ok(())
     }
 

@@ -745,16 +745,19 @@ where
 /// # struct MyInputPlugin;
 /// # impl aviutl2::input::InputPlugin for MyInputPlugin {
 /// #     type InputHandle = ();
-/// #     fn new(_info: aviutl2::common::AviUtl2Info) -> aviutl2::common::AnyResult<Self> {
+/// #     fn new(info: aviutl2::common::AviUtl2Info) -> aviutl2::common::AnyResult<Self> {
+/// #         let _ = info;
 /// #         unimplemented!()
 /// #     }
 /// #     fn plugin_info(&self) -> aviutl2::input::InputPluginTable {
 /// #         unimplemented!()
 /// #     }
-/// #     fn open(&self, _path: std::path::PathBuf) -> aviutl2::common::AnyResult<Self::InputHandle> {
+/// #     fn open(&self, path: std::path::PathBuf) -> aviutl2::common::AnyResult<Self::InputHandle> {
+/// #         let _ = path;
 /// #         unimplemented!()
 /// #     }
-/// #     fn close(&self, _handle: Self::InputHandle) -> aviutl2::common::AnyResult<()> {
+/// #     fn close(&self, handle: Self::InputHandle) -> aviutl2::common::AnyResult<()> {
+/// #         let _ = handle;
 /// #         unimplemented!()
 /// #     }
 /// # }

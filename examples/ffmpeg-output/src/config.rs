@@ -1,5 +1,8 @@
-use crate::{DEFAULT_ARGS, get_data_dir};
+use crate::DEFAULT_ARGS;
 use anyhow::Context;
+
+const CONFIG_VERSION: u64 = 3;
+const PROJECT_CONFIG_KEY: &str = "config";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct FfmpegOutputConfigContainer {
@@ -7,16 +10,17 @@ struct FfmpegOutputConfigContainer {
     value: serde_json::Value,
 }
 
-// #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-// pub struct FfmpegOutputConfigV1 {
-//     pub args: Vec<String>,
-// }
-//
-// #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-// pub struct FfmpegOutputConfigV2 {
-//     pub args: Vec<String>,
-//     pub pixel_format: PixelFormat,
-// }
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct FfmpegOutputConfigV1 {
+    pub args: Vec<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct FfmpegOutputConfigV2 {
+    pub args: Vec<String>,
+    pub pixel_format: PixelFormat,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FfmpegOutputConfigV3 {
     pub args: Vec<String>,
@@ -59,41 +63,64 @@ impl PixelFormat {
 }
 
 pub type FfmpegOutputConfig = FfmpegOutputConfigV3;
-const CONFIG_VERSION: u64 = 3;
 
-pub fn config_path() -> anyhow::Result<std::path::PathBuf> {
-    let data_dir = get_data_dir()?;
-    let config_path = data_dir.join("args.json");
-    Ok(config_path)
+impl TryFrom<FfmpegOutputConfigContainer> for FfmpegOutputConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(container: FfmpegOutputConfigContainer) -> Result<Self, Self::Error> {
+        match container.version {
+            1 => {
+                let config: FfmpegOutputConfigV1 = serde_json::from_value(container.value)
+                    .context("Failed to parse FFmpeg output plugin config v1")?;
+                Ok(Self {
+                    args: config.args,
+                    pixel_format: PixelFormat::Bgr24,
+                })
+            }
+            2 => {
+                let config: FfmpegOutputConfigV2 = serde_json::from_value(container.value)
+                    .context("Failed to parse FFmpeg output plugin config v2")?;
+                Ok(Self {
+                    args: config.args,
+                    pixel_format: config.pixel_format,
+                })
+            }
+            3 => serde_json::from_value(container.value)
+                .context("Failed to parse FFmpeg output plugin config v3"),
+            version => Err(anyhow::anyhow!(
+                "Unsupported FFmpeg output plugin config version: {}",
+                version
+            )),
+        }
+    }
 }
 
-pub fn load_config() -> anyhow::Result<FfmpegOutputConfig> {
-    let path = config_path()?;
-    if !path.exists() {
-        return Ok(Default::default());
+pub fn load_project_config(
+    project: &aviutl2::generic::ProjectFile<'_>,
+) -> anyhow::Result<FfmpegOutputConfig> {
+    match project.deserialize::<FfmpegOutputConfigContainer>(PROJECT_CONFIG_KEY) {
+        Ok(container) => container.try_into(),
+        Err(container_error) => project
+            .deserialize::<FfmpegOutputConfig>(PROJECT_CONFIG_KEY)
+            .with_context(|| {
+                format!(
+                    "Failed to load FFmpeg output plugin config from project file: {container_error}"
+                )
+            }),
     }
-    let file =
-        std::fs::File::open(&path).context("Failed to open FFmpeg output plugin config file")?;
-    let mut config: FfmpegOutputConfigContainer = serde_json::from_reader(file)
-        .context("Failed to parse FFmpeg output plugin config file")?;
-    if config.version <= 2 {
-        config.version = 3;
-        config.value = serde_json::to_value(FfmpegOutputConfigV3::default())?;
-    }
-
-    serde_json::from_value(config.value).context("Failed to parse FFmpeg output plugin config")
 }
 
-pub fn save_config(config: &FfmpegOutputConfig) -> anyhow::Result<()> {
-    let path = config_path()?;
+pub fn save_project_config(
+    project: &mut aviutl2::generic::ProjectFile<'_>,
+    config: &FfmpegOutputConfig,
+) -> anyhow::Result<()> {
     let container = FfmpegOutputConfigContainer {
         version: CONFIG_VERSION,
         value: serde_json::to_value(config)
             .context("Failed to serialize FFmpeg output plugin config")?,
     };
-    let file = std::fs::File::create(&path)
-        .context("Failed to create FFmpeg output plugin config file")?;
-    serde_json::to_writer(file, &container)
-        .context("Failed to write FFmpeg output plugin config file")?;
+    project
+        .serialize(PROJECT_CONFIG_KEY, &container)
+        .context("Failed to save FFmpeg output plugin config to project file")?;
     Ok(())
 }

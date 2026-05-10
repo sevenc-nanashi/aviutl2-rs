@@ -169,8 +169,12 @@ fn create_table_impl<T: OutputSingleton>(
         func_output: Some(func_output),
         func_config: plugin_info.can_config.then_some(func_config),
         func_get_config_text: Some(func_get_config_text),
-        func_load_project_config: plugin_info.project_config.then_some(func_load_project_config),
-        func_save_project_config: plugin_info.project_config.then_some(func_save_project_config),
+        func_load_project_config: plugin_info
+            .project_config
+            .then_some(func_load_project_config),
+        func_save_project_config: plugin_info
+            .project_config
+            .then_some(func_save_project_config),
     };
     let table = Box::new(table);
     Box::leak(table)

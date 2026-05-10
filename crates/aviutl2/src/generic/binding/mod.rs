@@ -23,16 +23,24 @@ pub trait GenericPlugin: Send + Sync + Sized {
     /// プロジェクトファイルのロードを処理する。
     ///
     /// プロジェクトの初期化時にも呼ばれます。
-    fn on_project_load(&mut self, _project: &mut crate::generic::ProjectFile) {}
+    fn on_project_load(&mut self, project: &mut crate::generic::ProjectFile) {
+        let _ = project;
+    }
 
     /// プロジェクトファイルをセーブする直前に呼ばれる。
-    fn on_project_save(&mut self, _project: &mut crate::generic::ProjectFile) {}
+    fn on_project_save(&mut self, project: &mut crate::generic::ProjectFile) {
+        let _ = project;
+    }
 
     /// 「キャッシュを破棄」が呼ばれたときに呼ばれる。
-    fn on_clear_cache(&mut self, _edit_section: &crate::generic::EditSection) {}
+    fn on_clear_cache(&mut self, edit_section: &crate::generic::EditSection) {
+        let _ = edit_section;
+    }
 
     /// シーンを変更した直後に呼ばれる。
-    fn on_change_scene(&mut self, _edit_section: &crate::generic::EditSection) {}
+    fn on_change_scene(&mut self, edit_section: &crate::generic::EditSection) {
+        let _ = edit_section;
+    }
 
     /// シングルトンインスタンスを参照するためのヘルパーメソッド。
     ///

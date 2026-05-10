@@ -4,7 +4,7 @@ mod named_pipe;
 mod presets;
 
 use crate::{
-    config::{FfmpegOutputConfig, load_config, save_config},
+    config::{FfmpegOutputConfig, load_project_config, save_project_config},
     dialog::FfmpegOutputConfigDialog,
     named_pipe::{NamedPipe, PipeWriter},
     presets::PRESETS,
@@ -178,15 +178,8 @@ fn download_ffmpeg_if_missing() -> anyhow::Result<std::path::PathBuf> {
 }
 impl OutputPlugin for FfmpegOutputPlugin {
     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
-        let config = match load_config() {
-            Ok(config) => config,
-            Err(e) => {
-                eprintln!("Failed to load FFmpeg output plugin config: {e}");
-                FfmpegOutputConfig::default()
-            }
-        };
         Ok(FfmpegOutputPlugin {
-            config: Mutex::new(config),
+            config: Mutex::new(FfmpegOutputConfig::default()),
         })
     }
 
@@ -204,6 +197,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
                 version = env!("CARGO_PKG_VERSION")
             ),
             can_config: true,
+            project_config: true,
         }
     }
 
@@ -433,14 +427,10 @@ impl OutputPlugin for FfmpegOutputPlugin {
         .map_err(|e| anyhow::anyhow!("Failed to run FFmpeg Output Plugin configuration: {}", e))?;
 
         if let Ok(new_config) = result_receiver.try_recv() {
-            save_config(&new_config).map_err(|e| {
-                anyhow::anyhow!("Failed to save FFmpeg Output Plugin config: {}", e)
-            })?;
             let mut config = self.config.lock().map_err(|e| {
                 anyhow::anyhow!("Failed to lock FFmpeg Output Plugin config: {}", e)
             })?;
-            config.pixel_format = new_config.pixel_format;
-            config.args = new_config.args;
+            *config = new_config;
         }
         Ok(())
     }
@@ -458,6 +448,36 @@ impl OutputPlugin for FfmpegOutputPlugin {
         Ok(format!(
             "引数：{args} | ピクセルフォーマット：{pixel_format}"
         ))
+    }
+
+    fn load_project_config(
+        &self,
+        project: &mut aviutl2::generic::ProjectFile,
+    ) -> aviutl2::common::AnyResult<()> {
+        let mut config = self
+            .config
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock FFmpeg Output Plugin config: {}", e))?;
+        *config = load_project_config(project).unwrap_or_else(|_| {
+            aviutl2::lprintln!(
+                info,
+                "Failed to load FFmpeg Output Plugin config from project file, using default config"
+            );
+            FfmpegOutputConfig::default()
+        });
+        Ok(())
+    }
+
+    fn save_project_config(
+        &self,
+        project: &mut aviutl2::generic::ProjectFile,
+    ) -> aviutl2::common::AnyResult<()> {
+        let config = self
+            .config
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock FFmpeg Output Plugin config: {}", e))?;
+        save_project_config(project, &config)?;
+        Ok(())
     }
 }
 

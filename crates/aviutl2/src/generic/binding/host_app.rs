@@ -673,7 +673,9 @@ impl<'a> HostAppHandle<'a> {
                     self.global_leak_manager.leak_as_wide_string(name_str),
                 )
             } else {
-                ((*self.internal).register_script_module)(crate::module::__bridge::create_table::<T>());
+                ((*self.internal).register_script_module)(
+                    crate::module::__bridge::create_table::<T>(),
+                );
             }
         };
         self.plugin_registry
