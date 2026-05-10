@@ -25,6 +25,9 @@ pub struct OutputPluginTable {
 
     /// 設定ダイアログがあるかどうか。
     pub can_config: bool,
+
+    /// プロジェクトファイルに出力設定を保存するかどうか。
+    pub project_config: bool,
 }
 
 /// 出力の種類を表す列挙型。
@@ -106,6 +109,10 @@ pub trait OutputPlugin: Send + Sync + Sized {
     fn output(&self, info: crate::output::OutputInfo) -> crate::common::AnyResult<()>;
 
     /// 出力設定のダイアログを表示する。
+    ///
+    /// # Note
+    ///
+    /// [`crate::output::OutputPluginTable::can_config`] が `true` の場合にのみ呼び出されます。
     fn config(&self, _hwnd: crate::common::Win32WindowHandle) -> crate::common::AnyResult<()> {
         Ok(())
     }
@@ -114,6 +121,30 @@ pub trait OutputPlugin: Send + Sync + Sized {
     /// 出力ダイアログの下の設定ボタンの隣に表示されます。
     fn config_text(&self) -> crate::common::AnyResult<String> {
         Ok(String::new())
+    }
+
+    /// プロジェクトファイルから出力設定を読み込む。
+    ///
+    /// # Note
+    ///
+    /// [`crate::output::OutputPluginTable::project_config`] が `true` の場合にのみ呼び出されます。
+    fn load_project_config(
+        &self,
+        _project: &mut crate::generic::ProjectFile,
+    ) -> crate::common::AnyResult<()> {
+        Ok(())
+    }
+
+    /// プロジェクトファイルに出力設定を書き込む。
+    ///
+    /// # Note
+    ///
+    /// [`crate::output::OutputPluginTable::project_config`] が `true` の場合にのみ呼び出されます。
+    fn save_project_config(
+        &self,
+        _project: &mut crate::generic::ProjectFile,
+    ) -> crate::common::AnyResult<()> {
+        Ok(())
     }
 
     /// シングルトンインスタンスを参照するためのヘルパーメソッド。

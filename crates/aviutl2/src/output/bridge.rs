@@ -140,10 +140,25 @@ fn create_table_impl<T: OutputSingleton>(
     } else {
         func_get_config_text::<T>
     };
+    let func_load_project_config = if unwind {
+        func_load_project_config_unwind::<T>
+    } else {
+        func_load_project_config::<T>
+    };
+    let func_save_project_config = if unwind {
+        func_save_project_config_unwind::<T>
+    } else {
+        func_save_project_config::<T>
+    };
 
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
     let table = aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE {
-        flag: plugin_info.output_type.to_bits(),
+        flag: plugin_info.output_type.to_bits()
+            | if plugin_info.project_config {
+                aviutl2_sys::output2::OUTPUT_PLUGIN_TABLE::FLAG_PROJECT_CONFIG
+            } else {
+                0
+            },
         name: plugin_state.global_leak_manager.leak_as_wide_string(&name),
         filefilter: plugin_state
             .global_leak_manager
@@ -154,8 +169,8 @@ fn create_table_impl<T: OutputSingleton>(
         func_output: Some(func_output),
         func_config: plugin_info.can_config.then_some(func_config),
         func_get_config_text: Some(func_get_config_text),
-        func_load_project_config: None,
-        func_save_project_config: None,
+        func_load_project_config: plugin_info.project_config.then_some(func_load_project_config),
+        func_save_project_config: plugin_info.project_config.then_some(func_save_project_config),
     };
     let table = Box::new(table);
     Box::leak(table)
@@ -266,6 +281,76 @@ extern "C" fn func_get_config_text_unwind<T: OutputSingleton>() -> *const u16 {
             tracing::error!("Panic occurred during func_get_config_text: {}", panic_info);
             let _ = crate::logger::write_error_log(&panic_info);
             std::ptr::null()
+        }
+    }
+}
+
+extern "C" fn func_load_project_config<T: OutputSingleton>(
+    project: *mut aviutl2_sys::plugin2::PROJECT_FILE,
+) -> bool {
+    let plugin_state = T::__get_singleton_state();
+    let plugin_state = plugin_state.read().unwrap();
+    let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
+    plugin_state.leak_manager.free_leaked_memory();
+    let plugin = &plugin_state.instance;
+    let mut project = unsafe { crate::generic::ProjectFile::from_raw(project) };
+    match plugin.load_project_config(&mut project) {
+        Ok(()) => true,
+        Err(e) => {
+            tracing::error!("Error during func_load_project_config: {}", e);
+            let _ = crate::logger::write_error_log(&format!("{e}"));
+            false
+        }
+    }
+}
+
+extern "C" fn func_save_project_config<T: OutputSingleton>(
+    project: *mut aviutl2_sys::plugin2::PROJECT_FILE,
+) -> bool {
+    let plugin_state = T::__get_singleton_state();
+    let plugin_state = plugin_state.read().unwrap();
+    let plugin_state = plugin_state.as_ref().expect("Plugin not initialized");
+    plugin_state.leak_manager.free_leaked_memory();
+    let plugin = &plugin_state.instance;
+    let mut project = unsafe { crate::generic::ProjectFile::from_raw(project) };
+    match plugin.save_project_config(&mut project) {
+        Ok(()) => true,
+        Err(e) => {
+            tracing::error!("Error during func_save_project_config: {}", e);
+            let _ = crate::logger::write_error_log(&format!("{e}"));
+            false
+        }
+    }
+}
+
+extern "C" fn func_load_project_config_unwind<T: OutputSingleton>(
+    project: *mut aviutl2_sys::plugin2::PROJECT_FILE,
+) -> bool {
+    match crate::utils::catch_unwind_with_panic_info(|| func_load_project_config::<T>(project)) {
+        Ok(result) => result,
+        Err(panic_info) => {
+            tracing::error!(
+                "Panic occurred during func_load_project_config: {}",
+                panic_info
+            );
+            let _ = crate::logger::write_error_log(&panic_info);
+            false
+        }
+    }
+}
+
+extern "C" fn func_save_project_config_unwind<T: OutputSingleton>(
+    project: *mut aviutl2_sys::plugin2::PROJECT_FILE,
+) -> bool {
+    match crate::utils::catch_unwind_with_panic_info(|| func_save_project_config::<T>(project)) {
+        Ok(result) => result,
+        Err(panic_info) => {
+            tracing::error!(
+                "Panic occurred during func_save_project_config: {}",
+                panic_info
+            );
+            let _ = crate::logger::write_error_log(&panic_info);
+            false
         }
     }
 }
