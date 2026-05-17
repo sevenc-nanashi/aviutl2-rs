@@ -14,6 +14,7 @@ impl FilterProcAudio {
             scene: unsafe { SceneInfo::from_raw(raw.scene) },
             object: unsafe { ObjectInfo::from_raw(raw.object) },
             audio_object: unsafe { AudioObjectInfo::from_raw(raw.object) },
+            read: unsafe { crate::generic::ReadSection::from_raw(raw.edit) },
             inner: raw_ptr,
         }
     }
@@ -25,6 +26,8 @@ impl FilterProcVideo {
             scene: unsafe { SceneInfo::from_raw(raw.scene) },
             object: unsafe { ObjectInfo::from_raw(raw.object) },
             video_object: unsafe { VideoObjectInfo::from_raw(raw.object) },
+            param: unsafe { (&*raw.param).into() },
+            read: unsafe { crate::generic::ReadSection::from_raw(raw.edit) },
             inner: raw_ptr,
         }
     }
@@ -47,6 +50,7 @@ impl ObjectInfo {
         ObjectInfo {
             id: raw.id,
             effect_id: raw.effect_id,
+            layer: raw.layer as u32,
             frame: raw.frame as u32,
             frame_total: raw.frame_total as u32,
             time: raw.time,
@@ -62,6 +66,12 @@ impl VideoObjectInfo {
         VideoObjectInfo {
             width: raw.width as u32,
             height: raw.height as u32,
+            index: raw.index as u32,
+            num: if raw.num == 0 {
+                None
+            } else {
+                Some(raw.num as u32)
+            },
         }
     }
 }

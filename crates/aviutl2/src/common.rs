@@ -556,7 +556,7 @@ impl MenuCallbackReturn for () {
 pub(crate) struct CWString(Vec<u16>);
 
 /// ヌルバイトを含む文字列を作成しようとした際のエラー。
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Clone)]
 #[error("String contains null byte")]
 pub struct NullByteError {
     position: usize,
