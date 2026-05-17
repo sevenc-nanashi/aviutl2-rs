@@ -837,29 +837,49 @@ impl<T: Copy> FilterConfigDataHandle<T> {
         Self { inner: pointer }
     }
 
+    #[inline]
+    fn inner_ptr(&self) -> Option<*mut T> {
+        if self.inner.is_null() {
+            None
+        } else {
+            Some(self.inner)
+        }
+    }
+
+    #[inline]
+    fn inner_addr(&self) -> Option<usize> {
+        self.inner_ptr().map(|inner| inner as *mut () as usize)
+    }
+
     /// データを読み取るためのロックを取得する。
     pub fn read<'handle>(&'handle self) -> FilterConfigDataReadGuard<'handle, T> {
-        let addr = self.inner as *mut () as usize;
+        let inner = self.inner_ptr().expect(
+            "FilterConfigDataHandle::read called with a null inner pointer",
+        );
+        let addr = self
+            .inner_addr()
+            .expect("FilterConfigDataHandle::read called with a null inner pointer");
         let lock = HANDLES
             .entry(addr)
             .or_insert_with(|| parking_lot::RawRwLock::INIT);
         let lock = lock.value();
 
         lock.lock_shared();
-        FilterConfigDataReadGuard::new(self.inner)
+        FilterConfigDataReadGuard::new(inner)
     }
 
     /// データを読み取るためのロックの取得を試みる。
     /// ロックが取得できなかった場合は `None` を返します。
     pub fn try_read<'handle>(&'handle self) -> Option<FilterConfigDataReadGuard<'handle, T>> {
-        let addr = self.inner as *mut () as usize;
+        let inner = self.inner_ptr()?;
+        let addr = self.inner_addr()?;
         let lock = HANDLES
             .entry(addr)
             .or_insert_with(|| parking_lot::RawRwLock::INIT);
         let lock = lock.value();
 
         if lock.try_lock_shared() {
-            Some(FilterConfigDataReadGuard::new(self.inner))
+            Some(FilterConfigDataReadGuard::new(inner))
         } else {
             None
         }
