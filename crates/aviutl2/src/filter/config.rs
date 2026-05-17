@@ -853,9 +853,9 @@ impl<T: Copy> FilterConfigDataHandle<T> {
 
     /// データを読み取るためのロックを取得する。
     pub fn read<'handle>(&'handle self) -> FilterConfigDataReadGuard<'handle, T> {
-        let inner = self.inner_ptr().expect(
-            "FilterConfigDataHandle::read called with a null inner pointer",
-        );
+        let inner = self
+            .inner_ptr()
+            .expect("FilterConfigDataHandle::read called with a null inner pointer");
         let addr = self
             .inner_addr()
             .expect("FilterConfigDataHandle::read called with a null inner pointer");

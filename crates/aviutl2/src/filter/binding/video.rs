@@ -751,9 +751,7 @@ impl FilterProcVideo {
         let name_cw = resource.to_cw_string()?;
         unsafe {
             (inner.create_image_resource)(
-                name_cw
-                    .as_ref()
-                    .map_or(std::ptr::null(), |s| s.as_ptr()),
+                name_cw.as_ref().map_or(std::ptr::null(), |s| s.as_ptr()),
                 bytes.as_ptr() as *const aviutl2_sys::filter2::PIXEL_RGBA,
                 width as i32,
                 height as i32,
