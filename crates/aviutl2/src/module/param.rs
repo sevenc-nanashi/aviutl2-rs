@@ -430,11 +430,6 @@ impl ScriptModuleCallHandle {
         &self.read_section
     }
 }
-impl From<*mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM> for ScriptModuleCallHandle {
-    fn from(ptr: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM) -> Self {
-        unsafe { ScriptModuleCallHandle::from_raw(ptr) }
-    }
-}
 
 /// スクリプトモジュールの引数として受け取れる値。
 ///

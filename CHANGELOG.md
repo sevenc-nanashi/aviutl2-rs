@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: 最小サポートをbeta46に引き上げ
+- **Breaking**: `From<*mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM> for ScriptModuleCallHandle`を削除
 
 ### デモプラグイン
 
