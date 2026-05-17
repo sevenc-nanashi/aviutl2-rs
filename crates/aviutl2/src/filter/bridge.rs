@@ -14,7 +14,7 @@ impl FilterProcAudio {
             scene: unsafe { SceneInfo::from_raw(raw.scene) },
             object: unsafe { ObjectInfo::from_raw(raw.object) },
             audio_object: unsafe { AudioObjectInfo::from_raw(raw.object) },
-            read: unsafe { crate::generic::ReadSection::from_raw(raw.edit) },
+            read_section: unsafe { crate::generic::ReadSection::from_raw(raw.edit) },
             param: unsafe { (&*raw.param).into() },
             inner: raw_ptr,
         }

@@ -56,7 +56,7 @@ pub struct FilterProcAudio {
     /// このパラメータは音声出力項目のパラメータからの相対設定になります。
     pub param: ObjectAudioParam,
 
-    pub(crate) read: crate::generic::ReadSection,
+    pub(crate) read_section: crate::generic::ReadSection,
     pub(crate) inner: *const aviutl2_sys::filter2::FILTER_PROC_AUDIO,
 }
 
@@ -126,7 +126,7 @@ impl FilterProcAudio {
 
     /// 読み取り専用の編集セクション。
     pub fn read_section(&mut self) -> &crate::generic::ReadSection {
-        &self.read
+        &self.read_section
     }
 
     /// 指定オブジェクトの音声出力項目のパラメーターを取得する。
