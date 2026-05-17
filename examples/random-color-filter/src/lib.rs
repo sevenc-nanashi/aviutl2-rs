@@ -93,7 +93,7 @@ impl FilterPlugin for RandomColorFilter {
         if let Some(cache) = cache {
             tracing::debug!("Cache hit for key: {}", cache_key);
             video.set_image_data(
-                cache.as_slice(),
+                cache.as_u8_slice(),
                 cache.width() as u32,
                 cache.height() as u32,
             );

@@ -178,6 +178,26 @@ impl CacheImageReadGuard {
     pub fn as_slice(&self) -> &[RgbaPixel] {
         unsafe { std::slice::from_raw_parts(self.raw.buffer as *const RgbaPixel, self.len) }
     }
+
+    /// RGBAピクセル列へのポインタを取得する。
+    pub fn as_ptr(&self) -> *const RgbaPixel {
+        self.raw.buffer as *const RgbaPixel
+    }
+
+    /// `u8`スライスとして取得する。
+    pub fn as_u8_slice(&self) -> &[u8] {
+        unsafe {
+            std::slice::from_raw_parts(
+                self.raw.buffer as *const u8,
+                self.len * std::mem::size_of::<RgbaPixel>(),
+            )
+        }
+    }
+
+    /// `u8`スライスへのポインタを取得する。
+    pub fn as_u8_ptr(&self) -> *const u8 {
+        self.raw.buffer as *const u8
+    }
 }
 
 impl CacheImageWriteGuard {
@@ -204,6 +224,31 @@ impl CacheImageWriteGuard {
     /// RGBAピクセル列への可変ポインタを取得する。
     pub fn as_mut_ptr(&mut self) -> *mut RgbaPixel {
         self.raw.buffer as *mut RgbaPixel
+    }
+
+    /// `u8`スライスとして取得する。
+    pub fn as_u8_slice(&self) -> &[u8] {
+        unsafe {
+            std::slice::from_raw_parts(
+                self.raw.buffer as *const u8,
+                self.len * std::mem::size_of::<RgbaPixel>(),
+            )
+        }
+    }
+
+    /// `u8`スライスとして可変取得する。
+    pub fn as_u8_slice_mut(&mut self) -> &mut [u8] {
+        unsafe {
+            std::slice::from_raw_parts_mut(
+                self.raw.buffer as *mut u8,
+                self.len * std::mem::size_of::<RgbaPixel>(),
+            )
+        }
+    }
+
+    /// RGBAピクセル列への可変ポインタを取得する。
+    pub fn as_mut_u8_ptr(&mut self) -> *mut u8 {
+        self.raw.buffer as *mut u8
     }
 }
 
