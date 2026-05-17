@@ -1,4 +1,4 @@
-use super::{ObjectInfo, SceneInfo};
+use super::{FilterProcError, FilterProcResult, ObjectInfo, SceneInfo};
 
 /// オブジェクトの音声パラメータ構造体。
 #[derive(Debug, Clone, Copy)]
@@ -7,6 +7,22 @@ pub struct ObjectAudioParam {
     pub vol_l: f32,
     /// 右チャンネルの音量倍率。（1.0=等倍）
     pub vol_r: f32,
+}
+impl From<&aviutl2_sys::filter2::OBJECT_AUDIO_PARAM> for ObjectAudioParam {
+    fn from(value: &aviutl2_sys::filter2::OBJECT_AUDIO_PARAM) -> Self {
+        Self {
+            vol_l: value.vol_l,
+            vol_r: value.vol_r,
+        }
+    }
+}
+impl From<aviutl2_sys::filter2::OBJECT_AUDIO_PARAM> for ObjectAudioParam {
+    fn from(value: aviutl2_sys::filter2::OBJECT_AUDIO_PARAM) -> Self {
+        Self {
+            vol_l: value.vol_l,
+            vol_r: value.vol_r,
+        }
+    }
 }
 
 /// 音声フィルタのオブジェクト情報。
@@ -32,6 +48,13 @@ pub struct FilterProcAudio {
     pub object: ObjectInfo,
     /// 音声フィルタ特有のオブジェクト情報。
     pub audio_object: AudioObjectInfo,
+
+    /// オブジェクトの音声パラメータ。
+    ///
+    /// # Note
+    ///
+    /// このパラメータは音声出力項目のパラメータからの相対設定になります。
+    pub param: ObjectAudioParam,
 
     pub(crate) read: crate::generic::ReadSection,
     pub(crate) inner: *const aviutl2_sys::filter2::FILTER_PROC_AUDIO,
@@ -104,5 +127,51 @@ impl FilterProcAudio {
     /// 読み取り専用の編集セクション。
     pub fn read_section(&mut self) -> &crate::generic::ReadSection {
         &self.read
+    }
+
+    /// 指定オブジェクトの音声出力項目のパラメーターを取得する。
+    pub fn get_output_audio_param(
+        &self,
+        object: crate::generic::ObjectHandle,
+        offset: f64,
+    ) -> FilterProcResult<ObjectAudioParam> {
+        let inner = unsafe { &*self.inner };
+        let mut param = aviutl2_sys::filter2::OBJECT_AUDIO_PARAM {
+            vol_l: 0.0,
+            vol_r: 0.0,
+        };
+        let ok = unsafe {
+            (inner.get_output_audio_param)(
+                object.internal,
+                offset,
+                &mut param,
+                std::mem::size_of::<aviutl2_sys::filter2::OBJECT_AUDIO_PARAM>() as i32,
+            )
+        };
+        if ok {
+            Ok(param.into())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
+    /// 指定のレイヤー位置にある音声オブジェクトを取得する。
+    pub fn get_audio_object(
+        &self,
+        layer: u32,
+        offset: f64,
+    ) -> Option<crate::generic::ObjectHandle> {
+        let handle = unsafe { ((*self.inner).get_audio_object)(layer as _, offset) };
+        if handle.is_null() {
+            None
+        } else {
+            Some(crate::generic::ObjectHandle { internal: handle })
+        }
+    }
+
+    pub(crate) fn apply_param(&mut self) {
+        let inner = unsafe { &mut *(*self.inner).param };
+        inner.vol_l = self.param.vol_l;
+        inner.vol_r = self.param.vol_r;
     }
 }

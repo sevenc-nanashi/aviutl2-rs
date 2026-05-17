@@ -100,7 +100,8 @@ pub struct FilterProcVideo {
     pub video_object: VideoObjectInfo,
 
     /// オブジェクトの画像パラメータ。
-    /// [`crate::filter::FilterPlugin::proc_video`] の終了時に反映されます。
+    /// [`crate::filter::FilterPlugin::proc_video`] の終了時や [`Self::draw_image`]
+    /// などの呼び出し前に反映されます。
     pub param: ObjectImageParam,
 
     pub(crate) prevent_post_effect: bool,

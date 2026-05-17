@@ -15,6 +15,7 @@ impl FilterProcAudio {
             object: unsafe { ObjectInfo::from_raw(raw.object) },
             audio_object: unsafe { AudioObjectInfo::from_raw(raw.object) },
             read: unsafe { crate::generic::ReadSection::from_raw(raw.edit) },
+            param: unsafe { (&*raw.param).into() },
             inner: raw_ptr,
         }
     }
@@ -334,7 +335,9 @@ fn proc_audio_impl<T: FilterSingleton>(
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let mut audio = unsafe { FilterProcAudio::from_raw(audio) };
-    plugin.proc_audio(&plugin_state.config_items, &mut audio)
+    plugin.proc_audio(&plugin_state.config_items, &mut audio)?;
+    audio.apply_param();
+    Ok(())
 }
 
 extern "C" fn func_proc_video<T: FilterSingleton>(
