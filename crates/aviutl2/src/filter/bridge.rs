@@ -28,6 +28,7 @@ impl FilterProcVideo {
             video_object: unsafe { VideoObjectInfo::from_raw(raw.object) },
             param: unsafe { (&*raw.param).into() },
             read: unsafe { crate::generic::ReadSection::from_raw(raw.edit) },
+            prevent_post_effect: false,
             inner: raw_ptr,
         }
     }
@@ -308,7 +309,7 @@ pub unsafe fn create_table_unwind<T: FilterSingleton>()
 
 fn proc_video_impl<T: FilterSingleton>(
     video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
-) -> AnyResult<()> {
+) -> AnyResult<bool> {
     let plugin_lock = T::__get_singleton_state();
     anyhow::ensure!(!plugin_lock.is_poisoned(), "Plugin state lock is poisoned");
     update_configs::<T>(plugin_lock);
@@ -318,7 +319,9 @@ fn proc_video_impl<T: FilterSingleton>(
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let mut video = unsafe { FilterProcVideo::from_raw(video) };
-    plugin.proc_video(&plugin_state.config_items, &mut video)
+    plugin.proc_video(&plugin_state.config_items, &mut video)?;
+    video.apply_param();
+    Ok(video.prevent_post_effect)
 }
 
 fn proc_audio_impl<T: FilterSingleton>(
@@ -338,7 +341,7 @@ extern "C" fn func_proc_video<T: FilterSingleton>(
     video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
 ) -> bool {
     match proc_video_impl::<T>(video) {
-        Ok(()) => true,
+        Ok(prevent_post_effect) => !prevent_post_effect,
         Err(e) => {
             tracing::error!("Error in proc_video: {}", e);
             false
@@ -349,7 +352,7 @@ extern "C" fn func_proc_video_unwind<T: FilterSingleton>(
     video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
 ) -> bool {
     match catch_unwind_with_panic_info(|| proc_video_impl::<T>(video)) {
-        Ok(Ok(())) => true,
+        Ok(Ok(prevent_post_effect)) => !prevent_post_effect,
         Ok(Err(e)) => {
             tracing::error!("Error in proc_video: {}", e);
             false

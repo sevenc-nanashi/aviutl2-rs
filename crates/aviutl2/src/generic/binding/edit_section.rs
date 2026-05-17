@@ -33,6 +33,7 @@ unsafe impl Sync for ObjectHandle {}
 ///
 /// UI表示と異なり、フレーム番号・レイヤー番号は0始まりです。
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct EditInfo {
     /// シーンの幅。
     pub width: usize,

@@ -259,50 +259,80 @@ pub struct VERTEX_TEXTURE_NORM {
 /// 頂点リストの種別
 #[repr(i32)]
 pub enum VERTEX_TYPE {
+    /// 三角形の `VERTEX_COLOR` のリスト（頂点数は3の倍数になる）
     TRIANGLE_COLOR = 1,
+    /// 三角形の `VERTEX_COLOR_NORM` のリスト（頂点数は3の倍数になる）
     TRIANGLE_COLOR_NORM = 2,
+    /// 三角形の `VERTEX_TEXTURE` のリスト（頂点数は3の倍数になる）
     TRIANGLE_TEXTURE = 3,
+    /// 三角形の `VERTEX_TEXTURE_NORM` のリスト（頂点数は3の倍数になる）
     TRIANGLE_TEXTURE_NORM = 4,
+    /// 四角形の `VERTEX_COLOR` のリスト（頂点数は4の倍数になる）
     QUAD_COLOR = 5,
+    /// 四角形の `VERTEX_COLOR_NORM` のリスト（頂点数は4の倍数になる）
     QUAD_COLOR_NORM = 6,
+    /// 四角形の `VERTEX_TEXTURE` のリスト（頂点数は4の倍数になる）
     QUAD_TEXTURE = 7,
+    /// 四角形の `VERTEX_TEXTURE_NORM` のリスト（頂点数は4の倍数になる）
     QUAD_TEXTURE_NORM = 8,
 }
 
 /// サンプラーの種別
 #[repr(i32)]
 pub enum SAMPLER_MODE {
+    /// 領域外は透明色
     CLIP = 0,
+    /// 領域外は一番外側の色
     CLAMP = 1,
+    /// 領域外はループ
     LOOP = 2,
+    /// 領域外は領域を反転しながらループ
     MIRROR = 3,
+    /// 拡大縮小補間をしない（領域外は透明色）
     DOT = 4,
 }
 
 /// 合成モードの種別
 #[repr(i32)]
 pub enum BLEND_MODE {
+    /// 通常
     NONE = 0,
+    /// 加算
     ADD = 1,
+    /// 減算
     SUB = 2,
+    /// 乗算
     MUL = 3,
+    /// スクリーン
     SCREEN = 4,
+    /// オーバーレイ
     OVERLAY = 5,
+    /// 比較（明）
     LIGHT = 6,
+    /// 比較（暗）
     DARK = 7,
+    /// 輝度
     BRIGHTNESS = 8,
+    /// 色差
     CHROMA = 9,
+    /// 陰影
     SHADOW = 10,
+    /// 明暗
     LIGHT_DARK = 11,
+    /// 差分
     DIFF = 12,
 }
 
 /// ビルボードの種別
 #[repr(i32)]
 pub enum BILLBOARD_MODE {
+    /// 標準の向き（何もしない）
     NONE = 0,
+    /// 横方向のみカメラに向ける
     SIDE = 1,
+    /// 縦横方向のみカメラに向ける
     DIRECTION = 2,
+    /// カメラに向ける
     CAMERA = 3,
 }
 
@@ -468,7 +498,7 @@ pub struct FILTER_PROC_VIDEO {
     /// 指定の頂点リストのポリゴンをフレームバッファに描画します
     pub draw_poly: unsafe extern "C" fn(
         vertex_type: VERTEX_TYPE,
-        vertex_list: *mut c_void,
+        vertex_list: *const c_void,
         vertex_num: i32,
         image: LPCWSTR,
     ) -> bool,
@@ -493,7 +523,7 @@ pub struct FILTER_PROC_VIDEO {
 
     /// 画像リソースを作成する
     pub create_image_resource:
-        unsafe extern "C" fn(image: LPCWSTR, buffer: *mut PIXEL_RGBA, width: i32, height: i32),
+        unsafe extern "C" fn(image: LPCWSTR, buffer: *const PIXEL_RGBA, width: i32, height: i32),
 }
 
 /// 音声フィルタ処理用構造体
