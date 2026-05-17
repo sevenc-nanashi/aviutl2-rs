@@ -416,6 +416,19 @@ macro_rules! register_filter_plugin {
             }
 
             #[unsafe(no_mangle)]
+            unsafe extern "C" fn InitializeCache(
+                cache: *mut $crate::sys::cache2::CACHE_HANDLE
+            ) {
+                $crate::comptime_if::comptime_if! {
+                    if unwind where (unwind = true, $( $key = $value ),* ) {
+                        $crate::cache::__initialize_cache_unwind(cache)
+                    } else {
+                        $crate::cache::__initialize_cache(cache)
+                    }
+                }
+            }
+
+            #[unsafe(no_mangle)]
             unsafe extern "C" fn InitializePlugin(version: u32) -> bool {
                 unsafe {
                     $crate::comptime_if::comptime_if! {
