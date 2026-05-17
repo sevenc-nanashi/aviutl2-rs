@@ -28,7 +28,7 @@ impl FilterProcVideo {
             object: unsafe { ObjectInfo::from_raw(raw.object) },
             video_object: unsafe { VideoObjectInfo::from_raw(raw.object) },
             param: unsafe { (&*raw.param).into() },
-            read: unsafe { crate::generic::ReadSection::from_raw(raw.edit) },
+            read_section: unsafe { crate::generic::ReadSection::from_raw(raw.edit) },
             prevent_post_effect: false,
             inner: raw_ptr,
         }
