@@ -8,6 +8,7 @@ use std::ptr::NonNull;
 #[derive(Debug)]
 pub struct ScriptModuleCallHandle {
     pub(crate) internal: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,
+    pub(crate) read_section: crate::generic::ReadSection,
 }
 
 /// [`ScriptModuleCallHandle`]関連のエラー。
@@ -34,7 +35,10 @@ impl ScriptModuleCallHandle {
     pub unsafe fn from_raw(
         ptr: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,
     ) -> ScriptModuleCallHandle {
-        ScriptModuleCallHandle { internal: ptr }
+        ScriptModuleCallHandle {
+            internal: ptr,
+            read_section: unsafe { crate::generic::ReadSection::from_raw((*ptr).edit) },
+        }
     }
 
     /// 引数の数を返す。
@@ -420,10 +424,15 @@ impl ScriptModuleCallHandle {
             ((*self.internal).push_result_boolean)(value);
         }
     }
+
+    /// 読み取り専用の編集セクション。
+    pub fn read_section(&mut self) -> &crate::generic::ReadSection {
+        &self.read_section
+    }
 }
 impl From<*mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM> for ScriptModuleCallHandle {
     fn from(ptr: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM) -> Self {
-        Self { internal: ptr }
+        unsafe { ScriptModuleCallHandle::from_raw(ptr) }
     }
 }
 

@@ -106,7 +106,7 @@ pub struct FilterProcVideo {
 
     pub(crate) prevent_post_effect: bool,
 
-    pub(crate) read: crate::generic::ReadSection,
+    pub(crate) read_section: crate::generic::ReadSection,
     pub(crate) inner: *const aviutl2_sys::filter2::FILTER_PROC_VIDEO,
 }
 unsafe impl Send for FilterProcVideo {}
@@ -466,7 +466,7 @@ impl FilterProcVideo {
 
     /// 読み取り専用の編集セクション。
     pub fn read_section(&mut self) -> &crate::generic::ReadSection {
-        &self.read
+        &self.read_section
     }
 
     /// 指定オブジェクトの画像出力項目のパラメータを取得する。
