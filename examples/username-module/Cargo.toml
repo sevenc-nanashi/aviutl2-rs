@@ -14,4 +14,4 @@ crate-type = ["cdylib"]
 [dependencies]
 anyhow = "1.0.102"
 aviutl2.workspace = true
-whoami = "2.1.1"
+whoami = "2.1.2"

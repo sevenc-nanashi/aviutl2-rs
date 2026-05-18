@@ -15,7 +15,7 @@ crate-type = ["cdylib"]
 anyhow = "1.0.102"
 aviutl2 = { workspace = true, features = ["serde"] }
 aviutl2-eframe.workspace = true
-dashmap = "6.1.0"
+dashmap = "6.2.1"
 hound = "3.5.1"
 tracing = "0.1.44"
 mplus.workspace = true

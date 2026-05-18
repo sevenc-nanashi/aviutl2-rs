@@ -14,10 +14,10 @@ crate-type = ["cdylib"]
 [dependencies]
 anyhow = "1.0.102"
 aviutl2.workspace = true
-dashmap = "6.1.0"
+dashmap = "6.2.1"
 hrtf = "0.8.1"
 itertools = "0.14.0"
-lru = "0.16.3"
+lru = "0.18.0"
 num-integer = "0.1.46"
 ringbuffer = "0.16.0"
 

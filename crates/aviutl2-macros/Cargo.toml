@@ -30,5 +30,5 @@ anyhow = "1.0.102"
 # https://github.com/rust-lang/cargo/issues/4242 のワークアラウンド。
 # aviutl2.workspace = true
 aviutl2 = { path = "../aviutl2" }
-insta = "1.47.1"
+insta = "1.47.2"
 rustfmt-wrapper = "0.2.1"
