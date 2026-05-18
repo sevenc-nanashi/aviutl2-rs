@@ -639,6 +639,71 @@ pub fn aviutl2_visuals() -> eframe::egui::Visuals {
     visuals
 }
 
+/// AviUtl2で指定されているフォントからeguiのFontDefinitionsを作成する。
+///
+/// # Example
+///
+/// ```rust
+/// # use aviutl2_eframe::{self, eframe};
+/// # fn test(cc: &eframe::CreationContext<'_>) {
+/// cc.egui_ctx.set_fonts(aviutl2_eframe::aviutl2_fonts());
+/// # }
+/// ```
+pub fn aviutl2_fonts() -> eframe::egui::FontDefinitions {
+    let mut fonts = eframe::egui::FontDefinitions::default();
+
+    let mut db = fontdb::Database::new();
+    db.load_system_fonts();
+
+    let control_font = aviutl2::config::get_font_info("Control")
+        .expect("Unreachable: key does not contain null byte");
+    let text_font = aviutl2::config::get_font_info("EditControl")
+        .expect("Unreachable: key does not contain null byte");
+
+    if let Some(control_font_id) = db.query(&fontdb::Query {
+        families: &[fontdb::Family::Name(&control_font.name)],
+        ..Default::default()
+    }) {
+        db.with_face_data(control_font_id, |data, _| {
+            let mut font_data = egui::FontData::from_owned(data.to_vec());
+            // Yu Gothic UIは体感上にずれているので、微調整する
+            if control_font.name == "Yu Gothic UI" {
+                font_data.tweak = egui::FontTweak {
+                    y_offset_factor: 0.2,
+                    ..Default::default()
+                };
+            }
+            fonts.font_data.insert(
+                "aviutl2::Control".to_string(),
+                std::sync::Arc::new(font_data),
+            );
+            fonts
+                .families
+                .entry(eframe::egui::FontFamily::Proportional)
+                .or_default()
+                .insert(0, "aviutl2::Control".to_string());
+        });
+    }
+    if let Some(monospace_font) = db.query(&fontdb::Query {
+        families: &[fontdb::Family::Name(&text_font.name)],
+        ..Default::default()
+    }) {
+        db.with_face_data(monospace_font, |data, _| {
+            fonts.font_data.insert(
+                "aviutl2::EditControl".to_string(),
+                std::sync::Arc::new(egui::FontData::from_owned(data.to_vec())),
+            );
+            fonts
+                .families
+                .entry(eframe::egui::FontFamily::Monospace)
+                .or_default()
+                .insert(0, "aviutl2::EditControl".to_string());
+        });
+    }
+
+    fonts
+}
+
 fn load_color(key: &str) -> Option<egui::Color32> {
     let (r, g, b) = aviutl2::config::get_color_code(key).expect("Key contains null byte")?;
     Some(egui::Color32::from_rgb(r, g, b))

@@ -35,26 +35,7 @@ impl LocalAliasApp {
                 data.get_persisted::<bool>(egui::Id::new("header_collapsed_local_alias"))
             })
             .unwrap_or(false);
-        let mut fonts = egui::FontDefinitions::default();
-        fonts.font_data.insert(
-            "M+ 1p".to_owned(),
-            std::sync::Arc::new(egui::FontData::from_static(mplus::MPLUS_1P_REGULAR)),
-        );
-        fonts
-            .families
-            .get_mut(&egui::FontFamily::Proportional)
-            .expect("Failed to get Proportional font family")
-            .insert(0, "M+ 1p".to_owned());
-
-        fonts.font_data.insert(
-            "M+ 1m".to_owned(),
-            std::sync::Arc::new(egui::FontData::from_static(mplus::MPLUS_1M_REGULAR)),
-        );
-        fonts
-            .families
-            .get_mut(&egui::FontFamily::Monospace)
-            .expect("Failed to get Monospace font family")
-            .insert(0, "M+ 1m".to_owned());
+        let fonts = aviutl2_eframe::aviutl2_fonts();
 
         cc.egui_ctx.all_styles_mut(|style| {
             style.visuals = aviutl2_eframe::aviutl2_visuals();

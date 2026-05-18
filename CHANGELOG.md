@@ -4,10 +4,12 @@
 
 - **Breaking**: 最小サポートをbeta46に引き上げ
 - **Breaking**: `From<*mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM> for ScriptModuleCallHandle`を削除
+- **Breaking**: 依存を更新
+- eframe: FontDefinitionsを作る関数を追加
 
 ### デモプラグイン
 
-（なし）
+- フォントをAviUtl2で指定されているものに変更
 
 ## [0.28.1](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.28.1)
 

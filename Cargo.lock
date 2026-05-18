@@ -356,6 +356,7 @@ dependencies = [
  "anyhow",
  "aviutl2",
  "eframe",
+ "fontdb",
  "windows",
  "winit",
 ]
@@ -877,6 +878,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b49ba7ef1ad6107f8824dbe97de947cbaac53c44e7f9756a1fba0d37c1eec505"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "core_maths"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77745e017f5edba1a9c1d854f6f3a52dac8a12dd5af5d2f54aecf61e43d80d30"
+dependencies = [
+ "libm",
 ]
 
 [[package]]
@@ -1562,11 +1572,11 @@ version = "0.28.1"
 dependencies = [
  "anyhow",
  "aviutl2",
+ "aviutl2-eframe",
  "chrono",
  "dedent",
  "eframe",
  "egui_commonmark",
- "mplus",
  "process_path",
  "serde",
  "serde_json",
@@ -1623,7 +1633,6 @@ dependencies = [
  "anyhow",
  "aviutl2",
  "aviutl2-eframe",
- "mplus",
  "serde",
  "tracing",
 ]
@@ -1637,7 +1646,6 @@ dependencies = [
  "aviutl2-eframe",
  "dashmap",
  "hound",
- "mplus",
  "tracing",
 ]
 
@@ -1698,7 +1706,6 @@ dependencies = [
  "formatx",
  "iconify",
  "itertools 0.14.0",
- "mplus",
  "nucleo-matcher",
  "serde",
  "windows",
@@ -1839,6 +1846,29 @@ checksum = "73829a7b5c91198af28a99159b7ae4afbb252fb906159ff7f189f3a2ceaa3df2"
 dependencies = [
  "bytemuck",
  "serde",
+]
+
+[[package]]
+name = "fontconfig-parser"
+version = "0.5.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbc773e24e02d4ddd8395fd30dc147524273a83e54e0f312d986ea30de5f5646"
+dependencies = [
+ "roxmltree",
+]
+
+[[package]]
+name = "fontdb"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "457e789b3d1202543297a350643cf459f836cade38934e7a4cf6a39e7cde2905"
+dependencies = [
+ "fontconfig-parser",
+ "log",
+ "memmap2",
+ "slotmap",
+ "tinyvec",
+ "ttf-parser",
 ]
 
 [[package]]
@@ -3050,14 +3080,6 @@ checksum = "bb85c154ba489f01b25c0d36ae69a87e4a1c73a72631fc6c0eb6dde34a73e44b"
 dependencies = [
  "num-traits",
  "pxfm",
-]
-
-[[package]]
-name = "mplus"
-version = "0.28.1"
-dependencies = [
- "anyhow",
- "ureq 3.3.0",
 ]
 
 [[package]]
@@ -5109,6 +5131,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinyvec"
+version = "1.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e61e67053d25a4e82c844e8424039d9745781b3fc4f32b8d55ed50f5f667ef3"
+dependencies = [
+ "tinyvec_macros",
+]
+
+[[package]]
+name = "tinyvec_macros"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
+
+[[package]]
 name = "toml"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5262,6 +5299,9 @@ name = "ttf-parser"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
+dependencies = [
+ "core_maths",
+]
 
 [[package]]
 name = "twox-hash"

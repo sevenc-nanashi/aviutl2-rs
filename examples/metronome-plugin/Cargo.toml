@@ -18,4 +18,3 @@ aviutl2-eframe.workspace = true
 dashmap = "6.2.1"
 hound = "3.5.1"
 tracing = "0.1.44"
-mplus.workspace = true

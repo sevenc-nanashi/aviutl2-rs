@@ -14,11 +14,11 @@ crate-type = ["cdylib"]
 [dependencies]
 anyhow = "1.0.102"
 aviutl2 = { workspace = true, features = ["serde"] }
+aviutl2-eframe.workspace = true
 chrono = "0.4.44"
 dedent = "0.1.1"
 eframe = { version = "0.34.2", default-features = false, features = ["glow"] }
 egui_commonmark = { version = "0.23.0", features = ["macros"] }
-mplus.workspace = true
 process_path = "0.1.4"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"

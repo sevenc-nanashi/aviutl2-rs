@@ -17,7 +17,6 @@ use aviutl2::output::{
         BorrowedRawYuy2VideoFrame,
     },
 };
-use eframe::egui;
 use std::{
     io::{Read, Write},
     os::windows::process::CommandExt,
@@ -386,33 +385,7 @@ impl OutputPlugin for FfmpegOutputPlugin {
             "Rusty FFmpeg Output Plugin",
             Default::default(),
             Box::new(|cc| {
-                if !egui::FontDefinitions::default()
-                    .font_data
-                    .contains_key("M+ 1")
-                {
-                    let mut fonts = egui::FontDefinitions::default();
-                    fonts.font_data.insert(
-                        "M+ 1p".to_owned(),
-                        std::sync::Arc::new(egui::FontData::from_static(mplus::MPLUS_1P_REGULAR)),
-                    );
-                    fonts
-                        .families
-                        .get_mut(&egui::FontFamily::Proportional)
-                        .unwrap()
-                        .insert(0, "M+ 1p".to_owned());
-
-                    fonts.font_data.insert(
-                        "M+ 1m".to_owned(),
-                        std::sync::Arc::new(egui::FontData::from_static(mplus::MPLUS_1M_REGULAR)),
-                    );
-                    fonts
-                        .families
-                        .get_mut(&egui::FontFamily::Monospace)
-                        .unwrap()
-                        .insert(0, "M+ 1m".to_owned());
-
-                    cc.egui_ctx.set_fonts(fonts);
-                }
+                cc.egui_ctx.set_fonts(aviutl2_eframe::aviutl2_fonts());
                 Ok(Box::new(FfmpegOutputConfigDialog::new(
                     self.config
                         .lock()
