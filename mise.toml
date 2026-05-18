@@ -1,7 +1,7 @@
 [tools]
 bun = "latest"
 "cargo:aviutl2-cli" = "latest"
-"cargo:cargo-about" = "latest"
+"github:EmbarkStudios/cargo-about" = "latest"
 "cargo:cargo-edit" = "latest"
 node = "24"
 ruby = "4"

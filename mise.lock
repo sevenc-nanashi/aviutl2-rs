@@ -60,6 +60,64 @@ backend = "cargo:cargo-about"
 version = "0.13.10"
 backend = "cargo:cargo-edit"
 
+[[tools."github:EmbarkStudios/cargo-about"]]
+version = "0.9.0"
+backend = "github:EmbarkStudios/cargo-about"
+
+[tools."github:EmbarkStudios/cargo-about"."platforms.linux-arm64"]
+checksum = "sha256:46b202700ea136066cdaca38180da9ab4e7d7534b3418546de858ae0aee4a1cb"
+url = "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.0/cargo-about-0.9.0-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/EmbarkStudios/cargo-about/releases/assets/404479807"
+github_attestations = "unavailable"
+
+[tools."github:EmbarkStudios/cargo-about"."platforms.linux-arm64-musl"]
+checksum = "sha256:46b202700ea136066cdaca38180da9ab4e7d7534b3418546de858ae0aee4a1cb"
+url = "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.0/cargo-about-0.9.0-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/EmbarkStudios/cargo-about/releases/assets/404479807"
+github_attestations = "unavailable"
+
+[tools."github:EmbarkStudios/cargo-about"."platforms.linux-x64"]
+checksum = "sha256:7a1a1bfb3ae3b6feabe9e1d6147a6b34b85bd0339bfd8b0ec11b312dee10d99a"
+url = "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.0/cargo-about-0.9.0-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/EmbarkStudios/cargo-about/releases/assets/404479739"
+github_attestations = "unavailable"
+
+[tools."github:EmbarkStudios/cargo-about"."platforms.linux-x64-baseline"]
+checksum = "sha256:7a1a1bfb3ae3b6feabe9e1d6147a6b34b85bd0339bfd8b0ec11b312dee10d99a"
+url = "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.0/cargo-about-0.9.0-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/EmbarkStudios/cargo-about/releases/assets/404479739"
+github_attestations = "unavailable"
+
+[tools."github:EmbarkStudios/cargo-about"."platforms.linux-x64-musl"]
+checksum = "sha256:7a1a1bfb3ae3b6feabe9e1d6147a6b34b85bd0339bfd8b0ec11b312dee10d99a"
+url = "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.0/cargo-about-0.9.0-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/EmbarkStudios/cargo-about/releases/assets/404479739"
+github_attestations = "unavailable"
+
+[tools."github:EmbarkStudios/cargo-about"."platforms.linux-x64-musl-baseline"]
+checksum = "sha256:7a1a1bfb3ae3b6feabe9e1d6147a6b34b85bd0339bfd8b0ec11b312dee10d99a"
+url = "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.0/cargo-about-0.9.0-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/EmbarkStudios/cargo-about/releases/assets/404479739"
+github_attestations = "unavailable"
+
+[tools."github:EmbarkStudios/cargo-about"."platforms.macos-arm64"]
+checksum = "sha256:4e1cfc5d58b733f6def1741fc888b435cdb2996da5c2c4547ed36cba191667f6"
+url = "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.0/cargo-about-0.9.0-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/EmbarkStudios/cargo-about/releases/assets/404479394"
+github_attestations = "unavailable"
+
+[tools."github:EmbarkStudios/cargo-about"."platforms.windows-x64"]
+checksum = "sha256:87daca52ad79980b42b2de6acdec84e143be41e2d4bbebedba0d0c90c49b055a"
+url = "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.0/cargo-about-0.9.0-x86_64-pc-windows-msvc.tar.gz"
+url_api = "https://api.github.com/repos/EmbarkStudios/cargo-about/releases/assets/404481100"
+github_attestations = "unavailable"
+
+[tools."github:EmbarkStudios/cargo-about"."platforms.windows-x64-baseline"]
+checksum = "sha256:87daca52ad79980b42b2de6acdec84e143be41e2d4bbebedba0d0c90c49b055a"
+url = "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.0/cargo-about-0.9.0-x86_64-pc-windows-msvc.tar.gz"
+url_api = "https://api.github.com/repos/EmbarkStudios/cargo-about/releases/assets/404481100"
+github_attestations = "unavailable"
+
 [[tools.node]]
 version = "24.15.0"
 backend = "core:node"
