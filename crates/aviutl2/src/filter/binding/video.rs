@@ -260,6 +260,66 @@ pub struct VertexTextureNorm {
     pub vz: f32,
 }
 
+impl From<VertexColor> for aviutl2_sys::filter2::VERTEX_COLOR {
+    fn from(value: VertexColor) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+            z: value.z,
+            r: value.r,
+            g: value.g,
+            b: value.b,
+            a: value.a,
+        }
+    }
+}
+
+impl From<VertexColorNorm> for aviutl2_sys::filter2::VERTEX_COLOR_NORM {
+    fn from(value: VertexColorNorm) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+            z: value.z,
+            r: value.r,
+            g: value.g,
+            b: value.b,
+            a: value.a,
+            vx: value.vx,
+            vy: value.vy,
+            vz: value.vz,
+        }
+    }
+}
+
+impl From<VertexTexture> for aviutl2_sys::filter2::VERTEX_TEXTURE {
+    fn from(value: VertexTexture) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+            z: value.z,
+            u: value.u,
+            v: value.v,
+            a: value.a,
+        }
+    }
+}
+
+impl From<VertexTextureNorm> for aviutl2_sys::filter2::VERTEX_TEXTURE_NORM {
+    fn from(value: VertexTextureNorm) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+            z: value.z,
+            u: value.u,
+            v: value.v,
+            a: value.a,
+            vx: value.vx,
+            vy: value.vy,
+            vz: value.vz,
+        }
+    }
+}
+
 /// 頂点リスト。
 pub enum VertexList {
     TriangleColor(Vec<[VertexColor; 3]>),
@@ -570,7 +630,12 @@ impl FilterProcVideo {
         let inner = unsafe { &*self.inner };
         let success = match vertices {
             VertexList::TriangleColor(triangles) => {
-                let flattened: Vec<VertexColor> = triangles.iter().flatten().copied().collect();
+                let flattened: Vec<aviutl2_sys::filter2::VERTEX_COLOR> = triangles
+                    .iter()
+                    .flatten()
+                    .copied()
+                    .map(Into::into)
+                    .collect();
                 unsafe {
                     (inner.draw_poly)(
                         aviutl2_sys::filter2::VERTEX_TYPE::TRIANGLE_COLOR,
@@ -583,7 +648,12 @@ impl FilterProcVideo {
                 }
             }
             VertexList::TriangleColorNorm(triangles) => {
-                let flattened: Vec<VertexColorNorm> = triangles.iter().flatten().copied().collect();
+                let flattened: Vec<aviutl2_sys::filter2::VERTEX_COLOR_NORM> = triangles
+                    .iter()
+                    .flatten()
+                    .copied()
+                    .map(Into::into)
+                    .collect();
                 unsafe {
                     (inner.draw_poly)(
                         aviutl2_sys::filter2::VERTEX_TYPE::TRIANGLE_COLOR_NORM,
@@ -596,7 +666,12 @@ impl FilterProcVideo {
                 }
             }
             VertexList::TriangleTexture(triangles) => {
-                let flattened: Vec<VertexTexture> = triangles.iter().flatten().copied().collect();
+                let flattened: Vec<aviutl2_sys::filter2::VERTEX_TEXTURE> = triangles
+                    .iter()
+                    .flatten()
+                    .copied()
+                    .map(Into::into)
+                    .collect();
                 unsafe {
                     (inner.draw_poly)(
                         aviutl2_sys::filter2::VERTEX_TYPE::TRIANGLE_TEXTURE,
@@ -609,8 +684,12 @@ impl FilterProcVideo {
                 }
             }
             VertexList::TriangleTextureNorm(triangles) => {
-                let flattened: Vec<VertexTextureNorm> =
-                    triangles.iter().flatten().copied().collect();
+                let flattened: Vec<aviutl2_sys::filter2::VERTEX_TEXTURE_NORM> = triangles
+                    .iter()
+                    .flatten()
+                    .copied()
+                    .map(Into::into)
+                    .collect();
                 unsafe {
                     (inner.draw_poly)(
                         aviutl2_sys::filter2::VERTEX_TYPE::TRIANGLE_TEXTURE_NORM,
@@ -623,7 +702,8 @@ impl FilterProcVideo {
                 }
             }
             VertexList::QuadColor(quads) => {
-                let flattened: Vec<VertexColor> = quads.iter().flatten().copied().collect();
+                let flattened: Vec<aviutl2_sys::filter2::VERTEX_COLOR> =
+                    quads.iter().flatten().copied().map(Into::into).collect();
                 unsafe {
                     (inner.draw_poly)(
                         aviutl2_sys::filter2::VERTEX_TYPE::QUAD_COLOR,
@@ -636,7 +716,8 @@ impl FilterProcVideo {
                 }
             }
             VertexList::QuadColorNorm(quads) => {
-                let flattened: Vec<VertexColorNorm> = quads.iter().flatten().copied().collect();
+                let flattened: Vec<aviutl2_sys::filter2::VERTEX_COLOR_NORM> =
+                    quads.iter().flatten().copied().map(Into::into).collect();
                 unsafe {
                     (inner.draw_poly)(
                         aviutl2_sys::filter2::VERTEX_TYPE::QUAD_COLOR_NORM,
@@ -649,7 +730,8 @@ impl FilterProcVideo {
                 }
             }
             VertexList::QuadTexture(quads) => {
-                let flattened: Vec<VertexTexture> = quads.iter().flatten().copied().collect();
+                let flattened: Vec<aviutl2_sys::filter2::VERTEX_TEXTURE> =
+                    quads.iter().flatten().copied().map(Into::into).collect();
                 unsafe {
                     (inner.draw_poly)(
                         aviutl2_sys::filter2::VERTEX_TYPE::QUAD_TEXTURE,
@@ -662,7 +744,8 @@ impl FilterProcVideo {
                 }
             }
             VertexList::QuadTextureNorm(quads) => {
-                let flattened: Vec<VertexTextureNorm> = quads.iter().flatten().copied().collect();
+                let flattened: Vec<aviutl2_sys::filter2::VERTEX_TEXTURE_NORM> =
+                    quads.iter().flatten().copied().map(Into::into).collect();
                 unsafe {
                     (inner.draw_poly)(
                         aviutl2_sys::filter2::VERTEX_TYPE::QUAD_TEXTURE_NORM,
