@@ -785,8 +785,7 @@ impl<T: Copy> Clone for FilterConfigDataHandle<T> {
     fn clone(&self) -> Self {
         if !self.inner.is_null() {
             let addr = self.inner as usize;
-            if OWNED_REFERENCES.contains_key(&addr) {
-                let entry = OWNED_REFERENCES.get(&addr).unwrap();
+            if let Some(entry) = OWNED_REFERENCES.get(&addr) {
                 entry.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             }
         }
