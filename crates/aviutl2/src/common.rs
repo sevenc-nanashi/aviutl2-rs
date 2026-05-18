@@ -13,7 +13,7 @@ pub struct AviUtl2Info {
 }
 
 /// 対応する最小のAviUtl2バージョン。
-pub const MINIMUM_AVIUTL2_VERSION: AviUtl2Version = AviUtl2Version(2004500);
+pub const MINIMUM_AVIUTL2_VERSION: AviUtl2Version = AviUtl2Version(2004600);
 
 /// AviUtl2のバージョンがサポート範囲かを確認します。
 pub fn ensure_minimum_aviutl2_version(version: AviUtl2Version) -> AnyResult<()> {
@@ -556,7 +556,7 @@ impl MenuCallbackReturn for () {
 pub(crate) struct CWString(Vec<u16>);
 
 /// ヌルバイトを含む文字列を作成しようとした際のエラー。
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Clone)]
 #[error("String contains null byte")]
 pub struct NullByteError {
     position: usize,

@@ -32,6 +32,15 @@ struct RandomColorFilter {}
 
 impl FilterPlugin for RandomColorFilter {
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
+        aviutl2::tracing_subscriber::fmt()
+            .with_max_level(if cfg!(debug_assertions) {
+                tracing::Level::DEBUG
+            } else {
+                tracing::Level::INFO
+            })
+            .event_format(aviutl2::logger::AviUtl2Formatter)
+            .with_writer(aviutl2::logger::AviUtl2LogWriter)
+            .init();
         Ok(Self {})
     }
 
@@ -75,18 +84,39 @@ impl FilterPlugin for RandomColorFilter {
             *color_handle
         };
 
-        video.set_image_data(
-            &(0..(width * height))
-                .map(|_| aviutl2::filter::RgbaPixel {
-                    r: color.r,
-                    g: color.g,
-                    b: color.b,
-                    a: 255,
-                })
-                .collect::<Vec<_>>(),
-            width,
-            height,
+        let cache_key = format!(
+            "random_color_{}_{}_{}_{}_{}",
+            color.r, color.g, color.b, width, height
         );
+        let cache =
+            aviutl2::cache::get_image_cache(&aviutl2::cache::GLOBAL_CACHE_HANDLE, &cache_key)?;
+        if let Some(cache) = cache {
+            tracing::debug!("Cache hit for key: {}", cache_key);
+            video.set_image_data(
+                cache.as_u8_slice(),
+                cache.width() as u32,
+                cache.height() as u32,
+            );
+            return Ok(());
+        }
+
+        let image_data = (0..(width * height))
+            .map(|_| aviutl2::filter::RgbaPixel {
+                r: color.r,
+                g: color.g,
+                b: color.b,
+                a: 255,
+            })
+            .collect::<Vec<_>>();
+        video.set_image_data(&image_data, width, height);
+        let mut cache = aviutl2::cache::create_image_cache(
+            &aviutl2::cache::GLOBAL_CACHE_HANDLE,
+            &cache_key,
+            width as _,
+            height as _,
+        )?;
+        cache.as_slice_mut().copy_from_slice(&image_data);
+        tracing::debug!("Cache created for key: {}", cache_key);
 
         Ok(())
     }

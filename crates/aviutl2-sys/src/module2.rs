@@ -6,6 +6,8 @@
 use std::ffi::c_void;
 use std::os::raw::{c_char, c_double, c_int};
 
+use crate::plugin2::EDIT_SECTION;
+
 /// スクリプトモジュール引数構造体
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -282,6 +284,9 @@ pub struct SCRIPT_MODULE_PARAM {
     /// * `num` - 配列の要素数
     pub push_result_table_boolean:
         unsafe extern "C" fn(key: *const *const c_char, value: *const bool, num: c_int),
+
+    /// 編集セクション関数
+    pub edit: *mut EDIT_SECTION,
 }
 
 /// スクリプトモジュール関数定義構造体

@@ -12,6 +12,7 @@
 //! - [`generic`][]：AviUtl2の汎用プラグインを実装するためのモジュール。
 //! - [`logger`][]：AviUtl2のロガーへのインターフェースを提供するモジュール。
 //! - [`config`][]：AviUtl2の設定関連機能へのインターフェースを提供するモジュール。
+//! - [`cache`][]：AviUtl2のキャッシュ関連機能へのインターフェースを提供するモジュール。
 //! - [`common`][]：共通の型や関数を提供するモジュール。（トップレベルに再エクスポートされています）
 //! - [`utils`][]：ユーティリティ関数を提供するモジュール。
 //!
@@ -78,6 +79,7 @@ pub mod generic;
 #[path = "internal_base.rs"]
 pub mod __internal_base;
 
+pub mod cache;
 pub mod common;
 pub mod config;
 pub mod logger;

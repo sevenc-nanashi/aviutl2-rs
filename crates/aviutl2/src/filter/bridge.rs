@@ -14,6 +14,8 @@ impl FilterProcAudio {
             scene: unsafe { SceneInfo::from_raw(raw.scene) },
             object: unsafe { ObjectInfo::from_raw(raw.object) },
             audio_object: unsafe { AudioObjectInfo::from_raw(raw.object) },
+            read_section: unsafe { crate::generic::ReadSection::from_raw(raw.edit) },
+            param: unsafe { (&*raw.param).into() },
             inner: raw_ptr,
         }
     }
@@ -25,6 +27,9 @@ impl FilterProcVideo {
             scene: unsafe { SceneInfo::from_raw(raw.scene) },
             object: unsafe { ObjectInfo::from_raw(raw.object) },
             video_object: unsafe { VideoObjectInfo::from_raw(raw.object) },
+            param: unsafe { (&*raw.param).into() },
+            read_section: unsafe { crate::generic::ReadSection::from_raw(raw.edit) },
+            prevent_post_effect: false,
             inner: raw_ptr,
         }
     }
@@ -47,6 +52,7 @@ impl ObjectInfo {
         ObjectInfo {
             id: raw.id,
             effect_id: raw.effect_id,
+            layer: raw.layer as u32,
             frame: raw.frame as u32,
             frame_total: raw.frame_total as u32,
             time: raw.time,
@@ -62,6 +68,12 @@ impl VideoObjectInfo {
         VideoObjectInfo {
             width: raw.width as u32,
             height: raw.height as u32,
+            index: raw.index as u32,
+            num: if raw.num == 0 {
+                None
+            } else {
+                Some(raw.num as u32)
+            },
         }
     }
 }
@@ -298,7 +310,7 @@ pub unsafe fn create_table_unwind<T: FilterSingleton>()
 
 fn proc_video_impl<T: FilterSingleton>(
     video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
-) -> AnyResult<()> {
+) -> AnyResult<bool> {
     let plugin_lock = T::__get_singleton_state();
     anyhow::ensure!(!plugin_lock.is_poisoned(), "Plugin state lock is poisoned");
     update_configs::<T>(plugin_lock);
@@ -308,7 +320,9 @@ fn proc_video_impl<T: FilterSingleton>(
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let mut video = unsafe { FilterProcVideo::from_raw(video) };
-    plugin.proc_video(&plugin_state.config_items, &mut video)
+    plugin.proc_video(&plugin_state.config_items, &mut video)?;
+    video.apply_param();
+    Ok(video.prevent_post_effect)
 }
 
 fn proc_audio_impl<T: FilterSingleton>(
@@ -321,14 +335,16 @@ fn proc_audio_impl<T: FilterSingleton>(
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
     let mut audio = unsafe { FilterProcAudio::from_raw(audio) };
-    plugin.proc_audio(&plugin_state.config_items, &mut audio)
+    plugin.proc_audio(&plugin_state.config_items, &mut audio)?;
+    audio.apply_param();
+    Ok(())
 }
 
 extern "C" fn func_proc_video<T: FilterSingleton>(
     video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
 ) -> bool {
     match proc_video_impl::<T>(video) {
-        Ok(()) => true,
+        Ok(prevent_post_effect) => !prevent_post_effect,
         Err(e) => {
             tracing::error!("Error in proc_video: {}", e);
             false
@@ -339,7 +355,7 @@ extern "C" fn func_proc_video_unwind<T: FilterSingleton>(
     video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
 ) -> bool {
     match catch_unwind_with_panic_info(|| proc_video_impl::<T>(video)) {
-        Ok(Ok(())) => true,
+        Ok(Ok(prevent_post_effect)) => !prevent_post_effect,
         Ok(Err(e)) => {
             tracing::error!("Error in proc_video: {}", e);
             false
@@ -411,6 +427,19 @@ macro_rules! register_filter_plugin {
                         $crate::config::__initialize_config_handle_unwind(config)
                     } else {
                         $crate::config::__initialize_config_handle(config)
+                    }
+                }
+            }
+
+            #[unsafe(no_mangle)]
+            unsafe extern "C" fn InitializeCache(
+                cache: *mut $crate::sys::cache2::CACHE_HANDLE
+            ) {
+                $crate::comptime_if::comptime_if! {
+                    if unwind where (unwind = true, $( $key = $value ),* ) {
+                        $crate::cache::__initialize_cache_unwind(cache)
+                    } else {
+                        $crate::cache::__initialize_cache(cache)
                     }
                 }
             }
