@@ -534,7 +534,7 @@ impl FilterProcVideo {
         self.apply_param();
         let resource_str = resource.to_cw_string()?;
         let inner = unsafe { &*self.inner };
-        unsafe {
+        let success = unsafe {
             (inner.draw_image)(
                 resource_str
                     .as_ref()
@@ -551,7 +551,11 @@ impl FilterProcVideo {
                 param.alpha,
             )
         };
-        Ok(())
+        if success {
+            Ok(())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
     }
 
     /// 指定の頂点リストをフレームバッファに描画する。
