@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.29.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.29.0)
+
 - **Breaking**: 最小サポートをbeta46に引き上げ
 - **Breaking**: `From<*mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM> for ScriptModuleCallHandle`を削除
 - **Breaking**: 依存を更新
