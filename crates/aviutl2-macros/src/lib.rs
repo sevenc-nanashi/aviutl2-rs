@@ -439,12 +439,12 @@ pub fn into_script_module_return_value(item: proc_macro::TokenStream) -> proc_ma
 /// #[aviutl2::module::functions]
 /// impl MyModule {
 ///     // Good
-///     fn func(int: i32, section: &aviutl2::generic::ReadSection) -> i32 {
+///     fn good_func(int: i32, section: &aviutl2::generic::ReadSection) -> i32 {
 ///         todo!()
 ///     }
 ///
 ///     // Bad（`int`を正常に受け取ることができない）
-///     fn func(section: &aviutl2::generic::ReadSection, int: i32) -> i32 {
+///     fn bad_func(section: &aviutl2::generic::ReadSection, int: i32) -> i32 {
 ///         todo!()
 ///     }
 /// }
