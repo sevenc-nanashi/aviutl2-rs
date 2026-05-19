@@ -250,10 +250,15 @@ impl EframeWindow {
                     } else {
                         "<unknown panic>".to_string()
                     };
+
                     let location = panic_info
                         .location()
                         .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
                         .unwrap_or_else(|| "<unknown location>".to_string());
+                    let _ = aviutl2::logger::write_error_log(&format!(
+                        "Egui thread panicked: {} (at {})",
+                        msg, location
+                    ));
                     panic_message.set(format!("{msg} (at {location})")).ok();
                 }));
                 let native_options = eframe::NativeOptions {
