@@ -256,10 +256,6 @@ impl EframeWindow {
                         .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
                         .unwrap_or_else(|| "<unknown location>".to_string());
                     panic_message.set(format!("{msg} (at {location})")).ok();
-                    let _ = aviutl2::logger::write_error_log(&format!(
-                        "Egui thread panicked: {} (at {})",
-                        msg, location
-                    ));
                 }));
                 let native_options = eframe::NativeOptions {
                     viewport: egui::ViewportBuilder::default()
