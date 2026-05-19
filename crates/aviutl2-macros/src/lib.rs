@@ -419,6 +419,37 @@ pub fn into_script_module_return_value(item: proc_macro::TokenStream) -> proc_ma
 /// このマクロは`impl`ブロックに対して適用されます。
 /// `impl`ブロック内で定義された関数がスクリプトモジュールの関数として登録されます。
 ///
+/// # Note
+///
+/// `&aviutl2::generic::ReadSection`を引数とすると`&aviutl2::generic::ReadSection`を受け取ることができますが、
+/// これは他の引数よりも後ろに配置する必要があります。
+///
+/// ```rust
+/// # #[aviutl2::plugin(ScriptModule)]
+/// # struct MyModule;
+/// # impl aviutl2::module::ScriptModule for MyModule {
+/// #     fn new(info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
+/// #         let _ = info;
+/// #         unimplemented!()
+/// #     }
+/// #     fn plugin_info(&self) -> aviutl2::module::ScriptModuleTable {
+/// #         unimplemented!()
+/// #     }
+/// # }
+/// #[aviutl2::module::functions]
+/// impl MyModule {
+///     // Good
+///     fn func(int: i32, section: &aviutl2::generic::ReadSection) -> i32 {
+///         todo!()
+///     }
+///
+///     // Bad（`int`を正常に受け取ることができない）
+///     fn func(section: &aviutl2::generic::ReadSection, int: i32) -> i32 {
+///         todo!()
+///     }
+/// }
+/// ```
+///
 /// # Attributes
 ///
 /// ### `direct`

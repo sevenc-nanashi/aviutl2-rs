@@ -426,7 +426,7 @@ impl ScriptModuleCallHandle {
     }
 
     /// 読み取り専用の編集セクション。
-    pub fn read_section(&mut self) -> &crate::generic::ReadSection {
+    pub fn read_section(&self) -> &crate::generic::ReadSection {
         &self.read_section
     }
 }
@@ -442,6 +442,12 @@ pub trait FromScriptModuleParam<'a>: Sized {
 }
 
 pub use aviutl2_macros::FromScriptModuleParam;
+
+impl<'a> FromScriptModuleParam<'a> for &'a crate::generic::ReadSection {
+    fn from_param(param: &'a crate::module::ScriptModuleCallHandle, _index: usize) -> Option<Self> {
+        Some(param.read_section())
+    }
+}
 
 impl<'a> FromScriptModuleParam<'a> for i32 {
     fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
