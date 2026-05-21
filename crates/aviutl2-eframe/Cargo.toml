@@ -9,6 +9,11 @@ repository.workspace = true
 publish = true
 categories = ["gui"]
 
+[package.metadata.docs.rs]
+default-target = "x86_64-pc-windows-msvc"
+targets = []
+all-features = true
+
 [dependencies]
 anyhow = "1.0.102"
 aviutl2.workspace = true
