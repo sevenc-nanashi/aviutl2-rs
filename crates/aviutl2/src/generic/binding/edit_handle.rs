@@ -458,8 +458,8 @@ impl EditHandle {
 
     /// ホストアプリケーションのメインウィンドウのハンドルを[`raw_window_handle::Win32WindowHandle`]として取得する。
     pub fn get_host_app_window_raw(&self) -> Option<raw_window_handle::Win32WindowHandle> {
-        if !self.is_available() {
-            tracing::warn!("get_host_app_window_raw called but EditHandle is not available");
+        if self.is_shutting_down.load(std::sync::atomic::Ordering::Acquire) {
+            tracing::warn!("get_host_app_window_raw called while shutting down, returning None");
             return None;
         }
         let hwnd = unsafe { ((*self.internal).get_host_app_window)() };
@@ -472,8 +472,8 @@ impl EditHandle {
     ///
     /// [`raw_window_handle::WindowHandle::borrow_raw`] を参照してください。
     pub unsafe fn get_host_app_window(&'_ self) -> Option<raw_window_handle::WindowHandle<'_>> {
-        if !self.is_available() {
-            tracing::warn!("get_host_app_window called but EditHandle is not available");
+        if self.is_shutting_down.load(std::sync::atomic::Ordering::Acquire) {
+            tracing::warn!("get_host_app_window called while shutting down, returning None");
             return None;
         }
         self.get_host_app_window_raw().map(|handle| unsafe {
