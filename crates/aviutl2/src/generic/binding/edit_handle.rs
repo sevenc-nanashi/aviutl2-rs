@@ -199,7 +199,9 @@ impl EditHandle {
         );
         if !self.is_available() {
             // NOTE: クラッシュせずにちゃんと呼び出せる未来を信じてResultではなく適当な値を返す
-            tracing::warn!("get_edit_info called but EditHandle is not available, returning placeholder EditInfo");
+            tracing::warn!(
+                "get_edit_info called but EditHandle is not available, returning placeholder EditInfo"
+            );
             return crate::generic::EditInfo {
                 width: 0,
                 height: 0,
