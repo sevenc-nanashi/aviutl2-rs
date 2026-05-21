@@ -48,9 +48,6 @@ impl MetronomeApp {
 
 impl eframe::App for MetronomeApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        // 常に再描画を要求して、リアルタイムに反応するようにする
-        ui.request_repaint();
-
         if ui.input(|i| i.key_pressed(egui::Key::Space)) {
             self.register_tap();
         }
@@ -138,6 +135,8 @@ impl MetronomeApp {
                     let since = last_tap.elapsed().as_secs_f64();
                     if since > MAX_TAP_INTERVAL_SECS {
                         self.will_reset_on_next_tap = true;
+                    } else {
+                        ui.request_repaint();
                     }
                 }
                 let bpm_input_id = ui.make_persistent_id("bpm_input");

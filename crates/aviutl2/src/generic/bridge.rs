@@ -132,17 +132,14 @@ fn register_plugin_impl<T: GenericSingleton>(
     let mut plugin_state = plugin_state.write().unwrap();
     let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
 
-    let kill_switch = plugin_state.register_plugin_done.clone();
-    let is_edithandle_ready = plugin_state.is_edit_handle_ready.clone();
-    let is_shutting_down = plugin_state.is_shutting_down.clone();
     let mut handle = unsafe {
         HostAppHandle::new(
             host,
             &mut plugin_state.global_leak_manager,
-            kill_switch,
+            plugin_state.register_plugin_done.clone(),
             &mut plugin_state.plugin_registry,
-            is_edithandle_ready.clone(),
-            is_shutting_down.clone(),
+            plugin_state.is_edit_handle_ready.clone(),
+            plugin_state.is_shutting_down.clone(),
         )
     };
     if unwind {
@@ -150,11 +147,11 @@ fn register_plugin_impl<T: GenericSingleton>(
             crate::utils::catch_unwind_with_panic_info(std::panic::AssertUnwindSafe(|| {
                 T::register(&mut plugin_state.instance, &mut handle)
             }));
-        plugin_state
-            .register_plugin_done
-            .store(true, std::sync::atomic::Ordering::SeqCst);
         if let Err(panic_info) = result {
-            tracing::error!("Panic occurred during plugin registration: {}", panic_info);
+            tracing::error!(
+                "Panic occurred during plugin registration: {:?}",
+                panic_info
+            );
             let _ = crate::logger::write_error_log(&format!(
                 "Panic during plugin registration: {}",
                 panic_info
@@ -172,6 +169,9 @@ fn register_plugin_impl<T: GenericSingleton>(
         handle.register_clear_cache_handler(on_clear_cache::<T>);
         handle.register_change_scene_handler(on_change_scene::<T>);
     }
+    plugin_state
+        .register_plugin_done
+        .store(true, std::sync::atomic::Ordering::SeqCst);
 
     fn on_project_load_impl<T: GenericSingleton>(project: *mut aviutl2_sys::plugin2::PROJECT_FILE) {
         {
