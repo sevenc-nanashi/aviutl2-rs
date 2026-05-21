@@ -536,33 +536,19 @@ impl FilterProcVideo {
         offset: f64,
     ) -> FilterProcResult<ObjectImageParam> {
         let inner = unsafe { &*self.inner };
-        let mut param = aviutl2_sys::filter2::OBJECT_IMAGE_PARAM {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-            rx: 0.0,
-            ry: 0.0,
-            rz: 0.0,
-            sx: 1.0,
-            sy: 1.0,
-            sz: 1.0,
-            cx: 0.0,
-            cy: 0.0,
-            cz: 0.0,
-            alpha: 1.0,
-        };
-        let ok = unsafe {
-            (inner.get_output_image_param)(
+        let mut param = std::mem::MaybeUninit::<aviutl2_sys::filter2::OBJECT_IMAGE_PARAM>::uninit();
+        unsafe {
+            let ok = (inner.get_output_image_param)(
                 object.internal,
                 offset,
-                &mut param,
+                param.as_mut_ptr(),
                 std::mem::size_of::<aviutl2_sys::filter2::OBJECT_IMAGE_PARAM>() as i32,
-            )
-        };
-        if ok {
-            Ok(param.into())
-        } else {
-            Err(FilterProcError::ApiCallFailed)
+            );
+            if ok {
+                Ok(param.assume_init().into())
+            } else {
+                Err(FilterProcError::ApiCallFailed)
+            }
         }
     }
 
