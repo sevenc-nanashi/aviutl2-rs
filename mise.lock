@@ -118,6 +118,65 @@ url = "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.0/carg
 url_api = "https://api.github.com/repos/EmbarkStudios/cargo-about/releases/assets/404481100"
 github_attestations = "unavailable"
 
+[[tools.lefthook]]
+version = "2.0.9"
+backend = "aqua:evilmartians/lefthook"
+
+[tools.lefthook."platforms.linux-arm64"]
+checksum = "sha256:b8290bfc42280972339b54cde7682b070986296c003946fb425b351801e65d2a"
+url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Linux_aarch64.gz"
+provenance = "github-attestations"
+
+[tools.lefthook."platforms.linux-arm64-musl"]
+checksum = "sha256:b8290bfc42280972339b54cde7682b070986296c003946fb425b351801e65d2a"
+url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Linux_aarch64.gz"
+provenance = "github-attestations"
+
+[tools.lefthook."platforms.linux-x64"]
+checksum = "sha256:3bfb348957643a3d7d1cba9bedb64e9c9d7cdf8b455f06e834e71002c8cc2bc0"
+url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Linux_x86_64.gz"
+provenance = "github-attestations"
+
+[tools.lefthook."platforms.linux-x64-baseline"]
+checksum = "sha256:3bfb348957643a3d7d1cba9bedb64e9c9d7cdf8b455f06e834e71002c8cc2bc0"
+url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Linux_x86_64.gz"
+provenance = "github-attestations"
+
+[tools.lefthook."platforms.linux-x64-musl"]
+checksum = "sha256:3bfb348957643a3d7d1cba9bedb64e9c9d7cdf8b455f06e834e71002c8cc2bc0"
+url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Linux_x86_64.gz"
+provenance = "github-attestations"
+
+[tools.lefthook."platforms.linux-x64-musl-baseline"]
+checksum = "sha256:3bfb348957643a3d7d1cba9bedb64e9c9d7cdf8b455f06e834e71002c8cc2bc0"
+url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Linux_x86_64.gz"
+provenance = "github-attestations"
+
+[tools.lefthook."platforms.macos-arm64"]
+checksum = "sha256:b2b42373becd52eca5618bf9e63164a410d8f2223f3435ec45d5cd847decbfa7"
+url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_MacOS_arm64.gz"
+provenance = "github-attestations"
+
+[tools.lefthook."platforms.macos-x64"]
+checksum = "sha256:38655f07199016d5c833805b397495db7a02dd180857b2e65c0f2025e45b190d"
+url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_MacOS_x86_64.gz"
+provenance = "github-attestations"
+
+[tools.lefthook."platforms.macos-x64-baseline"]
+checksum = "sha256:38655f07199016d5c833805b397495db7a02dd180857b2e65c0f2025e45b190d"
+url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_MacOS_x86_64.gz"
+provenance = "github-attestations"
+
+[tools.lefthook."platforms.windows-x64"]
+checksum = "sha256:10d4674f02e80a7be4341d8af0398307f5526f36344932f140a90eb732bc9acd"
+url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Windows_x86_64.gz"
+provenance = "github-attestations"
+
+[tools.lefthook."platforms.windows-x64-baseline"]
+checksum = "sha256:10d4674f02e80a7be4341d8af0398307f5526f36344932f140a90eb732bc9acd"
+url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Windows_x86_64.gz"
+provenance = "github-attestations"
+
 [[tools.node]]
 version = "24.15.0"
 backend = "core:node"

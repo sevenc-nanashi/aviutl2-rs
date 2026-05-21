@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-（なし）
+- module: `ReadSection`を`#[aviutl2::module::functions]`で受け取れるように
+- eframe: eguiのデフォルトフォントを同梱するように（feature flagによって制御できます）
 
 ### デモプラグイン
 
