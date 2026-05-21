@@ -11,9 +11,10 @@ use std::num::NonZeroIsize;
 pub struct HostAppHandle<'a> {
     internal: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
     global_leak_manager: &'a mut crate::common::LeakManager,
-    kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    is_register_plugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
     plugin_registry: &'a mut crate::generic::PluginRegistry,
-    is_registerplugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    is_edit_handle_available: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    is_shutting_down: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 /// プラグインの初期化状態を管理するためのハンドル。
@@ -34,21 +35,26 @@ impl<'plugin> HostAppHandle<'plugin> {
     pub(crate) unsafe fn new(
         internal: *mut aviutl2_sys::plugin2::HOST_APP_TABLE,
         global_leak_manager: &'plugin mut crate::common::LeakManager,
-        kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        is_register_plugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
         plugin_registry: &'plugin mut crate::generic::PluginRegistry,
-        is_registerplugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        is_edit_handle_available: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        is_shutting_down: std::sync::Arc<std::sync::atomic::AtomicBool>,
     ) -> Self {
         Self {
             internal,
             global_leak_manager,
-            kill_switch,
+            is_register_plugin_done,
             plugin_registry,
-            is_registerplugin_done,
+            is_edit_handle_available,
+            is_shutting_down,
         }
     }
 
     fn assert_not_killed(&self) {
-        if self.kill_switch.load(std::sync::atomic::Ordering::SeqCst) {
+        if self
+            .is_register_plugin_done
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
             panic!("This HostAppHandle is no longer valid.");
         }
     }
@@ -57,7 +63,13 @@ impl<'plugin> HostAppHandle<'plugin> {
     pub fn create_edit_handle(&mut self) -> crate::generic::EditHandle {
         self.assert_not_killed();
         let raw_handle = unsafe { ((*self.internal).create_edit_handle)() };
-        unsafe { crate::generic::EditHandle::new(raw_handle, self.is_registerplugin_done.clone()) }
+        unsafe {
+            crate::generic::EditHandle::new(
+                raw_handle,
+                self.is_edit_handle_available.clone(),
+                self.is_shutting_down.clone(),
+            )
+        }
     }
 
     /// インポートメニューを登録します。

@@ -11,10 +11,16 @@ use crate::generic::{EditSection, ReadSection};
 /// - [`Self::get_host_app_window`]
 /// - [`Self::get_host_app_window_raw`]
 /// - [`Self::is_ready`]
+///
+/// # Note
+///
+/// beta46現在、編集ハンドルの関数をUninitializePlugin中に呼び出すとAviUtl2がクラッシュする（再起動などが不可能になる）ため、
+/// aviutl2-rs側で多少の緩和策を講じています。
 #[derive(Debug)]
 pub struct EditHandle {
     pub(crate) internal: *mut aviutl2_sys::plugin2::EDIT_HANDLE,
     pub(crate) is_ready: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    pub(crate) is_shutting_down: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 unsafe impl Send for EditHandle {}
@@ -37,13 +43,26 @@ impl EditHandle {
     pub(crate) unsafe fn new(
         internal: *mut aviutl2_sys::plugin2::EDIT_HANDLE,
         is_ready: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        is_shutting_down: std::sync::Arc<std::sync::atomic::AtomicBool>,
     ) -> Self {
-        Self { internal, is_ready }
+        Self {
+            internal,
+            is_ready,
+            is_shutting_down,
+        }
+    }
+
+    /// 編集ハンドルの初期化が完了しているかどうかを確認します。
+    pub fn is_ready(&self) -> bool {
+        self.is_ready.load(std::sync::atomic::Ordering::Acquire)
     }
 
     /// 編集ハンドルが使用可能かどうかを確認します。
-    pub fn is_ready(&self) -> bool {
+    pub fn is_available(&self) -> bool {
         self.is_ready.load(std::sync::atomic::Ordering::Acquire)
+            && !self
+                .is_shutting_down
+                .load(std::sync::atomic::Ordering::Acquire)
     }
 
     /// プロジェクトデータの編集を開始する。
@@ -60,6 +79,9 @@ impl EditHandle {
             self.is_ready(),
             "call_edit_section cannot be called before register_plugin is done"
         );
+        if !self.is_available() {
+            return Err(EditHandleError::ApiCallFailed);
+        }
 
         type CallbackParam<'a, F, T> = (ChildKillablePointer<Option<F>>, &'a mut Option<T>);
 
@@ -120,6 +142,9 @@ impl EditHandle {
             self.is_ready(),
             "call_read_section cannot be called before register_plugin is done"
         );
+        if !self.is_available() {
+            return Err(EditHandleError::ApiCallFailed);
+        }
 
         type CallbackParam<'a, F, T> = (ChildKillablePointer<Option<F>>, &'a mut Option<T>);
 
@@ -172,6 +197,30 @@ impl EditHandle {
             self.is_ready(),
             "get_edit_info cannot be called before register_plugin is done"
         );
+        if !self.is_available() {
+            // NOTE: クラッシュせずにちゃんと呼び出せる未来を信じてResultではなく適当な値を返す
+            tracing::warn!("get_edit_info called but EditHandle is not available, returning placeholder EditInfo");
+            return crate::generic::EditInfo {
+                width: 0,
+                height: 0,
+                fps: num_rational::Rational32::new(0, 1),
+                sample_rate: 0,
+                frame: 0,
+                layer: 0,
+                frame_max: 0,
+                layer_max: 0,
+                display_frame_start: 0,
+                display_layer_start: 0,
+                display_frame_num: 0,
+                display_layer_num: 0,
+                select_range_start: None,
+                select_range_end: None,
+                grid_bpm_tempo: 0.0,
+                grid_bpm_beat: 0,
+                grid_bpm_offset: 0.0,
+                scene_id: 0,
+            };
+        }
         let mut raw_info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::EDIT_INFO>::uninit();
         unsafe {
             ((*self.internal).get_edit_info)(
@@ -189,6 +238,10 @@ impl EditHandle {
             self.is_ready(),
             "restart_host_app cannot be called before register_plugin is done"
         );
+        if !self.is_available() {
+            tracing::warn!("restart_host_app called but EditHandle is not available");
+            return;
+        }
         unsafe {
             ((*self.internal).restart_host_app)();
         }
@@ -207,6 +260,10 @@ impl EditHandle {
             self.is_ready(),
             "enumerate_effects cannot be called before register_plugin is done"
         );
+        if !self.is_available() {
+            tracing::warn!("enumerate_effects called but EditHandle is not available");
+            return;
+        }
         type CallbackParam<F> = ChildKillablePointer<F>;
 
         extern "C" fn trampoline<F>(
@@ -281,6 +338,10 @@ impl EditHandle {
             self.is_ready(),
             "enumerate_effect_items cannot be called before register_plugin is done"
         );
+        if !self.is_available() {
+            tracing::warn!("enumerate_effect_items called but EditHandle is not available");
+            return Err(EditHandleError::ApiCallFailed);
+        }
         type CallbackParam<F> = ChildKillablePointer<F>;
 
         unsafe extern "C" fn trampoline<F>(
@@ -347,6 +408,10 @@ impl EditHandle {
             self.is_ready(),
             "enumerate_modules cannot be called before register_plugin is done"
         );
+        if !self.is_available() {
+            tracing::warn!("enumerate_modules called but EditHandle is not available");
+            return;
+        }
         type CallbackParam<F> = ChildKillablePointer<F>;
 
         extern "C" fn trampoline<F>(
@@ -391,6 +456,10 @@ impl EditHandle {
 
     /// ホストアプリケーションのメインウィンドウのハンドルを[`raw_window_handle::Win32WindowHandle`]として取得する。
     pub fn get_host_app_window_raw(&self) -> Option<raw_window_handle::Win32WindowHandle> {
+        if !self.is_available() {
+            tracing::warn!("get_host_app_window_raw called but EditHandle is not available");
+            return None;
+        }
         let hwnd = unsafe { ((*self.internal).get_host_app_window)() };
         NonZeroIsize::new(hwnd as isize).map(raw_window_handle::Win32WindowHandle::new)
     }
@@ -401,6 +470,10 @@ impl EditHandle {
     ///
     /// [`raw_window_handle::WindowHandle::borrow_raw`] を参照してください。
     pub unsafe fn get_host_app_window(&'_ self) -> Option<raw_window_handle::WindowHandle<'_>> {
+        if !self.is_available() {
+            tracing::warn!("get_host_app_window called but EditHandle is not available");
+            return None;
+        }
         self.get_host_app_window_raw().map(|handle| unsafe {
             raw_window_handle::WindowHandle::borrow_raw(raw_window_handle::RawWindowHandle::Win32(
                 handle,
@@ -414,6 +487,10 @@ impl EditHandle {
             self.is_ready(),
             "get_edit_state cannot be called before register_plugin is done"
         );
+        if !self.is_available() {
+            tracing::warn!("get_edit_state called but EditHandle is not available");
+            return Err(EditHandleError::ApiCallFailed);
+        }
         let state = unsafe { ((*self.internal).get_edit_state)() };
         EditState::try_from(state).map_err(|_| EditHandleError::UnknownEditState(state))
     }

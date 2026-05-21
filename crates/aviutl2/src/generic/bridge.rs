@@ -10,21 +10,23 @@ use crate::{
 pub struct InternalGenericPluginState<T: Send + Sync + GenericPlugin> {
     plugin_registry: PluginRegistry,
 
-    kill_switch: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    register_plugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
     global_leak_manager: LeakManager,
 
     instance: T,
     is_edit_handle_ready: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    is_shutting_down: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl<T: Send + Sync + GenericPlugin> InternalGenericPluginState<T> {
     pub fn new(instance: T) -> Self {
         Self {
             plugin_registry: PluginRegistry::new(),
-            kill_switch: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            register_plugin_done: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             global_leak_manager: LeakManager::new(),
             instance,
             is_edit_handle_ready: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            is_shutting_down: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
     }
 }
@@ -130,8 +132,9 @@ fn register_plugin_impl<T: GenericSingleton>(
     let mut plugin_state = plugin_state.write().unwrap();
     let plugin_state = plugin_state.as_mut().expect("Plugin not initialized");
 
-    let kill_switch = plugin_state.kill_switch.clone();
+    let kill_switch = plugin_state.register_plugin_done.clone();
     let is_edithandle_ready = plugin_state.is_edit_handle_ready.clone();
+    let is_shutting_down = plugin_state.is_shutting_down.clone();
     let mut handle = unsafe {
         HostAppHandle::new(
             host,
@@ -139,6 +142,7 @@ fn register_plugin_impl<T: GenericSingleton>(
             kill_switch,
             &mut plugin_state.plugin_registry,
             is_edithandle_ready.clone(),
+            is_shutting_down.clone(),
         )
     };
     if unwind {
@@ -146,6 +150,9 @@ fn register_plugin_impl<T: GenericSingleton>(
             crate::utils::catch_unwind_with_panic_info(std::panic::AssertUnwindSafe(|| {
                 T::register(&mut plugin_state.instance, &mut handle)
             }));
+        plugin_state
+            .register_plugin_done
+            .store(true, std::sync::atomic::Ordering::SeqCst);
         if let Err(panic_info) = result {
             tracing::error!("Panic occurred during plugin registration: {}", panic_info);
             let _ = crate::logger::write_error_log(&format!(
@@ -286,7 +293,12 @@ pub unsafe fn register_plugin_unwind<T: GenericSingleton>(
 }
 pub unsafe fn uninitialize_plugin<T: GenericSingleton>() {
     let plugin_state = T::__get_singleton_state();
-    *plugin_state.write().unwrap() = None;
+    let mut plugin_state = plugin_state.write().unwrap();
+    if let Some(plugin_state) = plugin_state.take() {
+        plugin_state
+            .is_shutting_down
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
 }
 
 pub unsafe fn uninitialize_plugin_c_unwind<T: GenericSingleton>() {
