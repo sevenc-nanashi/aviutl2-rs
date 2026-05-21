@@ -13,6 +13,9 @@ categories = ["gui"]
 default-target = "x86_64-pc-windows-msvc"
 targets = []
 all-features = true
+[features]
+default = ["default_fonts"]
+default_fonts = ["eframe/default_fonts"]
 
 [dependencies]
 anyhow = "1.0.102"
