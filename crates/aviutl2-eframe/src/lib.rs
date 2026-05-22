@@ -79,8 +79,7 @@ impl eframe::App for WrappedApp {
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         self.internal_app.ui(ui, frame);
 
-        if 
-            cfg!(feature = "transparent_keyboard_input")    &&            !ui.egui_wants_keyboard_input() {
+        if cfg!(feature = "transparent_keyboard_input") && !ui.egui_wants_keyboard_input() {
             ui.input(|i| {
                 let parent_window = unsafe {
                     windows::Win32::UI::WindowsAndMessaging::GetParent(HWND(
