@@ -1,4 +1,45 @@
-pub fn egui_key_to_windows_key(key: eframe::egui::Key) -> Option<u32> {
+pub struct WindowsKeyMessage {
+    pub wparam: usize,
+    pub lparam: isize,
+}
+
+pub fn egui_key_to_windows_key_message(
+    logical_key: eframe::egui::Key,
+    physical_key: Option<eframe::egui::Key>,
+    pressed: bool,
+    keyboard_layout: Option<windows::Win32::UI::Input::KeyboardAndMouse::HKL>,
+) -> Option<WindowsKeyMessage> {
+    if let Some(scancode) = physical_key.and_then(egui_physical_key_to_windows_scancode) {
+        let wparam = unsafe {
+            windows::Win32::UI::Input::KeyboardAndMouse::MapVirtualKeyExW(
+                scancode,
+                windows::Win32::UI::Input::KeyboardAndMouse::MAPVK_VSC_TO_VK_EX,
+                keyboard_layout,
+            )
+        };
+        if wparam != 0 {
+            return Some(WindowsKeyMessage {
+                wparam: wparam as usize,
+                lparam: key_lparam(scancode, pressed),
+            });
+        }
+    }
+
+    let wparam = egui_key_to_windows_key(logical_key)?;
+    let scancode = unsafe {
+        windows::Win32::UI::Input::KeyboardAndMouse::MapVirtualKeyExW(
+            wparam,
+            windows::Win32::UI::Input::KeyboardAndMouse::MAPVK_VK_TO_VSC_EX,
+            keyboard_layout,
+        )
+    };
+    Some(WindowsKeyMessage {
+        wparam: wparam as usize,
+        lparam: key_lparam(scancode, pressed),
+    })
+}
+
+fn egui_key_to_windows_key(key: eframe::egui::Key) -> Option<u32> {
     use eframe::egui::Key::*;
     match key {
         ArrowDown => Some(0x28),
@@ -92,4 +133,112 @@ pub fn egui_key_to_windows_key(key: eframe::egui::Key) -> Option<u32> {
         F25 | F26 | F27 | F28 | F29 | F30 | F31 | F32 | F33 | F34 | F35 => None,
         BrowserBack => Some(0xA6),
     }
+}
+
+fn egui_physical_key_to_windows_scancode(key: eframe::egui::Key) -> Option<u32> {
+    use eframe::egui::Key::*;
+    match key {
+        ArrowDown => Some(0xe050),
+        ArrowLeft => Some(0xe04b),
+        ArrowRight => Some(0xe04d),
+        ArrowUp => Some(0xe048),
+        Escape => Some(0x0001),
+        Tab => Some(0x000f),
+        Backspace => Some(0x000e),
+        Enter => Some(0x001c),
+        Space => Some(0x0039),
+        Insert => Some(0xe052),
+        Delete => Some(0xe053),
+        Home => Some(0xe047),
+        End => Some(0xe04f),
+        PageUp => Some(0xe049),
+        PageDown => Some(0xe051),
+        Copy | Cut | Paste => None,
+        Colon | Semicolon => Some(0x0027),
+        Comma => Some(0x0033),
+        Backslash | Pipe => Some(0x002b),
+        Slash | Questionmark => Some(0x0035),
+        Exclamationmark => Some(0x0002),
+        OpenBracket | OpenCurlyBracket => Some(0x001a),
+        CloseBracket | CloseCurlyBracket => Some(0x001b),
+        Backtick => Some(0x0029),
+        Minus => Some(0x000c),
+        Period => Some(0x0034),
+        Plus | Equals => Some(0x000d),
+        Quote => Some(0x0028),
+        Num0 => Some(0x000b),
+        Num1 => Some(0x0002),
+        Num2 => Some(0x0003),
+        Num3 => Some(0x0004),
+        Num4 => Some(0x0005),
+        Num5 => Some(0x0006),
+        Num6 => Some(0x0007),
+        Num7 => Some(0x0008),
+        Num8 => Some(0x0009),
+        Num9 => Some(0x000a),
+        A => Some(0x001e),
+        B => Some(0x0030),
+        C => Some(0x002e),
+        D => Some(0x0020),
+        E => Some(0x0012),
+        F => Some(0x0021),
+        G => Some(0x0022),
+        H => Some(0x0023),
+        I => Some(0x0017),
+        J => Some(0x0024),
+        K => Some(0x0025),
+        L => Some(0x0026),
+        M => Some(0x0032),
+        N => Some(0x0031),
+        O => Some(0x0018),
+        P => Some(0x0019),
+        Q => Some(0x0010),
+        R => Some(0x0013),
+        S => Some(0x001f),
+        T => Some(0x0014),
+        U => Some(0x0016),
+        V => Some(0x002f),
+        W => Some(0x0011),
+        X => Some(0x002d),
+        Y => Some(0x0015),
+        Z => Some(0x002c),
+        F1 => Some(0x003b),
+        F2 => Some(0x003c),
+        F3 => Some(0x003d),
+        F4 => Some(0x003e),
+        F5 => Some(0x003f),
+        F6 => Some(0x0040),
+        F7 => Some(0x0041),
+        F8 => Some(0x0042),
+        F9 => Some(0x0043),
+        F10 => Some(0x0044),
+        F11 => Some(0x0057),
+        F12 => Some(0x0058),
+        F13 => Some(0x0064),
+        F14 => Some(0x0065),
+        F15 => Some(0x0066),
+        F16 => Some(0x0067),
+        F17 => Some(0x0068),
+        F18 => Some(0x0069),
+        F19 => Some(0x006a),
+        F20 => Some(0x006b),
+        F21 => Some(0x006c),
+        F22 => Some(0x006d),
+        F23 => Some(0x006e),
+        F24 => Some(0x0076),
+        F25 | F26 | F27 | F28 | F29 | F30 | F31 | F32 | F33 | F34 | F35 => None,
+        BrowserBack => Some(0xe06a),
+    }
+}
+
+fn key_lparam(scancode: u32, pressed: bool) -> isize {
+    let mut lparam = 1 | (((scancode & 0xff) as isize) << 16);
+    if scancode & 0xff00 == 0xe000 {
+        lparam |= 1 << 24;
+    }
+    if !pressed {
+        lparam |= 1 << 30;
+        lparam |= 1 << 31;
+    }
+    lparam
 }

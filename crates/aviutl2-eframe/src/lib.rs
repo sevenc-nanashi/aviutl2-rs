@@ -111,17 +111,36 @@ impl eframe::App for WrappedApp {
                     } else {
                         windows::Win32::UI::WindowsAndMessaging::WM_KEYUP
                     };
-                    let Some(wparam) = key::egui_key_to_windows_key(physical_key.unwrap_or(*key))
-                    else {
+                    let parent_thread_id = unsafe {
+                        windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(
+                            parent_window,
+                            None,
+                        )
+                    };
+                    let keyboard_layout = (parent_thread_id != 0).then(|| unsafe {
+                        windows::Win32::UI::Input::KeyboardAndMouse::GetKeyboardLayout(
+                            parent_thread_id,
+                        )
+                    });
+                    let Some(key_message) = key::egui_key_to_windows_key_message(
+                        *key,
+                        *physical_key,
+                        *pressed,
+                        keyboard_layout,
+                    ) else {
                         continue;
                     };
+                    tracing::trace!(
+                        "Forwarding key event to parent window: key={:?}, physical_key={:?}, pressed={}, message=0x{:04X}",
+                        key, physical_key, pressed, message
+                    );
 
                     unsafe {
                         let res = windows::Win32::UI::WindowsAndMessaging::PostMessageW(
                             Some(parent_window),
                             message,
-                            windows::Win32::Foundation::WPARAM(wparam as _),
-                            windows::Win32::Foundation::LPARAM(0),
+                            windows::Win32::Foundation::WPARAM(key_message.wparam),
+                            windows::Win32::Foundation::LPARAM(key_message.lparam),
                         );
                         if let Err(e) = res {
                             tracing::warn!("Failed to post key event to parent window: {:?}", e);
