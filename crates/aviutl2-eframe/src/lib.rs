@@ -1,6 +1,20 @@
 //! # aviutl2-eframe
 //!
 //! AviUtl2の汎用プラグインでegui/eframeを扱うためのライブラリ。
+//!
+//! ## Feature Flags
+//!
+//! - `default_fonts`（デフォルト）：eguiのデフォルトフォントを埋め込むかどうか。
+//!   無効にするとeguiにて使われている記号が表示されなくなる可能性があるので、通常は有効にしておくことを推奨します。
+//! - `transparent_keyboard_input`（デフォルト）：eguiがキーボード入力を要求していないときにAviUtl2にキーボードイベントを透過させるかどうか。
+//!
+//! ## Note
+//!
+//! aviutl2-rsをGitリポジトリで依存として指定する場合は`[patch]`セクションを使用してください。
+//! もし`aviutl2 = { git = "..." }`のように直接指定した場合、`aviutl2-eframe`クレートから
+//! 参照する`aviutl2`クレートと依存関係が分裂してしまい、特に[`aviutl2_visuals`]関数などで問題が発生します。
+mod key;
+
 use anyhow::Context;
 use aviutl2::{AnyResult, raw_window_handle, tracing};
 use eframe::EframeWinitApplication;
@@ -64,6 +78,59 @@ struct WrappedApp {
 impl eframe::App for WrappedApp {
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         self.internal_app.ui(ui, frame);
+
+        if 
+            cfg!(feature = "transparent_keyboard_input")    &&            !ui.egui_wants_keyboard_input() {
+            ui.input(|i| {
+                let parent_window = unsafe {
+                    windows::Win32::UI::WindowsAndMessaging::GetParent(HWND(
+                        self.hwnd.get() as *mut std::ffi::c_void
+                    ))
+                };
+                let Ok(parent_window) = parent_window else {
+                    tracing::warn!(
+                        "Failed to get parent window for input handling: {:?}",
+                        windows::core::Error::from_thread()
+                    );
+                    return;
+                };
+
+                for event in &i.events {
+                    let egui::Event::Key {
+                        key,
+                        physical_key,
+                        pressed,
+                        repeat: _,
+                        modifiers: _,
+                    } = event
+                    else {
+                        continue;
+                    };
+
+                    let message = if *pressed {
+                        windows::Win32::UI::WindowsAndMessaging::WM_KEYDOWN
+                    } else {
+                        windows::Win32::UI::WindowsAndMessaging::WM_KEYUP
+                    };
+                    let Some(wparam) = key::egui_key_to_windows_key(physical_key.unwrap_or(*key))
+                    else {
+                        continue;
+                    };
+
+                    unsafe {
+                        let res = windows::Win32::UI::WindowsAndMessaging::PostMessageW(
+                            Some(parent_window),
+                            message,
+                            windows::Win32::Foundation::WPARAM(wparam as _),
+                            windows::Win32::Foundation::LPARAM(0),
+                        );
+                        if let Err(e) = res {
+                            tracing::warn!("Failed to post key event to parent window: {:?}", e);
+                        }
+                    }
+                }
+            });
+        }
     }
 
     fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
