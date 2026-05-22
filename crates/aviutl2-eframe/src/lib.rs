@@ -1,6 +1,8 @@
 //! # aviutl2-eframe
 //!
 //! AviUtl2の汎用プラグインでegui/eframeを扱うためのライブラリ。
+mod key;
+
 use anyhow::Context;
 use aviutl2::{AnyResult, raw_window_handle, tracing};
 use eframe::EframeWinitApplication;
@@ -64,6 +66,43 @@ struct WrappedApp {
 impl eframe::App for WrappedApp {
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         self.internal_app.ui(ui, frame);
+        ui.input(|i| {
+            let parent_window = unsafe {
+                windows::Win32::UI::WindowsAndMessaging::GetParent(HWND(
+                    self.hwnd.get() as *mut std::ffi::c_void
+                ))
+            };
+            let Ok(_parent_window) = parent_window else {
+                tracing::warn!(
+                    "Failed to get parent window for input handling: {:?}",
+                    windows::core::Error::from_thread()
+                );
+                return;
+            };
+
+            for event in &i.events {
+                let egui::Event::Key {
+                    key,
+                    physical_key,
+                    pressed,
+                    repeat: _,
+                    modifiers: _,
+                } = event
+                else {
+                    continue;
+                };
+
+                let _message = if *pressed {
+                    windows::Win32::UI::WindowsAndMessaging::WM_KEYDOWN
+                } else {
+                    windows::Win32::UI::WindowsAndMessaging::WM_KEYUP
+                };
+                let Some(_wparam) = key::egui_key_to_windows_key(physical_key.unwrap_or(*key))
+                else {
+                    continue;
+                };
+            }
+        });
     }
 
     fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
