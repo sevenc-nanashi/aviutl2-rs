@@ -128,9 +128,13 @@ impl<'a> ProjectFile<'a> {
 
 #[cfg(feature = "serde")]
 const _: () = {
+    use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
     use std::io::Read;
 
     static NAMESPACE: &str = "--aviutl2-rs";
+    const BINARY_CHUNK_SIZE: usize = 4096;
+    // 現状制限はないが、一応4096文字くらいにしておく
+    const BASE64_CHUNK_RAW_SIZE: usize = 3072;
 
     /// プロジェクトのシリアライズ・デシリアライズ関連のエラー。
     #[derive(thiserror::Error, Debug)]
@@ -139,6 +143,8 @@ const _: () = {
         Serialization(#[from] rmp_serde::encode::Error),
         #[error("deserialization error: {0}")]
         Deserialization(#[from] rmp_serde::decode::Error),
+        #[error("base64 decode error: {0}")]
+        Base64Decode(#[from] base64::DecodeError),
         #[error("zstd dompression error: {0}")]
         Decompression(#[from] std::io::Error),
         #[error("project file error: {0}")]
@@ -168,10 +174,13 @@ const _: () = {
         ) -> Result<(), ProjectFileSerdeError> {
             let bytes = rmp_serde::to_vec_named(value)?;
             let num_bytes = bytes.len();
-            self.set_param_string(key, &format!("{NAMESPACE}:serde-rmp-v1:{}", num_bytes))?;
-            for (i, chunk) in bytes.chunks(4096).enumerate() {
-                let chunk_key = format!("{NAMESPACE}:serde-chunk:{}:{}", key, i);
-                self.set_param_binary(&chunk_key, chunk)?;
+            self.set_param_string(
+                key,
+                &format!("{NAMESPACE}:serde-rmp-base64-v1:{}", num_bytes),
+            )?;
+            for (i, chunk) in bytes.chunks(BASE64_CHUNK_RAW_SIZE).enumerate() {
+                let chunk_key = format!("{NAMESPACE}:serde-base64-chunk:{}:{}", key, i);
+                self.set_param_string(&chunk_key, &BASE64.encode(chunk))?;
             }
             Ok(())
         }
@@ -182,10 +191,35 @@ const _: () = {
             key: &str,
         ) -> Result<T, ProjectFileSerdeError> {
             let header = self.get_param_string(key)?;
+            if let Ok(value) = self.decode_serde_rmp_base64_v1(key, &header) {
+                return Ok(value);
+            }
             if let Ok(value) = self.decode_serde_zstd_v1(key, &header) {
                 return Ok(value);
             }
             self.decode_serde_rmp_v1(key, &header)
+        }
+
+        fn decode_serde_rmp_base64_v1<T: serde::de::DeserializeOwned>(
+            &self,
+            key: &str,
+            header: &str,
+        ) -> Result<T, ProjectFileSerdeError> {
+            let header_prefix = format!("{NAMESPACE}:serde-rmp-base64-v1:");
+            let num_bytes = header
+                .strip_prefix(&header_prefix)
+                .ok_or(ProjectFileSerdeError::UnsupportedFormat)?;
+            let num_bytes: usize = num_bytes
+                .parse()
+                .map_err(|_| ProjectFileSerdeError::InvalidHeaderFormat(header.to_string()))?;
+            if num_bytes == 0 {
+                return Err(ProjectFileSerdeError::InvalidHeaderFormat(
+                    header.to_string(),
+                ));
+            }
+            let chunks = self.collect_base64_chunks(num_bytes, key)?;
+            let value: T = rmp_serde::from_slice(&chunks)?;
+            Ok(value)
         }
 
         fn decode_serde_rmp_v1<T: serde::de::DeserializeOwned>(
@@ -217,10 +251,10 @@ const _: () = {
         ) -> Result<Vec<u8>, ProjectFileSerdeError> {
             let mut bytes = Vec::with_capacity(num_bytes);
             let mut read_bytes = 0;
-            let mut chunk = vec![0u8; 4096];
+            let mut chunk = vec![0u8; BINARY_CHUNK_SIZE];
             for i in 0.. {
                 let chunk_key = format!("{NAMESPACE}:serde-chunk:{}:{}", key, i);
-                let to_read = std::cmp::min(4096, num_bytes - read_bytes);
+                let to_read = std::cmp::min(BINARY_CHUNK_SIZE, num_bytes - read_bytes);
                 chunk.resize(to_read, 0);
                 match self.get_param_binary(&chunk_key, &mut chunk) {
                     Ok(()) => {
@@ -238,6 +272,31 @@ const _: () = {
             }
             Ok(bytes)
         }
+
+        fn collect_base64_chunks(
+            &self,
+            num_bytes: usize,
+            key: &str,
+        ) -> Result<Vec<u8>, ProjectFileSerdeError> {
+            let mut bytes = Vec::with_capacity(num_bytes);
+            for i in 0.. {
+                let chunk_key = format!("{NAMESPACE}:serde-base64-chunk:{}:{}", key, i);
+                let chunk = match self.get_param_string(&chunk_key) {
+                    Ok(chunk) => chunk,
+                    Err(_) => break,
+                };
+                let chunk = BASE64.decode(chunk)?;
+                bytes.extend_from_slice(&chunk);
+                if bytes.len() >= num_bytes {
+                    break;
+                }
+            }
+            if bytes.len() != num_bytes {
+                return Err(ProjectFileSerdeError::IncompleteData);
+            }
+            Ok(bytes)
+        }
+
         fn decode_serde_zstd_v1<T: serde::de::DeserializeOwned>(
             &self,
             key: &str,
@@ -257,10 +316,10 @@ const _: () = {
             }
             let mut bytes = Vec::with_capacity(num_bytes);
             let mut read_bytes = 0;
-            let mut chunk = vec![0u8; 4096];
+            let mut chunk = vec![0u8; BINARY_CHUNK_SIZE];
             for i in 0.. {
                 let chunk_key = format!("{NAMESPACE}:serde-zstd-v1:chunk:{}:{}", key, i);
-                let to_read = std::cmp::min(4096, num_bytes - read_bytes);
+                let to_read = std::cmp::min(BINARY_CHUNK_SIZE, num_bytes - read_bytes);
                 chunk.resize(to_read, 0);
                 match self.get_param_binary(&chunk_key, &mut chunk) {
                     Ok(()) => {

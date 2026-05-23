@@ -316,6 +316,7 @@ dependencies = [
  "aviutl2-alias",
  "aviutl2-macros",
  "aviutl2-sys",
+ "base64",
  "comptime-if",
  "dashmap",
  "duplicate",

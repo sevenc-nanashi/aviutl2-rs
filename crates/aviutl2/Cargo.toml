@@ -19,6 +19,7 @@ anyhow = "1.0.102"
 aviutl2-alias = { workspace = true, optional = true }
 aviutl2-macros.workspace = true
 aviutl2-sys.workspace = true
+base64 = { version = "0.22.1", optional = true }
 comptime-if = "0.1.1"
 dashmap = "6.2.1"
 duplicate = "2.0.1"
@@ -57,5 +58,5 @@ image = ["dep:image"]
 input = []
 module = []
 output = []
-serde = ["dep:rmp-serde", "dep:ruzstd", "dep:serde"]
+serde = ["dep:rmp-serde", "dep:ruzstd", "dep:serde", "dep:base64"]
 wrap_log = ["dep:process_path"]
