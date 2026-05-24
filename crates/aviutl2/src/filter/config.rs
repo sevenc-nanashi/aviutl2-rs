@@ -119,12 +119,14 @@ impl FilterConfigItem {
         match self {
             FilterConfigItem::Track(item) => aviutl2_sys::filter2::FILTER_ITEM {
                 track: aviutl2_sys::filter2::FILTER_ITEM_TRACK {
-                    r#type: leak_manager.leak_as_wide_string("track"),
+                    r#type: leak_manager.leak_as_wide_string("track2"),
                     name: leak_manager.leak_as_wide_string(&item.name),
                     value: item.value,
                     s: *item.range.start(),
                     e: *item.range.end(),
                     step: item.step,
+                    zero_display: std::ptr::null(),
+                    slider_ratio: 1.0,
                 },
             },
             FilterConfigItem::Checkbox(item) => aviutl2_sys::filter2::FILTER_ITEM {
@@ -254,7 +256,7 @@ impl FilterConfigItem {
             )
         };
         match item_type.as_str() {
-            "track" => {
+            "track" | "track2" => {
                 let raw_track = unsafe { &(*raw).track };
                 FilterConfigItemValue::Track(raw_track.value)
             }

@@ -10,7 +10,9 @@ pub type OBJECT_HANDLE = *mut c_void;
 #[repr(C)]
 pub union FILTER_ITEM {
     pub track: FILTER_ITEM_TRACK,
+    pub track_group: FILTER_ITEM_TRACK_GROUP,
     pub checkbox: FILTER_ITEM_CHECKBOX,
+    pub check_section: FILTER_ITEM_CHECK_SECTION,
     pub color: FILTER_ITEM_COLOR,
     pub select: FILTER_ITEM_SELECT,
     pub file: FILTER_ITEM_FILE,
@@ -27,7 +29,7 @@ pub union FILTER_ITEM {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct FILTER_ITEM_TRACK {
-    /// 設定の種別（L"track"）
+    /// 設定の種別（L"track2"）
     pub r#type: LPCWSTR,
     /// 設定名
     pub name: LPCWSTR,
@@ -39,6 +41,22 @@ pub struct FILTER_ITEM_TRACK {
     pub e: f64,
     /// 設定値の単位
     pub step: f64,
+    /// ゼロ値名称 (設定値が0の時にトラックバーに表示する文字列)
+    pub zero_display: LPCWSTR,
+    /// 操作倍率 (設定値の範囲に対してのトラックバー操作範囲の倍率)
+    pub slider_ratio: f64,
+}
+
+/// トラックバーグループ項目構造体
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_TRACK_GROUP {
+    /// 設定の種別（L"trackgroup"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// トラックバー項目グループ
+    pub tracks: *mut *mut FILTER_ITEM_TRACK,
 }
 
 /// チェックボックス項目構造体
@@ -46,6 +64,20 @@ pub struct FILTER_ITEM_TRACK {
 #[derive(Clone, Copy)]
 pub struct FILTER_ITEM_CHECKBOX {
     /// 設定の種別（L"check"）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// 設定値（フィルタ処理の呼び出し時に現在の値に更新されます）
+    pub value: bool,
+}
+
+pub type FILTER_ITEM_CHECK = FILTER_ITEM_CHECKBOX;
+
+/// チェックボックス(セクション毎)項目構造体
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_CHECK_SECTION {
+    /// 設定の種別（L"checksection"）
     pub r#type: LPCWSTR,
     /// 設定名
     pub name: LPCWSTR,
@@ -336,6 +368,19 @@ pub enum BILLBOARD_MODE {
     CAMERA = 3,
 }
 
+/// 出力ブレンド(BlendState)の種別
+#[repr(i32)]
+pub enum BLEND_STATE_MODE {
+    /// 出力をそのままコピー
+    COPY = 0,
+    /// α値のみを乗算 ※RGB値は利用されません
+    MASK = 1,
+    /// 出力をアルファブレンド
+    DRAW = 2,
+    /// 出力を加算合成
+    ADD = 3,
+}
+
 /// RGBA32bit構造体
 #[repr(C)]
 pub struct PIXEL_RGBA {
@@ -524,6 +569,74 @@ pub struct FILTER_PROC_VIDEO {
     /// 画像リソースを作成する
     pub create_image_resource:
         unsafe extern "C" fn(image: LPCWSTR, buffer: *const PIXEL_RGBA, width: i32, height: i32),
+
+    /// 指定の画像リソースのD3D画像リソースのポインタを取得する
+    pub get_image_resource_texture2d: unsafe extern "C" fn(resource: LPCWSTR) -> *mut c_void,
+
+    /// 画像リソースをコピーする
+    pub copy_image_resource:
+        unsafe extern "C" fn(dst_resource: LPCWSTR, src_resource: LPCWSTR) -> bool,
+
+    /// 画像リソースをクリアする
+    pub clear_image_resource: unsafe extern "C" fn(resource: LPCWSTR, color: PIXEL_RGBA) -> bool,
+
+    /// 指定の画像リソースを描画先の画像リソースに描画します
+    pub draw_image_to_resource: unsafe extern "C" fn(
+        dst_resource: LPCWSTR,
+        src_resource: LPCWSTR,
+        x: f32,
+        y: f32,
+        z: f32,
+        rx: f32,
+        ry: f32,
+        rz: f32,
+        sx: f32,
+        sy: f32,
+        sz: f32,
+        alpha: f32,
+    ) -> bool,
+
+    /// 指定の頂点リストのポリゴンを描画先の画像リソースに描画します
+    pub draw_poly_to_resource: unsafe extern "C" fn(
+        dst_resource: LPCWSTR,
+        vertex_type: VERTEX_TYPE,
+        vertex_list: *const c_void,
+        vertex_num: i32,
+        src_resource: LPCWSTR,
+    ) -> bool,
+
+    /// ピクセルシェーダーを実行します
+    pub exec_pixelshader: unsafe extern "C" fn(
+        cso_file: LPCWSTR,
+        target: LPCWSTR,
+        resource_list: *mut LPCWSTR,
+        resource_num: i32,
+        constant: *mut c_void,
+        constant_size: i32,
+        blend_state: *mut c_void,
+        sampler_state: *mut c_void,
+    ) -> bool,
+
+    /// コンピュートシェーダーを実行します
+    pub exec_computeshader: unsafe extern "C" fn(
+        cso_file: LPCWSTR,
+        target_list: *mut LPCWSTR,
+        target_num: i32,
+        resource_list: *mut LPCWSTR,
+        resource_num: i32,
+        constant: *mut c_void,
+        constant_size: i32,
+        count_x: i32,
+        count_y: i32,
+        count_z: i32,
+        sampler_state: *mut c_void,
+    ) -> bool,
+
+    /// 定義済みのD3Dの出力ブレンドのリソースのポインタを取得する
+    pub get_blend_state: unsafe extern "C" fn(blend: BLEND_STATE_MODE) -> *mut c_void,
+
+    /// 定義済みのD3Dのサンプラーのリソースのポインタを取得する
+    pub get_sampler_state: unsafe extern "C" fn(sampler: SAMPLER_MODE) -> *mut c_void,
 }
 
 /// 音声フィルタ処理用構造体

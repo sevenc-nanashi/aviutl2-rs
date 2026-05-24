@@ -173,6 +173,7 @@ impl EditHandle {
             self.is_ready(),
             "get_edit_info cannot be called before register_plugin is done"
         );
+        let mut raw_info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::EDIT_INFO>::uninit();
         unsafe {
             ((*self.internal).get_edit_info)(
                 raw_info.as_mut_ptr(),
