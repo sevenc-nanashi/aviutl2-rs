@@ -14,7 +14,6 @@ pub struct HostAppHandle<'a> {
     is_register_plugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
     plugin_registry: &'a mut crate::generic::PluginRegistry,
     is_edit_handle_available: std::sync::Arc<std::sync::atomic::AtomicBool>,
-    is_shutting_down: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 /// プラグインの初期化状態を管理するためのハンドル。
@@ -38,7 +37,6 @@ impl<'plugin> HostAppHandle<'plugin> {
         is_register_plugin_done: std::sync::Arc<std::sync::atomic::AtomicBool>,
         plugin_registry: &'plugin mut crate::generic::PluginRegistry,
         is_edit_handle_available: std::sync::Arc<std::sync::atomic::AtomicBool>,
-        is_shutting_down: std::sync::Arc<std::sync::atomic::AtomicBool>,
     ) -> Self {
         Self {
             internal,
@@ -46,7 +44,6 @@ impl<'plugin> HostAppHandle<'plugin> {
             is_register_plugin_done,
             plugin_registry,
             is_edit_handle_available,
-            is_shutting_down,
         }
     }
 
@@ -64,11 +61,7 @@ impl<'plugin> HostAppHandle<'plugin> {
         self.assert_not_killed();
         let raw_handle = unsafe { ((*self.internal).create_edit_handle)() };
         unsafe {
-            crate::generic::EditHandle::new(
-                raw_handle,
-                self.is_edit_handle_available.clone(),
-                self.is_shutting_down.clone(),
-            )
+            crate::generic::EditHandle::new(raw_handle, self.is_edit_handle_available.clone())
         }
     }
 

@@ -15,7 +15,6 @@ pub struct InternalGenericPluginState<T: Send + Sync + GenericPlugin> {
 
     instance: T,
     is_edit_handle_ready: std::sync::Arc<std::sync::atomic::AtomicBool>,
-    is_shutting_down: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl<T: Send + Sync + GenericPlugin> InternalGenericPluginState<T> {
@@ -26,7 +25,6 @@ impl<T: Send + Sync + GenericPlugin> InternalGenericPluginState<T> {
             global_leak_manager: LeakManager::new(),
             instance,
             is_edit_handle_ready: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            is_shutting_down: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
     }
 }
@@ -139,7 +137,6 @@ fn register_plugin_impl<T: GenericSingleton>(
             plugin_state.register_plugin_done.clone(),
             &mut plugin_state.plugin_registry,
             plugin_state.is_edit_handle_ready.clone(),
-            plugin_state.is_shutting_down.clone(),
         )
     };
     if unwind {
@@ -294,11 +291,7 @@ pub unsafe fn register_plugin_unwind<T: GenericSingleton>(
 pub unsafe fn uninitialize_plugin<T: GenericSingleton>() {
     let plugin_state = T::__get_singleton_state();
     let mut plugin_state = plugin_state.write().unwrap();
-    if let Some(plugin_state) = plugin_state.take() {
-        plugin_state
-            .is_shutting_down
-            .store(true, std::sync::atomic::Ordering::SeqCst);
-    }
+    plugin_state.take();
 }
 
 pub unsafe fn uninitialize_plugin_c_unwind<T: GenericSingleton>() {
