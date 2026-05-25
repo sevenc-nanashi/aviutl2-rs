@@ -10,7 +10,6 @@ GEM
     faraday-net_http (3.4.2)
       net-http (~> 0.5)
     json (2.18.0)
-    lefthook (2.0.16)
     logger (1.7.0)
     net-http (0.9.1)
       uri (>= 0.11.1)
@@ -35,7 +34,6 @@ PLATFORMS
   x64-mingw-ucrt
 
 DEPENDENCIES
-  lefthook (~> 2.0)
   octokit (~> 10.0)
   racc (~> 1.8)
   rake (~> 13.3)

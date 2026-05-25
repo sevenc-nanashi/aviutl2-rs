@@ -41,44 +41,6 @@ def replace_suffix(name, suffixes)
   raise "Invalid file name: #{name}"
 end
 
-desc "ビルドしたプラグインをC:/ProgramData/AviUtl2/Pluginまたは指定したディレクトリにインストールします"
-task :install, %w[target dest] do |task, args|
-  if !(target = args.target)
-    puts "Usage: rake install[target[,dest]]"
-    puts "Example: rake install[debug]"
-    exit 1
-  end
-
-  dest_dir = args.dest || "C:/ProgramData/AviUtl2/Plugin"
-  script_dir = dest_dir + "/../Script"
-  FileUtils.mkdir_p(dest_dir)
-  FileUtils.mkdir_p(script_dir)
-  Dir
-    .glob("./examples/*/Cargo.toml")
-    .each do |manifest|
-      cargo_toml = Tomlrb.load_file(manifest)
-      unless cargo_toml.key?("lib") &&
-               cargo_toml["lib"]["crate-type"]&.include?("cdylib")
-        puts "Skip: #{manifest} is not a cdylib"
-        next
-      end
-      name = cargo_toml["lib"]["name"]
-      file = "./target/#{target}/#{name}.dll"
-      dest_name = replace_suffix(name, suffixes)
-      raise "Invalid file name: #{file}" if dest_name == name
-      if dest_name.end_with?("mod2")
-        FileUtils.cp(file, File.join(script_dir, dest_name), verbose: true)
-      else
-        FileUtils.cp(file, File.join(dest_dir, dest_name), verbose: true)
-      end
-    end
-end
-
-desc "./test_environment下にAviUtl2をセットアップし、debugビルドへのシンボリックリンクを作成します"
-task :debug_setup do |task, args|
-  au2("prepare", "--force")
-end
-
 desc "リリースアセットを作成します"
 task :release, ["tag"] do |task, args|
   if !(tag = args.tag)
