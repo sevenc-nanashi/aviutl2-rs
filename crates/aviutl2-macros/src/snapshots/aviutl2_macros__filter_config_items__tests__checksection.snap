@@ -1,0 +1,36 @@
+---
+source: crates/aviutl2-macros/src/filter_config_items.rs
+expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
+---
+struct Config {
+    section_enable: bool,
+}
+#[automatically_derived]
+impl ::aviutl2::filter::FilterConfigItems for Config {
+    fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
+        return vec![::aviutl2::filter::FilterConfigItem::CheckSection(
+            ::aviutl2::filter::FilterConfigCheckSection {
+                name: "Section Enable".to_string(),
+                value: true,
+            },
+        )];
+    }
+    fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
+        Self {
+            section_enable: match items[0usize] {
+                ::aviutl2::filter::FilterConfigItem::CheckSection(ref check_section) => {
+                    check_section.value
+                }
+                _ => panic!("expected CheckSection at index {}", 0usize),
+            },
+        }
+    }
+}
+#[automatically_derived]
+impl ::std::default::Default for Config {
+    fn default() -> Self {
+        Self {
+            section_enable: true,
+        }
+    }
+}

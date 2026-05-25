@@ -471,6 +471,7 @@ impl_leak_ptr!(
 impl_leakable_value!(
     aviutl2_sys::filter2::FILTER_ITEM_SELECT_ITEM,
     aviutl2_sys::module2::SCRIPT_MODULE_FUNCTION,
+    *const aviutl2_sys::filter2::FILTER_ITEM,
     usize
 );
 

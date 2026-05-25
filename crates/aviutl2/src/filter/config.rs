@@ -52,6 +52,8 @@ pub enum FilterConfigItem {
     Track(FilterConfigTrack),
     /// チェックボックス。
     Checkbox(FilterConfigCheckbox),
+    /// セクションごとのチェックボックス。
+    CheckSection(FilterConfigCheckSection),
     /// 色選択。
     Color(FilterConfigColor),
     /// 選択リスト。
@@ -72,12 +74,15 @@ pub enum FilterConfigItem {
     Separator(FilterConfigSeparator),
     /// ボタン。
     Button(FilterConfigButton),
+    /// トラックバーグループ。
+    TrackGroup(FilterConfigTrackGroup),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum FilterConfigItemValue {
     Track(f64),
     Checkbox(bool),
+    CheckSection(bool),
     Color(FilterConfigColorValue),
     Select(i32),
     File(String),
@@ -90,6 +95,7 @@ pub(crate) enum FilterConfigItemValue {
     },
     Group,
     Button,
+    TrackGroup,
 }
 
 impl FilterConfigItem {
@@ -112,6 +118,8 @@ impl FilterConfigItem {
             FilterConfigItem::Group(item) => item.name.as_deref().unwrap_or(""),
             FilterConfigItem::Separator(item) => &item.name,
             FilterConfigItem::Button(item) => &item.name,
+            FilterConfigItem::CheckSection(item) => &item.name,
+            FilterConfigItem::TrackGroup(item) => &item.name,
         }
     }
 
@@ -125,8 +133,11 @@ impl FilterConfigItem {
                     s: *item.range.start(),
                     e: *item.range.end(),
                     step: item.step,
-                    zero_display: std::ptr::null(),
-                    slider_ratio: 1.0,
+                    zero_display: item
+                        .zero_display
+                        .as_ref()
+                        .map_or(std::ptr::null(), |s| leak_manager.leak_as_wide_string(s)),
+                    slider_ratio: item.slider_ratio,
                 },
             },
             FilterConfigItem::Checkbox(item) => aviutl2_sys::filter2::FILTER_ITEM {
@@ -240,6 +251,36 @@ impl FilterConfigItem {
                     callback: item.callback,
                 },
             },
+            FilterConfigItem::CheckSection(filter_config_check_section) => {
+                aviutl2_sys::filter2::FILTER_ITEM {
+                    check_section: aviutl2_sys::filter2::FILTER_ITEM_CHECK_SECTION {
+                        r#type: leak_manager.leak_as_wide_string("checksection"),
+                        name: leak_manager.leak_as_wide_string(&filter_config_check_section.name),
+                        value: filter_config_check_section.value,
+                    },
+                }
+            }
+            FilterConfigItem::TrackGroup(filter_config_track_group) => {
+                let mut tracks = Vec::new();
+                for item in &filter_config_track_group.tracks {
+                    let raw = FilterConfigItem::to_raw(
+                        &FilterConfigItem::Track(item.clone()),
+                        leak_manager,
+                    );
+                    tracks.push(leak_manager.leak(raw));
+                }
+                tracks.push(std::ptr::null_mut());
+
+                let pointers = leak_manager.leak_value_vec(tracks);
+
+                aviutl2_sys::filter2::FILTER_ITEM {
+                    track_group: aviutl2_sys::filter2::FILTER_ITEM_TRACK_GROUP {
+                        r#type: leak_manager.leak_as_wide_string("trackgroup"),
+                        name: leak_manager.leak_as_wide_string(&filter_config_track_group.name),
+                        tracks: pointers as _,
+                    },
+                }
+            }
         }
     }
 
@@ -310,6 +351,11 @@ impl FilterConfigItem {
             }
             "group" => FilterConfigItemValue::Group,
             "button" => FilterConfigItemValue::Button,
+            "checksection" => {
+                let raw_check_section = unsafe { &(*raw).check_section };
+                FilterConfigItemValue::CheckSection(raw_check_section.value)
+            }
+            "trackgroup" => FilterConfigItemValue::TrackGroup,
             _ => panic!("Unknown filter config item type: {}", item_type),
         }
     }
@@ -345,6 +391,10 @@ impl FilterConfigItem {
             }
             (FilterConfigItem::Group(_), FilterConfigItemValue::Group) => false,
             (FilterConfigItem::Button(_), FilterConfigItemValue::Button) => false,
+            (FilterConfigItem::CheckSection(item), FilterConfigItemValue::CheckSection(v)) => {
+                item.value != v
+            }
+            (FilterConfigItem::TrackGroup(_), FilterConfigItemValue::TrackGroup) => false,
             _ => {
                 panic!("Mismatched filter config item type");
             }
@@ -391,6 +441,12 @@ impl FilterConfigItem {
             (FilterConfigItem::Button(_), FilterConfigItemValue::Button) => {
                 // ボタンは値を持たないので何もしない
             }
+            (FilterConfigItem::CheckSection(item), FilterConfigItemValue::CheckSection(v)) => {
+                item.value = v;
+            }
+            (FilterConfigItem::TrackGroup(_), FilterConfigItemValue::TrackGroup) => {
+                // トラックバーグループは値を持たないので何もしない
+            }
             _ => {
                 panic!("Mismatched filter config item type");
             }
@@ -412,11 +468,27 @@ pub struct FilterConfigTrack {
 
     /// 設定値の単位。
     pub step: f64,
+
+    /// 0のときに表示する文字列。
+    pub zero_display: Option<String>,
+
+    /// スライダーの値の範囲に対するつまみの操作範囲の割合。
+    pub slider_ratio: f64,
 }
 
 /// チェックボックス。
 #[derive(Debug, Clone)]
 pub struct FilterConfigCheckbox {
+    /// 設定名。
+    pub name: String,
+
+    /// 設定値。
+    pub value: bool,
+}
+
+/// セクションごとのチェックボックス。
+#[derive(Debug, Clone)]
+pub struct FilterConfigCheckSection {
     /// 設定名。
     pub name: String,
 
@@ -920,6 +992,21 @@ impl<T: Copy> FilterConfigDataHandle<T> {
     pub fn as_ptr(&self) -> *mut T {
         self.inner
     }
+}
+
+/// トラックバーグループ。
+///
+/// # Note
+///
+/// SDKではトラックグループのトラックは同じFILTER_ITEM_TRACKへのポインタを渡すことが想定されていますが、
+/// 実装上の都合で同じ内容の別のFILTER_ITEM_TRACKへのポインタを渡すようになっています。
+/// （これをちゃんとやろうとするとかなり複雑になるため...）
+#[derive(Debug, Clone)]
+pub struct FilterConfigTrackGroup {
+    /// グループ名。
+    pub name: String,
+    /// トラックバーのリスト。
+    pub tracks: Vec<FilterConfigTrack>,
 }
 
 #[doc(hidden)]

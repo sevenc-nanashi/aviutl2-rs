@@ -180,8 +180,16 @@ enum FilterConfigField {
         min: f64,
         max: f64,
         step: f64,
+        group: Option<String>,
+        zero_display: Option<String>,
+        slider_ratio: f64,
     },
     Check {
+        id: String,
+        name: String,
+        default: bool,
+    },
+    CheckSection {
         id: String,
         name: String,
         default: bool,
@@ -335,6 +343,7 @@ impl syn::parse::Parse for FileFilterEntry {
 
 fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
     let mut button_callbacks = vec![];
+    let mut track_groups = Vec::<(String, Vec<proc_macro2::TokenStream>)>::new();
     let to_filter_config_fields = fields
         .iter()
         .map(|f| match f {
@@ -345,15 +354,31 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                 min,
                 max,
                 step,
+                group,
+                zero_display,
+                slider_ratio,
             } => {
+                let track = quote_filter_config_track(
+                    name,
+                    *default,
+                    *min,
+                    *max,
+                    *step,
+                    zero_display.as_deref(),
+                    *slider_ratio,
+                );
+                if let Some(group) = group {
+                    if let Some((_, tracks)) =
+                        track_groups.iter_mut().find(|(name, _)| name == group)
+                    {
+                        tracks.push(track.clone());
+                    } else {
+                        track_groups.push((group.clone(), vec![track.clone()]));
+                    }
+                }
                 quote::quote! {
                     ::aviutl2::filter::FilterConfigItem::Track(
-                        ::aviutl2::filter::FilterConfigTrack {
-                            name: #name.to_string(),
-                            value: #default,
-                            range: #min..=#max,
-                            step: #step,
-                        }
+                        #track
                     )
                 }
             }
@@ -365,6 +390,20 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                 quote::quote! {
                     ::aviutl2::filter::FilterConfigItem::Checkbox(
                         ::aviutl2::filter::FilterConfigCheckbox {
+                            name: #name.to_string(),
+                            value: #default,
+                        }
+                    )
+                }
+            }
+            FilterConfigField::CheckSection {
+                id: _,
+                name,
+                default,
+            } => {
+                quote::quote! {
+                    ::aviutl2::filter::FilterConfigItem::CheckSection(
+                        ::aviutl2::filter::FilterConfigCheckSection {
                             name: #name.to_string(),
                             value: #default,
                         }
@@ -628,14 +667,53 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
             }
         })
         .collect::<Vec<_>>();
+    let track_groups = track_groups
+        .into_iter()
+        .map(|(name, tracks)| {
+            quote::quote! {
+                ::aviutl2::filter::FilterConfigItem::TrackGroup(
+                    ::aviutl2::filter::FilterConfigTrackGroup {
+                        name: #name.to_string(),
+                        tracks: vec![#(#tracks),*],
+                    }
+                )
+            }
+        })
+        .collect::<Vec<_>>();
 
     quote::quote! {
         fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
             return vec![
-                #(#to_filter_config_fields),*
+                #(#to_filter_config_fields,)*
+                #(#track_groups),*
             ];
 
             #(#button_callbacks)*
+        }
+    }
+}
+
+fn quote_filter_config_track(
+    name: &str,
+    default: f64,
+    min: f64,
+    max: f64,
+    step: f64,
+    zero_display: Option<&str>,
+    slider_ratio: f64,
+) -> proc_macro2::TokenStream {
+    let zero_display = zero_display.map_or_else(
+        || quote::quote! { ::std::option::Option::None },
+        |zero_display| quote::quote! { ::std::option::Option::Some(#zero_display.to_string()) },
+    );
+    quote::quote! {
+        ::aviutl2::filter::FilterConfigTrack {
+            name: #name.to_string(),
+            value: #default,
+            range: #min..=#max,
+            step: #step,
+            zero_display: #zero_display,
+            slider_ratio: #slider_ratio,
         }
     }
 }
@@ -670,6 +748,15 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                     #id_ident: match items[#i] {
                         ::aviutl2::filter::FilterConfigItem::Checkbox(ref check) => check.value,
                         _ => panic!("expected Checkbox at index {}", #i),
+                    }
+                })
+            }
+            FilterConfigField::CheckSection { id, .. } => {
+                let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+                Some(quote::quote! {
+                    #id_ident: match items[#i] {
+                        ::aviutl2::filter::FilterConfigItem::CheckSection(ref check_section) => check_section.value,
+                        _ => panic!("expected CheckSection at index {}", #i),
                     }
                 })
             }
@@ -801,6 +888,12 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
                 #id_ident: #default
             })
         }
+        FilterConfigField::CheckSection { id, default, .. } => {
+            let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+            Some(quote::quote! {
+                #id_ident: #default
+            })
+        }
         FilterConfigField::Color { id, default, .. } => {
             let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
             Some(quote::quote! {
@@ -895,6 +988,7 @@ fn validate_filter_config(
         .map(|f| match f {
             FilterConfigField::Track { name, .. } => name,
             FilterConfigField::Check { name, .. } => name,
+            FilterConfigField::CheckSection { name, .. } => name,
             FilterConfigField::Color { name, .. } => name,
             FilterConfigField::Select { name, .. } => name,
             FilterConfigField::File { name, .. } => name,
@@ -940,6 +1034,7 @@ fn validate_filter_config(
 static RECOGNIZED_FIELDS: &[&str] = &[
     "track",
     "check",
+    "checksection",
     "color",
     "select",
     "file",
@@ -991,6 +1086,7 @@ fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Err
     {
         "track" => filter_config_field_track(field, recognized_attr),
         "check" => filter_config_field_check(field, recognized_attr),
+        "checksection" => filter_config_field_check_section(field, recognized_attr),
         "color" => filter_config_field_color(field, recognized_attr),
         "select" => filter_config_field_select(field, recognized_attr),
         "file" => filter_config_field_file(field, recognized_attr),
@@ -1057,12 +1153,36 @@ fn filter_config_field_track(
     let mut min = None;
     let mut max = None;
     let mut step = None;
+    let mut group = None;
+    let mut zero_display = None;
+    let mut slider_ratio = None;
 
     recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
             name = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("salt") {
             salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("group") {
+            group = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("zero_display") {
+            zero_display = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("slider_ratio") {
+            let value_token = m.value()?;
+            let expr = value_token.parse::<syn::Expr>()?;
+            let value = parse_int_or_float(&expr)?;
+            if value <= decimal_rs::Decimal::ZERO {
+                return Err(syn::Error::new_spanned(
+                    expr,
+                    "slider_ratio must be positive",
+                ));
+            }
+            if value > decimal_rs::Decimal::ONE {
+                return Err(syn::Error::new_spanned(
+                    expr,
+                    "slider_ratio must be less than or equal to 1",
+                ));
+            }
+            slider_ratio = Some(value);
         } else if m.path.is_ident("step") {
             let value = m.value()?.parse::<syn::Expr>()?;
             step = Some(TrackStep::from_expr(&value)?);
@@ -1153,6 +1273,9 @@ fn filter_config_field_track(
         min: min.into(),
         max: max.into(),
         step: step.as_f64(),
+        group,
+        zero_display,
+        slider_ratio: slider_ratio.unwrap_or(decimal_rs::Decimal::ONE).into(),
     })
 }
 
@@ -1185,6 +1308,41 @@ fn filter_config_field_check(
         ));
     };
     Ok(FilterConfigField::Check {
+        id: field.ident.as_ref().unwrap().to_string(),
+        name,
+        default,
+    })
+}
+
+fn filter_config_field_check_section(
+    field: &syn::Field,
+    recognized_attr: &syn::Attribute,
+) -> Result<FilterConfigField, syn::Error> {
+    let mut name = None;
+    let mut salt = None;
+    let mut default = None;
+
+    recognized_attr.parse_nested_meta(|m| {
+        if m.path.is_ident("name") {
+            name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("salt") {
+            salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("default") {
+            default = Some(m.value()?.parse::<syn::LitBool>()?.value);
+        } else {
+            return Err(m.error("Unknown attribute for checksection"));
+        }
+        Ok(())
+    })?;
+
+    let name = with_salt(name, salt, field.ident.as_ref().unwrap());
+    let Some(default) = default else {
+        return Err(syn::Error::new_spanned(
+            recognized_attr,
+            "default is required",
+        ));
+    };
+    Ok(FilterConfigField::CheckSection {
         id: field.ident.as_ref().unwrap().to_string(),
         name,
         default,
@@ -1795,6 +1953,18 @@ mod tests {
     }
 
     #[test]
+    fn test_checksection() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[checksection(name = "Section Enable", default = true)]
+                section_enable: bool,
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
     fn test_color() {
         let input: proc_macro2::TokenStream = quote::quote! {
             struct Config {
@@ -1971,6 +2141,44 @@ mod tests {
             struct Config {
                 #[track(name = "Frequency", salt = "Audio", range = 20.0..=20000.0, step = 1.0, default = 440.0)]
                 frequency: f64,
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
+    fn test_track_with_group() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[track(name = "Frequency", group = "Audio", range = 20.0..=20000.0, step = 1.0, default = 440.0)]
+                frequency: f64,
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
+    fn test_track_with_zero_display_and_slider_ratio() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[track(name = "Balance", range = -100.0..=100.0, step = 1.0, default = 0.0, zero_display = "Center", slider_ratio = 0.5)]
+                balance: f64,
+            }
+        };
+        let output = filter_config_items(input).unwrap();
+        insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
+    fn test_track_with_shared_group() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            struct Config {
+                #[track(name = "Frequency", group = "Audio", range = 20.0..=20000.0, step = 1.0, default = 440.0)]
+                frequency: f64,
+                #[track(name = "Gain", group = "Audio", range = -24.0..=24.0, step = 1.0, default = 0.0)]
+                gain: f64,
             }
         };
         let output = filter_config_items(input).unwrap();

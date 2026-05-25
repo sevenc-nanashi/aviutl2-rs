@@ -3,24 +3,12 @@ source: crates/aviutl2-macros/src/filter_config_items.rs
 expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
 struct Config {
-    enable: bool,
     frequency: f64,
 }
 #[automatically_derived]
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
         return vec![
-            ::aviutl2::filter::FilterConfigItem::Checkbox(
-                ::aviutl2::filter::FilterConfigCheckbox {
-                    name: "Enable".to_string(),
-                    value: true,
-                },
-            ),
-            ::aviutl2::filter::FilterConfigItem::Separator(
-                ::aviutl2::filter::FilterConfigSeparator {
-                    name: "Advanced".to_string(),
-                },
-            ),
             ::aviutl2::filter::FilterConfigItem::Track(::aviutl2::filter::FilterConfigTrack {
                 name: "Frequency".to_string(),
                 value: 440f64,
@@ -29,17 +17,26 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
                 zero_display: ::std::option::Option::None,
                 slider_ratio: 1f64,
             }),
+            ::aviutl2::filter::FilterConfigItem::TrackGroup(
+                ::aviutl2::filter::FilterConfigTrackGroup {
+                    name: "Audio".to_string(),
+                    tracks: vec![::aviutl2::filter::FilterConfigTrack {
+                        name: "Frequency".to_string(),
+                        value: 440f64,
+                        range: 20f64..=20000f64,
+                        step: 1f64,
+                        zero_display: ::std::option::Option::None,
+                        slider_ratio: 1f64,
+                    }],
+                },
+            ),
         ];
     }
     fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
         Self {
-            enable: match items[0usize] {
-                ::aviutl2::filter::FilterConfigItem::Checkbox(ref check) => check.value,
-                _ => panic!("expected Checkbox at index {}", 0usize),
-            },
-            frequency: match items[2usize] {
+            frequency: match items[0usize] {
                 ::aviutl2::filter::FilterConfigItem::Track(ref track) => (track.value as i32) as _,
-                _ => panic!("expected Track at index {}", 2usize),
+                _ => panic!("expected Track at index {}", 0usize),
             },
         }
     }
@@ -48,7 +45,6 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
 impl ::std::default::Default for Config {
     fn default() -> Self {
         Self {
-            enable: true,
             frequency: 440f64 as _,
         }
     }

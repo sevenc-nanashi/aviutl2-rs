@@ -10,9 +10,9 @@ use rand::RngExt;
 #[aviutl2::filter::filter_config_items]
 #[derive(Debug, Clone)]
 struct FilterConfig {
-    #[track(name = "Width", range = 1..=4096, step = 1.0, default = 640)]
+    #[track(name = "Width", range = 1..=4096, step = 1.0, default = 640, group = "size")]
     width: u32,
-    #[track(name = "Height", range = 1..=4096, step = 1.0, default = 640)]
+    #[track(name = "Height", range = 1..=4096, step = 1.0, default = 640, group = "size")]
     height: u32,
 
     #[data]

@@ -3,26 +3,26 @@ source: crates/aviutl2-macros/src/filter_config_items.rs
 expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
 struct Config {
-    frequency: f64,
+    balance: f64,
 }
 #[automatically_derived]
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
         return vec![::aviutl2::filter::FilterConfigItem::Track(
             ::aviutl2::filter::FilterConfigTrack {
-                name: "Frequency".to_string(),
-                value: 440f64,
-                range: 20f64..=20000f64,
-                step: 0.01f64,
-                zero_display: ::std::option::Option::None,
-                slider_ratio: 1f64,
+                name: "Balance".to_string(),
+                value: 0f64,
+                range: -100f64..=100f64,
+                step: 1f64,
+                zero_display: ::std::option::Option::Some("Center".to_string()),
+                slider_ratio: 0.5f64,
             },
         )];
     }
     fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
         Self {
-            frequency: match items[0usize] {
-                ::aviutl2::filter::FilterConfigItem::Track(ref track) => track.value as _,
+            balance: match items[0usize] {
+                ::aviutl2::filter::FilterConfigItem::Track(ref track) => (track.value as i32) as _,
                 _ => panic!("expected Track at index {}", 0usize),
             },
         }
@@ -31,8 +31,6 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
 #[automatically_derived]
 impl ::std::default::Default for Config {
     fn default() -> Self {
-        Self {
-            frequency: 440f64 as _,
-        }
+        Self { balance: 0f64 as _ }
     }
 }
