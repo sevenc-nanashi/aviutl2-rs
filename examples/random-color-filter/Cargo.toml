@@ -17,3 +17,4 @@ anyhow = "1.0.102"
 aviutl2.workspace = true
 tracing = "0.1.44"
 rand = "0.10.1"
+windows = { version = "0.62.2", features = ["Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D11"] }

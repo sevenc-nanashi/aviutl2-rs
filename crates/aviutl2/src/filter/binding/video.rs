@@ -1,3 +1,5 @@
+use std::ffi::c_void;
+
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 use super::{FilterProcError, FilterProcResult, ObjectInfo, SceneInfo};
@@ -89,6 +91,22 @@ pub struct RgbaPixel {
     pub a: u8,
 }
 
+impl From<(u8, u8, u8, u8)> for RgbaPixel {
+    fn from(value: (u8, u8, u8, u8)) -> Self {
+        Self {
+            r: value.0,
+            g: value.1,
+            b: value.2,
+            a: value.3,
+        }
+    }
+}
+impl From<RgbaPixel> for (u8, u8, u8, u8) {
+    fn from(value: RgbaPixel) -> Self {
+        (value.r, value.g, value.b, value.a)
+    }
+}
+
 /// 画像フィルタ処理のための構造体。
 #[derive(Debug)]
 pub struct FilterProcVideo {
@@ -117,6 +135,8 @@ unsafe impl Sync for FilterProcVideo {}
 pub enum DrawImageResource {
     /// 現在の画像データ。
     Object,
+    /// 標準リソース。
+    Resource(String),
     /// 仮想バッファ。
     TempBuffer,
     /// キャッシュバッファ。
@@ -124,45 +144,176 @@ pub enum DrawImageResource {
     /// 画像ファイル。
     ImageFile(std::path::PathBuf),
 }
-impl DrawImageResource {
-    fn to_cw_string(
-        &self,
-    ) -> Result<Option<crate::common::CWString>, crate::common::NullByteError> {
-        Ok(match self {
-            DrawImageResource::Object => None,
-            DrawImageResource::TempBuffer => Some(crate::common::CWString::new("tempbuffer")?),
-            DrawImageResource::CacheBuffer(name) => {
-                Some(crate::common::CWString::new(&format!("cache:{}", name))?)
-            }
-            DrawImageResource::ImageFile(path) => Some(crate::common::CWString::new(&format!(
-                "image:{}",
-                path.to_string_lossy()
-            ))?),
-        })
+impl std::fmt::Display for DrawImageResource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DrawImageResource::Object => write!(f, "object"),
+            DrawImageResource::Resource(name) => write!(f, "resource:{}", name),
+            DrawImageResource::TempBuffer => write!(f, "tempbuffer"),
+            DrawImageResource::CacheBuffer(name) => write!(f, "cache:{}", name),
+            DrawImageResource::ImageFile(path) => write!(f, "image:{}", path.to_string_lossy()),
+        }
     }
 }
 
-/// [`FilterProcVideo::create_image_resource`] で作成する画像リソースの種別。
+/// 書き込み先として使う画像リソース。
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CreateImageResource {
+pub enum WritableImageResource {
     /// 現在の画像データ。
     Object,
+    /// 標準リソース。
+    Resource(String),
     /// 仮想バッファ。
     TempBuffer,
     /// キャッシュバッファ。
     CacheBuffer(String),
 }
-impl CreateImageResource {
-    fn to_cw_string(
-        &self,
-    ) -> Result<Option<crate::common::CWString>, crate::common::NullByteError> {
-        Ok(match self {
-            CreateImageResource::Object => None,
-            CreateImageResource::TempBuffer => Some(crate::common::CWString::new("tempbuffer")?),
-            CreateImageResource::CacheBuffer(name) => {
-                Some(crate::common::CWString::new(&format!("cache:{}", name))?)
-            }
-        })
+impl std::fmt::Display for WritableImageResource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WritableImageResource::Object => write!(f, "object"),
+            WritableImageResource::Resource(name) => write!(f, "resource:{}", name),
+            WritableImageResource::TempBuffer => write!(f, "tempbuffer"),
+            WritableImageResource::CacheBuffer(name) => write!(f, "cache:{}", name),
+        }
+    }
+}
+
+/// 読み込み元として使う画像リソース。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReadableImageResource {
+    /// 現在の画像データ。
+    Object,
+    /// 標準リソース。
+    Resource(String),
+    /// フレームバッファ。
+    Framebuffer,
+    /// 仮想バッファ。
+    TempBuffer,
+    /// キャッシュバッファ。
+    CacheBuffer(String),
+    /// 画像ファイル。
+    ImageFile(std::path::PathBuf),
+    /// 乱数バッファ。
+    Random,
+}
+impl std::fmt::Display for ReadableImageResource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReadableImageResource::Object => write!(f, "object"),
+            ReadableImageResource::Resource(name) => write!(f, "resource:{}", name),
+            ReadableImageResource::Framebuffer => write!(f, "framebuffer"),
+            ReadableImageResource::TempBuffer => write!(f, "tempbuffer"),
+            ReadableImageResource::CacheBuffer(name) => write!(f, "cache:{}", name),
+            ReadableImageResource::ImageFile(path) => write!(f, "image:{}", path.to_string_lossy()),
+            ReadableImageResource::Random => write!(f, "random"),
+        }
+    }
+}
+
+/// シェーダーの出力先として使う画像リソース。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ShaderTargetResource {
+    /// 現在の画像データ。
+    Object,
+    /// 標準リソース。
+    Resource(String),
+    /// フレームバッファ。
+    Framebuffer,
+    /// 仮想バッファ。
+    TempBuffer,
+    /// キャッシュバッファ。
+    CacheBuffer(String),
+}
+impl std::fmt::Display for ShaderTargetResource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ShaderTargetResource::Object => write!(f, "object"),
+            ShaderTargetResource::Resource(name) => write!(f, "resource:{}", name),
+            ShaderTargetResource::Framebuffer => write!(f, "framebuffer"),
+            ShaderTargetResource::TempBuffer => write!(f, "tempbuffer"),
+            ShaderTargetResource::CacheBuffer(name) => write!(f, "cache:{}", name),
+        }
+    }
+}
+
+/// [`ShaderTargetResource`]や[`DrawImageResource`]などの他の画像リソース型に変換するためのトレイト。
+pub trait AsImageResource: std::fmt::Display {
+    /// [`DrawImageResource`] に変換する。
+    fn as_draw_image_resource(&self) -> Option<DrawImageResource>;
+    /// [`WritableImageResource`] に変換する。
+    fn as_writable_image_resource(&self) -> Option<WritableImageResource>;
+    /// [`ReadableImageResource`] に変換する。
+    fn as_readable_image_resource(&self) -> Option<ReadableImageResource>;
+    /// [`ShaderTargetResource`] に変換する。
+    fn as_shader_target_resource(&self) -> Option<ShaderTargetResource>;
+}
+
+impl<T: std::fmt::Display> AsImageResource for T {
+    fn as_draw_image_resource(&self) -> Option<DrawImageResource> {
+        let s = self.to_string();
+        if s == "object" {
+            Some(DrawImageResource::Object)
+        } else if s == "tempbuffer" {
+            Some(DrawImageResource::TempBuffer)
+        } else if let Some(name) = s.strip_prefix("resource:") {
+            Some(DrawImageResource::Resource(name.to_string()))
+        } else if let Some(name) = s.strip_prefix("cache:") {
+            Some(DrawImageResource::CacheBuffer(name.to_string()))
+        } else {
+            s.strip_prefix("image:")
+                .map(|path| DrawImageResource::ImageFile(std::path::PathBuf::from(path)))
+        }
+    }
+
+    fn as_writable_image_resource(&self) -> Option<WritableImageResource> {
+        let s = self.to_string();
+        if s == "object" {
+            Some(WritableImageResource::Object)
+        } else if s == "tempbuffer" {
+            Some(WritableImageResource::TempBuffer)
+        } else if let Some(name) = s.strip_prefix("resource:") {
+            Some(WritableImageResource::Resource(name.to_string()))
+        } else {
+            s.strip_prefix("cache:")
+                .map(|name| WritableImageResource::CacheBuffer(name.to_string()))
+        }
+    }
+
+    fn as_readable_image_resource(&self) -> Option<ReadableImageResource> {
+        let s = self.to_string();
+        if s == "object" {
+            Some(ReadableImageResource::Object)
+        } else if s == "framebuffer" {
+            Some(ReadableImageResource::Framebuffer)
+        } else if s == "tempbuffer" {
+            Some(ReadableImageResource::TempBuffer)
+        } else if s == "random" {
+            Some(ReadableImageResource::Random)
+        } else if let Some(name) = s.strip_prefix("resource:") {
+            Some(ReadableImageResource::Resource(name.to_string()))
+        } else if let Some(name) = s.strip_prefix("cache:") {
+            Some(ReadableImageResource::CacheBuffer(name.to_string()))
+        } else {
+            s.strip_prefix("image:")
+                .map(|path| ReadableImageResource::ImageFile(std::path::PathBuf::from(path)))
+        }
+    }
+
+    fn as_shader_target_resource(&self) -> Option<ShaderTargetResource> {
+        let s = self.to_string();
+        if s == "object" {
+            Some(ShaderTargetResource::Object)
+        } else if s == "framebuffer" {
+            Some(ShaderTargetResource::Framebuffer)
+        } else if s == "tempbuffer" {
+            Some(ShaderTargetResource::TempBuffer)
+        } else if let Some(name) = s.strip_prefix("resource:") {
+            Some(ShaderTargetResource::Resource(name.to_string()))
+        } else {
+            s.strip_prefix("cache:")
+                .map(|name| ShaderTargetResource::CacheBuffer(name.to_string()))
+        }
     }
 }
 
@@ -394,6 +545,20 @@ pub enum BillboardMode {
     Camera,
 }
 
+/// 出力ブレンドの種別。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum BlendStateMode {
+    /// 出力をそのままコピー。
+    #[default]
+    Copy,
+    /// α値のみを乗算。
+    Mask,
+    /// 出力をアルファブレンド。
+    Draw,
+    /// 出力を加算合成。
+    Add,
+}
+
 impl From<BlendMode> for aviutl2_sys::filter2::BLEND_MODE {
     fn from(value: BlendMode) -> Self {
         match value {
@@ -434,6 +599,146 @@ impl From<BillboardMode> for aviutl2_sys::filter2::BILLBOARD_MODE {
         }
     }
 }
+impl From<BlendStateMode> for aviutl2_sys::filter2::BLEND_STATE_MODE {
+    fn from(value: BlendStateMode) -> Self {
+        match value {
+            BlendStateMode::Copy => Self::COPY,
+            BlendStateMode::Mask => Self::MASK,
+            BlendStateMode::Draw => Self::DRAW,
+            BlendStateMode::Add => Self::ADD,
+        }
+    }
+}
+
+fn vertex_list_as_raw(
+    vertices: &VertexList,
+    f: impl FnOnce(aviutl2_sys::filter2::VERTEX_TYPE, *const c_void, i32) -> bool,
+) -> bool {
+    match vertices {
+        VertexList::TriangleColor(triangles) => {
+            let flattened: Vec<aviutl2_sys::filter2::VERTEX_COLOR> = triangles
+                .iter()
+                .flatten()
+                .copied()
+                .map(Into::into)
+                .collect();
+            f(
+                aviutl2_sys::filter2::VERTEX_TYPE::TRIANGLE_COLOR,
+                flattened.as_ptr() as *const c_void,
+                flattened.len() as i32,
+            )
+        }
+        VertexList::TriangleColorNorm(triangles) => {
+            let flattened: Vec<aviutl2_sys::filter2::VERTEX_COLOR_NORM> = triangles
+                .iter()
+                .flatten()
+                .copied()
+                .map(Into::into)
+                .collect();
+            f(
+                aviutl2_sys::filter2::VERTEX_TYPE::TRIANGLE_COLOR_NORM,
+                flattened.as_ptr() as *const c_void,
+                flattened.len() as i32,
+            )
+        }
+        VertexList::TriangleTexture(triangles) => {
+            let flattened: Vec<aviutl2_sys::filter2::VERTEX_TEXTURE> = triangles
+                .iter()
+                .flatten()
+                .copied()
+                .map(Into::into)
+                .collect();
+            f(
+                aviutl2_sys::filter2::VERTEX_TYPE::TRIANGLE_TEXTURE,
+                flattened.as_ptr() as *const c_void,
+                flattened.len() as i32,
+            )
+        }
+        VertexList::TriangleTextureNorm(triangles) => {
+            let flattened: Vec<aviutl2_sys::filter2::VERTEX_TEXTURE_NORM> = triangles
+                .iter()
+                .flatten()
+                .copied()
+                .map(Into::into)
+                .collect();
+            f(
+                aviutl2_sys::filter2::VERTEX_TYPE::TRIANGLE_TEXTURE_NORM,
+                flattened.as_ptr() as *const c_void,
+                flattened.len() as i32,
+            )
+        }
+        VertexList::QuadColor(quads) => {
+            let flattened: Vec<aviutl2_sys::filter2::VERTEX_COLOR> =
+                quads.iter().flatten().copied().map(Into::into).collect();
+            f(
+                aviutl2_sys::filter2::VERTEX_TYPE::QUAD_COLOR,
+                flattened.as_ptr() as *const c_void,
+                flattened.len() as i32,
+            )
+        }
+        VertexList::QuadColorNorm(quads) => {
+            let flattened: Vec<aviutl2_sys::filter2::VERTEX_COLOR_NORM> =
+                quads.iter().flatten().copied().map(Into::into).collect();
+            f(
+                aviutl2_sys::filter2::VERTEX_TYPE::QUAD_COLOR_NORM,
+                flattened.as_ptr() as *const c_void,
+                flattened.len() as i32,
+            )
+        }
+        VertexList::QuadTexture(quads) => {
+            let flattened: Vec<aviutl2_sys::filter2::VERTEX_TEXTURE> =
+                quads.iter().flatten().copied().map(Into::into).collect();
+            f(
+                aviutl2_sys::filter2::VERTEX_TYPE::QUAD_TEXTURE,
+                flattened.as_ptr() as *const c_void,
+                flattened.len() as i32,
+            )
+        }
+        VertexList::QuadTextureNorm(quads) => {
+            let flattened: Vec<aviutl2_sys::filter2::VERTEX_TEXTURE_NORM> =
+                quads.iter().flatten().copied().map(Into::into).collect();
+            f(
+                aviutl2_sys::filter2::VERTEX_TYPE::QUAD_TEXTURE_NORM,
+                flattened.as_ptr() as *const c_void,
+                flattened.len() as i32,
+            )
+        }
+    }
+}
+
+fn resource_ptr_list(
+    resources: &[ReadableImageResource],
+) -> Result<
+    (
+        Vec<crate::common::CWString>,
+        Vec<aviutl2_sys::common::LPCWSTR>,
+    ),
+    FilterProcError,
+> {
+    let strings = resources
+        .iter()
+        .map(|resource| crate::common::CWString::new(&resource.to_string()))
+        .collect::<Result<Vec<_>, _>>()?;
+    let ptrs = strings.iter().map(|s| s.as_ptr()).collect();
+    Ok((strings, ptrs))
+}
+
+fn target_ptr_list(
+    resources: &[ShaderTargetResource],
+) -> Result<
+    (
+        Vec<crate::common::CWString>,
+        Vec<aviutl2_sys::common::LPCWSTR>,
+    ),
+    FilterProcError,
+> {
+    let strings = resources
+        .iter()
+        .map(|resource| crate::common::CWString::new(&resource.to_string()))
+        .collect::<Result<Vec<_>, _>>()?;
+    let ptrs = strings.iter().map(|s| s.as_ptr()).collect();
+    Ok((strings, ptrs))
+}
 
 impl FilterProcVideo {
     /// 現在の画像のデータを取得する。
@@ -444,10 +749,6 @@ impl FilterProcVideo {
     /// `buffer` をバイト列に変換した際の長さが `width * height * 4` と一致しない場合、パニックします。
     /// 例えば[`u8`] の場合、`buffer` の長さは `width * height * 4` と一致する必要があり、
     /// [`RgbaPixel`] の場合、`buffer` の長さは `width * height` と一致する必要があります。
-    ///
-    /// # Note
-    ///
-    /// [`crate::filter::FilterPluginFlags::video`] が `true` の場合、この関数は何もせずに 0 を返します。
     pub fn get_image_data<T>(&mut self, buffer: &mut [T]) -> usize
     where
         T: Copy + FromBytes + Immutable,
@@ -578,13 +879,11 @@ impl FilterProcVideo {
         param: DrawImageParam,
     ) -> FilterProcResult<()> {
         self.apply_param();
-        let resource_str = resource.to_cw_string()?;
+        let resource_str = crate::common::CWString::new(&resource.to_string())?;
         let inner = unsafe { &*self.inner };
         let success = unsafe {
             (inner.draw_image)(
-                resource_str
-                    .as_ref()
-                    .map_or(std::ptr::null(), |s| s.as_ptr()),
+                resource_str.as_ptr(),
                 param.x,
                 param.y,
                 param.z,
@@ -607,143 +906,18 @@ impl FilterProcVideo {
     /// 指定の頂点リストをフレームバッファに描画する。
     pub fn draw_poly(
         &mut self,
-        resource: &DrawImageResource,
         vertices: &VertexList,
+        resource: Option<&DrawImageResource>,
     ) -> FilterProcResult<()> {
         self.apply_param();
 
-        let resource_str = resource.to_cw_string()?;
+        let resource_str = crate::common::CWString::new(
+            &resource.map_or_else(|| "tempbuffer".to_string(), |r| r.to_string()),
+        )?;
         let inner = unsafe { &*self.inner };
-        let success = match vertices {
-            VertexList::TriangleColor(triangles) => {
-                let flattened: Vec<aviutl2_sys::filter2::VERTEX_COLOR> = triangles
-                    .iter()
-                    .flatten()
-                    .copied()
-                    .map(Into::into)
-                    .collect();
-                unsafe {
-                    (inner.draw_poly)(
-                        aviutl2_sys::filter2::VERTEX_TYPE::TRIANGLE_COLOR,
-                        flattened.as_ptr() as *const std::ffi::c_void,
-                        flattened.len() as i32,
-                        resource_str
-                            .as_ref()
-                            .map_or(std::ptr::null(), |s| s.as_ptr()),
-                    )
-                }
-            }
-            VertexList::TriangleColorNorm(triangles) => {
-                let flattened: Vec<aviutl2_sys::filter2::VERTEX_COLOR_NORM> = triangles
-                    .iter()
-                    .flatten()
-                    .copied()
-                    .map(Into::into)
-                    .collect();
-                unsafe {
-                    (inner.draw_poly)(
-                        aviutl2_sys::filter2::VERTEX_TYPE::TRIANGLE_COLOR_NORM,
-                        flattened.as_ptr() as *const std::ffi::c_void,
-                        flattened.len() as i32,
-                        resource_str
-                            .as_ref()
-                            .map_or(std::ptr::null(), |s| s.as_ptr()),
-                    )
-                }
-            }
-            VertexList::TriangleTexture(triangles) => {
-                let flattened: Vec<aviutl2_sys::filter2::VERTEX_TEXTURE> = triangles
-                    .iter()
-                    .flatten()
-                    .copied()
-                    .map(Into::into)
-                    .collect();
-                unsafe {
-                    (inner.draw_poly)(
-                        aviutl2_sys::filter2::VERTEX_TYPE::TRIANGLE_TEXTURE,
-                        flattened.as_ptr() as *const std::ffi::c_void,
-                        flattened.len() as i32,
-                        resource_str
-                            .as_ref()
-                            .map_or(std::ptr::null(), |s| s.as_ptr()),
-                    )
-                }
-            }
-            VertexList::TriangleTextureNorm(triangles) => {
-                let flattened: Vec<aviutl2_sys::filter2::VERTEX_TEXTURE_NORM> = triangles
-                    .iter()
-                    .flatten()
-                    .copied()
-                    .map(Into::into)
-                    .collect();
-                unsafe {
-                    (inner.draw_poly)(
-                        aviutl2_sys::filter2::VERTEX_TYPE::TRIANGLE_TEXTURE_NORM,
-                        flattened.as_ptr() as *const std::ffi::c_void,
-                        flattened.len() as i32,
-                        resource_str
-                            .as_ref()
-                            .map_or(std::ptr::null(), |s| s.as_ptr()),
-                    )
-                }
-            }
-            VertexList::QuadColor(quads) => {
-                let flattened: Vec<aviutl2_sys::filter2::VERTEX_COLOR> =
-                    quads.iter().flatten().copied().map(Into::into).collect();
-                unsafe {
-                    (inner.draw_poly)(
-                        aviutl2_sys::filter2::VERTEX_TYPE::QUAD_COLOR,
-                        flattened.as_ptr() as *const std::ffi::c_void,
-                        flattened.len() as i32,
-                        resource_str
-                            .as_ref()
-                            .map_or(std::ptr::null(), |s| s.as_ptr()),
-                    )
-                }
-            }
-            VertexList::QuadColorNorm(quads) => {
-                let flattened: Vec<aviutl2_sys::filter2::VERTEX_COLOR_NORM> =
-                    quads.iter().flatten().copied().map(Into::into).collect();
-                unsafe {
-                    (inner.draw_poly)(
-                        aviutl2_sys::filter2::VERTEX_TYPE::QUAD_COLOR_NORM,
-                        flattened.as_ptr() as *const std::ffi::c_void,
-                        flattened.len() as i32,
-                        resource_str
-                            .as_ref()
-                            .map_or(std::ptr::null(), |s| s.as_ptr()),
-                    )
-                }
-            }
-            VertexList::QuadTexture(quads) => {
-                let flattened: Vec<aviutl2_sys::filter2::VERTEX_TEXTURE> =
-                    quads.iter().flatten().copied().map(Into::into).collect();
-                unsafe {
-                    (inner.draw_poly)(
-                        aviutl2_sys::filter2::VERTEX_TYPE::QUAD_TEXTURE,
-                        flattened.as_ptr() as *const std::ffi::c_void,
-                        flattened.len() as i32,
-                        resource_str
-                            .as_ref()
-                            .map_or(std::ptr::null(), |s| s.as_ptr()),
-                    )
-                }
-            }
-            VertexList::QuadTextureNorm(quads) => {
-                let flattened: Vec<aviutl2_sys::filter2::VERTEX_TEXTURE_NORM> =
-                    quads.iter().flatten().copied().map(Into::into).collect();
-                unsafe {
-                    (inner.draw_poly)(
-                        aviutl2_sys::filter2::VERTEX_TYPE::QUAD_TEXTURE_NORM,
-                        flattened.as_ptr() as *const std::ffi::c_void,
-                        flattened.len() as i32,
-                        resource_str
-                            .as_ref()
-                            .map_or(std::ptr::null(), |s| s.as_ptr()),
-                    )
-                }
-            }
-        };
+        let success = vertex_list_as_raw(vertices, |vertex_type, vertex_list, vertex_num| unsafe {
+            (inner.draw_poly)(vertex_type, vertex_list, vertex_num, resource_str.as_ptr())
+        });
         if success {
             Ok(())
         } else {
@@ -789,6 +963,14 @@ impl FilterProcVideo {
         }
     }
 
+    /// 描画時に裏面を非表示にするかを設定する。
+    pub fn set_culling_state(&mut self, culling: bool) {
+        let inner = unsafe { &*self.inner };
+        unsafe {
+            (inner.set_culling_state)(culling);
+        }
+    }
+
     /// 描画時にカメラに向けるかどうかを設定する。
     pub fn set_billboard_mode(&mut self, mode: BillboardMode) {
         let inner = unsafe { &*self.inner };
@@ -809,7 +991,7 @@ impl FilterProcVideo {
     /// `data` をバイト列に変換した際の長さが `width * height * 4` と一致しない場合、パニックします。
     pub fn create_image_resource<T: IntoBytes + Immutable>(
         &mut self,
-        resource: &CreateImageResource,
+        resource: &WritableImageResource,
         data: &[T],
         width: u32,
         height: u32,
@@ -821,16 +1003,239 @@ impl FilterProcVideo {
             "data length does not match width * height * 4"
         );
         let inner = unsafe { &*self.inner };
-        let name_cw = resource.to_cw_string()?;
+        let name_cw = crate::common::CWString::new(&resource.to_string())?;
         unsafe {
             (inner.create_image_resource)(
-                name_cw.as_ref().map_or(std::ptr::null(), |s| s.as_ptr()),
+                name_cw.as_ptr(),
                 bytes.as_ptr() as *const aviutl2_sys::filter2::PIXEL_RGBA,
                 width as i32,
                 height as i32,
             )
         };
         Ok(())
+    }
+
+    /// 指定の画像リソースのD3D画像リソースのポインタを取得する。
+    pub fn get_image_resource_texture2d(
+        &mut self,
+        resource: &ReadableImageResource,
+    ) -> FilterProcResult<*mut c_void> {
+        let inner = unsafe { &*self.inner };
+        let resource_cw = crate::common::CWString::new(&resource.to_string())?;
+        let ptr = unsafe { (inner.get_image_resource_texture2d)(resource_cw.as_ptr()) };
+        if ptr.is_null() {
+            Err(FilterProcError::ApiCallFailed)
+        } else {
+            Ok(ptr)
+        }
+    }
+
+    /// 画像リソースをコピーする。
+    pub fn copy_image_resource(
+        &mut self,
+        src_resource: &ReadableImageResource,
+        dst_resource: &WritableImageResource,
+    ) -> FilterProcResult<()> {
+        let inner = unsafe { &*self.inner };
+        let dst_resource = crate::common::CWString::new(&dst_resource.to_string())?;
+        let src_resource = crate::common::CWString::new(&src_resource.to_string())?;
+        let success =
+            unsafe { (inner.copy_image_resource)(dst_resource.as_ptr(), src_resource.as_ptr()) };
+        if success {
+            Ok(())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
+    /// 画像リソースをクリアする。
+    pub fn clear_image_resource(
+        &mut self,
+        resource: &WritableImageResource,
+        color: RgbaPixel,
+    ) -> FilterProcResult<()> {
+        let inner = unsafe { &*self.inner };
+        let resource = crate::common::CWString::new(&resource.to_string())?;
+        let color = aviutl2_sys::filter2::PIXEL_RGBA {
+            r: color.r,
+            g: color.g,
+            b: color.b,
+            a: color.a,
+        };
+        let success = unsafe { (inner.clear_image_resource)(resource.as_ptr(), color) };
+        if success {
+            Ok(())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
+    /// 指定の画像リソースを描画先の画像リソースに描画する。
+    pub fn draw_image_to_resource(
+        &mut self,
+        src_resource: &DrawImageResource,
+        dst_resource: &WritableImageResource,
+        param: DrawImageParam,
+    ) -> FilterProcResult<()> {
+        self.apply_param();
+        let inner = unsafe { &*self.inner };
+        let dst_resource = crate::common::CWString::new(&dst_resource.to_string())?;
+        let src_resource = crate::common::CWString::new(&src_resource.to_string())?;
+        let success = unsafe {
+            (inner.draw_image_to_resource)(
+                dst_resource.as_ptr(),
+                src_resource.as_ptr(),
+                param.x,
+                param.y,
+                param.z,
+                param.rx,
+                param.ry,
+                param.rz,
+                param.sx,
+                param.sy,
+                param.sz,
+                param.alpha,
+            )
+        };
+        if success {
+            Ok(())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
+    /// 指定の頂点リストのポリゴンを描画先の画像リソースに描画する。
+    pub fn draw_poly_to_resource(
+        &mut self,
+        dst_resource: &WritableImageResource,
+        vertices: &VertexList,
+        src_resource: Option<&DrawImageResource>,
+    ) -> FilterProcResult<()> {
+        self.apply_param();
+        let inner = unsafe { &*self.inner };
+        let dst_resource = crate::common::CWString::new(&dst_resource.to_string())?;
+        let src_resource = crate::common::CWString::new(
+            &src_resource.map_or_else(|| "tempbuffer".to_string(), |r| r.to_string()),
+        )?;
+        let success = vertex_list_as_raw(vertices, |vertex_type, vertex_list, vertex_num| unsafe {
+            (inner.draw_poly_to_resource)(
+                dst_resource.as_ptr(),
+                vertex_type,
+                vertex_list as *mut c_void,
+                vertex_num,
+                src_resource.as_ptr(),
+            )
+        });
+        if success {
+            Ok(())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
+    /// ピクセルシェーダーを実行する。
+    ///
+    /// シェーダー側とメモリレイアウトを合わせるため、`constant` を構造体で渡す場合は `#[repr(C)]`
+    /// を推奨します。
+    pub fn exec_pixelshader<T: Copy>(
+        &mut self,
+        cso_file: &str,
+        target: &ShaderTargetResource,
+        resources: &[ReadableImageResource],
+        constant: T,
+        blend_state: Option<*mut c_void>,
+        sampler_state: Option<*mut c_void>,
+    ) -> FilterProcResult<()> {
+        self.apply_param();
+        let inner = unsafe { &*self.inner };
+        let cso_file = crate::common::CWString::new(cso_file)?;
+        let target = crate::common::CWString::new(&target.to_string())?;
+        let (_resource_strings, mut resource_ptrs) = resource_ptr_list(resources)?;
+        let constant_ptr = Box::new(constant);
+        let success = unsafe {
+            (inner.exec_pixelshader)(
+                cso_file.as_ptr(),
+                target.as_ptr(),
+                if resource_ptrs.is_empty() {
+                    std::ptr::null_mut()
+                } else {
+                    resource_ptrs.as_mut_ptr()
+                },
+                resource_ptrs.len() as i32,
+                constant_ptr.as_ref() as *const T as *mut c_void,
+                std::mem::size_of::<T>() as i32,
+                blend_state.unwrap_or(std::ptr::null_mut()),
+                sampler_state.unwrap_or(std::ptr::null_mut()),
+            )
+        };
+        if success {
+            Ok(())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
+    /// コンピュートシェーダーを実行する。
+    ///
+    /// シェーダー側とメモリレイアウトを合わせるため、`constant` を構造体で渡す場合は `#[repr(C)]`
+    /// を推奨します。
+    pub fn exec_computeshader<T: Copy>(
+        &mut self,
+        cso_file: &str,
+        targets: &[ShaderTargetResource],
+        resources: &[ReadableImageResource],
+        constant: T,
+        count: [u32; 3],
+        sampler_state: Option<*mut c_void>,
+    ) -> FilterProcResult<()> {
+        self.apply_param();
+        let inner = unsafe { &*self.inner };
+        let cso_file = crate::common::CWString::new(cso_file)?;
+        let (_target_strings, mut target_ptrs) = target_ptr_list(targets)?;
+        let (_resource_strings, mut resource_ptrs) = resource_ptr_list(resources)?;
+        let constant_ptr = Box::new(constant);
+        let success = unsafe {
+            (inner.exec_computeshader)(
+                cso_file.as_ptr(),
+                if target_ptrs.is_empty() {
+                    std::ptr::null_mut()
+                } else {
+                    target_ptrs.as_mut_ptr()
+                },
+                target_ptrs.len() as i32,
+                if resource_ptrs.is_empty() {
+                    std::ptr::null_mut()
+                } else {
+                    resource_ptrs.as_mut_ptr()
+                },
+                resource_ptrs.len() as i32,
+                constant_ptr.as_ref() as *const T as *mut c_void,
+                std::mem::size_of::<T>() as i32,
+                count[0] as i32,
+                count[1] as i32,
+                count[2] as i32,
+                sampler_state.unwrap_or(std::ptr::null_mut()),
+            )
+        };
+        if success {
+            Ok(())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
+    /// 定義済みのD3Dの出力ブレンドのリソースのポインタを取得する。
+    pub fn get_blend_state(&mut self, mode: BlendStateMode) -> Option<*mut c_void> {
+        let inner = unsafe { &*self.inner };
+        let ptr = unsafe { (inner.get_blend_state)(mode.into()) };
+        (!ptr.is_null()).then_some(ptr)
+    }
+
+    /// 定義済みのD3Dのサンプラーのリソースのポインタを取得する。
+    pub fn get_sampler_state(&mut self, mode: SamplerMode) -> Option<*mut c_void> {
+        let inner = unsafe { &*self.inner };
+        let ptr = unsafe { (inner.get_sampler_state)(mode.into()) };
+        (!ptr.is_null()).then_some(ptr)
     }
 
     /// フィルタ処理後の処理を中断する。
@@ -855,5 +1260,125 @@ impl FilterProcVideo {
         param.cy = self.param.cy;
         param.cz = self.param.cz;
         param.alpha = self.param.alpha;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn converts_image_resources_to_supported_resource_types() {
+        let readable_image = ReadableImageResource::ImageFile(std::path::PathBuf::from("foo.png"));
+        assert_eq!(
+            readable_image.as_draw_image_resource(),
+            Some(DrawImageResource::ImageFile(std::path::PathBuf::from(
+                "foo.png"
+            )))
+        );
+        assert_eq!(readable_image.as_writable_image_resource(), None);
+        assert_eq!(readable_image.as_shader_target_resource(), None);
+
+        let shader_target = ShaderTargetResource::Framebuffer;
+        assert_eq!(
+            shader_target.as_readable_image_resource(),
+            Some(ReadableImageResource::Framebuffer)
+        );
+        assert_eq!(
+            shader_target.as_shader_target_resource(),
+            Some(ShaderTargetResource::Framebuffer)
+        );
+        assert_eq!(shader_target.as_draw_image_resource(), None);
+        assert_eq!(shader_target.as_writable_image_resource(), None);
+    }
+
+    #[test]
+    fn converts_common_image_resources_to_all_compatible_resource_types() {
+        let cache = DrawImageResource::CacheBuffer("buf".to_string());
+        assert_eq!(
+            cache.as_writable_image_resource(),
+            Some(WritableImageResource::CacheBuffer("buf".to_string()))
+        );
+        assert_eq!(
+            cache.as_readable_image_resource(),
+            Some(ReadableImageResource::CacheBuffer("buf".to_string()))
+        );
+        assert_eq!(
+            cache.as_shader_target_resource(),
+            Some(ShaderTargetResource::CacheBuffer("buf".to_string()))
+        );
+
+        let random = ReadableImageResource::Random;
+        assert_eq!(random.as_draw_image_resource(), None);
+        assert_eq!(random.as_writable_image_resource(), None);
+        assert_eq!(random.as_shader_target_resource(), None);
+        assert_eq!(
+            random.as_readable_image_resource(),
+            Some(ReadableImageResource::Random)
+        );
+    }
+
+    #[allow(dead_code)]
+    fn smoke_new_filter2_api(video: &mut FilterProcVideo) -> FilterProcResult<()> {
+        let writable = WritableImageResource::Resource("dst".to_string());
+        let readable = ReadableImageResource::Resource("src".to_string());
+        let drawable = DrawImageResource::Resource("src".to_string());
+        let target = ShaderTargetResource::Resource("target".to_string());
+        let vertices = VertexList::TriangleColor(vec![[
+            VertexColor {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                r: 1.0,
+                g: 0.0,
+                b: 0.0,
+                a: 1.0,
+            },
+            VertexColor {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+                r: 0.0,
+                g: 1.0,
+                b: 0.0,
+                a: 1.0,
+            },
+            VertexColor {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+                r: 0.0,
+                g: 0.0,
+                b: 1.0,
+                a: 1.0,
+            },
+        ]]);
+        let constant = [0u8; 16];
+
+        video.set_culling_state(true);
+        let _ = video.get_image_resource_texture2d(&readable)?;
+        video.copy_image_resource(&readable, &writable)?;
+        video.clear_image_resource(&writable, RgbaPixel::default())?;
+        video.draw_image_to_resource(&drawable, &writable, DrawImageParam::default())?;
+        video.draw_poly_to_resource(&writable, &vertices, Some(&drawable))?;
+        let blend_state = video.get_blend_state(BlendStateMode::Draw);
+        let sampler_state = video.get_sampler_state(SamplerMode::Clamp);
+        video.exec_pixelshader(
+            "shader.cso",
+            &target,
+            std::slice::from_ref(&readable),
+            Some(&constant),
+            blend_state,
+            sampler_state,
+        )?;
+        video.exec_computeshader(
+            "compute.cso",
+            std::slice::from_ref(&target),
+            std::slice::from_ref(&readable),
+            Some(&constant),
+            [1, 1, 1],
+            sampler_state,
+        )?;
+        Ok(())
     }
 }

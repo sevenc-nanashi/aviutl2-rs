@@ -1,11 +1,21 @@
 use aviutl2::{
     AnyResult,
     filter::{
-        FilterConfigDataHandle, FilterConfigItemSliceExt, FilterConfigItems, FilterPlugin,
-        FilterPluginTable, FilterProcVideo,
+        AsImageResource, FilterConfigDataHandle, FilterConfigItemSliceExt, FilterConfigItems,
+        FilterPlugin, FilterPluginTable, FilterProcVideo,
     },
 };
 use rand::RngExt;
+
+#[derive(aviutl2::filter::FilterConfigSelectItems, Debug, Clone, Copy)]
+enum Shape {
+    #[item(name = "Rectangle")]
+    Rectangle,
+    #[item(name = "Ellipse")]
+    Ellipse,
+    #[item(name = "Triangle")]
+    Triangle,
+}
 
 #[aviutl2::filter::filter_config_items]
 #[derive(Debug, Clone)]
@@ -14,6 +24,9 @@ struct FilterConfig {
     width: u32,
     #[track(name = "Height", range = 1..=4096, step = 1.0, default = 640, group = "size")]
     height: u32,
+
+    #[select(name = "Shape", default = Shape::Rectangle, items = Shape)]
+    shape: Shape,
 
     #[data]
     color: FilterConfigDataHandle<Color>,
@@ -84,39 +97,103 @@ impl FilterPlugin for RandomColorFilter {
             *color_handle
         };
 
-        let cache_key = format!(
-            "random_color_{}_{}_{}_{}_{}",
-            color.r, color.g, color.b, width, height
-        );
-        let cache =
-            aviutl2::cache::get_image_cache(&aviutl2::cache::GLOBAL_CACHE_HANDLE, &cache_key)?;
-        if let Some(cache) = cache {
-            tracing::debug!("Cache hit for key: {}", cache_key);
-            video.set_image_data(
-                cache.as_u8_slice(),
-                cache.width() as u32,
-                cache.height() as u32,
-            );
-            return Ok(());
-        }
-
-        let image_data = (0..(width * height))
-            .map(|_| aviutl2::filter::RgbaPixel {
-                r: color.r,
-                g: color.g,
-                b: color.b,
-                a: 255,
-            })
-            .collect::<Vec<_>>();
-        video.set_image_data(&image_data, width, height);
-        let mut cache = aviutl2::cache::create_image_cache(
-            &aviutl2::cache::GLOBAL_CACHE_HANDLE,
-            &cache_key,
-            width as _,
-            height as _,
+        let resource = aviutl2::filter::DrawImageResource::Resource("random_color".to_string());
+        let blank_image = vec![0u8; width as usize * height as usize * 4];
+        video.create_image_resource(
+            &resource.as_writable_image_resource().unwrap(),
+            &blank_image,
+            width,
+            height,
         )?;
-        cache.as_slice_mut().copy_from_slice(&image_data);
-        tracing::debug!("Cache created for key: {}", cache_key);
+        match config.shape {
+            Shape::Rectangle => {
+                video.clear_image_resource(
+                    &resource.as_writable_image_resource().unwrap(),
+                    (color.r, color.g, color.b, 255).into(),
+                )?;
+            }
+            Shape::Triangle => {
+                video.draw_poly_to_resource(
+                    &resource.as_writable_image_resource().unwrap(),
+                    &aviutl2::filter::VertexList::TriangleColor(vec![[
+                        aviutl2::filter::VertexColor {
+                            x: 0.0,
+                            y: (height as f32) * -0.5,
+                            z: 0.0,
+                            r: color.r as f32 / 255.0,
+                            g: color.g as f32 / 255.0,
+                            b: color.b as f32 / 255.0,
+                            a: 1.0,
+                        },
+                        aviutl2::filter::VertexColor {
+                            x: (width as f32) * 0.5,
+                            y: (height as f32) * 0.5,
+                            z: 0.0,
+                            r: color.r as f32 / 255.0,
+                            g: color.g as f32 / 255.0,
+                            b: color.b as f32 / 255.0,
+                            a: 1.0,
+                        },
+                        aviutl2::filter::VertexColor {
+                            x: (width as f32) * -0.5,
+                            y: (height as f32) * 0.5,
+                            z: 0.0,
+                            r: color.r as f32 / 255.0,
+                            g: color.g as f32 / 255.0,
+                            b: color.b as f32 / 255.0,
+                            a: 1.0,
+                        },
+                    ]]),
+                    Some(&resource.as_draw_image_resource().unwrap()),
+                )?;
+            }
+            Shape::Ellipse => {
+                let mut vertices = Vec::new();
+                let segments = 64;
+                for i in 0..segments {
+                    let angle = (i as f32 / segments as f32) * std::f32::consts::TAU;
+                    let angle2 = ((i + 1) as f32 / segments as f32) * std::f32::consts::TAU;
+                    vertices.push([
+                        aviutl2::filter::VertexColor {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 0.0,
+                            r: color.r as f32 / 255.0,
+                            g: color.g as f32 / 255.0,
+                            b: color.b as f32 / 255.0,
+                            a: 1.0,
+                        },
+                        aviutl2::filter::VertexColor {
+                            x: (width as f32) * 0.5 * angle.cos(),
+                            y: (height as f32) * 0.5 * angle.sin(),
+                            z: 0.0,
+                            r: color.r as f32 / 255.0,
+                            g: color.g as f32 / 255.0,
+                            b: color.b as f32 / 255.0,
+                            a: 1.0,
+                        },
+                        aviutl2::filter::VertexColor {
+                            x: (width as f32) * 0.5 * angle2.cos(),
+                            y: (height as f32) * 0.5 * angle2.sin(),
+                            z: 0.0,
+                            r: color.r as f32 / 255.0,
+                            g: color.g as f32 / 255.0,
+                            b: color.b as f32 / 255.0,
+                            a: 1.0,
+                        },
+                    ]);
+                }
+                video.draw_poly_to_resource(
+                    &resource.as_writable_image_resource().unwrap(),
+                    &aviutl2::filter::VertexList::TriangleColor(vertices),
+                    Some(&resource.as_draw_image_resource().unwrap()),
+                )?;
+            }
+        }
+        video.copy_image_resource(
+            &resource.as_readable_image_resource().unwrap(),
+            &aviutl2::filter::WritableImageResource::Object,
+        )?;
 
         Ok(())
     }
