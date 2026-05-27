@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.30.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.30.0)
+
 - **Breaking**: 最小サポートをbeta47に引き上げ
 - module: `ReadSection`を`#[aviutl2::module::functions]`で受け取れるように
 - eframe: eguiのデフォルトフォントを同梱するように（feature flagによって制御できます）
