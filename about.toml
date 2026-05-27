@@ -12,5 +12,7 @@ accepted = [
     "CC0-1.0",
     "MPL-2.0",
     "bzip2-1.0.6",
-    "NCSA"
+    "NCSA",
+    "OFL-1.1",
+    "Ubuntu-font-1.0"
 ]
