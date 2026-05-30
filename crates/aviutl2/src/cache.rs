@@ -428,8 +428,9 @@ pub fn get_image_file_cache(
     path: impl AsRef<Path>,
 ) -> Result<Option<CacheImageReadGuard>, CacheError> {
     let file = CWString::new(&path.as_ref().to_string_lossy())?;
-    let raw =
-        with_cache_handle(|handle| unsafe { ((*handle).get_image_file_cache)(file.as_ptr()) })?;
+    let raw = with_cache_handle(|handle| unsafe {
+        ((*handle).deprecated_get_image_file_cache)(file.as_ptr())
+    })?;
     if raw.buffer.is_null() {
         Ok(None)
     } else {

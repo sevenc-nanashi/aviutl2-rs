@@ -465,6 +465,36 @@ pub struct EDIT_HANDLE {
             r#type: i32,
         ),
     ) -> bool,
+
+    /// 現在のシーンの映像のレンダリングをします
+    pub rendering_scene_video: unsafe extern "C" fn(
+        frame: i32,
+        param: *mut c_void,
+        func_proc_rendering_video: unsafe extern "C" fn(
+            param: *mut c_void,
+            frame: i32,
+            buffer: *const c_void,
+            width: i32,
+            height: i32,
+            pitch: i32,
+        ),
+    ) -> bool,
+
+    /// 現在のシーンの音声のレンダリングをします
+    pub rendering_scene_audio: unsafe extern "C" fn(
+        frame: i32,
+        param: *mut c_void,
+        func_proc_rendering_audio: unsafe extern "C" fn(
+            param: *mut c_void,
+            frame: i32,
+            buffer0: *const f32,
+            buffer1: *const f32,
+            sample_num: i32,
+        ),
+    ) -> bool,
+
+    /// レンダリング中のタスクが全て完了するまで待機します
+    pub wait_rendering_task: unsafe extern "C" fn(),
 }
 
 impl EDIT_HANDLE {

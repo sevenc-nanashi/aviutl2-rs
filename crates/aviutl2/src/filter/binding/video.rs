@@ -1153,7 +1153,7 @@ impl FilterProcVideo {
         let (_resource_strings, mut resource_ptrs) = resource_ptr_list(resources)?;
         let constant_ptr = Box::new(constant);
         let success = unsafe {
-            (inner.exec_pixelshader)(
+            (inner.exec_pixelshader_file)(
                 cso_file.as_ptr(),
                 target.as_ptr(),
                 if resource_ptrs.is_empty() {
@@ -1195,7 +1195,7 @@ impl FilterProcVideo {
         let (_resource_strings, mut resource_ptrs) = resource_ptr_list(resources)?;
         let constant_ptr = Box::new(constant);
         let success = unsafe {
-            (inner.exec_computeshader)(
+            (inner.exec_computeshader_file)(
                 cso_file.as_ptr(),
                 if target_ptrs.is_empty() {
                     std::ptr::null_mut()

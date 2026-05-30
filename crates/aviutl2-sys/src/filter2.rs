@@ -381,6 +381,36 @@ pub enum BLEND_STATE_MODE {
     ADD = 3,
 }
 
+/// 画像入力のピクセルフォーマット種別
+#[repr(i32)]
+pub enum INPUT_PIXEL_FORMAT {
+    /// DXGI_FORMAT_R8G8B8A8_UNORM ※PIXEL_RGBA
+    RGBA = 28,
+    /// DXGI_FORMAT_B8G8R8A8_UNORM
+    BGRA = 87,
+    /// DXGI_FORMAT_B8G8R8X8_UNORM
+    BGR = 88,
+    /// DXGI_FORMAT_R16G16B16A16_UNORM
+    PA64 = 11,
+    /// DXGI_FORMAT_R16G16B16A16_FLOAT
+    HF64 = 10,
+    /// DXGI_FORMAT_YUY2
+    YUY2 = 107,
+    /// DXGI_FORMAT_R16G16B16A16_SNORM ※互換対応
+    YC48 = 13,
+}
+
+/// 画像出力のピクセルフォーマット種別
+#[repr(i32)]
+pub enum OUTPUT_PIXEL_FORMAT {
+    /// DXGI_FORMAT_R8G8B8A8_UNORM ※PIXEL_RGBA
+    RGBA = 28,
+    /// DXGI_FORMAT_R16G16B16A16_UNORM
+    PA64 = 11,
+    /// DXGI_FORMAT_R16G16B16A16_FLOAT
+    HF64 = 10,
+}
+
 /// RGBA32bit構造体
 #[repr(C)]
 pub struct PIXEL_RGBA {
@@ -606,7 +636,7 @@ pub struct FILTER_PROC_VIDEO {
     ) -> bool,
 
     /// ピクセルシェーダーを実行します
-    pub exec_pixelshader: unsafe extern "C" fn(
+    pub exec_pixelshader_file: unsafe extern "C" fn(
         cso_file: LPCWSTR,
         target: LPCWSTR,
         resource_list: *mut LPCWSTR,
@@ -618,7 +648,7 @@ pub struct FILTER_PROC_VIDEO {
     ) -> bool,
 
     /// コンピュートシェーダーを実行します
-    pub exec_computeshader: unsafe extern "C" fn(
+    pub exec_computeshader_file: unsafe extern "C" fn(
         cso_file: LPCWSTR,
         target_list: *mut LPCWSTR,
         target_num: i32,
@@ -637,6 +667,59 @@ pub struct FILTER_PROC_VIDEO {
 
     /// 定義済みのD3Dのサンプラーのリソースのポインタを取得する
     pub get_sampler_state: unsafe extern "C" fn(sampler: SAMPLER_MODE) -> *mut c_void,
+
+    /// ピクセルシェーダーを実行します
+    pub exec_pixelshader_data: unsafe extern "C" fn(
+        data: *const u8,
+        data_size: i32,
+        target: LPCWSTR,
+        resource_list: *mut LPCWSTR,
+        resource_num: i32,
+        constant: *mut c_void,
+        constant_size: i32,
+        blend_state: *mut c_void,
+        sampler_state: *mut c_void,
+    ) -> bool,
+
+    /// コンピュートシェーダーを実行します
+    pub exec_computeshader_data: unsafe extern "C" fn(
+        data: *const u8,
+        data_size: i32,
+        target_list: *mut LPCWSTR,
+        target_num: i32,
+        resource_list: *mut LPCWSTR,
+        resource_num: i32,
+        constant: *mut c_void,
+        constant_size: i32,
+        count_x: i32,
+        count_y: i32,
+        count_z: i32,
+        sampler_state: *mut c_void,
+    ) -> bool,
+
+    /// 指定の画像リソースのサイズを取得する
+    pub get_image_resource_size:
+        unsafe extern "C" fn(resource: LPCWSTR, width: *mut i32, height: *mut i32) -> bool,
+
+    /// 画像リソースから指定フォーマットの画像データを取得する
+    pub get_image_resource_data: unsafe extern "C" fn(
+        resource: LPCWSTR,
+        buffer: *mut c_void,
+        width: i32,
+        height: i32,
+        pitch: i32,
+        format: OUTPUT_PIXEL_FORMAT,
+    ) -> bool,
+
+    /// 画像リソースに指定フォーマットの画像データを設定する
+    pub set_image_resource_data: unsafe extern "C" fn(
+        resource: LPCWSTR,
+        buffer: *const c_void,
+        width: i32,
+        height: i32,
+        pitch: i32,
+        format: INPUT_PIXEL_FORMAT,
+    ) -> bool,
 }
 
 /// 音声フィルタ処理用構造体
