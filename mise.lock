@@ -60,6 +60,10 @@ backend = "cargo:cargo-about"
 version = "0.13.10"
 backend = "cargo:cargo-edit"
 
+[[tools."cargo:hk"]]
+version = "1.45.0"
+backend = "cargo:hk"
+
 [[tools."github:EmbarkStudios/cargo-about"]]
 version = "0.9.0"
 backend = "github:EmbarkStudios/cargo-about"
@@ -118,65 +122,6 @@ url = "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.0/carg
 url_api = "https://api.github.com/repos/EmbarkStudios/cargo-about/releases/assets/404481100"
 github_attestations = "unavailable"
 
-[[tools.lefthook]]
-version = "2.0.9"
-backend = "aqua:evilmartians/lefthook"
-
-[tools.lefthook."platforms.linux-arm64"]
-checksum = "sha256:b8290bfc42280972339b54cde7682b070986296c003946fb425b351801e65d2a"
-url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Linux_aarch64.gz"
-provenance = "github-attestations"
-
-[tools.lefthook."platforms.linux-arm64-musl"]
-checksum = "sha256:b8290bfc42280972339b54cde7682b070986296c003946fb425b351801e65d2a"
-url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Linux_aarch64.gz"
-provenance = "github-attestations"
-
-[tools.lefthook."platforms.linux-x64"]
-checksum = "sha256:3bfb348957643a3d7d1cba9bedb64e9c9d7cdf8b455f06e834e71002c8cc2bc0"
-url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Linux_x86_64.gz"
-provenance = "github-attestations"
-
-[tools.lefthook."platforms.linux-x64-baseline"]
-checksum = "sha256:3bfb348957643a3d7d1cba9bedb64e9c9d7cdf8b455f06e834e71002c8cc2bc0"
-url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Linux_x86_64.gz"
-provenance = "github-attestations"
-
-[tools.lefthook."platforms.linux-x64-musl"]
-checksum = "sha256:3bfb348957643a3d7d1cba9bedb64e9c9d7cdf8b455f06e834e71002c8cc2bc0"
-url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Linux_x86_64.gz"
-provenance = "github-attestations"
-
-[tools.lefthook."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:3bfb348957643a3d7d1cba9bedb64e9c9d7cdf8b455f06e834e71002c8cc2bc0"
-url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Linux_x86_64.gz"
-provenance = "github-attestations"
-
-[tools.lefthook."platforms.macos-arm64"]
-checksum = "sha256:b2b42373becd52eca5618bf9e63164a410d8f2223f3435ec45d5cd847decbfa7"
-url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_MacOS_arm64.gz"
-provenance = "github-attestations"
-
-[tools.lefthook."platforms.macos-x64"]
-checksum = "sha256:38655f07199016d5c833805b397495db7a02dd180857b2e65c0f2025e45b190d"
-url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_MacOS_x86_64.gz"
-provenance = "github-attestations"
-
-[tools.lefthook."platforms.macos-x64-baseline"]
-checksum = "sha256:38655f07199016d5c833805b397495db7a02dd180857b2e65c0f2025e45b190d"
-url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_MacOS_x86_64.gz"
-provenance = "github-attestations"
-
-[tools.lefthook."platforms.windows-x64"]
-checksum = "sha256:10d4674f02e80a7be4341d8af0398307f5526f36344932f140a90eb732bc9acd"
-url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Windows_x86_64.gz"
-provenance = "github-attestations"
-
-[tools.lefthook."platforms.windows-x64-baseline"]
-checksum = "sha256:10d4674f02e80a7be4341d8af0398307f5526f36344932f140a90eb732bc9acd"
-url = "https://github.com/evilmartians/lefthook/releases/download/v2.0.9/lefthook_2.0.9_Windows_x86_64.gz"
-provenance = "github-attestations"
-
 [[tools.node]]
 version = "24.15.0"
 backend = "core:node"
@@ -225,13 +170,57 @@ url = "https://nodejs.org/dist/v24.15.0/node-v24.15.0-win-x64.zip"
 checksum = "sha256:cc5149eabd53779ce1e7bdc5401643622d0c7e6800ade18928a767e940bb0e62"
 url = "https://nodejs.org/dist/v24.15.0/node-v24.15.0-win-x64.zip"
 
-[[tools."npm:lefthook"]]
-version = "2.1.6"
-backend = "npm:lefthook"
-
 [[tools."npm:rulesync"]]
 version = "8.17.0"
 backend = "npm:rulesync"
+
+[[tools.pkl]]
+version = "0.31.1"
+backend = "aqua:apple/pkl"
+
+[tools.pkl."platforms.linux-arm64"]
+checksum = "sha256:7ef10e743daa921fb94ae7bdb9ec6986f362bf250c55814b9ea2aeb13f2d083e"
+url = "https://github.com/apple/pkl/releases/download/0.31.1/pkl-linux-aarch64"
+
+[tools.pkl."platforms.linux-arm64-musl"]
+checksum = "sha256:7ef10e743daa921fb94ae7bdb9ec6986f362bf250c55814b9ea2aeb13f2d083e"
+url = "https://github.com/apple/pkl/releases/download/0.31.1/pkl-linux-aarch64"
+
+[tools.pkl."platforms.linux-x64"]
+checksum = "sha256:618f13955d755cafbfe8c9cba1d27635848cd49dbc6abffd398d2751db1231bf"
+url = "https://github.com/apple/pkl/releases/download/0.31.1/pkl-linux-amd64"
+
+[tools.pkl."platforms.linux-x64-baseline"]
+checksum = "sha256:618f13955d755cafbfe8c9cba1d27635848cd49dbc6abffd398d2751db1231bf"
+url = "https://github.com/apple/pkl/releases/download/0.31.1/pkl-linux-amd64"
+
+[tools.pkl."platforms.linux-x64-musl"]
+checksum = "sha256:618f13955d755cafbfe8c9cba1d27635848cd49dbc6abffd398d2751db1231bf"
+url = "https://github.com/apple/pkl/releases/download/0.31.1/pkl-linux-amd64"
+
+[tools.pkl."platforms.linux-x64-musl-baseline"]
+checksum = "sha256:618f13955d755cafbfe8c9cba1d27635848cd49dbc6abffd398d2751db1231bf"
+url = "https://github.com/apple/pkl/releases/download/0.31.1/pkl-linux-amd64"
+
+[tools.pkl."platforms.macos-arm64"]
+checksum = "sha256:1b6a5438d9624cd2798a7530721bbbfa27ef72efe5c878a1b6c546c6e7ca0e8f"
+url = "https://github.com/apple/pkl/releases/download/0.31.1/pkl-macos-aarch64"
+
+[tools.pkl."platforms.macos-x64"]
+checksum = "sha256:22123ed4ae4c03afa8c54c69f77f0bec39b0fa0f67b09d6d148e0a376a2a471d"
+url = "https://github.com/apple/pkl/releases/download/0.31.1/pkl-macos-amd64"
+
+[tools.pkl."platforms.macos-x64-baseline"]
+checksum = "sha256:22123ed4ae4c03afa8c54c69f77f0bec39b0fa0f67b09d6d148e0a376a2a471d"
+url = "https://github.com/apple/pkl/releases/download/0.31.1/pkl-macos-amd64"
+
+[tools.pkl."platforms.windows-x64"]
+checksum = "sha256:a8834481667325b44c539dbb758d7365a16389070f343c04b639bbe525ede013"
+url = "https://github.com/apple/pkl/releases/download/0.31.1/pkl-windows-amd64.exe"
+
+[tools.pkl."platforms.windows-x64-baseline"]
+checksum = "sha256:a8834481667325b44c539dbb758d7365a16389070f343c04b639bbe525ede013"
+url = "https://github.com/apple/pkl/releases/download/0.31.1/pkl-windows-amd64.exe"
 
 [[tools.ruby]]
 version = "4.0.4"
