@@ -383,6 +383,7 @@ pub enum BLEND_STATE_MODE {
 
 /// 画像入力のピクセルフォーマット種別
 #[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum INPUT_PIXEL_FORMAT {
     /// DXGI_FORMAT_R8G8B8A8_UNORM ※PIXEL_RGBA
     RGBA = 28,
@@ -402,6 +403,7 @@ pub enum INPUT_PIXEL_FORMAT {
 
 /// 画像出力のピクセルフォーマット種別
 #[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OUTPUT_PIXEL_FORMAT {
     /// DXGI_FORMAT_R8G8B8A8_UNORM ※PIXEL_RGBA
     RGBA = 28,
