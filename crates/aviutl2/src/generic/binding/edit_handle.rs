@@ -1,6 +1,8 @@
 use std::num::NonZeroIsize;
+use std::sync::Mutex;
 
 use crate::common::{ChildKillablePointer, KillablePointer};
+use crate::filter::RgbaPixel;
 use crate::generic::{EditSection, ReadSection};
 
 /// 編集ハンドル。
@@ -32,6 +34,58 @@ pub enum EditHandleError {
     InputCwstrContainsNull(#[from] crate::common::NullByteError),
     #[error("unknown edit state: {0}")]
     UnknownEditState(i32),
+    #[error("value is out of range")]
+    ValueOutOfRange,
+}
+
+/// シーンの映像レンダリング結果。
+#[derive(Debug, Clone, Copy)]
+pub struct RenderingSceneVideo<'a> {
+    /// レンダリング対象のフレーム。
+    pub frame: u32,
+    /// レンダリングした画像の幅。
+    pub width: u32,
+    /// レンダリングした画像の高さ。
+    pub height: u32,
+    /// 画像データの横1ラインのバイト数。
+    pub pitch: u32,
+    /// レンダリングした画像データ。
+    ///
+    /// データはコールバック中のみ有効です。
+    pub buffer: &'a [u8],
+}
+
+impl RenderingSceneVideo<'_> {
+    /// レンダリングした画像データを RGBA ピクセル列として取得する。
+    ///
+    /// `pitch == width * size_of::<RgbaPixel>()` の場合のみ `Some` を返します。
+    pub fn as_rgba_pixels(&self) -> Option<&[RgbaPixel]> {
+        let expected_pitch = self.width as usize * std::mem::size_of::<RgbaPixel>();
+        if self.pitch as usize != expected_pitch {
+            return None;
+        }
+        Some(unsafe {
+            std::slice::from_raw_parts(
+                self.buffer.as_ptr() as *const RgbaPixel,
+                self.width as usize * self.height as usize,
+            )
+        })
+    }
+}
+
+/// シーンの音声レンダリング結果。
+#[derive(Debug, Clone, Copy)]
+pub struct RenderingSceneAudio<'a> {
+    /// レンダリング対象のフレーム。
+    pub frame: u32,
+    /// レンダリングした音声データ(左チャンネル)。
+    ///
+    /// データはコールバック中のみ有効です。
+    pub buffer0: &'a [f32],
+    /// レンダリングした音声データ(右チャンネル)。
+    ///
+    /// データはコールバック中のみ有効です。
+    pub buffer1: &'a [f32],
 }
 
 impl EditHandle {
@@ -417,6 +471,166 @@ impl EditHandle {
         );
         let state = unsafe { ((*self.internal).get_edit_state)() };
         EditState::try_from(state).map_err(|_| EditHandleError::UnknownEditState(state))
+    }
+
+    /// 現在のシーンの映像レンダリングを要求する。
+    ///
+    /// この関数はレンダリングタスクの追加のみを行います。レンダリング完了時に
+    /// コールバックがレンダリング用スレッドから呼ばれます。
+    pub fn rendering_scene_video<F>(&self, frame: u32, callback: F) -> Result<(), EditHandleError>
+    where
+        F: FnMut(RenderingSceneVideo<'_>) + Send + 'static,
+    {
+        assert!(
+            self.is_ready(),
+            "rendering_scene_video cannot be called before register_plugin is done"
+        );
+
+        type CallbackParam<F> = Mutex<Option<F>>;
+
+        unsafe extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            frame: i32,
+            buffer: *const std::ffi::c_void,
+            width: i32,
+            height: i32,
+            pitch: i32,
+        ) where
+            F: FnMut(RenderingSceneVideo<'_>),
+        {
+            let callback = unsafe { Box::from_raw(param as *mut CallbackParam<F>) };
+            let len = usize::try_from(pitch)
+                .ok()
+                .and_then(|pitch| {
+                    usize::try_from(height)
+                        .ok()
+                        .and_then(|height| pitch.checked_mul(height))
+                })
+                .unwrap_or(0);
+            let buffer = if buffer.is_null() || len == 0 {
+                &[]
+            } else {
+                unsafe { std::slice::from_raw_parts(buffer as *const u8, len) }
+            };
+            let video = RenderingSceneVideo {
+                frame: frame as u32,
+                width: width as u32,
+                height: height as u32,
+                pitch: pitch as u32,
+                buffer,
+            };
+            let mut callback = callback
+                .lock()
+                .unwrap()
+                .take()
+                .expect("Callback already taken");
+            callback(video);
+        }
+
+        let frame = i32::try_from(frame).map_err(|_| EditHandleError::ValueOutOfRange)?;
+        let param = Box::into_raw(Box::new(Mutex::new(Some(callback))));
+        let success = unsafe {
+            ((*self.internal).rendering_scene_video)(
+                frame,
+                param as *mut std::ffi::c_void,
+                trampoline::<F>,
+            )
+        };
+        if success {
+            Ok(())
+        } else {
+            unsafe {
+                drop(Box::from_raw(param));
+            }
+            Err(EditHandleError::ApiCallFailed)
+        }
+    }
+
+    /// 現在のシーンの音声レンダリングを要求する。
+    ///
+    /// この関数はレンダリングタスクの追加のみを行います。レンダリング完了時に
+    /// コールバックがレンダリング用スレッドから呼ばれます。
+    pub fn rendering_scene_audio<F>(&self, frame: u32, callback: F) -> Result<(), EditHandleError>
+    where
+        F: FnMut(RenderingSceneAudio<'_>) + Send + 'static,
+    {
+        assert!(
+            self.is_ready(),
+            "rendering_scene_audio cannot be called before register_plugin is done"
+        );
+
+        type CallbackParam<F> = Mutex<Option<F>>;
+
+        unsafe extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            frame: i32,
+            buffer0: *const f32,
+            buffer1: *const f32,
+            sample_num: i32,
+        ) where
+            F: FnMut(RenderingSceneAudio<'_>),
+        {
+            let callback = unsafe { Box::from_raw(param as *mut CallbackParam<F>) };
+            let len = usize::try_from(sample_num).unwrap_or(0);
+            let buffer0 = if buffer0.is_null() || len == 0 {
+                &[]
+            } else {
+                unsafe { std::slice::from_raw_parts(buffer0, len) }
+            };
+            let buffer1 = if buffer1.is_null() || len == 0 {
+                &[]
+            } else {
+                unsafe { std::slice::from_raw_parts(buffer1, len) }
+            };
+            let audio = RenderingSceneAudio {
+                frame: frame as u32,
+                buffer0,
+                buffer1,
+            };
+            let mut callback = callback
+                .lock()
+                .unwrap()
+                .take()
+                .expect("Callback already taken");
+            callback(audio);
+        }
+
+        let frame = i32::try_from(frame).map_err(|_| EditHandleError::ValueOutOfRange)?;
+        let param = Box::into_raw(Box::new(Mutex::new(Some(callback))));
+        let success = unsafe {
+            ((*self.internal).rendering_scene_audio)(
+                frame,
+                param as *mut std::ffi::c_void,
+                trampoline::<F>,
+            )
+        };
+        if success {
+            Ok(())
+        } else {
+            unsafe {
+                drop(Box::from_raw(param));
+            }
+            Err(EditHandleError::ApiCallFailed)
+        }
+    }
+
+    /// レンダリング中のタスクが全て完了するまで待機する。
+    ///
+    /// # Note
+    ///
+    /// <div class="warning">
+    ///
+    /// この関数を[`Self::call_read_section`]や[`Self::call_edit_section`]のコールバック内で呼び出すとデッドロックする可能性があります。
+    ///
+    /// </div>
+    pub fn wait_rendering_task(&self) {
+        assert!(
+            self.is_ready(),
+            "wait_rendering_task cannot be called before register_plugin is done"
+        );
+        unsafe {
+            ((*self.internal).wait_rendering_task)();
+        }
     }
 }
 
