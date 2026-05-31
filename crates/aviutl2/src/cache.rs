@@ -219,7 +219,7 @@ pub struct VideoFileInfo {
     /// 解像度。
     pub height: usize,
     /// フレームレート。
-    pub fps: Rational32
+    pub fps: Rational32,
 }
 
 /// メディアファイルのオーディオ情報。

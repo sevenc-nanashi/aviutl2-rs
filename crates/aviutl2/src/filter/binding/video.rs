@@ -107,6 +107,60 @@ impl From<RgbaPixel> for (u8, u8, u8, u8) {
     }
 }
 
+/// 画像リソースに書き込むピクセルフォーマット。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum InputImageResourcePixelFormat {
+    /// DXGI_FORMAT_R8G8B8A8_UNORM。
+    Rgba,
+    /// DXGI_FORMAT_B8G8R8A8_UNORM。
+    Bgra,
+    /// DXGI_FORMAT_B8G8R8X8_UNORM。
+    Bgr,
+    /// DXGI_FORMAT_R16G16B16A16_UNORM。
+    Pa64,
+    /// DXGI_FORMAT_R16G16B16A16_FLOAT。
+    Hf64,
+    /// DXGI_FORMAT_YUY2。
+    Yuy2,
+    /// DXGI_FORMAT_R16G16B16A16_SNORM。
+    Yc48,
+}
+
+impl From<InputImageResourcePixelFormat> for aviutl2_sys::filter2::INPUT_PIXEL_FORMAT {
+    fn from(value: InputImageResourcePixelFormat) -> Self {
+        match value {
+            InputImageResourcePixelFormat::Rgba => Self::RGBA,
+            InputImageResourcePixelFormat::Bgra => Self::BGRA,
+            InputImageResourcePixelFormat::Bgr => Self::BGR,
+            InputImageResourcePixelFormat::Pa64 => Self::PA64,
+            InputImageResourcePixelFormat::Hf64 => Self::HF64,
+            InputImageResourcePixelFormat::Yuy2 => Self::YUY2,
+            InputImageResourcePixelFormat::Yc48 => Self::YC48,
+        }
+    }
+}
+
+/// 画像リソースから読み取るピクセルフォーマット。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum OutputImageResourcePixelFormat {
+    /// DXGI_FORMAT_R8G8B8A8_UNORM。
+    Rgba,
+    /// DXGI_FORMAT_R16G16B16A16_UNORM。
+    Pa64,
+    /// DXGI_FORMAT_R16G16B16A16_FLOAT。
+    Hf64,
+}
+
+impl From<OutputImageResourcePixelFormat> for aviutl2_sys::filter2::OUTPUT_PIXEL_FORMAT {
+    fn from(value: OutputImageResourcePixelFormat) -> Self {
+        match value {
+            OutputImageResourcePixelFormat::Rgba => Self::RGBA,
+            OutputImageResourcePixelFormat::Pa64 => Self::PA64,
+            OutputImageResourcePixelFormat::Hf64 => Self::HF64,
+        }
+    }
+}
+
 /// 画像フィルタ処理のための構造体。
 #[derive(Debug)]
 pub struct FilterProcVideo {
@@ -740,6 +794,12 @@ fn target_ptr_list(
     Ok((strings, ptrs))
 }
 
+fn image_data_byte_len(pitch: u32, height: u32) -> FilterProcResult<usize> {
+    (pitch as usize)
+        .checked_mul(height as usize)
+        .ok_or(FilterProcError::ValueOutOfRange)
+}
+
 impl FilterProcVideo {
     /// 現在の画像のデータを取得する。
     /// RGBA32bit で取得されます。
@@ -1030,6 +1090,25 @@ impl FilterProcVideo {
         }
     }
 
+    /// 指定の画像リソースのサイズを取得する。
+    pub fn get_image_resource_size(
+        &mut self,
+        resource: &ReadableImageResource,
+    ) -> FilterProcResult<(u32, u32)> {
+        let inner = unsafe { &*self.inner };
+        let resource_cw = crate::common::CWString::new(&resource.to_string())?;
+        let mut width = 0;
+        let mut height = 0;
+        let success = unsafe {
+            (inner.get_image_resource_size)(resource_cw.as_ptr(), &mut width, &mut height)
+        };
+        if success {
+            Ok((width as u32, height as u32))
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
     /// 画像リソースをコピーする。
     pub fn copy_image_resource(
         &mut self,
@@ -1063,6 +1142,79 @@ impl FilterProcVideo {
             a: color.a,
         };
         let success = unsafe { (inner.clear_image_resource)(resource.as_ptr(), color) };
+        if success {
+            Ok(())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
+    /// 画像リソースから指定フォーマットの画像データを取得する。
+    ///
+    /// `buffer` は少なくとも `pitch * height` バイト必要です。
+    pub fn get_image_resource_data(
+        &mut self,
+        resource: &ReadableImageResource,
+        buffer: &mut [u8],
+        width: u32,
+        height: u32,
+        pitch: u32,
+        format: OutputImageResourcePixelFormat,
+    ) -> FilterProcResult<()> {
+        let min_len = image_data_byte_len(pitch, height)?;
+        assert!(
+            buffer.len() >= min_len,
+            "buffer length must be at least pitch * height"
+        );
+        let inner = unsafe { &*self.inner };
+        let resource = crate::common::CWString::new(&resource.to_string())?;
+        let success = unsafe {
+            (inner.get_image_resource_data)(
+                resource.as_ptr(),
+                buffer.as_mut_ptr() as *mut c_void,
+                width as i32,
+                height as i32,
+                pitch as i32,
+                format.into(),
+            )
+        };
+        if success {
+            Ok(())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
+    /// 画像リソースに指定フォーマットの画像データを設定する。
+    ///
+    /// `data` をバイト列に変換した長さは少なくとも `pitch * height` バイト必要です。
+    pub fn set_image_resource_data<T: IntoBytes + Immutable>(
+        &mut self,
+        resource: &WritableImageResource,
+        data: &[T],
+        width: u32,
+        height: u32,
+        pitch: u32,
+        format: InputImageResourcePixelFormat,
+    ) -> FilterProcResult<()> {
+        let bytes = data.as_bytes();
+        let min_len = image_data_byte_len(pitch, height)?;
+        assert!(
+            bytes.len() >= min_len,
+            "data length must be at least pitch * height"
+        );
+        let inner = unsafe { &*self.inner };
+        let resource = crate::common::CWString::new(&resource.to_string())?;
+        let success = unsafe {
+            (inner.set_image_resource_data)(
+                resource.as_ptr(),
+                bytes.as_ptr() as *const c_void,
+                width as i32,
+                height as i32,
+                pitch as i32,
+                format.into(),
+            )
+        };
         if success {
             Ok(())
         } else {
@@ -1175,6 +1327,49 @@ impl FilterProcVideo {
         }
     }
 
+    /// メモリ上のコンパイル済みピクセルシェーダーを実行する。
+    ///
+    /// シェーダー側とメモリレイアウトを合わせるため、`constant` を構造体で渡す場合は `#[repr(C)]`
+    /// を推奨します。
+    pub fn exec_pixelshader_data<T: Copy>(
+        &mut self,
+        data: &[u8],
+        target: &ShaderTargetResource,
+        resources: &[ReadableImageResource],
+        constant: T,
+        blend_state: Option<*mut c_void>,
+        sampler_state: Option<*mut c_void>,
+    ) -> FilterProcResult<()> {
+        self.apply_param();
+        let inner = unsafe { &*self.inner };
+        let data_size = i32::try_from(data.len()).map_err(|_| FilterProcError::ValueOutOfRange)?;
+        let target = crate::common::CWString::new(&target.to_string())?;
+        let (_resource_strings, mut resource_ptrs) = resource_ptr_list(resources)?;
+        let constant_ptr = Box::new(constant);
+        let success = unsafe {
+            (inner.exec_pixelshader_data)(
+                data.as_ptr(),
+                data_size,
+                target.as_ptr(),
+                if resource_ptrs.is_empty() {
+                    std::ptr::null_mut()
+                } else {
+                    resource_ptrs.as_mut_ptr()
+                },
+                resource_ptrs.len() as i32,
+                constant_ptr.as_ref() as *const T as *mut c_void,
+                std::mem::size_of::<T>() as i32,
+                blend_state.unwrap_or(std::ptr::null_mut()),
+                sampler_state.unwrap_or(std::ptr::null_mut()),
+            )
+        };
+        if success {
+            Ok(())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
     /// コンピュートシェーダーを実行する。
     ///
     /// シェーダー側とメモリレイアウトを合わせるため、`constant` を構造体で渡す場合は `#[repr(C)]`
@@ -1197,6 +1392,56 @@ impl FilterProcVideo {
         let success = unsafe {
             (inner.exec_computeshader_file)(
                 cso_file.as_ptr(),
+                if target_ptrs.is_empty() {
+                    std::ptr::null_mut()
+                } else {
+                    target_ptrs.as_mut_ptr()
+                },
+                target_ptrs.len() as i32,
+                if resource_ptrs.is_empty() {
+                    std::ptr::null_mut()
+                } else {
+                    resource_ptrs.as_mut_ptr()
+                },
+                resource_ptrs.len() as i32,
+                constant_ptr.as_ref() as *const T as *mut c_void,
+                std::mem::size_of::<T>() as i32,
+                count[0] as i32,
+                count[1] as i32,
+                count[2] as i32,
+                sampler_state.unwrap_or(std::ptr::null_mut()),
+            )
+        };
+        if success {
+            Ok(())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
+    /// メモリ上のコンパイル済みコンピュートシェーダーを実行する。
+    ///
+    /// シェーダー側とメモリレイアウトを合わせるため、`constant` を構造体で渡す場合は `#[repr(C)]`
+    /// を推奨します。
+    pub fn exec_computeshader_data<T: Copy>(
+        &mut self,
+        data: &[u8],
+        targets: &[ShaderTargetResource],
+        resources: &[ReadableImageResource],
+        constant: T,
+        count: [u32; 3],
+        sampler_state: Option<*mut c_void>,
+    ) -> FilterProcResult<()> {
+        self.apply_param();
+        let inner = unsafe { &*self.inner };
+        let data_size = i32::try_from(data.len()).map_err(|_| FilterProcError::ValueOutOfRange)?;
+        let (_target_strings, mut target_ptrs) = target_ptr_list(targets)?;
+        let (_resource_strings, mut resource_ptrs) = resource_ptr_list(resources)?;
+        let constant_ptr = Box::new(constant);
+        let success = unsafe {
+            (inner.exec_computeshader_data)(
+                data.as_ptr(),
+                data_size,
                 if target_ptrs.is_empty() {
                     std::ptr::null_mut()
                 } else {

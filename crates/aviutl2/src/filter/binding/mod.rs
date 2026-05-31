@@ -151,6 +151,8 @@ pub enum FilterProcError {
     ApiCallFailed,
     #[error("input string contains null byte")]
     InputCwstrContainsNull(#[from] crate::common::NullByteError),
+    #[error("value is out of range")]
+    ValueOutOfRange,
 }
 
 pub type FilterProcResult<T> = Result<T, FilterProcError>;
