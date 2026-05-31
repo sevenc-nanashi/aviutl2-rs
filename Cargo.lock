@@ -310,7 +310,7 @@ dependencies = [
 
 [[package]]
 name = "aviutl2"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2-alias",
@@ -341,7 +341,7 @@ dependencies = [
 
 [[package]]
 name = "aviutl2-alias"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "duplicate",
  "indexmap",
@@ -352,7 +352,7 @@ dependencies = [
 
 [[package]]
 name = "aviutl2-eframe"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -364,7 +364,7 @@ dependencies = [
 
 [[package]]
 name = "aviutl2-macros"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -381,7 +381,7 @@ dependencies = [
 
 [[package]]
 name = "aviutl2-sys"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "windows-sys 0.61.2",
 ]
@@ -1540,7 +1540,7 @@ dependencies = [
 
 [[package]]
 name = "example-binaural-filter"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1556,7 +1556,7 @@ dependencies = [
 
 [[package]]
 name = "example-chiptune-filter"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1565,7 +1565,7 @@ dependencies = [
 
 [[package]]
 name = "example-equalizer-filter"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1576,7 +1576,7 @@ dependencies = [
 
 [[package]]
 name = "example-ffmpeg-output"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1597,7 +1597,7 @@ dependencies = [
 
 [[package]]
 name = "example-image-rs-input"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1614,7 +1614,7 @@ dependencies = [
 
 [[package]]
 name = "example-image-rs-output"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1625,7 +1625,7 @@ dependencies = [
 
 [[package]]
 name = "example-image-rs-single-output"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1636,7 +1636,7 @@ dependencies = [
 
 [[package]]
 name = "example-local-alias-plugin"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1647,7 +1647,7 @@ dependencies = [
 
 [[package]]
 name = "example-metronome-plugin"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1659,7 +1659,7 @@ dependencies = [
 
 [[package]]
 name = "example-midi-player-input"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1672,7 +1672,7 @@ dependencies = [
 
 [[package]]
 name = "example-pixel-format-test-input"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1680,7 +1680,7 @@ dependencies = [
 
 [[package]]
 name = "example-pixelsort-filter"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "aviutl2",
  "cfg-elif",
@@ -1695,7 +1695,7 @@ dependencies = [
 
 [[package]]
 name = "example-random-color-filter"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1706,7 +1706,7 @@ dependencies = [
 
 [[package]]
 name = "example-scripts-search-plugin"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1722,7 +1722,7 @@ dependencies = [
 
 [[package]]
 name = "example-srt-file-plugin"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1733,7 +1733,7 @@ dependencies = [
 
 [[package]]
 name = "example-statistics-output"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
@@ -1746,7 +1746,7 @@ dependencies = [
 
 [[package]]
 name = "example-username-module"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "anyhow",
  "aviutl2",
