@@ -1,16 +1,17 @@
 amends "package://github.com/jdx/hk/releases/download/v1.45.0/hk@1.45.0#/Config.pkl"
 
+// TODO: mainでのみ実行するようにする
 hooks {
   ["pre-push"] {
     steps {
       ["test"] {
-        check = "if [ \"$(git branch --show-current)\" = \"main\" ]; then rake test; fi"
+        check = "rake test"
       }
       ["check-format"] {
-        check = "if [ \"$(git branch --show-current)\" = \"main\" ]; then rake check_format; fi"
+        check = "rake check_format"
       }
       ["lint"] {
-        check = "if [ \"$(git branch --show-current)\" = \"main\" ]; then rake lint; fi"
+        check = "rake lint"
       }
     }
   }
