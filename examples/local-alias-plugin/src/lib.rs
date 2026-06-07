@@ -208,6 +208,21 @@ impl LocalAliasPlugin {
             Ok(())
         })?
     }
+
+    #[object_item(name = "test")]
+    fn menu_test_effect(
+        &mut self,
+        object: aviutl2::generic::ObjectHandle,
+        effect: &str,
+        index: usize,
+        item: &str,
+    ) -> AnyResult<()> {
+        let info = EDIT_HANDLE.call_edit_section(|edit_section| {
+            edit_section.get_object_track_info(object, effect, index, item)
+        })??;
+        aviutl2::ldbg!(info);
+        anyhow::Ok(())
+    }
 }
 
 aviutl2::register_generic_plugin!(LocalAliasPlugin);

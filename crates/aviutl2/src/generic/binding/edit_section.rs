@@ -159,7 +159,7 @@ pub struct MediaInfo {
 #[derive(Debug, Clone)]
 pub struct TrackInfo {
     /// トラックバーの移動モードの名称。
-    pub mode: Option<String>,
+    pub mode: String,
     /// トラックバーの設定値。
     pub params: Vec<f64>,
     /// トラックバーの加速度が有効かどうか。
@@ -573,13 +573,18 @@ impl ReadSection {
     }
 
     /// オブジェクトのトラックバー項目の情報を取得する。
+    ///
+    /// # Note
+    ///
+    /// 移動なしのときは`None`を返します。
+    /// そもそもトラックバーではない項目の場合はエラーになります。
     pub fn get_object_track_info(
         &self,
         object: ObjectHandle,
         effect_name: &str,
         effect_index: usize,
         item: &str,
-    ) -> EditSectionResult<TrackInfo> {
+    ) -> EditSectionResult<Option<TrackInfo>> {
         self.ensure_object_exists(object)?;
         let c_effect_name = crate::common::CWString::new(&effect_key(effect_name, effect_index))?;
         let c_item = crate::common::CWString::new(item)?;
@@ -598,6 +603,11 @@ impl ReadSection {
         }
 
         let info = unsafe { info.assume_init() };
+        let mode = if info.mode.is_null() {
+            return Ok(None);
+        } else {
+            unsafe { crate::common::load_wide_string(info.mode) }
+        };
         let param_num: usize = info.param_num.try_into()?;
         let params = if param_num == 0 {
             Vec::new()
@@ -607,20 +617,15 @@ impl ReadSection {
             }
             unsafe { std::slice::from_raw_parts(info.param, param_num) }.to_vec()
         };
-        let mode = if info.mode.is_null() {
-            None
-        } else {
-            Some(unsafe { crate::common::load_wide_string(info.mode) })
-        };
 
-        Ok(TrackInfo {
+        Ok(Some(TrackInfo {
             mode,
             params,
             accelerate: info.accelerate,
             decelerate: info.decelerate,
             twopoint: info.twopoint,
             timecontrol: info.timecontrol,
-        })
+        }))
     }
 
     /// 選択中オブジェクトの区間の位置を取得する。
@@ -1271,7 +1276,7 @@ where
         effect_name: &str,
         effect_index: usize,
         item: &str,
-    ) -> EditSectionResult<TrackInfo> {
+    ) -> EditSectionResult<Option<TrackInfo>> {
         self.read_section()
             .get_object_track_info(self.handle, effect_name, effect_index, item)
     }
