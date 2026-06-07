@@ -80,6 +80,25 @@ impl MODULE_INFO {
     pub const TYPE_PLUGIN_COMMON: i32 = 9;
 }
 
+/// トラックバー情報構造体
+#[repr(C)]
+pub struct TRACK_INFO {
+    /// トラックバーの移動モードの名称 ※移動無しの場合はnullptr
+    pub mode: LPCWSTR,
+    /// トラックバーの設定値の配列へのポインタ ※設定値が無い場合はnullptr
+    pub param: *mut f64,
+    /// トラックバーの設定値の数
+    pub param_num: i32,
+    /// トラックバーの加速度が有効か？
+    pub accelerate: bool,
+    /// トラックバーの減速度が有効か？
+    pub decelerate: bool,
+    /// トラックバーの中間点無視が有効か？
+    pub twopoint: bool,
+    /// トラックバーの時間制御が有効か？
+    pub timecontrol: bool,
+}
+
 /// 編集情報構造体
 /// フレーム番号、レイヤー番号が0からの番号になります ※UI表示と異なります
 #[repr(C)]
@@ -376,6 +395,37 @@ pub struct EDIT_SECTION {
     /// 選択中オブジェクトの区間の位置を取得します
     /// 戻り値 : 区間の番号 (未選択の場合は-1を返却)
     pub get_focus_object_section: unsafe extern "C" fn() -> i32,
+
+    /// オブジェクトの区間の開始フレーム番号を取得します
+    /// 戻り値 : 区間の開始フレーム番号 (取得出来ない場合は-1を返却)
+    pub get_object_section_frame: unsafe extern "C" fn(object: OBJECT_HANDLE, section: i32) -> i32,
+
+    /// 指定フレーム位置でのオブジェクトのトラックバー項目の値を取得します
+    pub get_object_track_value: unsafe extern "C" fn(
+        object: OBJECT_HANDLE,
+        effect: LPCWSTR,
+        item: LPCWSTR,
+        frame: f64,
+        value: *mut f64,
+    ) -> bool,
+
+    /// 指定フレーム位置でのオブジェクトのチェックボックス(セクション毎含む)項目の値を取得します
+    pub get_object_check_value: unsafe extern "C" fn(
+        object: OBJECT_HANDLE,
+        effect: LPCWSTR,
+        item: LPCWSTR,
+        frame: i32,
+        value: *mut bool,
+    ) -> bool,
+
+    /// オブジェクトのトラックバー項目の情報を取得します
+    pub get_object_track_info: unsafe extern "C" fn(
+        object: OBJECT_HANDLE,
+        effect: LPCWSTR,
+        item: LPCWSTR,
+        info: *mut TRACK_INFO,
+        info_size: i32,
+    ) -> bool,
 }
 
 /// 編集ハンドル構造体
@@ -802,4 +852,8 @@ pub struct HOST_APP_TABLE {
     /// module_name : モジュール名
     pub register_script_module_name:
         unsafe extern "C" fn(script_module_table: *mut SCRIPT_MODULE_TABLE, module_name: LPCWSTR),
+
+    /// フォントコレクションを登録する
+    /// collection : フォントコレクション (IDWriteFontCollectionのポインタ)
+    pub register_font_collection: unsafe extern "C" fn(collection: *mut std::ffi::c_void),
 }

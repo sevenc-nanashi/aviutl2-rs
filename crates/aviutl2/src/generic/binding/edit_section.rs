@@ -156,6 +156,22 @@ pub struct MediaInfo {
     pub height: usize,
 }
 
+#[derive(Debug, Clone)]
+pub struct TrackInfo {
+    /// トラックバーの移動モードの名称。
+    pub mode: Option<String>,
+    /// トラックバーの設定値。
+    pub params: Vec<f64>,
+    /// トラックバーの加速度が有効かどうか。
+    pub accelerate: bool,
+    /// トラックバーの減速度が有効かどうか。
+    pub decelerate: bool,
+    /// トラックバーの中間点無視が有効かどうか。
+    pub twopoint: bool,
+    /// トラックバーの時間制御が有効かどうか。
+    pub timecontrol: bool,
+}
+
 /// [`ReadSection::is_support_media_file`] のモード。
 #[derive(Debug, Clone, Copy)]
 pub enum MediaFileSupportMode {
@@ -467,6 +483,144 @@ impl ReadSection {
         self.ensure_object_exists(object)?;
         let count = unsafe { ((*self.internal).get_object_section_num)(object.internal) };
         Ok(count.try_into()?)
+    }
+
+    /// オブジェクトの区間の開始フレーム番号を取得する。
+    pub fn get_object_section_frame(
+        &self,
+        object: ObjectHandle,
+        section: usize,
+    ) -> EditSectionResult<Option<usize>> {
+        self.ensure_object_exists(object)?;
+        let frame = unsafe {
+            ((*self.internal).get_object_section_frame)(object.internal, section.try_into()?)
+        };
+        if frame == -1 {
+            Ok(None)
+        } else {
+            Ok(Some(frame.try_into()?))
+        }
+    }
+
+    /// オブジェクトの区間のフレーム番号の一覧を取得する。
+    pub fn get_object_section_frames(&self, object: ObjectHandle) -> EditSectionResult<Vec<usize>> {
+        self.ensure_object_exists(object)?;
+        let section_num = self.get_object_section_num(object)?;
+        let mut frames = Vec::new();
+        for section in 0..=section_num {
+            frames.push(
+                self.get_object_section_frame(object, section)?
+                    .ok_or(EditSectionError::ApiCallFailed)?,
+            );
+        }
+        Ok(frames)
+    }
+
+    /// 指定フレーム位置でのオブジェクトのトラックバー項目の値を取得する。
+    pub fn get_object_track_value(
+        &self,
+        object: ObjectHandle,
+        effect_name: &str,
+        effect_index: usize,
+        item: &str,
+        frame: f64,
+    ) -> EditSectionResult<f64> {
+        self.ensure_object_exists(object)?;
+        let c_effect_name = crate::common::CWString::new(&effect_key(effect_name, effect_index))?;
+        let c_item = crate::common::CWString::new(item)?;
+        let mut value = 0.0;
+        let success = unsafe {
+            ((*self.internal).get_object_track_value)(
+                object.internal,
+                c_effect_name.as_ptr(),
+                c_item.as_ptr(),
+                frame,
+                &mut value,
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(value)
+    }
+
+    /// 指定フレーム位置でのオブジェクトのチェックボックス項目の値を取得する。
+    pub fn get_object_check_value(
+        &self,
+        object: ObjectHandle,
+        effect_name: &str,
+        effect_index: usize,
+        item: &str,
+        frame: usize,
+    ) -> EditSectionResult<bool> {
+        self.ensure_object_exists(object)?;
+        let c_effect_name = crate::common::CWString::new(&effect_key(effect_name, effect_index))?;
+        let c_item = crate::common::CWString::new(item)?;
+        let mut value = false;
+        let success = unsafe {
+            ((*self.internal).get_object_check_value)(
+                object.internal,
+                c_effect_name.as_ptr(),
+                c_item.as_ptr(),
+                frame.try_into()?,
+                &mut value,
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(value)
+    }
+
+    /// オブジェクトのトラックバー項目の情報を取得する。
+    pub fn get_object_track_info(
+        &self,
+        object: ObjectHandle,
+        effect_name: &str,
+        effect_index: usize,
+        item: &str,
+    ) -> EditSectionResult<TrackInfo> {
+        self.ensure_object_exists(object)?;
+        let c_effect_name = crate::common::CWString::new(&effect_key(effect_name, effect_index))?;
+        let c_item = crate::common::CWString::new(item)?;
+        let mut info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::TRACK_INFO>::uninit();
+        let success = unsafe {
+            ((*self.internal).get_object_track_info)(
+                object.internal,
+                c_effect_name.as_ptr(),
+                c_item.as_ptr(),
+                info.as_mut_ptr(),
+                std::mem::size_of::<aviutl2_sys::plugin2::TRACK_INFO>() as i32,
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+
+        let info = unsafe { info.assume_init() };
+        let param_num: usize = info.param_num.try_into()?;
+        let params = if param_num == 0 {
+            Vec::new()
+        } else {
+            if info.param.is_null() {
+                return Err(EditSectionError::ApiCallFailed);
+            }
+            unsafe { std::slice::from_raw_parts(info.param, param_num) }.to_vec()
+        };
+        let mode = if info.mode.is_null() {
+            None
+        } else {
+            Some(unsafe { crate::common::load_wide_string(info.mode) })
+        };
+
+        Ok(TrackInfo {
+            mode,
+            params,
+            accelerate: info.accelerate,
+            decelerate: info.decelerate,
+            twopoint: info.twopoint,
+            timecontrol: info.timecontrol,
+        })
     }
 
     /// 選択中オブジェクトの区間の位置を取得する。
@@ -1064,6 +1218,62 @@ where
     /// オブジェクトの区間の数を取得する。
     pub fn get_section_num(&self) -> EditSectionResult<usize> {
         self.read_section().get_object_section_num(self.handle)
+    }
+
+    /// オブジェクトの区間の開始フレーム番号を取得する。
+    pub fn get_section_frame(&self, section: usize) -> EditSectionResult<Option<usize>> {
+        self.read_section()
+            .get_object_section_frame(self.handle, section)
+    }
+
+    /// オブジェクトの区間のフレーム番号の一覧を取得する。
+    pub fn get_section_frames(&self) -> EditSectionResult<Vec<usize>> {
+        self.read_section().get_object_section_frames(self.handle)
+    }
+
+    /// 指定フレーム位置でのトラックバー項目の値を取得する。
+    pub fn get_track_value(
+        &self,
+        effect_name: &str,
+        effect_index: usize,
+        item: &str,
+        frame: f64,
+    ) -> EditSectionResult<f64> {
+        self.read_section().get_object_track_value(
+            self.handle,
+            effect_name,
+            effect_index,
+            item,
+            frame,
+        )
+    }
+
+    /// 指定フレーム位置でのチェックボックス項目の値を取得する。
+    pub fn get_check_value(
+        &self,
+        effect_name: &str,
+        effect_index: usize,
+        item: &str,
+        frame: usize,
+    ) -> EditSectionResult<bool> {
+        self.read_section().get_object_check_value(
+            self.handle,
+            effect_name,
+            effect_index,
+            item,
+            frame,
+        )
+    }
+
+    /// トラックバー項目の情報を取得する。
+    pub fn get_track_info(
+        &self,
+        effect_name: &str,
+        effect_index: usize,
+        item: &str,
+    ) -> EditSectionResult<TrackInfo> {
+        self.read_section()
+            .get_object_track_info(self.handle, effect_name, effect_index, item)
     }
 }
 
