@@ -34,9 +34,9 @@ cfg-elif = "0.6.6"
 duplicate = "2.0.1"
 ndarray = { version = "0.17.2", features = ["rayon"] }
 rayon = "1.12.0"
-wide = "1.4.0"
+wide = "1.5.0"
 
 [dev-dependencies]
 criterion = "0.8.2"
 image = "0.25.10"
-zerocopy = "0.8.48"
+zerocopy = "0.8.52"

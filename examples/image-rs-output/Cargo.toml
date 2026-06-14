@@ -16,4 +16,4 @@ anyhow = "1.0.102"
 aviutl2.workspace = true
 image = "0.25.10"
 lazy-regex = "3.6.0"
-regex = "1.12.3"
+regex = "1.12.4"

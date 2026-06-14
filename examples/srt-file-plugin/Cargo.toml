@@ -15,5 +15,5 @@ crate-type = ["cdylib"]
 anyhow = "1.0.102"
 aviutl2.workspace = true
 easy-ext = "1.0.3"
-native-dialog = "0.9.6"
+native-dialog = "0.9.7"
 srtlib = "0.2.0"
