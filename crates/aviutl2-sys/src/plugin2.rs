@@ -99,6 +99,38 @@ pub struct TRACK_INFO {
     pub timecontrol: bool,
 }
 
+/// パレット情報構造体
+#[repr(C)]
+pub struct PALETTE_INFO {
+    pub color: [PALETTE_INFO_COLOR; Self::PALETTE_NUM],
+}
+
+impl PALETTE_INFO {
+    pub const PALETTE_NUM: usize = 64;
+}
+
+/// パレット色情報構造体
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PALETTE_INFO_COLOR {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
+}
+
+/// イベント種別
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EVENT_TYPE {
+    /// オブジェクト情報の更新
+    UPDATE_OBJECT = 1,
+    /// 現在の編集フレームの移動
+    CHANGE_EDIT_FRAME = 2,
+    /// 現在の編集シーンの変更
+    CHANGE_EDIT_SCENE = 3,
+}
+
 /// 編集情報構造体
 /// フレーム番号、レイヤー番号が0からの番号になります ※UI表示と異なります
 #[repr(C)]
@@ -426,6 +458,13 @@ pub struct EDIT_SECTION {
         info: *mut TRACK_INFO,
         info_size: i32,
     ) -> bool,
+
+    /// 現在のパレット名を取得します
+    pub get_palette_name: unsafe extern "C" fn() -> LPCWSTR,
+
+    /// 指定のパレットの情報を取得します
+    pub get_palette_info:
+        unsafe extern "C" fn(name: LPCWSTR, info: *mut PALETTE_INFO, info_size: i32) -> bool,
 }
 
 /// 編集ハンドル構造体
@@ -545,6 +584,18 @@ pub struct EDIT_HANDLE {
 
     /// レンダリング中のタスクが全て完了するまで待機します
     pub wait_rendering_task: unsafe extern "C" fn(),
+
+    /// フォント名の一覧をコールバック関数で取得します
+    pub enum_font_name: unsafe extern "C" fn(
+        param: *mut c_void,
+        func_proc_enum_font: unsafe extern "C" fn(param: *mut c_void, name: LPCWSTR),
+    ),
+
+    /// パレット名の一覧をコールバック関数で取得します
+    pub enum_palette_name: unsafe extern "C" fn(
+        param: *mut c_void,
+        func_proc_enum_palette: unsafe extern "C" fn(param: *mut c_void, name: LPCWSTR),
+    ),
 }
 
 impl EDIT_HANDLE {
@@ -856,4 +907,11 @@ pub struct HOST_APP_TABLE {
     /// フォントコレクションを登録する
     /// collection : フォントコレクション (IDWriteFontCollectionのポインタ)
     pub register_font_collection: unsafe extern "C" fn(collection: *mut std::ffi::c_void),
+
+    /// 指定のイベントのコールバック関数を登録する
+    pub register_event_listener: unsafe extern "C" fn(
+        r#type: EVENT_TYPE,
+        param: *mut c_void,
+        func_proc_event: unsafe extern "C" fn(param: *mut c_void),
+    ),
 }

@@ -83,6 +83,8 @@ pub struct FILTER_ITEM_CHECK_SECTION {
     pub name: LPCWSTR,
     /// 設定値（フィルタ処理の呼び出し時に現在の値に更新されます）
     pub value: bool,
+    /// セクション毎設定の初期値
+    pub multi_section: bool,
 }
 
 /// 色選択項目構造体
@@ -474,6 +476,10 @@ pub struct OBJECT_INFO {
     pub index: i32,
     /// 複数オブジェクト時の対象数 (1 = 単体オブジェクト / 0 = 不定)
     pub num: i32,
+    /// 全体(シーン)基準のオブジェクトの開始フレーム(0からの番号)
+    pub frame_s: i32,
+    /// 全体(シーン)基準のオブジェクトの終了フレーム(0からの番号)
+    pub frame_e: i32,
 }
 
 impl OBJECT_INFO {

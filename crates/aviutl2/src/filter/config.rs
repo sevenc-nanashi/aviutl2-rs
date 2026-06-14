@@ -254,9 +254,10 @@ impl FilterConfigItem {
             FilterConfigItem::CheckSection(filter_config_check_section) => {
                 aviutl2_sys::filter2::FILTER_ITEM {
                     check_section: aviutl2_sys::filter2::FILTER_ITEM_CHECK_SECTION {
-                        r#type: leak_manager.leak_as_wide_string("checksection"),
+                        r#type: leak_manager.leak_as_wide_string("checksection2"),
                         name: leak_manager.leak_as_wide_string(&filter_config_check_section.name),
                         value: filter_config_check_section.value,
+                        multi_section: true,
                     },
                 }
             }

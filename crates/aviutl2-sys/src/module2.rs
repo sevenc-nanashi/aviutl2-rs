@@ -287,6 +287,22 @@ pub struct SCRIPT_MODULE_PARAM {
 
     /// 編集セクション関数
     pub edit: *mut EDIT_SECTION,
+
+    /// 関数を戻り値として追加する
+    pub push_result_function: unsafe extern "C" fn(
+        func: unsafe extern "C" fn(smp: *mut SCRIPT_MODULE_PARAM),
+        userdata: *mut c_void,
+    ),
+
+    /// メタテーブルの戻り値を追加する
+    pub push_result_meta_table: unsafe extern "C" fn(
+        func_getter: unsafe extern "C" fn(smp: *mut SCRIPT_MODULE_PARAM),
+        func_setter: unsafe extern "C" fn(smp: *mut SCRIPT_MODULE_PARAM),
+        userdata: *mut c_void,
+    ),
+
+    /// 任意のユーザーデータのポインタ
+    pub userdata: *mut c_void,
 }
 
 /// スクリプトモジュール関数定義構造体
