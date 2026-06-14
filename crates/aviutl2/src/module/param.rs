@@ -26,6 +26,13 @@ pub enum ScriptModuleCallHandleError {
 
 pub type ScriptModuleCallHandleResult<T> = std::result::Result<T, ScriptModuleCallHandleError>;
 
+/// `push_result_function` で返すスクリプトモジュール関数コールバック。
+#[derive(Debug, Clone, Copy)]
+pub struct ScriptModuleFunctionCallback {
+    pub func: unsafe extern "C" fn(*mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM),
+    pub userdata: *mut std::ffi::c_void,
+}
+
 impl ScriptModuleCallHandle {
     /// ポインタから`ScriptModuleParam`を作成する。
     ///
@@ -255,6 +262,17 @@ impl ScriptModuleCallHandle {
     pub fn push_result_data<T>(&mut self, value: *const T) {
         unsafe {
             ((*self.internal).push_result_data)(value as *const std::ffi::c_void);
+        }
+    }
+
+    /// 関数の返り値に関数を追加する。
+    ///
+    /// # Note
+    ///
+    /// メモリリークします。
+    pub fn push_result_function(&mut self, callback: ScriptModuleFunctionCallback) {
+        unsafe {
+            ((*self.internal).push_result_function)(callback.func, callback.userdata);
         }
     }
 
@@ -823,6 +841,7 @@ pub enum ScriptModuleReturnValue {
     IntTable(std::collections::HashMap<String, i32>),
     FloatTable(std::collections::HashMap<String, f64>),
     StringTable(std::collections::HashMap<String, String>),
+    Function(ScriptModuleFunctionCallback),
 }
 
 /// [`IntoScriptModuleReturnValue::push_into`]で使われるエラー。
@@ -871,6 +890,9 @@ where
                 ScriptModuleReturnValue::Data(v) => {
                     param.push_result_data(v);
                 }
+                ScriptModuleReturnValue::Function(v) => {
+                    param.push_result_function(v);
+                }
                 ScriptModuleReturnValue::StringArray(v) => {
                     let strs: Vec<&str> = v.iter().map(|s| s.as_str()).collect();
                     param.push_result_array_str(&strs)?
@@ -903,6 +925,14 @@ impl<T> IntoScriptModuleReturnValue for *const T {
         Ok(vec![ScriptModuleReturnValue::Data(
             self as *const std::ffi::c_void,
         )])
+    }
+}
+
+impl IntoScriptModuleReturnValue for ScriptModuleFunctionCallback {
+    type Err = std::convert::Infallible;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        Ok(vec![ScriptModuleReturnValue::Function(self)])
     }
 }
 

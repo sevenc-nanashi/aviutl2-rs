@@ -10,6 +10,7 @@ mod generic_menus;
 mod into_script_module_return_value;
 mod module_functions;
 mod plugin;
+mod script_module_callback;
 mod utils;
 
 /// `FilterConfigItems` を自動で実装するためのマクロ。
@@ -574,6 +575,22 @@ pub fn module_functions(
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     module_functions::module_functions(attr.into(), item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// `push_result_function` で返せるスクリプトモジュール関数コールバックを作成します。
+#[proc_macro]
+pub fn script_module_callback(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    script_module_callback::script_module_callback(input.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// `push_result_function` で返せるdirect形式のスクリプトモジュール関数コールバックを作成します。
+#[proc_macro]
+pub fn script_module_direct_callback(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    script_module_callback::script_module_direct_callback(input.into())
         .unwrap_or_else(|e| e)
         .into()
 }

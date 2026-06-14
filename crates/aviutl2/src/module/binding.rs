@@ -18,7 +18,9 @@ pub struct ModuleFunction {
     pub func: extern "C" fn(*mut crate::sys::module2::SCRIPT_MODULE_PARAM),
 }
 
-pub use aviutl2_macros::module_functions as functions;
+pub use aviutl2_macros::{
+    module_functions as functions, script_module_callback, script_module_direct_callback,
+};
 
 /// スクリプトモジュールの関数一覧を返すトレイト。
 /// [`macro@functions`]マクロで実装できます。
