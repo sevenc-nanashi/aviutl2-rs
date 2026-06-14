@@ -193,6 +193,7 @@ enum FilterConfigField {
         id: String,
         name: String,
         default: bool,
+        multi_section: bool,
     },
     Color {
         id: String,
@@ -400,12 +401,14 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                 id: _,
                 name,
                 default,
+                multi_section,
             } => {
                 quote::quote! {
                     ::aviutl2::filter::FilterConfigItem::CheckSection(
                         ::aviutl2::filter::FilterConfigCheckSection {
                             name: #name.to_string(),
                             value: #default,
+                            multi_section: #multi_section,
                         }
                     )
                 }
@@ -1321,6 +1324,7 @@ fn filter_config_field_check_section(
     let mut name = None;
     let mut salt = None;
     let mut default = None;
+    let mut multi_section = true;
 
     recognized_attr.parse_nested_meta(|m| {
         if m.path.is_ident("name") {
@@ -1329,6 +1333,8 @@ fn filter_config_field_check_section(
             salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
         } else if m.path.is_ident("default") {
             default = Some(m.value()?.parse::<syn::LitBool>()?.value);
+        } else if m.path.is_ident("multi_section") {
+            multi_section = m.value()?.parse::<syn::LitBool>()?.value;
         } else {
             return Err(m.error("Unknown attribute for checksection"));
         }
@@ -1346,6 +1352,7 @@ fn filter_config_field_check_section(
         id: field.ident.as_ref().unwrap().to_string(),
         name,
         default,
+        multi_section,
     })
 }
 

@@ -61,7 +61,19 @@ impl aviutl2::filter::FilterPlugin for MetronomeFilter {
             .and_then(|path| crate::wav::get_wav_sample(path, sample_rate));
         let info = crate::EDIT_HANDLE.get_edit_info();
         let bpm = info.grid_bpm_tempo;
-        let bpm_offset = info.grid_bpm_offset;
+        // - (audio.object.frame_s as f32 * *info.fps.denom() as f32 / *info.fps.numer() as f32)
+        tracing::debug!(
+            "frame_s: {}, fps: {}/{} => time_s: {}, bpm: {}, offset: {}, beat_count: {}",
+            audio.object.frame_s,
+            info.fps.numer(),
+            info.fps.denom(),
+            audio.object.frame_s as f32 * *info.fps.denom() as f32 / *info.fps.numer() as f32,
+            bpm,
+            info.grid_bpm_offset,
+            info.grid_bpm_beat
+        );
+        let bpm_offset = info.grid_bpm_offset
+            - (audio.object.frame_s as f32 * *info.fps.denom() as f32 / *info.fps.numer() as f32);
         let beat_count = info.grid_bpm_beat;
         if bpm < 0.1 {
             return Ok(());
@@ -77,8 +89,11 @@ impl aviutl2::filter::FilterPlugin for MetronomeFilter {
         let mut rbuf = vec![0.0f32; audio.audio_object.sample_num as usize];
         for i in 0..audio.audio_object.sample_num as usize {
             let current_sample_index = audio.audio_object.sample_index + i as u64;
-            let (last_beat_sample_index, beat_number) =
-                get_last_beat_sample_index(sample_rate, bpm, bpm_offset, current_sample_index);
+            let Some((last_beat_sample_index, beat_number)) =
+                get_last_beat_sample_index(sample_rate, bpm, bpm_offset, current_sample_index)
+            else {
+                continue;
+            };
             let use_a = beat_number % beat_count as i64 == 0;
 
             let sample_offset = current_sample_index.saturating_sub(last_beat_sample_index);
@@ -123,13 +138,16 @@ fn get_last_beat_sample_index(
     bpm: f32,
     bpm_offset: f32,
     current_sample_index: u64,
-) -> (u64, i64) {
-    let samples_per_beat = (60.0 / bpm) * sample_rate as f32;
-    let offset_samples = bpm_offset * sample_rate as f32;
-    let adjusted_index = current_sample_index as f32 - offset_samples;
+) -> Option<(u64, i64)> {
+    let samples_per_beat = (60.0 / bpm as f64) * sample_rate as f64;
+    let offset_samples = bpm_offset as f64 * sample_rate as f64;
+    let adjusted_index = current_sample_index as f64 - offset_samples;
     let beat_count = (adjusted_index / samples_per_beat).floor();
-    let last_beat_sample_index = (beat_count * samples_per_beat + offset_samples).round() as u64;
-    (last_beat_sample_index, beat_count as i64)
+    let last_beat_sample_index = (beat_count * samples_per_beat + offset_samples).round();
+    if last_beat_sample_index < 0.0 || last_beat_sample_index > current_sample_index as f64 {
+        return None;
+    }
+    Some((last_beat_sample_index as u64, beat_count as i64))
 }
 
 fn clamp_sample(value: f32) -> f32 {

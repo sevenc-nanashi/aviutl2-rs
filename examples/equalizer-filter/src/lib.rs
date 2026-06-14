@@ -7,6 +7,9 @@ use aviutl2::{
 #[aviutl2::filter::filter_config_items]
 #[derive(Debug, Clone, PartialEq)]
 pub struct FilterConfig {
+    #[checksection(name = "Bypass", multi_section = false, default = false)]
+    bypass: bool,
+
     #[track(name = "Wet", range = 0.0..=1.0, step = 0.01, default = 1.0)]
     wet: f64,
     #[group(name = "Bass")]
@@ -184,6 +187,13 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
         q_state.expected_next_index = audio.audio_object.sample_index + left_samples.len() as u64;
 
         q_state.update_params(sample_rate, &config);
+        if config.bypass {
+            tracing::debug!(
+                "Bypass enabled, skipping EQ processing for object ID {}",
+                obj_id
+            );
+            return Ok(());
+        }
 
         let mut left_samples = left_samples
             .into_iter()

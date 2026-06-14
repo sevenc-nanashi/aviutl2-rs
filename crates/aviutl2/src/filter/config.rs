@@ -257,7 +257,7 @@ impl FilterConfigItem {
                         r#type: leak_manager.leak_as_wide_string("checksection2"),
                         name: leak_manager.leak_as_wide_string(&filter_config_check_section.name),
                         value: filter_config_check_section.value,
-                        multi_section: true,
+                        multi_section: filter_config_check_section.multi_section,
                     },
                 }
             }
@@ -495,6 +495,9 @@ pub struct FilterConfigCheckSection {
 
     /// 設定値。
     pub value: bool,
+
+    /// デフォルトでセクションごとのチェックボックスにするかどうか。
+    pub multi_section: bool,
 }
 
 /// 色選択。

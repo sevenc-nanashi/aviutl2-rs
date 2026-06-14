@@ -59,6 +59,8 @@ impl ObjectInfo {
             time_total: raw.time_total,
             is_filter_object: (raw.flag & aviutl2_sys::filter2::OBJECT_INFO::FLAG_FILTER_OBJECT)
                 != 0,
+            frame_s: raw.frame_s as u32,
+            frame_e: raw.frame_e as u32,
         }
     }
 }

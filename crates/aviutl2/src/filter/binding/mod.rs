@@ -142,6 +142,17 @@ pub struct ObjectInfo {
     pub time_total: f64,
     /// オブジェクトがフィルタオブジェクトかどうか。
     pub is_filter_object: bool,
+    /// シーン基準のオブジェクトの開始フレーム。
+    pub frame_s: u32,
+    /// シーン基準のオブジェクトの終了フレーム。
+    pub frame_e: u32,
+}
+
+impl ObjectInfo {
+    /// シーン基準のオブジェクトのフレーム範囲。
+    pub fn frame_range(&self) -> std::ops::RangeInclusive<u32> {
+        self.frame_s..=self.frame_e
+    }
 }
 
 /// フィルタ処理のエラー。
