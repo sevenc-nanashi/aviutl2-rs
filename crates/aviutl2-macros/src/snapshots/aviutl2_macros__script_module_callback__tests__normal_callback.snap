@@ -1,0 +1,60 @@
+---
+source: crates/aviutl2-macros/src/script_module_callback.rs
+assertion_line: 166
+expression: format_tokens(output)
+---
+{
+    let mut __callback = |value: i32| -> i32 { value + 1 };
+    let __callback: ::std::boxed::Box<
+        dyn FnMut(&mut ::aviutl2::module::ScriptModuleCallHandle) + Send,
+    > = ::std::boxed::Box::new(move |__handle| {
+        let value: i32 =
+            match <i32 as ::aviutl2::module::FromScriptModuleParam>::from_param(__handle, 0usize) {
+                ::std::option::Option::Some(value) => value,
+                ::std::option::Option::None => {
+                    let _ = __handle.set_error(&format!(
+                        "Failed to convert parameter #{} to {}",
+                        0usize,
+                        stringify!(i32)
+                    ));
+                    return;
+                }
+            };
+        let fn_result = __callback(value);
+        ::aviutl2::module::__push_return_value(__handle, fn_result);
+    });
+    let __callback = ::std::sync::Mutex::new(__callback);
+    let __callback = ::std::boxed::Box::new(__callback);
+    let __userdata = ::std::boxed::Box::into_raw(__callback) as *mut ::std::ffi::c_void;
+    unsafe extern "C" fn __script_module_callback_trampoline(
+        smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
+    ) {
+        let __callback = unsafe {
+            &*((*smp).userdata
+                as *const ::std::sync::Mutex<
+                    ::std::boxed::Box<
+                        dyn FnMut(&mut ::aviutl2::module::ScriptModuleCallHandle) + Send,
+                    >,
+                >)
+        };
+        let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+        if let Err(panic_info) =
+            ::aviutl2::__catch_unwind_with_panic_info(::std::panic::AssertUnwindSafe(|| {
+                let mut __callback = __callback
+                    .lock()
+                    .expect("script module callback mutex poisoned");
+                (__callback)(&mut __handle);
+            }))
+        {
+            ::aviutl2::tracing::error!(
+                "Panic occurred during script module callback: {}",
+                panic_info
+            );
+            let _ = ::aviutl2::logger::write_error_log(&panic_info);
+        }
+    }
+    ::aviutl2::module::ScriptModuleFunctionCallback {
+        func: __script_module_callback_trampoline,
+        userdata: __userdata,
+    }
+}

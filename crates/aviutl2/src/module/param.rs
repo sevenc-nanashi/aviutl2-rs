@@ -33,6 +33,56 @@ pub struct ScriptModuleFunctionCallback {
     pub userdata: *mut std::ffi::c_void,
 }
 
+/// `push_result_meta_table` で返すスクリプトモジュールのメタテーブル。
+#[derive(Debug, Clone, Copy)]
+pub struct ScriptModuleMetaTable {
+    pub getter: ScriptModuleFunctionCallback,
+    pub setter: ScriptModuleFunctionCallback,
+    userdata: *mut std::ffi::c_void,
+}
+
+impl ScriptModuleMetaTable {
+    pub fn new(getter: ScriptModuleFunctionCallback, setter: ScriptModuleFunctionCallback) -> Self {
+        let storage = Box::new(ScriptModuleMetaTableCallbackStorage { getter, setter });
+        let userdata = Box::into_raw(storage) as *mut std::ffi::c_void;
+        Self {
+            getter,
+            setter,
+            userdata,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ScriptModuleMetaTableCallbackStorage {
+    getter: ScriptModuleFunctionCallback,
+    setter: ScriptModuleFunctionCallback,
+}
+
+unsafe extern "C" fn script_module_meta_table_getter(
+    smp: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,
+) {
+    let storage = unsafe { &*((*smp).userdata as *const ScriptModuleMetaTableCallbackStorage) };
+    let original_userdata = unsafe { (*smp).userdata };
+    unsafe {
+        (*smp).userdata = storage.getter.userdata;
+        (storage.getter.func)(smp);
+        (*smp).userdata = original_userdata;
+    }
+}
+
+unsafe extern "C" fn script_module_meta_table_setter(
+    smp: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,
+) {
+    let storage = unsafe { &*((*smp).userdata as *const ScriptModuleMetaTableCallbackStorage) };
+    let original_userdata = unsafe { (*smp).userdata };
+    unsafe {
+        (*smp).userdata = storage.setter.userdata;
+        (storage.setter.func)(smp);
+        (*smp).userdata = original_userdata;
+    }
+}
+
 impl ScriptModuleCallHandle {
     /// ポインタから`ScriptModuleParam`を作成する。
     ///
@@ -273,6 +323,21 @@ impl ScriptModuleCallHandle {
     pub fn push_result_function(&mut self, callback: ScriptModuleFunctionCallback) {
         unsafe {
             ((*self.internal).push_result_function)(callback.func, callback.userdata);
+        }
+    }
+
+    /// 関数の返り値にメタテーブルを追加する。
+    ///
+    /// # Note
+    ///
+    /// メモリリークします。
+    pub fn push_result_meta_table(&mut self, meta_table: ScriptModuleMetaTable) {
+        unsafe {
+            ((*self.internal).push_result_meta_table)(
+                script_module_meta_table_getter,
+                script_module_meta_table_setter,
+                meta_table.userdata,
+            );
         }
     }
 
@@ -842,6 +907,7 @@ pub enum ScriptModuleReturnValue {
     FloatTable(std::collections::HashMap<String, f64>),
     StringTable(std::collections::HashMap<String, String>),
     Function(ScriptModuleFunctionCallback),
+    MetaTable(ScriptModuleMetaTable),
 }
 
 /// [`IntoScriptModuleReturnValue::push_into`]で使われるエラー。
@@ -893,6 +959,9 @@ where
                 ScriptModuleReturnValue::Function(v) => {
                     param.push_result_function(v);
                 }
+                ScriptModuleReturnValue::MetaTable(v) => {
+                    param.push_result_meta_table(v);
+                }
                 ScriptModuleReturnValue::StringArray(v) => {
                     let strs: Vec<&str> = v.iter().map(|s| s.as_str()).collect();
                     param.push_result_array_str(&strs)?
@@ -933,6 +1002,14 @@ impl IntoScriptModuleReturnValue for ScriptModuleFunctionCallback {
 
     fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::Function(self)])
+    }
+}
+
+impl IntoScriptModuleReturnValue for ScriptModuleMetaTable {
+    type Err = std::convert::Infallible;
+
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        Ok(vec![ScriptModuleReturnValue::MetaTable(self)])
     }
 }
 

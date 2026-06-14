@@ -12,6 +12,7 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
             ::aviutl2::filter::FilterConfigCheckSection {
                 name: "Section Enable".to_string(),
                 value: true,
+                multi_section: true,
             },
         )];
     }
