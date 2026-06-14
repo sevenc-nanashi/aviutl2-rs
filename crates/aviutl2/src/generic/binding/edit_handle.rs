@@ -632,6 +632,108 @@ impl EditHandle {
             ((*self.internal).wait_rendering_task)();
         }
     }
+
+    /// フォント名の一覧をコールバック関数で取得する。
+    pub fn enumerate_font_names<F>(&self, callback: F)
+    where
+        F: FnMut(String),
+    {
+        assert!(
+            self.is_ready(),
+            "enumerate_font_names cannot be called before register_plugin is done"
+        );
+        type CallbackParam<F> = ChildKillablePointer<F>;
+
+        unsafe extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            name: aviutl2_sys::common::LPCWSTR,
+        ) where
+            F: FnMut(String),
+        {
+            let callback = unsafe { &mut *(param as *mut CallbackParam<F>) };
+            let callback = unsafe { callback.as_mut() };
+            let name_str = unsafe { crate::common::load_wide_string(name) };
+            callback(name_str);
+        }
+
+        let trampoline_static = trampoline::<F>
+            as unsafe extern "C" fn(*mut std::ffi::c_void, aviutl2_sys::common::LPCWSTR);
+        let callback_guard = KillablePointer::new(callback);
+        let child_param = callback_guard.create_child();
+        let param = Box::new(child_param);
+        let param_ptr = Box::into_raw(param);
+        unsafe {
+            ((*self.internal).enum_font_name)(
+                param_ptr as *mut std::ffi::c_void,
+                trampoline_static,
+            );
+        }
+        drop(unsafe { Box::from_raw(param_ptr) });
+    }
+
+    /// フォント名の一覧を取得する。
+    pub fn get_font_names(&self) -> Vec<String> {
+        assert!(
+            self.is_ready(),
+            "get_font_names cannot be called before register_plugin is done"
+        );
+        let mut font_names = Vec::new();
+        self.enumerate_font_names(|name| {
+            font_names.push(name);
+        });
+        font_names
+    }
+
+    /// パレット名の一覧をコールバック関数で取得する。
+    pub fn enumerate_palette_names<F>(&self, callback: F)
+    where
+        F: FnMut(String),
+    {
+        assert!(
+            self.is_ready(),
+            "enumerate_palette_names cannot be called before register_plugin is done"
+        );
+        type CallbackParam<F> = ChildKillablePointer<F>;
+
+        unsafe extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            name: aviutl2_sys::common::LPCWSTR,
+        ) where
+            F: FnMut(String),
+        {
+            let callback = unsafe { &mut *(param as *mut CallbackParam<F>) };
+            let callback = unsafe { callback.as_mut() };
+            let name_str = unsafe { crate::common::load_wide_string(name) };
+            callback(name_str);
+        }
+
+        let trampoline_static = trampoline::<F>
+            as unsafe extern "C" fn(*mut std::ffi::c_void, aviutl2_sys::common::LPCWSTR);
+        let callback_guard = KillablePointer::new(callback);
+        let child_param = callback_guard.create_child();
+        let param = Box::new(child_param);
+        let param_ptr = Box::into_raw(param);
+        unsafe {
+            ((*self.internal).enum_palette_name)(
+                param_ptr as *mut std::ffi::c_void,
+                trampoline_static,
+            );
+        }
+        drop(unsafe { Box::from_raw(param_ptr) });
+    }
+
+    /// パレット名の一覧を取得する。
+    pub fn get_palette_names(&self) -> Vec<String> {
+        assert!(
+            self.is_ready(),
+            "get_palette_names cannot be called before register_plugin is done"
+        );
+        let mut palette_names = Vec::new();
+        self.enumerate_palette_names(|name| {
+            palette_names.push(name);
+        });
+        palette_names
+    }
 }
 
 /// エフェクト情報。

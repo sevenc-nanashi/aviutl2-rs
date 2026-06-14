@@ -410,6 +410,28 @@ impl<'plugin> HostAppHandle<'plugin> {
         }
     }
 
+    /// 指定のイベントのコールバック関数を登録します。
+    ///
+    /// # Note
+    ///
+    /// コールバックはイベント用スレッドから呼ばれます。
+    /// イベント処理から `call_edit_section` は利用できません。
+    pub fn register_event_listener<F>(&mut self, event_type: EventType, callback: F)
+    where
+        F: Fn() + 'static + Send + Sync,
+    {
+        self.assert_not_killed();
+        let callback_box = Box::new(callback);
+        let callback_ptr = Box::into_raw(callback_box);
+        unsafe {
+            ((*self.internal).register_event_listener)(
+                event_type.into(),
+                callback_ptr as *mut std::ffi::c_void,
+                event_listener_trampoline::<F>,
+            );
+        }
+    }
+
     fn register_menu_internal<F>(
         &mut self,
         name: &str,
@@ -431,6 +453,27 @@ impl<'plugin> HostAppHandle<'plugin> {
                 trampoline_param_ptr as *mut std::ffi::c_void,
                 menu_trampoline::<F>,
             );
+        }
+    }
+}
+
+/// イベント種別。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EventType {
+    /// オブジェクト情報の更新。
+    UpdateObject,
+    /// 現在の編集フレームの移動。
+    ChangeEditFrame,
+    /// 現在の編集シーンの変更。
+    ChangeEditScene,
+}
+
+impl From<EventType> for aviutl2_sys::plugin2::EVENT_TYPE {
+    fn from(value: EventType) -> Self {
+        match value {
+            EventType::UpdateObject => aviutl2_sys::plugin2::EVENT_TYPE::UPDATE_OBJECT,
+            EventType::ChangeEditFrame => aviutl2_sys::plugin2::EVENT_TYPE::CHANGE_EDIT_FRAME,
+            EventType::ChangeEditScene => aviutl2_sys::plugin2::EVENT_TYPE::CHANGE_EDIT_SCENE,
         }
     }
 }
@@ -478,6 +521,19 @@ unsafe extern "C" fn file_drop_trampoline<F>(
         }))
     {
         tracing::error!("Panic occurred in file drop callback: {}", panic_info);
+        let _ = crate::logger::write_error_log(&panic_info);
+    }
+}
+
+unsafe extern "C" fn event_listener_trampoline<F>(param: *mut std::ffi::c_void)
+where
+    F: Fn() + 'static + Send + Sync,
+{
+    let callback = unsafe { &mut *(param as *mut F) };
+    if let Err(panic_info) =
+        crate::utils::catch_unwind_with_panic_info(std::panic::AssertUnwindSafe(callback))
+    {
+        tracing::error!("Panic occurred in event listener callback: {}", panic_info);
         let _ = crate::logger::write_error_log(&panic_info);
     }
 }

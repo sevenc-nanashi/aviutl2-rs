@@ -172,6 +172,38 @@ pub struct TrackInfo {
     pub timecontrol: bool,
 }
 
+/// パレット情報。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PaletteInfo {
+    /// パレット色。
+    pub colors: [PaletteColor; Self::PALETTE_NUM],
+}
+
+impl PaletteInfo {
+    /// パレットの色数。
+    pub const PALETTE_NUM: usize = aviutl2_sys::plugin2::PALETTE_INFO::PALETTE_NUM;
+
+    fn from_raw(raw: aviutl2_sys::plugin2::PALETTE_INFO) -> Self {
+        Self {
+            colors: raw.color.map(|color| PaletteColor {
+                r: color.r,
+                g: color.g,
+                b: color.b,
+                a: color.a,
+            }),
+        }
+    }
+}
+
+/// パレット色。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PaletteColor {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
+}
+
 /// [`ReadSection::is_support_media_file`] のモード。
 #[derive(Debug, Clone, Copy)]
 pub enum MediaFileSupportMode {
@@ -626,6 +658,38 @@ impl ReadSection {
             twopoint: info.twopoint,
             timecontrol: info.timecontrol,
         }))
+    }
+
+    /// 現在のパレット名を取得する。
+    pub fn get_palette_name(&self) -> EditSectionResult<String> {
+        let name_ptr = unsafe { ((*self.internal).get_palette_name)() };
+        if name_ptr.is_null() {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(unsafe { crate::common::load_wide_string(name_ptr) })
+    }
+
+    /// 指定のパレット情報を取得する。
+    pub fn get_palette_info(&self, name: &str) -> EditSectionResult<PaletteInfo> {
+        let c_name = crate::common::CWString::new(name)?;
+        let mut info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::PALETTE_INFO>::uninit();
+        let success = unsafe {
+            ((*self.internal).get_palette_info)(
+                c_name.as_ptr(),
+                info.as_mut_ptr(),
+                std::mem::size_of::<aviutl2_sys::plugin2::PALETTE_INFO>() as i32,
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(PaletteInfo::from_raw(unsafe { info.assume_init() }))
+    }
+
+    /// 現在のパレット情報を取得する。
+    pub fn get_current_palette_info(&self) -> EditSectionResult<PaletteInfo> {
+        let name = self.get_palette_name()?;
+        self.get_palette_info(&name)
     }
 
     /// 選択中オブジェクトの区間の位置を取得する。

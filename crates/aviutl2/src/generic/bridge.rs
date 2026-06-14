@@ -166,6 +166,15 @@ fn register_plugin_impl<T: GenericSingleton>(
         handle.register_clear_cache_handler(on_clear_cache::<T>);
         handle.register_change_scene_handler(on_change_scene::<T>);
     }
+    handle.register_event_listener(crate::generic::EventType::UpdateObject, || {
+        <T as GenericSingleton>::with_instance_mut(|instance| instance.event_update_object_info())
+    });
+    handle.register_event_listener(crate::generic::EventType::ChangeEditFrame, || {
+        <T as GenericSingleton>::with_instance_mut(|instance| instance.event_change_edit_frame())
+    });
+    handle.register_event_listener(crate::generic::EventType::ChangeEditScene, || {
+        <T as GenericSingleton>::with_instance_mut(|instance| instance.event_change_scene_info())
+    });
     plugin_state
         .register_plugin_done
         .store(true, std::sync::atomic::Ordering::SeqCst);
