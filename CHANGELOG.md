@@ -8,6 +8,14 @@
 
 （なし）
 
+## [0.33.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.33.0)
+
+（なし）
+
+### デモプラグイン
+
+（なし）
+
 ## [0.32.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.32.0)
 
 （なし）
