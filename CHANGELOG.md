@@ -18,15 +18,16 @@
 
 ## [0.32.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.32.0)
 
-（なし）
+- **Breaking**: 最小サポートをbeta50に引き上げ
 
 ### デモプラグイン
 
-（なし）
+- metronome-plugin: 0:00以外においたときに壊れるのを修正
+- equalizer-filter: バイパスをchecksectionとして追加
 
 ## [0.31.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.31.0)
 
-（なし）
+- **Breaking**: 最小サポートをbeta48に引き上げ
 
 ### デモプラグイン
 
