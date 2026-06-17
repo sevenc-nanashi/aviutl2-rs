@@ -88,6 +88,15 @@ pub fn translate_strict(text: &str) -> Result<String, NullByteError> {
 }
 
 /// 現在の言語設定で定義されているテキストを取得する。
+/// [`get_language_text_strict`]と異なり、テキストにnull byteが含まれている場合は元のテキストを返却します。
+pub fn get_language_text(section: &str, text: &str) -> String {
+    match get_language_text_strict(section, text) {
+        Ok(translated) => translated,
+        Err(_) => text.to_string(),
+    }
+}
+
+/// 現在の言語設定で定義されているテキストを取得する。
 ///
 /// 任意のセクションから取得出来ます。
 ///
@@ -95,7 +104,7 @@ pub fn translate_strict(text: &str) -> Result<String, NullByteError> {
 ///
 /// - `section`: 言語設定のセクション（.aul2ファイルのセクション名）
 /// - `text`: 元のテキスト（.aul2ファイルのキー名）
-pub fn get_language_text(section: &str, text: &str) -> Result<String, NullByteError> {
+pub fn get_language_text_strict(section: &str, text: &str) -> Result<String, NullByteError> {
     let wide_section = CWString::new(section)?;
     let wide_text = CWString::new(text)?;
     let translated = unsafe {

@@ -75,10 +75,8 @@ impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
                 .into_iter()
                 .map(|effect| {
                     let section_name =
-                        aviutl2::config::get_language_text(&effect.name, &effect.name)
-                            .expect("effect name contains null byte");
-                    let effects_name = aviutl2::config::get_language_text("Effect", &effect.name)
-                        .expect("Effect.name contains null byte");
+                        aviutl2::config::get_language_text(&effect.name, &effect.name);
+                    let effects_name = aviutl2::config::get_language_text("Effect", &effect.name);
                     let name = if effect.name != section_name {
                         section_name
                     } else if effect.name != effects_name {
@@ -90,8 +88,7 @@ impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
                         .get_table(&effect.name)
                         .and_then(|t| t.get_value("label"));
                     let label = match label {
-                        Some(l) => aviutl2::config::get_language_text("Effect", l)
-                            .expect("effect label contains null byte"),
+                        Some(l) => aviutl2::config::get_language_text("Effect", l),
                         None => {
                             has_missing_label = true;
                             "？？？".to_string()

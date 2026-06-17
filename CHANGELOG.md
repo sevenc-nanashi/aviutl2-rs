@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-（なし）
+- **breaking**: get_language_textの戻り値をStringに変更
 
 ### デモプラグイン
 
