@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.34.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.34.0)
+
 - **Breaking**: get_language_textの戻り値をStringに変更
 - **Breaking**: 最小サポートをbeta51に引き上げ
 
