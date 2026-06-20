@@ -97,6 +97,10 @@ pub struct TRACK_INFO {
     pub twopoint: bool,
     /// トラックバーの時間制御が有効か？
     pub timecontrol: bool,
+    /// 所属グループのトラックバーの数 ※グループ化されていない場合は1
+    pub group_num: i32,
+    /// 所属グループ内のインデックス
+    pub group_index: i32,
 }
 
 /// パレット情報構造体

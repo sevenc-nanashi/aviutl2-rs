@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- **breaking**: get_language_textの戻り値をStringに変更
+- **Breaking**: get_language_textの戻り値をStringに変更
+- **Breaking**: 最小サポートをbeta51に引き上げ
 
 ### デモプラグイン
 

@@ -1490,6 +1490,18 @@ impl FilterProcVideo {
         self.prevent_post_effect = true;
     }
 
+    /// 登録されているフォントのDirectWriteのフォントのポインタを取得する。
+    pub fn get_font(&mut self, font_name: &str) -> FilterProcResult<*mut std::ffi::c_void> {
+        let inner = unsafe { &*self.inner };
+        let font_name_cw = crate::common::CWString::new(font_name)?;
+        let ptr = unsafe { (inner.get_font)(font_name_cw.as_ptr()) };
+        if ptr.is_null() {
+            Err(FilterProcError::ApiCallFailed)
+        } else {
+            Ok(ptr)
+        }
+    }
+
     pub(crate) fn apply_param(&mut self) {
         let param = unsafe { &mut *((*self.inner).param) };
         param.x = self.param.x;

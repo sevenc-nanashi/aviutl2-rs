@@ -728,6 +728,10 @@ pub struct FILTER_PROC_VIDEO {
         pitch: i32,
         format: INPUT_PIXEL_FORMAT,
     ) -> bool,
+
+    /// 登録されているフォントのDirectWriteのフォントのポインタを取得する
+    /// font: フォント名 ※アプリケーション内の登録名
+    pub get_font: unsafe extern "C" fn(font: LPCWSTR) -> *mut c_void,
 }
 
 /// 音声フィルタ処理用構造体

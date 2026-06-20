@@ -170,6 +170,11 @@ pub struct TrackInfo {
     pub twopoint: bool,
     /// トラックバーの時間制御が有効かどうか。
     pub timecontrol: bool,
+    /// トラックバーグループのトラック数。
+    /// グループ化が解除されている場合は1になります。
+    pub group_num: usize,
+    /// トラックバーグループ内でのインデックス。
+    pub group_index: usize,
 }
 
 /// パレット情報。
@@ -657,6 +662,8 @@ impl ReadSection {
             decelerate: info.decelerate,
             twopoint: info.twopoint,
             timecontrol: info.timecontrol,
+            group_num: info.group_num.try_into()?,
+            group_index: info.group_index.try_into()?,
         }))
     }
 
