@@ -11,20 +11,20 @@
 
 ## [0.33.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.33.0)
 
-（なし）
-
-### デモプラグイン
-
-（なし）
-
-## [0.32.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.32.0)
-
 - **Breaking**: 最小サポートをbeta50に引き上げ
 
 ### デモプラグイン
 
 - metronome-plugin: 0:00以外においたときに壊れるのを修正
 - equalizer-filter: バイパスをchecksectionとして追加
+
+## [0.32.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.32.0)
+
+- **Breaking**: 最小サポートをbeta49に引き上げ
+
+### デモプラグイン
+
+（なし）
 
 ## [0.31.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.31.0)
 
@@ -97,7 +97,7 @@
 
 - **Breaking**: 最小サポートをbeta43に引き上げ
 - **Breaking**: generic: `Other`を削除し、スキップまたは呼び出し側のエラーとして扱うように
-    - **Breaking**: その影響で、`EditHandle::get_edit_state`の戻り値をResultに変更
+  - **Breaking**: その影響で、`EditHandle::get_edit_state`の戻り値をResultに変更
 
 ### デモプラグイン
 
