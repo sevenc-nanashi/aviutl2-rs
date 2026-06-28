@@ -39,16 +39,33 @@ pub struct ScriptModuleMetaTable {
     pub getter: ScriptModuleFunctionCallback,
     pub setter: ScriptModuleFunctionCallback,
     userdata: *mut std::ffi::c_void,
+    meta_method_functions: *mut aviutl2_sys::module2::META_METHOD_FUNCTION,
 }
 
 impl ScriptModuleMetaTable {
     pub fn new(getter: ScriptModuleFunctionCallback, setter: ScriptModuleFunctionCallback) -> Self {
         let storage = Box::new(ScriptModuleMetaTableCallbackStorage { getter, setter });
         let userdata = Box::into_raw(storage) as *mut std::ffi::c_void;
+        let meta_method_functions = Box::new([
+            aviutl2_sys::module2::META_METHOD_FUNCTION {
+                method: c"__index".as_ptr(),
+                func: script_module_meta_table_getter,
+            },
+            aviutl2_sys::module2::META_METHOD_FUNCTION {
+                method: c"__newindex".as_ptr(),
+                func: script_module_meta_table_setter,
+            },
+            aviutl2_sys::module2::META_METHOD_FUNCTION {
+                method: std::ptr::null(),
+                func: script_module_meta_table_noop,
+            },
+        ]);
+        let meta_method_functions = Box::into_raw(meta_method_functions).cast();
         Self {
             getter,
             setter,
             userdata,
+            meta_method_functions,
         }
     }
 }
@@ -81,6 +98,11 @@ unsafe extern "C" fn script_module_meta_table_setter(
         (storage.setter.func)(smp);
         (*smp).userdata = original_userdata;
     }
+}
+
+unsafe extern "C" fn script_module_meta_table_noop(
+    _smp: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,
+) {
 }
 
 impl ScriptModuleCallHandle {
@@ -334,8 +356,7 @@ impl ScriptModuleCallHandle {
     pub fn push_result_meta_table(&mut self, meta_table: ScriptModuleMetaTable) {
         unsafe {
             ((*self.internal).push_result_meta_table)(
-                script_module_meta_table_getter,
-                script_module_meta_table_setter,
+                meta_table.meta_method_functions,
                 meta_table.userdata,
             );
         }
