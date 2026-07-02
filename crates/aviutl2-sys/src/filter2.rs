@@ -730,6 +730,7 @@ pub struct FILTER_PROC_VIDEO {
     ) -> bool,
 
     /// 冗長なので廃止します ※EDIT_SECTIONに移動しました
+    #[deprecated = "冗長なので廃止します ※EDIT_SECTIONに移動しました"]
     pub deprecated_get_font: unsafe extern "C" fn(font: LPCWSTR) -> *mut c_void,
 }
 
