@@ -9,7 +9,9 @@ mod from_script_module_param;
 mod generic_menus;
 mod into_script_module_return_value;
 mod module_functions;
+mod module_metatable;
 mod plugin;
+mod script_module_bridge;
 mod script_module_callback;
 mod utils;
 
@@ -575,6 +577,32 @@ pub fn module_functions(
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     module_functions::module_functions(attr.into(), item.into())
+        .unwrap_or_else(|e| e)
+        .into()
+}
+
+/// `AsScriptModuleUserData` を実装するためのマクロ。
+///
+/// このマクロは`impl`ブロックに対して適用されます。
+/// `impl`ブロック内で定義された関数が、メタテーブルのメタメソッドとして登録されます。
+///
+/// # Attributes
+///
+/// ### `direct`
+///
+/// 関数の引数を手動で処理するメタメソッドとして登録します。
+/// `functions`マクロの`direct`と同じく、`ScriptModuleCallHandle`を直接受け取ります。
+///
+/// ### `unwind`
+///
+/// 関数呼び出し時のpanicを捕捉するかどうかを指定します。
+/// デフォルトは`true`です。
+#[proc_macro_attribute]
+pub fn module_metatable(
+    attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    module_metatable::module_metatable(attr.into(), item.into())
         .unwrap_or_else(|e| e)
         .into()
 }

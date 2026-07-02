@@ -277,3 +277,18 @@ build = { group = "release_all" }
 [artifacts.english_rusty_username]
 source = "examples/username-module/i18n/English.rusty_username_module.aul2"
 destination = "Language/English.rusty_username_module.aul2"
+
+[artifacts.rusty_regex]
+destination = "Script/rusty_regex.mod2"
+build = { group = "debug_all" }
+
+[artifacts.rusty_regex.profiles.debug]
+source = "target/debug/rusty_regex_module.dll"
+
+[artifacts.rusty_regex.profiles.release]
+source = "target/release/rusty_regex_module.dll"
+build = { group = "release_all" }
+
+[artifacts.english_rusty_regex]
+source = "examples/regex-module/i18n/English.rusty_username_module.aul2"
+destination = "Language/English.rusty_regex_module.aul2"

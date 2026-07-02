@@ -1,0 +1,49 @@
+---
+source: crates/aviutl2-macros/src/module_metatable.rs
+assertion_line: 180
+expression: format_tokens(output)
+---
+impl UserData {
+    fn call(handle: &mut ::aviutl2::module::ScriptModuleCallHandle) {
+        let _ = handle;
+    }
+}
+::aviutl2::__internal_module! {
+    impl ::aviutl2::module::ScriptModuleUserData for UserData {
+        const META_METHOD_FUNCTIONS: &'static [::aviutl2::sys::module2::META_METHOD_FUNCTION] = &[
+            ::aviutl2::sys::module2::META_METHOD_FUNCTION {
+                method: concat!("__call", "\0").as_ptr() as *const ::std::os::raw::c_char,
+                func: bridge_call,
+            },
+            ::aviutl2::sys::module2::META_METHOD_FUNCTION {
+                method: concat!("__gc", "\0").as_ptr() as *const ::std::os::raw::c_char,
+                func: __meta_table_gc_method,
+            },
+            ::aviutl2::sys::module2::META_METHOD_FUNCTION {
+                method: ::std::ptr::null(),
+                func: __meta_table_dummy_method,
+            },
+        ];
+    }
+    unsafe extern "C" fn __meta_table_dummy_method(
+        _smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
+    ) {
+    }
+    unsafe extern "C" fn bridge_call(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
+        if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
+            let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+            let () = <UserData>::call(&mut __handle);
+        }) {
+            ::aviutl2::tracing::error!("Panic occurred during {}: {}", "call", panic_info);
+            let _ = ::aviutl2::logger::write_error_log(&panic_info);
+        }
+    }
+    unsafe extern "C" fn __meta_table_gc_method(
+        smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
+    ) {
+        unsafe {
+            let _ =
+                ::std::sync::Arc::from_raw((*smp).userdata as *const ::std::sync::Mutex<UserData>);
+        }
+    }
+}

@@ -1,0 +1,124 @@
+---
+source: crates/aviutl2-macros/src/module_metatable.rs
+assertion_line: 151
+expression: format_tokens(output)
+---
+impl UserData {
+    fn index(&self, key: String) -> i32 {
+        self.get(key)
+    }
+    fn newindex(&mut self, key: String, value: i32) {
+        self.set(key, value);
+    }
+}
+::aviutl2::__internal_module! {
+    impl ::aviutl2::module::ScriptModuleUserData for UserData {
+        const META_METHOD_FUNCTIONS: &'static [::aviutl2::sys::module2::META_METHOD_FUNCTION] = &[
+            ::aviutl2::sys::module2::META_METHOD_FUNCTION {
+                method: concat!("__index", "\0").as_ptr() as *const ::std::os::raw::c_char,
+                func: bridge_index,
+            },
+            ::aviutl2::sys::module2::META_METHOD_FUNCTION {
+                method: concat!("__newindex", "\0").as_ptr() as *const ::std::os::raw::c_char,
+                func: bridge_newindex,
+            },
+            ::aviutl2::sys::module2::META_METHOD_FUNCTION {
+                method: concat!("__gc", "\0").as_ptr() as *const ::std::os::raw::c_char,
+                func: __meta_table_gc_method,
+            },
+            ::aviutl2::sys::module2::META_METHOD_FUNCTION {
+                method: ::std::ptr::null(),
+                func: __meta_table_dummy_method,
+            },
+        ];
+    }
+    unsafe extern "C" fn __meta_table_dummy_method(
+        _smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
+    ) {
+    }
+    unsafe extern "C" fn bridge_index(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
+        if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
+            let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+            {
+                let __userdata =
+                    unsafe { &*((*smp).userdata as *const ::std::sync::Mutex<UserData>) };
+                let __userdata = __userdata
+                    .lock()
+                    .expect("script module meta table userdata mutex poisoned");
+                let __internal_self = &*__userdata;
+                let key: String =
+                    match <String as ::aviutl2::module::FromScriptModuleParam>::from_param(
+                        &__handle, 0usize,
+                    ) {
+                        ::std::option::Option::Some(value) => value,
+                        ::std::option::Option::None => {
+                            let _ = __handle.set_error(&format!(
+                                "Failed to convert parameter #{} to {}",
+                                0usize,
+                                stringify!(String)
+                            ));
+                            return;
+                        }
+                    };
+                let fn_result = <UserData>::index(__internal_self, key);
+                ::aviutl2::module::__push_return_value(&mut __handle, fn_result);
+            }
+        }) {
+            ::aviutl2::tracing::error!("Panic occurred during {}: {}", "index", panic_info);
+            let _ = ::aviutl2::logger::write_error_log(&panic_info);
+        }
+    }
+    unsafe extern "C" fn bridge_newindex(smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM) {
+        if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
+            let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
+            {
+                let __userdata =
+                    unsafe { &*((*smp).userdata as *const ::std::sync::Mutex<UserData>) };
+                let mut __userdata = __userdata
+                    .lock()
+                    .expect("script module meta table userdata mutex poisoned");
+                let __internal_self = &mut *__userdata;
+                let key: String =
+                    match <String as ::aviutl2::module::FromScriptModuleParam>::from_param(
+                        &__handle, 0usize,
+                    ) {
+                        ::std::option::Option::Some(value) => value,
+                        ::std::option::Option::None => {
+                            let _ = __handle.set_error(&format!(
+                                "Failed to convert parameter #{} to {}",
+                                0usize,
+                                stringify!(String)
+                            ));
+                            return;
+                        }
+                    };
+                let value: i32 = match <i32 as ::aviutl2::module::FromScriptModuleParam>::from_param(
+                    &__handle, 1usize,
+                ) {
+                    ::std::option::Option::Some(value) => value,
+                    ::std::option::Option::None => {
+                        let _ = __handle.set_error(&format!(
+                            "Failed to convert parameter #{} to {}",
+                            1usize,
+                            stringify!(i32)
+                        ));
+                        return;
+                    }
+                };
+                let fn_result = <UserData>::newindex(__internal_self, key, value);
+                ::aviutl2::module::__push_return_value(&mut __handle, fn_result);
+            }
+        }) {
+            ::aviutl2::tracing::error!("Panic occurred during {}: {}", "newindex", panic_info);
+            let _ = ::aviutl2::logger::write_error_log(&panic_info);
+        }
+    }
+    unsafe extern "C" fn __meta_table_gc_method(
+        smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
+    ) {
+        unsafe {
+            let _ =
+                ::std::sync::Arc::from_raw((*smp).userdata as *const ::std::sync::Mutex<UserData>);
+        }
+    }
+}

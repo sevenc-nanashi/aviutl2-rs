@@ -306,7 +306,7 @@ pub struct SCRIPT_MODULE_PARAM {
 
     /// メタテーブルの戻り値を追加する
     pub push_result_meta_table: unsafe extern "C" fn(
-        meta_method_functions: *mut META_METHOD_FUNCTION,
+        meta_method_functions: *const META_METHOD_FUNCTION,
         userdata: *mut c_void,
     ),
 
