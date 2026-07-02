@@ -8,7 +8,7 @@ pub fn script_module_callback(
         {
             let mut __callback = #expr;
             let __callback: ::std::boxed::Box<
-                dyn FnMut(&mut ::aviutl2::module::ScriptModuleCallHandle) + Send
+                dyn FnMut(&mut ::aviutl2::module::ScriptModuleCallHandle) + Send + 'static
             > = ::std::boxed::Box::new(move |__handle| {
                 #(#param_bridges)*
                 let fn_result = __callback(#(#param_names),*);
@@ -66,7 +66,7 @@ pub fn script_module_direct_callback(
     Ok(quote::quote! {
         {
             let __callback: ::std::boxed::Box<
-                dyn FnMut(&mut ::aviutl2::module::ScriptModuleCallHandle) + Send
+                dyn FnMut(&mut ::aviutl2::module::ScriptModuleCallHandle) + Send + 'static
             > = ::std::boxed::Box::new(#expr);
             let __callback = ::std::sync::Mutex::new(__callback);
             let __callback = ::std::boxed::Box::new(__callback);

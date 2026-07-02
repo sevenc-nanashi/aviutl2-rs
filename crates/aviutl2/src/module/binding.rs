@@ -19,7 +19,8 @@ pub struct ModuleFunction {
 }
 
 pub use aviutl2_macros::{
-    module_functions as functions, script_module_callback, script_module_direct_callback,
+    module_functions as functions, module_metatable as metatable, script_module_callback,
+    script_module_direct_callback,
 };
 
 /// スクリプトモジュールの関数一覧を返すトレイト。

@@ -175,6 +175,8 @@ pub struct TrackInfo {
     pub group_num: usize,
     /// トラックバーグループ内でのインデックス。
     pub group_index: usize,
+    /// 所属トラックバーグループ名。
+    pub group_name: Option<String>,
 }
 
 /// パレット情報。
@@ -664,6 +666,11 @@ impl ReadSection {
             timecontrol: info.timecontrol,
             group_num: info.group_num.try_into()?,
             group_index: info.group_index.try_into()?,
+            group_name: if info.group_name.is_null() {
+                None
+            } else {
+                Some(unsafe { crate::common::load_wide_string(info.group_name) })
+            },
         }))
     }
 
@@ -697,6 +704,70 @@ impl ReadSection {
     pub fn get_current_palette_info(&self) -> EditSectionResult<PaletteInfo> {
         let name = self.get_palette_name()?;
         self.get_palette_info(&name)
+    }
+
+    /// 登録されているフォントのDirectWriteのフォントのポインタを取得する。
+    pub fn get_font(&self, font_name: &str) -> EditSectionResult<*mut std::ffi::c_void> {
+        let c_font_name = crate::common::CWString::new(font_name)?;
+        let ptr = unsafe { ((*self.internal).get_font)(c_font_name.as_ptr()) };
+        if ptr.is_null() {
+            Err(EditSectionError::ApiCallFailed)
+        } else {
+            Ok(ptr)
+        }
+    }
+
+    /// オブジェクトのトラックバーグループの所属アイテム名を取得する。
+    pub fn get_object_track_group_names(
+        &self,
+        object: ObjectHandle,
+        effect_name: &str,
+        effect_index: usize,
+        group_name: &str,
+    ) -> EditSectionResult<Vec<String>> {
+        self.ensure_object_exists(object)?;
+        let c_effect_name = crate::common::CWString::new(&effect_key(effect_name, effect_index))?;
+        let c_group_name = crate::common::CWString::new(group_name)?;
+        let item_num = unsafe {
+            ((*self.internal).get_object_track_group_names)(
+                object.internal,
+                c_effect_name.as_ptr(),
+                c_group_name.as_ptr(),
+                std::ptr::null_mut(),
+                0,
+            )
+        };
+        let item_num: usize = item_num.try_into()?;
+        if item_num == 0 {
+            return Ok(Vec::new());
+        }
+
+        let mut item_names = vec![std::ptr::null(); item_num];
+        let actual_item_num = unsafe {
+            ((*self.internal).get_object_track_group_names)(
+                object.internal,
+                c_effect_name.as_ptr(),
+                c_group_name.as_ptr(),
+                item_names.as_mut_ptr(),
+                item_names.len().try_into()?,
+            )
+        };
+        let actual_item_num: usize = actual_item_num.try_into()?;
+        if actual_item_num > item_names.len() {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        item_names.truncate(actual_item_num);
+
+        item_names
+            .into_iter()
+            .map(|item_name| {
+                if item_name.is_null() {
+                    Err(EditSectionError::ApiCallFailed)
+                } else {
+                    Ok(unsafe { crate::common::load_wide_string(item_name) })
+                }
+            })
+            .collect()
     }
 
     /// 選択中オブジェクトの区間の位置を取得する。
@@ -1350,6 +1421,21 @@ where
     ) -> EditSectionResult<Option<TrackInfo>> {
         self.read_section()
             .get_object_track_info(self.handle, effect_name, effect_index, item)
+    }
+
+    /// オブジェクトのトラックバーグループの所属アイテム名を取得する。
+    pub fn get_track_group_names(
+        &self,
+        effect_name: &str,
+        effect_index: usize,
+        group_name: &str,
+    ) -> EditSectionResult<Vec<String>> {
+        self.read_section().get_object_track_group_names(
+            self.handle,
+            effect_name,
+            effect_index,
+            group_name,
+        )
     }
 }
 

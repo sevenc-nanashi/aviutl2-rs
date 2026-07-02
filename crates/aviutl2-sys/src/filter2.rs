@@ -729,9 +729,9 @@ pub struct FILTER_PROC_VIDEO {
         format: INPUT_PIXEL_FORMAT,
     ) -> bool,
 
-    /// 登録されているフォントのDirectWriteのフォントのポインタを取得する
-    /// font: フォント名 ※アプリケーション内の登録名
-    pub get_font: unsafe extern "C" fn(font: LPCWSTR) -> *mut c_void,
+    /// 冗長なので廃止します ※EDIT_SECTIONに移動しました
+    #[deprecated = "冗長なので廃止します ※EDIT_SECTIONに移動しました"]
+    pub deprecated_get_font: unsafe extern "C" fn(font: LPCWSTR) -> *mut c_void,
 }
 
 /// 音声フィルタ処理用構造体

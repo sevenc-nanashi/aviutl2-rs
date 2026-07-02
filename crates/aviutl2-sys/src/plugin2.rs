@@ -101,6 +101,8 @@ pub struct TRACK_INFO {
     pub group_num: i32,
     /// 所属グループ内のインデックス
     pub group_index: i32,
+    /// 所属グループの名称 ※グループ化されていない場合はnullptr
+    pub group_name: LPCWSTR,
 }
 
 /// パレット情報構造体
@@ -469,6 +471,18 @@ pub struct EDIT_SECTION {
     /// 指定のパレットの情報を取得します
     pub get_palette_info:
         unsafe extern "C" fn(name: LPCWSTR, info: *mut PALETTE_INFO, info_size: i32) -> bool,
+
+    /// 登録されているフォントのDirectWriteのフォントのポインタを取得する
+    pub get_font: unsafe extern "C" fn(font: LPCWSTR) -> *mut c_void,
+
+    /// オブジェクトのトラックバーグループの所属アイテム名を取得します
+    pub get_object_track_group_names: unsafe extern "C" fn(
+        object: OBJECT_HANDLE,
+        effect: LPCWSTR,
+        group_name: LPCWSTR,
+        item_names: *mut LPCWSTR,
+        item_num: i32,
+    ) -> i32,
 }
 
 /// 編集ハンドル構造体

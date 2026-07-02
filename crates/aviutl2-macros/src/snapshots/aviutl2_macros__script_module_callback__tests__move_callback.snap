@@ -1,12 +1,11 @@
 ---
 source: crates/aviutl2-macros/src/script_module_callback.rs
-assertion_line: 177
 expression: format_tokens(output)
 ---
 {
     let mut __callback = move |value: i32| -> i32 { value + offset };
     let __callback: ::std::boxed::Box<
-        dyn FnMut(&mut ::aviutl2::module::ScriptModuleCallHandle) + Send,
+        dyn FnMut(&mut ::aviutl2::module::ScriptModuleCallHandle) + Send + 'static,
     > = ::std::boxed::Box::new(move |__handle| {
         let value: i32 =
             match <i32 as ::aviutl2::module::FromScriptModuleParam>::from_param(__handle, 0usize) {

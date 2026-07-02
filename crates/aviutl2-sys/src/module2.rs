@@ -294,8 +294,8 @@ pub struct SCRIPT_MODULE_PARAM {
         userdata: *mut c_void,
     ),
 
-    /// メタテーブルの戻り値を追加する
-    pub push_result_meta_table: unsafe extern "C" fn(
+    /// 新しい関数に差し替えるので廃止します
+    pub deprecated_push_result_meta_table: unsafe extern "C" fn(
         func_getter: unsafe extern "C" fn(smp: *mut SCRIPT_MODULE_PARAM),
         func_setter: unsafe extern "C" fn(smp: *mut SCRIPT_MODULE_PARAM),
         userdata: *mut c_void,
@@ -303,6 +303,28 @@ pub struct SCRIPT_MODULE_PARAM {
 
     /// 任意のユーザーデータのポインタ
     pub userdata: *mut c_void,
+
+    /// メタテーブルの戻り値を追加する
+    pub push_result_meta_table: unsafe extern "C" fn(
+        meta_method_functions: *const META_METHOD_FUNCTION,
+        userdata: *mut c_void,
+    ),
+
+    /// 引数のメタテーブルのuserdataのポインタを取得する
+    pub get_param_meta_table: unsafe extern "C" fn(
+        index: c_int,
+        meta_method_functions: *mut META_METHOD_FUNCTION,
+    ) -> *mut c_void,
+}
+
+/// メタメソッド定義構造体
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct META_METHOD_FUNCTION {
+    /// メタメソッド名
+    pub method: *const c_char,
+    /// コールバック関数
+    pub func: unsafe extern "C" fn(smp: *mut SCRIPT_MODULE_PARAM),
 }
 
 /// スクリプトモジュール関数定義構造体

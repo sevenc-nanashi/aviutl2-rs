@@ -1,0 +1,16 @@
+[package]
+name = "example-regex-module"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "rusty_regex_module"
+crate-type = ["cdylib"]
+
+[dependencies]
+aviutl2.workspace = true
+regex = "1.12.4"

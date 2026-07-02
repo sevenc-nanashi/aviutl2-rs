@@ -33,54 +33,88 @@ pub struct ScriptModuleFunctionCallback {
     pub userdata: *mut std::ffi::c_void,
 }
 
-/// `push_result_meta_table` で返すスクリプトモジュールのメタテーブル。
-#[derive(Debug, Clone, Copy)]
-pub struct ScriptModuleMetaTable {
-    pub getter: ScriptModuleFunctionCallback,
-    pub setter: ScriptModuleFunctionCallback,
-    userdata: *mut std::ffi::c_void,
+/// ユーザーデータとして相互変換する構造体。
+pub struct ScriptModuleUserData<T: Send + Sync + 'static + AsScriptModuleUserData> {
+    data: std::sync::Arc<std::sync::Mutex<T>>,
 }
 
-impl ScriptModuleMetaTable {
-    pub fn new(getter: ScriptModuleFunctionCallback, setter: ScriptModuleFunctionCallback) -> Self {
-        let storage = Box::new(ScriptModuleMetaTableCallbackStorage { getter, setter });
-        let userdata = Box::into_raw(storage) as *mut std::ffi::c_void;
-        Self {
-            getter,
-            setter,
-            userdata,
+/// [ScriptModuleUserData]から型パラメータを消去した構造体。
+#[derive(Debug)]
+pub struct ErasedScriptModuleUserData {
+    pub meta_method_functions: &'static [aviutl2_sys::module2::META_METHOD_FUNCTION],
+    pub userdata: *mut std::ffi::c_void,
+}
+
+impl<T: Send + Sync + 'static + AsScriptModuleUserData> From<ScriptModuleUserData<T>>
+    for ErasedScriptModuleUserData
+{
+    fn from(meta_table: ScriptModuleUserData<T>) -> Self {
+        let data = std::sync::Arc::into_raw(meta_table.data) as *mut std::ffi::c_void;
+        let meta_method_functions = T::META_METHOD_FUNCTIONS;
+        ErasedScriptModuleUserData {
+            meta_method_functions,
+            userdata: data,
+        }
+    }
+}
+impl<T: Send + Sync + 'static + AsScriptModuleUserData> ScriptModuleUserData<T> {
+    /// 新しいメタテーブルを作成する。
+    pub fn new(data: T) -> Self {
+        ScriptModuleUserData {
+            data: std::sync::Arc::new(std::sync::Mutex::new(data)),
+        }
+    }
+
+    /// メタテーブルのユーザーデータを取得する。
+    pub fn lock(
+        &self,
+    ) -> Result<std::sync::MutexGuard<'_, T>, std::sync::PoisonError<std::sync::MutexGuard<'_, T>>>
+    {
+        self.data.lock()
+    }
+}
+impl<T: Send + Sync + 'static + AsScriptModuleUserData> From<T> for ScriptModuleUserData<T> {
+    fn from(data: T) -> Self {
+        ScriptModuleUserData::new(data)
+    }
+}
+
+unsafe extern "C" fn dummy_meta_method_function(
+    _smp: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,
+) {
+    // 何もしない
+}
+unsafe extern "C" fn script_module_user_data_gc<
+    T: Send + Sync + 'static + AsScriptModuleUserData,
+>(
+    smp: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,
+) {
+    let userdata = unsafe { (*smp).userdata };
+    if !userdata.is_null() {
+        unsafe {
+            drop(std::sync::Arc::<std::sync::Mutex<T>>::from_raw(
+                userdata as *const std::sync::Mutex<T>,
+            ));
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-struct ScriptModuleMetaTableCallbackStorage {
-    getter: ScriptModuleFunctionCallback,
-    setter: ScriptModuleFunctionCallback,
-}
-
-unsafe extern "C" fn script_module_meta_table_getter(
-    smp: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,
-) {
-    let storage = unsafe { &*((*smp).userdata as *const ScriptModuleMetaTableCallbackStorage) };
-    let original_userdata = unsafe { (*smp).userdata };
-    unsafe {
-        (*smp).userdata = storage.getter.userdata;
-        (storage.getter.func)(smp);
-        (*smp).userdata = original_userdata;
-    }
-}
-
-unsafe extern "C" fn script_module_meta_table_setter(
-    smp: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,
-) {
-    let storage = unsafe { &*((*smp).userdata as *const ScriptModuleMetaTableCallbackStorage) };
-    let original_userdata = unsafe { (*smp).userdata };
-    unsafe {
-        (*smp).userdata = storage.setter.userdata;
-        (storage.setter.func)(smp);
-        (*smp).userdata = original_userdata;
-    }
+/// ユーザーデータとして変換できる型のトレイト。
+///
+/// # Note
+///
+/// [`crate::module::metatable`]を使うと自動的に実装されます。
+pub trait AsScriptModuleUserData: Send + Sync + Sized + 'static {
+    const META_METHOD_FUNCTIONS: &'static [aviutl2_sys::module2::META_METHOD_FUNCTION] = &[
+        aviutl2_sys::module2::META_METHOD_FUNCTION {
+            method: c"__gc".as_ptr(),
+            func: script_module_user_data_gc::<Self>,
+        },
+        aviutl2_sys::module2::META_METHOD_FUNCTION {
+            method: std::ptr::null(),
+            func: dummy_meta_method_function,
+        },
+    ];
 }
 
 impl ScriptModuleCallHandle {
@@ -327,15 +361,11 @@ impl ScriptModuleCallHandle {
     }
 
     /// 関数の返り値にメタテーブルを追加する。
-    ///
-    /// # Note
-    ///
-    /// メモリリークします。
-    pub fn push_result_meta_table(&mut self, meta_table: ScriptModuleMetaTable) {
+    pub fn push_result_meta_table<T: Into<ErasedScriptModuleUserData>>(&mut self, meta_table: T) {
         unsafe {
+            let meta_table: ErasedScriptModuleUserData = meta_table.into();
             ((*self.internal).push_result_meta_table)(
-                script_module_meta_table_getter,
-                script_module_meta_table_setter,
+                meta_table.meta_method_functions.as_ptr(),
                 meta_table.userdata,
             );
         }
@@ -668,6 +698,11 @@ where
         }
     }
 }
+impl<'a> FromScriptModuleParam<'a> for () {
+    fn from_param(_param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
+        if index < _param.len() { Some(()) } else { None }
+    }
+}
 
 /// スクリプトモジュールの引数として渡される配列。
 pub struct ScriptModuleParamArray<'a> {
@@ -893,7 +928,7 @@ impl<'a, T: FromScriptModuleParamTable<'a>> FromScriptModuleParamTable<'a> for O
 }
 
 /// スクリプトモジュールの関数の戻り値の型を表す列挙型。
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum ScriptModuleReturnValue {
     Int(i32),
     Float(f64),
@@ -907,7 +942,7 @@ pub enum ScriptModuleReturnValue {
     FloatTable(std::collections::HashMap<String, f64>),
     StringTable(std::collections::HashMap<String, String>),
     Function(ScriptModuleFunctionCallback),
-    MetaTable(ScriptModuleMetaTable),
+    MetaTable(ErasedScriptModuleUserData),
 }
 
 /// [`IntoScriptModuleReturnValue::push_into`]で使われるエラー。
@@ -1005,11 +1040,11 @@ impl IntoScriptModuleReturnValue for ScriptModuleFunctionCallback {
     }
 }
 
-impl IntoScriptModuleReturnValue for ScriptModuleMetaTable {
+impl<T: Into<ErasedScriptModuleUserData>> IntoScriptModuleReturnValue for T {
     type Err = std::convert::Infallible;
 
     fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
-        Ok(vec![ScriptModuleReturnValue::MetaTable(self)])
+        Ok(vec![ScriptModuleReturnValue::MetaTable(self.into())])
     }
 }
 
