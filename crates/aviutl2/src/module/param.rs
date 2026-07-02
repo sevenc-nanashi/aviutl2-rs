@@ -39,7 +39,7 @@ pub struct ScriptModuleUserData<T: Send + Sync + 'static + AsScriptModuleUserDat
 }
 
 /// [ScriptModuleUserData]から型パラメータを消去した構造体。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct ErasedScriptModuleUserData {
     pub meta_method_functions: &'static [aviutl2_sys::module2::META_METHOD_FUNCTION],
     pub userdata: *mut std::ffi::c_void,
@@ -928,7 +928,7 @@ impl<'a, T: FromScriptModuleParamTable<'a>> FromScriptModuleParamTable<'a> for O
 }
 
 /// スクリプトモジュールの関数の戻り値の型を表す列挙型。
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum ScriptModuleReturnValue {
     Int(i32),
     Float(f64),
