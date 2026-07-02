@@ -33,7 +33,6 @@ impl RegexUserData {
         index: String,
     ) -> aviutl2::AnyResult<Option<aviutl2::module::ScriptModuleUserData<RegexCallbackUserData>>>
     {
-        aviutl2::lprintln!("__index called with index: {}", index);
         match index.as_str() {
             "is_match" => Ok(Some(
                 RegexCallbackUserData {

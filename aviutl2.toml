@@ -290,5 +290,5 @@ source = "target/release/rusty_regex_module.dll"
 build = { group = "release_all" }
 
 [artifacts.english_rusty_regex]
-source = "examples/regex-module/i18n/English.rusty_username_module.aul2"
+source = "examples/regex-module/i18n/English.rusty_regex_module.aul2"
 destination = "Language/English.rusty_regex_module.aul2"

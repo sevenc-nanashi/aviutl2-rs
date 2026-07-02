@@ -1670,7 +1670,6 @@ dependencies = [
 name = "example-regex-module"
 version = "0.34.0"
 dependencies = [
- "anyhow",
  "aviutl2",
  "regex",
 ]
