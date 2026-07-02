@@ -73,6 +73,11 @@ impl<T: Send + Sync + 'static + AsScriptModuleUserData> ScriptModuleUserData<T> 
         self.data.lock()
     }
 }
+impl<T: Send + Sync + 'static + AsScriptModuleUserData> From<T> for ScriptModuleUserData<T> {
+    fn from(data: T) -> Self {
+        ScriptModuleUserData::new(data)
+    }
+}
 
 unsafe extern "C" fn dummy_meta_method_function(
     _smp: *mut aviutl2_sys::module2::SCRIPT_MODULE_PARAM,

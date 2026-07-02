@@ -19,6 +19,8 @@ impl aviutl2::module::ScriptModule for RegexModule {
     }
 }
 
+// TODO: あまりにも冗長すぎるので、こういうのを簡単に書けるようにするマクロを作る
+
 #[derive(Debug, Clone)]
 struct RegexUserData {
     regex: std::sync::Arc<regex::Regex>,
@@ -29,18 +31,28 @@ impl RegexUserData {
         &self,
         _this: (),
         index: String,
-    ) -> aviutl2::AnyResult<Option<aviutl2::module::ScriptModuleFunctionCallback>> {
+    ) -> aviutl2::AnyResult<Option<aviutl2::module::ScriptModuleUserData<RegexCallbackUserData>>>
+    {
         aviutl2::lprintln!("__index called with index: {}", index);
         match index.as_str() {
-            "is_match" => Ok(Some({
-                // NOTE: コールバックのgcがされないのでメモリリークしない？
-                let regex = self.regex.clone();
-                aviutl2::module::script_module_callback!(move |text: String| {
-                    regex.is_match(&text)
-                })
-            })),
+            "is_match" => Ok(Some(
+                RegexCallbackUserData {
+                    regex: self.regex.clone(),
+                }
+                .into(),
+            )),
             _ => Ok(None),
         }
+    }
+}
+#[derive(Debug, Clone)]
+struct RegexCallbackUserData {
+    regex: std::sync::Arc<regex::Regex>,
+}
+#[aviutl2::module::metatable]
+impl RegexCallbackUserData {
+    fn call(&self, _this: (), text: String) -> aviutl2::AnyResult<bool> {
+        Ok(self.regex.is_match(&text))
     }
 }
 
