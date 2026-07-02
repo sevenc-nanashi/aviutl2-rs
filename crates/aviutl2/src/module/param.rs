@@ -699,8 +699,8 @@ where
     }
 }
 impl<'a> FromScriptModuleParam<'a> for () {
-    fn from_param(_param: &'a ScriptModuleCallHandle, _index: usize) -> Option<Self> {
-        Some(())
+    fn from_param(_param: &'a ScriptModuleCallHandle, index: usize) -> Option<Self> {
+        if index < _param.len() { Some(()) } else { None }
     }
 }
 

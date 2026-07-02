@@ -8,7 +8,7 @@
 
 ### デモプラグイン
 
-（なし）
+- regex-moduleを追加
 
 ## [0.34.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.34.0)
 
