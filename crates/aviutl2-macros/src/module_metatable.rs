@@ -73,19 +73,13 @@ fn create_bridge(
     match item {
         syn::ImplItem::Fn(method) => {
             let method_name = method.sig.ident.to_string();
-            if method_name == "__gc" {
-                return Err(syn::Error::new_spanned(
-                    method,
-                    "The method name `__gc` is reserved for the garbage collection method. Please impl Drop for your type instead of using `__gc` method.",
-                )
-                .to_compile_error());
-            }
+            let lua_method_name = lua_meta_method_name(method, &method_name)?;
             let bridge = create_method_bridge(impl_token, method, ReceiverKind::UserData)?;
             let internal_method_name = &bridge.internal_method_name;
             let method_name_str = &bridge.method_name_str;
             let method_table = quote::quote! {
                 ::aviutl2::sys::module2::META_METHOD_FUNCTION {
-                    method: concat!(#method_name, "\0").as_ptr() as *const ::std::os::raw::c_char,
+                    method: concat!(#lua_method_name, "\0").as_ptr() as *const ::std::os::raw::c_char,
                     func: #internal_method_name,
                 },
             };
@@ -105,6 +99,57 @@ fn create_bridge(
         )
         .to_compile_error()),
     }
+}
+
+fn lua_meta_method_name(
+    method: &syn::ImplItemFn,
+    method_name: &str,
+) -> Result<String, proc_macro2::TokenStream> {
+    const LUA_5_1_META_METHODS: &[&str] = &[
+        "add",
+        "sub",
+        "mul",
+        "div",
+        "mod",
+        "pow",
+        "unm",
+        "concat",
+        "len",
+        "eq",
+        "lt",
+        "le",
+        "index",
+        "newindex",
+        "call",
+        "gc",
+        "mode",
+        "metatable",
+        "tostring",
+    ];
+
+    if method_name.starts_with("__") {
+        return Err(syn::Error::new_spanned(
+            method,
+            "`module_metatable` method names must omit the leading `__`; it is added automatically",
+        )
+        .to_compile_error());
+    }
+    if method_name == "gc" {
+        return Err(syn::Error::new_spanned(
+            method,
+            "The method name `gc` is reserved for the garbage collection method. Please impl Drop for your type instead of using `gc` method.",
+        )
+        .to_compile_error());
+    }
+    if !LUA_5_1_META_METHODS.contains(&method_name) {
+        return Err(syn::Error::new_spanned(
+            method,
+            format!("`module_metatable` method `{method_name}` is not a Lua 5.1 metatable method"),
+        )
+        .to_compile_error());
+    }
+
+    Ok(format!("__{method_name}"))
 }
 
 #[cfg(test)]
@@ -131,7 +176,7 @@ mod tests {
     }
 
     #[test]
-    fn test_direct_gc() {
+    fn test_reserved_gc() {
         let input: proc_macro2::TokenStream = quote::quote! {
             impl UserData {
                 #[direct]
@@ -141,8 +186,8 @@ mod tests {
                 }
             }
         };
-        let output = module_metatable(proc_macro2::TokenStream::new(), input).unwrap();
-        insta::assert_snapshot!(format_tokens(output));
+        let error = module_metatable(proc_macro2::TokenStream::new(), input).unwrap_err();
+        assert!(error.to_string().contains("method name `gc` is reserved"));
     }
 
     #[test]
@@ -157,6 +202,36 @@ mod tests {
         };
         let output = module_metatable(proc_macro2::TokenStream::new(), input).unwrap();
         insta::assert_snapshot!(format_tokens(output));
+    }
+
+    #[test]
+    fn test_reject_leading_double_underscore() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            impl UserData {
+                fn __index(&self, key: String) -> i32 {
+                    self.get(key)
+                }
+            }
+        };
+        let error = module_metatable(proc_macro2::TokenStream::new(), input).unwrap_err();
+        assert!(error.to_string().contains("must omit the leading `__`"));
+    }
+
+    #[test]
+    fn test_reject_unknown_method() {
+        let input: proc_macro2::TokenStream = quote::quote! {
+            impl UserData {
+                fn unknown(&self, key: String) -> i32 {
+                    self.get(key)
+                }
+            }
+        };
+        let error = module_metatable(proc_macro2::TokenStream::new(), input).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("is not a Lua 5.1 metatable method")
+        );
     }
 
     fn format_tokens(tokens: proc_macro2::TokenStream) -> String {

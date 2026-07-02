@@ -1,6 +1,6 @@
 ---
 source: crates/aviutl2-macros/src/module_metatable.rs
-assertion_line: 151
+assertion_line: 175
 expression: format_tokens(output)
 ---
 impl UserData {
@@ -12,7 +12,7 @@ impl UserData {
     }
 }
 ::aviutl2::__internal_module! {
-    impl ::aviutl2::module::ScriptModuleUserData for UserData {
+    impl ::aviutl2::module::AsScriptModuleUserData for UserData {
         const META_METHOD_FUNCTIONS: &'static [::aviutl2::sys::module2::META_METHOD_FUNCTION] = &[
             ::aviutl2::sys::module2::META_METHOD_FUNCTION {
                 method: concat!("__index", "\0").as_ptr() as *const ::std::os::raw::c_char,
