@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.36.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.36.0)
+
 - **Breaking**: 最小サポートをbeta53に引き上げ
 - **Breaking**: module: パラメーター取得系の関数を`Option`から`Result<T, GetParamError>`にする
   - Note: `#[aviutl2::module::functions]`を使っていて、かつ`#[direct]`を使用していない場合は追従は不要です。
