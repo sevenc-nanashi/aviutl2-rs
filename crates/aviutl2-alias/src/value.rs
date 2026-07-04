@@ -231,14 +231,6 @@ impl FromTableValue for f64 {
     }
 }
 
-impl FromTableValue for crate::TrackItem {
-    type Err = crate::TrackItemParseError;
-
-    fn from_table_value(value: &str) -> Result<Self, Self::Err> {
-        value.parse()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

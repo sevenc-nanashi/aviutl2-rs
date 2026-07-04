@@ -27,6 +27,27 @@ impl From<ObjectHandle> for aviutl2_sys::plugin2::OBJECT_HANDLE {
 unsafe impl Send for ObjectHandle {}
 unsafe impl Sync for ObjectHandle {}
 
+/// エフェクトへのハンドル。
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub struct EffectHandle {
+    pub(crate) internal: aviutl2_sys::plugin2::EFFECT_HANDLE,
+}
+impl std::fmt::Debug for EffectHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("EffectHandle").field(&self.internal).finish()
+    }
+}
+impl From<aviutl2_sys::plugin2::EFFECT_HANDLE> for EffectHandle {
+    fn from(value: aviutl2_sys::plugin2::EFFECT_HANDLE) -> Self {
+        Self { internal: value }
+    }
+}
+impl From<EffectHandle> for aviutl2_sys::plugin2::EFFECT_HANDLE {
+    fn from(value: EffectHandle) -> Self {
+        value.internal
+    }
+}
+
 /// 編集情報構造体。
 ///
 /// # Note
@@ -73,12 +94,6 @@ pub struct EditInfo {
     /// フレーム範囲選択の終了フレーム番号。
     /// 未選択の場合は`None`になります。
     pub select_range_end: Option<usize>,
-    /// グリッド（BPM）のテンポ。
-    pub grid_bpm_tempo: f32,
-    /// グリッド（BPM）の拍数。
-    pub grid_bpm_beat: usize,
-    /// グリッド（BPM）の基準時間。
-    pub grid_bpm_offset: f32,
     /// シーンのID
     pub scene_id: i32,
 }
@@ -107,9 +122,6 @@ impl EditInfo {
                 .then_some(raw.select_range_start as usize),
             select_range_end: (raw.select_range_end >= 0).then_some(raw.select_range_end as usize),
 
-            grid_bpm_tempo: raw.grid_bpm_tempo,
-            grid_bpm_beat: raw.grid_bpm_beat as usize,
-            grid_bpm_offset: raw.grid_bpm_offset,
             scene_id: raw.scene_id,
         }
     }
@@ -220,6 +232,48 @@ pub enum MediaFileSupportMode {
     Strict,
 }
 
+/// BPM情報。
+///
+/// # Note
+///
+/// PartialOrdを実装しています。offset順で並び替えられ、同じoffsetの場合はNoneになります。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BpmInfo {
+    /// テンポ。
+    pub tempo: f32,
+    /// 拍子。
+    pub beat: i32,
+    /// 基準時間。
+    pub offset: f64,
+}
+impl PartialOrd for BpmInfo {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if self.offset == other.offset {
+            None
+        } else {
+            self.offset.partial_cmp(&other.offset)
+        }
+    }
+}
+impl From<aviutl2_sys::plugin2::BPM_INFO> for BpmInfo {
+    fn from(value: aviutl2_sys::plugin2::BPM_INFO) -> Self {
+        Self {
+            tempo: value.tempo,
+            beat: value.beat,
+            offset: value.offset,
+        }
+    }
+}
+impl From<BpmInfo> for aviutl2_sys::plugin2::BPM_INFO {
+    fn from(value: BpmInfo) -> Self {
+        Self {
+            tempo: value.tempo,
+            beat: value.beat,
+            offset: value.offset,
+        }
+    }
+}
+
 /// [`EditSection`] 関連のエラー。
 #[derive(thiserror::Error, Debug)]
 pub enum EditSectionError {
@@ -227,6 +281,8 @@ pub enum EditSectionError {
     ApiCallFailed,
     #[error("object does not exist")]
     ObjectDoesNotExist,
+    #[error("effect does not exist")]
+    EffectDoesNotExist,
     #[error("input utf-8 string contains null byte")]
     InputCstrContainsNull(#[from] std::ffi::NulError),
     #[error("input utf-16 string contains null byte")]
@@ -780,15 +836,267 @@ impl ReadSection {
         }
     }
 
+    /// BPMグリッドのBPM情報の一覧を取得する。
+    pub fn get_bpm_info(&self) -> EditSectionResult<Vec<BpmInfo>> {
+        let mut bpm_info_list = Vec::<aviutl2_sys::plugin2::BPM_INFO>::new();
+        let bpm_num = unsafe { ((*self.internal).get_grid_bpm_list)(std::ptr::null_mut(), 0) };
+        if bpm_num <= 0 {
+            return Ok(vec![]);
+        }
+        bpm_info_list.resize_with(bpm_num as usize, || aviutl2_sys::plugin2::BPM_INFO {
+            tempo: 0.0,
+            beat: 0,
+            offset: 0.0,
+        });
+        let actual_bpm_num = unsafe {
+            ((*self.internal).get_grid_bpm_list)(
+                bpm_info_list.as_mut_ptr(),
+                bpm_info_list.len() as i32,
+            )
+        };
+        if actual_bpm_num != bpm_num {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        let bpm_info_list = bpm_info_list.into_iter().map(BpmInfo::from).collect();
+        Ok(bpm_info_list)
+    }
+
+    /// オブジェクトからエフェクトを検索する。
+    pub fn find_effect(
+        &self,
+        object: ObjectHandle,
+        effect_name: &str,
+        effect_index: usize,
+    ) -> EditSectionResult<EffectHandle> {
+        self.ensure_object_exists(object)?;
+        let c_effect_name = crate::common::CWString::new(&effect_key(effect_name, effect_index))?;
+        let handle =
+            unsafe { ((*self.internal).find_effect)(object.internal, c_effect_name.as_ptr()) };
+        if handle.is_null() {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(EffectHandle { internal: handle })
+    }
+
+    /// オブジェクトの先頭のエフェクトを取得する。
+    pub fn get_first_effect(&self, object: ObjectHandle) -> EditSectionResult<EffectHandle> {
+        self.ensure_object_exists(object)?;
+        let handle = unsafe { ((*self.internal).find_effect)(object.internal, std::ptr::null()) };
+        if handle.is_null() {
+            // NOTE: 知っている限りでは先頭のエフェクトは常に存在するはず...
+            Err(EditSectionError::ApiCallFailed)
+        } else {
+            Ok(EffectHandle { internal: handle })
+        }
+    }
+
+    /// オブジェクトのエフェクト一覧を取得する。
+    pub fn get_effects(&self, object: ObjectHandle) -> EditSectionResult<Vec<EffectHandle>> {
+        self.ensure_object_exists(object)?;
+        let mut effects = Vec::<aviutl2_sys::plugin2::EFFECT_HANDLE>::new();
+        let num_effects =
+            unsafe { ((*self.internal).get_effect_list)(object.internal, std::ptr::null_mut(), 0) };
+        if num_effects <= 0 {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+
+        effects.resize_with(num_effects as usize, std::ptr::null_mut);
+        let actual_num_effects = unsafe {
+            ((*self.internal).get_effect_list)(
+                object.internal,
+                effects.as_mut_ptr(),
+                effects.len() as i32,
+            )
+        };
+        if actual_num_effects != num_effects {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        let effect_handles = effects
+            .into_iter()
+            .map(|handle| EffectHandle { internal: handle })
+            .collect();
+        Ok(effect_handles)
+    }
+
+    /// エフェクトの有効・無効状態を取得する。
+    pub fn get_effect_enable(&self, effect: EffectHandle) -> EditSectionResult<bool> {
+        self.ensure_effect_exists(effect)?;
+        let enabled = unsafe { ((*self.internal).get_effect_enable)(effect.internal) };
+        Ok(enabled)
+    }
+
+    /// エフェクトのロック状態を取得する。
+    pub fn get_effect_lock(&self, effect: EffectHandle) -> EditSectionResult<bool> {
+        self.ensure_effect_exists(effect)?;
+        let locked = unsafe { ((*self.internal).get_effect_lock)(effect.internal) };
+        Ok(locked)
+    }
+
+    /// エフェクトの設定項目の値を文字列で取得する。
+    pub fn get_effect_item_value(
+        &self,
+        effect: EffectHandle,
+        item: &str,
+    ) -> EditSectionResult<String> {
+        self.ensure_effect_exists(effect)?;
+        let c_item = crate::common::CWString::new(item)?;
+        let value_ptr =
+            unsafe { ((*self.internal).get_effect_item_value)(effect.internal, c_item.as_ptr()) };
+        if value_ptr.is_null() {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        let c_str = unsafe { std::ffi::CStr::from_ptr(value_ptr) };
+        let value = c_str.to_str()?.to_owned();
+        Ok(value)
+    }
+
+    /// エフェクトの設定項目の値を取得し、パースする。
+    #[cfg(feature = "aviutl2-alias")]
+    pub fn get_effect_item_value_parsed<T: aviutl2_alias::FromTableValue>(
+        &self,
+        effect: EffectHandle,
+        item: &str,
+    ) -> Result<T, EditSectionParsedError<<T as aviutl2_alias::FromTableValue>::Err>>
+    where
+        <T as aviutl2_alias::FromTableValue>::Err: std::error::Error + Sync + Send + 'static,
+    {
+        let value_str = self.get_effect_item_value(effect, item)?;
+        T::from_table_value(&value_str).map_err(EditSectionParsedError::ParseError)
+    }
+
+    /// エフェクトの指定フレーム位置でのトラックバー項目の値を取得する。
+    pub fn get_effect_track_value(
+        &self,
+        effect: EffectHandle,
+        item: &str,
+        frame: f64,
+    ) -> EditSectionResult<f64> {
+        self.ensure_effect_exists(effect)?;
+        let c_item = crate::common::CWString::new(item)?;
+        let mut value = 0.0;
+        let success = unsafe {
+            ((*self.internal).get_effect_track_value)(
+                effect.internal,
+                c_item.as_ptr(),
+                frame,
+                &mut value,
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(value)
+    }
+
+    /// エフェクトの指定フレーム位置でのチェックボックス項目の値を取得する。
+    pub fn get_effect_check_value(
+        &self,
+        effect: EffectHandle,
+        item: &str,
+        frame: usize,
+    ) -> EditSectionResult<bool> {
+        self.ensure_effect_exists(effect)?;
+        let c_item = crate::common::CWString::new(item)?;
+        let mut value = false;
+        let success = unsafe {
+            ((*self.internal).get_effect_check_value)(
+                effect.internal,
+                c_item.as_ptr(),
+                frame.try_into()?,
+                &mut value,
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(value)
+    }
+
+    /// エフェクトのトラックバー項目の情報を取得する。
+    pub fn get_effect_track_info(
+        &self,
+        effect: EffectHandle,
+        item: &str,
+    ) -> EditSectionResult<Option<TrackInfo>> {
+        self.ensure_effect_exists(effect)?;
+        let c_item = crate::common::CWString::new(item)?;
+        let mut info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::TRACK_INFO>::uninit();
+        let success = unsafe {
+            ((*self.internal).get_effect_track_info)(
+                effect.internal,
+                c_item.as_ptr(),
+                info.as_mut_ptr(),
+                std::mem::size_of::<aviutl2_sys::plugin2::TRACK_INFO>() as i32,
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+
+        let info = unsafe { info.assume_init() };
+        let mode = if info.mode.is_null() {
+            return Ok(None);
+        } else {
+            unsafe { crate::common::load_wide_string(info.mode) }
+        };
+        let param_num: usize = info.param_num.try_into()?;
+        let params = if param_num == 0 {
+            Vec::new()
+        } else {
+            if info.param.is_null() {
+                return Err(EditSectionError::ApiCallFailed);
+            }
+            unsafe { std::slice::from_raw_parts(info.param, param_num) }.to_vec()
+        };
+
+        Ok(Some(TrackInfo {
+            mode,
+            params,
+            accelerate: info.accelerate,
+            decelerate: info.decelerate,
+            twopoint: info.twopoint,
+            timecontrol: info.timecontrol,
+            group_num: info.group_num.try_into()?,
+            group_index: info.group_index.try_into()?,
+            group_name: if info.group_name.is_null() {
+                None
+            } else {
+                Some(unsafe { crate::common::load_wide_string(info.group_name) })
+            },
+        }))
+    }
+
+    /// エフェクト名を取得する。
+    pub fn get_effect_name(&self, effect: EffectHandle) -> EditSectionResult<String> {
+        let name_ptr = unsafe { ((*self.internal).get_effect_name)(effect.internal) };
+        if name_ptr.is_null() {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(unsafe { crate::common::load_wide_string(name_ptr) })
+    }
+
     /// オブジェクトが存在するかどうか調べる。
     pub fn object_exists(&self, object: ObjectHandle) -> bool {
         let object = unsafe { ((*self.internal).get_object_layer_frame)(object.internal) };
         object.layer != -1
     }
 
+    /// エフェクトが存在するかどうか調べる。
+    pub fn effect_exists(&self, effect: EffectHandle) -> bool {
+        let name_ptr = unsafe { ((*self.internal).get_effect_name)(effect.internal) };
+        !name_ptr.is_null()
+    }
+
     fn ensure_object_exists(&self, object: ObjectHandle) -> EditSectionResult<()> {
         if !self.object_exists(object) {
             return Err(EditSectionError::ObjectDoesNotExist);
+        }
+        Ok(())
+    }
+
+    fn ensure_effect_exists(&self, effect: EffectHandle) -> EditSectionResult<()> {
+        if !self.effect_exists(effect) {
+            return Err(EditSectionError::EffectDoesNotExist);
         }
         Ok(())
     }
@@ -809,6 +1117,11 @@ impl ReadSection {
     /// [EditSectionObjectCaller] を作成する。
     pub fn object<'a>(&'a self, object: ObjectHandle) -> EditSectionObjectCaller<'a, ReadSection> {
         EditSectionObjectCaller::new(self, object)
+    }
+
+    /// [EditSectionEffectCaller] を作成する。
+    pub fn effect<'a>(&'a self, effect: EffectHandle) -> EditSectionEffectCaller<'a, ReadSection> {
+        EditSectionEffectCaller::new(self, effect)
     }
 }
 
@@ -1128,6 +1441,22 @@ impl EditSection {
         Ok(())
     }
 
+    /// BPMグリッドのBPM情報の一覧を設定する。
+    pub fn set_bpm_info(&self, bpm_info: &[BpmInfo]) -> EditSectionResult<()> {
+        let mut raw_bpm_info = bpm_info
+            .iter()
+            .copied()
+            .map(aviutl2_sys::plugin2::BPM_INFO::from)
+            .collect::<Vec<_>>();
+        unsafe {
+            ((*self.internal).set_grid_bpm_list)(
+                raw_bpm_info.as_mut_ptr(),
+                raw_bpm_info.len().try_into()?,
+            );
+        }
+        Ok(())
+    }
+
     /// レイヤーの名前を設定する。
     /// `name`に`None`や空文字を指定すると、標準の名前になります。
     pub fn set_layer_name(&self, layer: usize, name: Option<&str>) -> EditSectionResult<()> {
@@ -1209,6 +1538,47 @@ impl EditSection {
         Ok(())
     }
 
+    /// エフェクトの有効・無効状態を設定する。
+    pub fn set_effect_enable(&self, effect: EffectHandle, enable: bool) -> EditSectionResult<()> {
+        self.read_section.ensure_effect_exists(effect)?;
+        unsafe {
+            ((*self.internal).set_effect_enable)(effect.internal, enable);
+        }
+        Ok(())
+    }
+
+    /// エフェクトのロック状態を設定する。
+    pub fn set_effect_lock(&self, effect: EffectHandle, lock: bool) -> EditSectionResult<()> {
+        self.read_section.ensure_effect_exists(effect)?;
+        unsafe {
+            ((*self.internal).set_effect_lock)(effect.internal, lock);
+        }
+        Ok(())
+    }
+
+    /// エフェクトの設定項目の値を文字列で設定する。
+    pub fn set_effect_item_value(
+        &self,
+        effect: EffectHandle,
+        item: &str,
+        value: &str,
+    ) -> EditSectionResult<()> {
+        self.read_section.ensure_effect_exists(effect)?;
+        let c_item = crate::common::CWString::new(item)?;
+        let c_value = std::ffi::CString::new(value)?;
+        let success = unsafe {
+            ((*self.internal).set_effect_item_value)(
+                effect.internal,
+                c_item.as_ptr(),
+                c_value.as_ptr(),
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(())
+    }
+
     /// すべてのレイヤーをイテレータで取得する。
     pub fn layers(&self) -> EditSectionLayersIterator<'_> {
         EditSectionLayersIterator::new(self)
@@ -1228,6 +1598,11 @@ impl EditSection {
     /// [EditSectionObjectCaller] を作成する。
     pub fn object<'a>(&'a self, object: ObjectHandle) -> EditSectionObjectCaller<'a, EditSection> {
         EditSectionObjectCaller::new(self, object)
+    }
+
+    /// [EditSectionEffectCaller] を作成する。
+    pub fn effect<'a>(&'a self, effect: EffectHandle) -> EditSectionEffectCaller<'a, EditSection> {
+        EditSectionEffectCaller::new(self, effect)
     }
 }
 
@@ -1310,6 +1685,26 @@ where
     /// 対象エフェクトの数。存在しない場合は0を返します。
     pub fn count_effect(&self, effect: &str) -> EditSectionResult<usize> {
         self.read_section().count_object_effect(self.handle, effect)
+    }
+
+    /// オブジェクトからエフェクトを検索する。
+    pub fn find_effect(
+        &self,
+        effect_name: &str,
+        effect_index: usize,
+    ) -> EditSectionResult<EffectHandle> {
+        self.read_section()
+            .find_effect(self.handle, effect_name, effect_index)
+    }
+
+    /// オブジェクトの先頭のエフェクトを取得する。
+    pub fn get_first_effect(&self) -> EditSectionResult<EffectHandle> {
+        self.read_section().get_first_effect(self.handle)
+    }
+
+    /// オブジェクトのエフェクト一覧を取得する。
+    pub fn get_effects(&self) -> EditSectionResult<Vec<EffectHandle>> {
+        self.read_section().get_effects(self.handle)
     }
 
     /// オブジェクトの設定項目の値を文字列で取得する。
@@ -1493,6 +1888,113 @@ impl EditSectionObjectCaller<'_, EditSection> {
     /// `name`に`None`や空文字を指定すると、標準の名前になります。
     pub fn set_name(&self, name: Option<&str>) -> EditSectionResult<()> {
         self.edit_section.set_object_name(self.handle, name)
+    }
+}
+
+/// エフェクト主体で関数を呼び出すための構造体。
+/// EditSection と EffectHandle の組をまとめ、対象エフェクトに対する
+/// 操作を簡潔に呼び出せるようにします。
+pub struct EditSectionEffectCaller<'a, S> {
+    edit_section: &'a S,
+    pub handle: EffectHandle,
+}
+impl<'a, S> EditSectionEffectCaller<'a, S> {
+    pub fn new(edit_section: &'a S, effect: EffectHandle) -> Self {
+        Self {
+            edit_section,
+            handle: effect,
+        }
+    }
+}
+
+impl<S> std::ops::Deref for EditSectionEffectCaller<'_, S> {
+    type Target = EffectHandle;
+
+    fn deref(&self) -> &Self::Target {
+        &self.handle
+    }
+}
+
+#[expect(private_bounds)]
+impl<S> EditSectionEffectCaller<'_, S>
+where
+    S: ReadSectionProvider,
+{
+    fn read_section(&self) -> &ReadSection {
+        self.edit_section.as_read_section()
+    }
+
+    /// このエフェクトが存在するかどうか調べる。
+    pub fn exists(&self) -> bool {
+        self.read_section().effect_exists(self.handle)
+    }
+
+    /// エフェクト名を取得する。
+    pub fn get_name(&self) -> EditSectionResult<String> {
+        self.read_section().get_effect_name(self.handle)
+    }
+
+    /// エフェクトの有効・無効状態を取得する。
+    pub fn get_enable(&self) -> EditSectionResult<bool> {
+        self.read_section().get_effect_enable(self.handle)
+    }
+
+    /// エフェクトのロック状態を取得する。
+    pub fn get_lock(&self) -> EditSectionResult<bool> {
+        self.read_section().get_effect_lock(self.handle)
+    }
+
+    /// エフェクトの設定項目の値を文字列で取得する。
+    pub fn get_item_value(&self, item: &str) -> EditSectionResult<String> {
+        self.read_section().get_effect_item_value(self.handle, item)
+    }
+
+    /// エフェクトの設定項目の値を取得し、パースする。
+    #[cfg(feature = "aviutl2-alias")]
+    pub fn get_item_value_parsed<T: aviutl2_alias::FromTableValue>(
+        &self,
+        item: &str,
+    ) -> Result<T, EditSectionParsedError<<T as aviutl2_alias::FromTableValue>::Err>>
+    where
+        <T as aviutl2_alias::FromTableValue>::Err: std::error::Error + Sync + Send + 'static,
+    {
+        let value_str = self.get_item_value(item)?;
+        T::from_table_value(&value_str).map_err(EditSectionParsedError::ParseError)
+    }
+
+    /// 指定フレーム位置でのトラックバー項目の値を取得する。
+    pub fn get_track_value(&self, item: &str, frame: f64) -> EditSectionResult<f64> {
+        self.read_section()
+            .get_effect_track_value(self.handle, item, frame)
+    }
+
+    /// 指定フレーム位置でのチェックボックス項目の値を取得する。
+    pub fn get_check_value(&self, item: &str, frame: usize) -> EditSectionResult<bool> {
+        self.read_section()
+            .get_effect_check_value(self.handle, item, frame)
+    }
+
+    /// トラックバー項目の情報を取得する。
+    pub fn get_track_info(&self, item: &str) -> EditSectionResult<Option<TrackInfo>> {
+        self.read_section().get_effect_track_info(self.handle, item)
+    }
+}
+
+impl EditSectionEffectCaller<'_, EditSection> {
+    /// エフェクトの有効・無効状態を設定する。
+    pub fn set_enable(&self, enable: bool) -> EditSectionResult<()> {
+        self.edit_section.set_effect_enable(self.handle, enable)
+    }
+
+    /// エフェクトのロック状態を設定する。
+    pub fn set_lock(&self, lock: bool) -> EditSectionResult<()> {
+        self.edit_section.set_effect_lock(self.handle, lock)
+    }
+
+    /// エフェクトの設定項目の値を文字列で設定する。
+    pub fn set_item_value(&self, item: &str, value: &str) -> EditSectionResult<()> {
+        self.edit_section
+            .set_effect_item_value(self.handle, item, value)
     }
 }
 
