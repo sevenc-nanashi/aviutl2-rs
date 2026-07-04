@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.37.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.37.0)
+
 - **Breaking**: generic: `GenericPlugin::on_change_scene`を無効化（詳細についてはcrates/aviutl2/src/generic/binding/mod.rsのコメントを参照してください）
 - **Breaking**: generic: `HostAppHandle::register_xxx_handler`系のコールバックを`extern "C" fn`ではなく`Fn`に変更
 
