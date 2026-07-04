@@ -202,12 +202,13 @@ fn create_converted_body(
                 let idx = param_index;
                 param_bridges.push(quote::quote! {
                     let #pat: #ty = match <#ty as ::aviutl2::module::FromScriptModuleParam>::from_param(&__handle, #idx) {
-                        ::std::option::Option::Some(value) => value,
-                        ::std::option::Option::None => {
+                        ::std::result::Result::Ok(value) => value,
+                        ::std::result::Result::Err(error) => {
                             let _ = __handle.set_error(&format!(
-                                "Failed to convert parameter #{} to {}",
+                                "Failed to convert parameter #{} to {}: {}",
                                 #idx,
-                                stringify!(#ty)
+                                stringify!(#ty),
+                                error
                             ));
                             return;
                         }

@@ -1,6 +1,5 @@
 ---
 source: crates/aviutl2-macros/src/module_metatable.rs
-assertion_line: 175
 expression: format_tokens(output)
 ---
 impl UserData {
@@ -50,12 +49,13 @@ impl UserData {
                     match <String as ::aviutl2::module::FromScriptModuleParam>::from_param(
                         &__handle, 0usize,
                     ) {
-                        ::std::option::Option::Some(value) => value,
-                        ::std::option::Option::None => {
+                        ::std::result::Result::Ok(value) => value,
+                        ::std::result::Result::Err(error) => {
                             let _ = __handle.set_error(&format!(
-                                "Failed to convert parameter #{} to {}",
+                                "Failed to convert parameter #{} to {}: {}",
                                 0usize,
-                                stringify!(String)
+                                stringify!(String),
+                                error
                             ));
                             return;
                         }
@@ -82,12 +82,13 @@ impl UserData {
                     match <String as ::aviutl2::module::FromScriptModuleParam>::from_param(
                         &__handle, 0usize,
                     ) {
-                        ::std::option::Option::Some(value) => value,
-                        ::std::option::Option::None => {
+                        ::std::result::Result::Ok(value) => value,
+                        ::std::result::Result::Err(error) => {
                             let _ = __handle.set_error(&format!(
-                                "Failed to convert parameter #{} to {}",
+                                "Failed to convert parameter #{} to {}: {}",
                                 0usize,
-                                stringify!(String)
+                                stringify!(String),
+                                error
                             ));
                             return;
                         }
@@ -95,12 +96,13 @@ impl UserData {
                 let value: i32 = match <i32 as ::aviutl2::module::FromScriptModuleParam>::from_param(
                     &__handle, 1usize,
                 ) {
-                    ::std::option::Option::Some(value) => value,
-                    ::std::option::Option::None => {
+                    ::std::result::Result::Ok(value) => value,
+                    ::std::result::Result::Err(error) => {
                         let _ = __handle.set_error(&format!(
-                            "Failed to convert parameter #{} to {}",
+                            "Failed to convert parameter #{} to {}: {}",
                             1usize,
-                            stringify!(i32)
+                            stringify!(i32),
+                            error
                         ));
                         return;
                     }

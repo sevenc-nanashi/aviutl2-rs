@@ -9,12 +9,13 @@ expression: format_tokens(output)
     > = ::std::boxed::Box::new(move |__handle| {
         let value: i32 =
             match <i32 as ::aviutl2::module::FromScriptModuleParam>::from_param(__handle, 0usize) {
-                ::std::option::Option::Some(value) => value,
-                ::std::option::Option::None => {
+                ::std::result::Result::Ok(value) => value,
+                ::std::result::Result::Err(error) => {
                     let _ = __handle.set_error(&format!(
-                        "Failed to convert parameter #{} to {}",
+                        "Failed to convert parameter #{} to {}: {}",
                         0usize,
-                        stringify!(i32)
+                        stringify!(i32),
+                        error
                     ));
                     return;
                 }

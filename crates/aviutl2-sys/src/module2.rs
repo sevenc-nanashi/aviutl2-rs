@@ -8,6 +8,22 @@ use std::os::raw::{c_char, c_double, c_int};
 
 use crate::plugin2::EDIT_SECTION;
 
+/// 引数の型種別
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PARAM_TYPE {
+    NONE = -1,
+    NIL = 0,
+    BOOLEAN = 1,
+    LIGHTUSERDATA = 2,
+    NUMBER = 3,
+    STRING = 4,
+    TABLE = 5,
+    FUNCTION = 6,
+    USERDATA = 7,
+    THREAD = 8,
+}
+
 /// スクリプトモジュール引数構造体
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -315,6 +331,9 @@ pub struct SCRIPT_MODULE_PARAM {
         index: c_int,
         meta_method_functions: *mut META_METHOD_FUNCTION,
     ) -> *mut c_void,
+
+    /// 引数の型を取得します
+    pub get_param_type: unsafe extern "C" fn(index: c_int) -> PARAM_TYPE,
 }
 
 /// メタメソッド定義構造体

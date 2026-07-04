@@ -24,6 +24,9 @@ pub struct COMMON_PLUGIN_TABLE {
 /// オブジェクトハンドル
 pub type OBJECT_HANDLE = *mut c_void;
 
+/// エフェクトハンドル
+pub type EFFECT_HANDLE = *mut c_void;
+
 /// レイヤー・フレーム情報構造体
 /// フレーム番号、レイヤー番号が0からの番号になります ※UI表示と異なります
 #[repr(C)]
@@ -123,6 +126,17 @@ pub struct PALETTE_INFO_COLOR {
     pub g: u8,
     pub b: u8,
     pub a: u8,
+}
+
+/// BPM情報構造体
+#[repr(C)]
+pub struct BPM_INFO {
+    /// テンポ
+    pub tempo: f32,
+    /// 拍子
+    pub beat: i32,
+    /// 基準時間
+    pub offset: f64,
 }
 
 /// イベント種別
@@ -483,6 +497,68 @@ pub struct EDIT_SECTION {
         item_names: *mut LPCWSTR,
         item_num: i32,
     ) -> i32,
+
+    /// グリッド(BPM)のBPM情報一覧を取得します
+    pub get_grid_bpm_list: unsafe extern "C" fn(bpm_list: *mut BPM_INFO, bpm_num: i32) -> i32,
+
+    /// グリッド(BPM)のBPM情報一覧を設定します (call_read_section利用不可)
+    pub set_grid_bpm_list: unsafe extern "C" fn(bpm_list: *mut BPM_INFO, bpm_num: i32),
+
+    /// オブジェクトからエフェクトを検索します
+    pub find_effect: unsafe extern "C" fn(object: OBJECT_HANDLE, effect: LPCWSTR) -> EFFECT_HANDLE,
+
+    /// オブジェクトからエフェクト一覧を取得します
+    pub get_effect_list: unsafe extern "C" fn(
+        object: OBJECT_HANDLE,
+        effect_list: *mut EFFECT_HANDLE,
+        effect_num: i32,
+    ) -> i32,
+
+    /// エフェクト名を取得します
+    pub get_effect_name: unsafe extern "C" fn(effect: EFFECT_HANDLE) -> LPCWSTR,
+
+    /// エフェクトの有効・無効状態を取得します
+    pub get_effect_enable: unsafe extern "C" fn(effect: EFFECT_HANDLE) -> bool,
+
+    /// エフェクトの有効・無効状態を設定します (call_read_section利用不可)
+    pub set_effect_enable: unsafe extern "C" fn(effect: EFFECT_HANDLE, enable: bool),
+
+    /// エフェクトのロック状態を取得します
+    pub get_effect_lock: unsafe extern "C" fn(effect: EFFECT_HANDLE) -> bool,
+
+    /// エフェクトのロック状態を設定します (call_read_section利用不可)
+    pub set_effect_lock: unsafe extern "C" fn(effect: EFFECT_HANDLE, lock: bool),
+
+    /// エフェクトの設定項目の値を文字列で取得します
+    pub get_effect_item_value: unsafe extern "C" fn(effect: EFFECT_HANDLE, item: LPCWSTR) -> LPCSTR,
+
+    /// エフェクトの設定項目の値を文字列で設定します (call_read_section利用不可)
+    pub set_effect_item_value:
+        unsafe extern "C" fn(effect: EFFECT_HANDLE, item: LPCWSTR, value: LPCSTR) -> bool,
+
+    /// 指定フレーム位置でのエフェクトのトラックバー項目の値を取得します
+    pub get_effect_track_value: unsafe extern "C" fn(
+        effect: EFFECT_HANDLE,
+        item: LPCWSTR,
+        frame: f64,
+        value: *mut f64,
+    ) -> bool,
+
+    /// 指定フレーム位置でのエフェクトのチェックボックス(セクション毎含む)項目の値を取得します
+    pub get_effect_check_value: unsafe extern "C" fn(
+        effect: EFFECT_HANDLE,
+        item: LPCWSTR,
+        frame: i32,
+        value: *mut bool,
+    ) -> bool,
+
+    /// エフェクトのトラックバー項目の情報を取得します
+    pub get_effect_track_info: unsafe extern "C" fn(
+        effect: EFFECT_HANDLE,
+        item: LPCWSTR,
+        info: *mut TRACK_INFO,
+        info_size: i32,
+    ) -> bool,
 }
 
 /// 編集ハンドル構造体

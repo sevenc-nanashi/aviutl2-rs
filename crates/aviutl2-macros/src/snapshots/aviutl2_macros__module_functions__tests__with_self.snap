@@ -28,12 +28,13 @@ impl MyModule {
                                 match <f64 as ::aviutl2::module::FromScriptModuleParam>::from_param(
                                     &__handle, 0usize,
                                 ) {
-                                    ::std::option::Option::Some(value) => value,
-                                    ::std::option::Option::None => {
+                                    ::std::result::Result::Ok(value) => value,
+                                    ::std::result::Result::Err(error) => {
                                         let _ = __handle.set_error(&format!(
-                                            "Failed to convert parameter #{} to {}",
+                                            "Failed to convert parameter #{} to {}: {}",
                                             0usize,
-                                            stringify!(f64)
+                                            stringify!(f64),
+                                            error
                                         ));
                                         return;
                                     }
