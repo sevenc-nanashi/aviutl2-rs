@@ -52,11 +52,13 @@ default = [
   "wrap_log"
 ]
 aviutl2-alias = ["dep:aviutl2-alias"]
+
 filter = []
 generic = []
 image = ["dep:image"]
 input = []
 module = []
 output = []
+
 serde = ["dep:rmp-serde", "dep:ruzstd", "dep:serde", "dep:base64"]
 wrap_log = ["dep:process_path"]

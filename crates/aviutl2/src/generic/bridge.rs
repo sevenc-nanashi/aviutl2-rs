@@ -158,13 +158,13 @@ fn register_plugin_impl<T: GenericSingleton>(
         handle.register_project_load_handler(on_project_load_unwind::<T>);
         handle.register_project_save_handler(on_project_save_unwind::<T>);
         handle.register_clear_cache_handler(on_clear_cache_unwind::<T>);
-        handle.register_change_scene_handler(on_change_scene_unwind::<T>);
+        // handle.register_change_scene_handler(on_change_scene_unwind::<T>);
     } else {
         T::register(&mut plugin_state.instance, &mut handle);
         handle.register_project_load_handler(on_project_load::<T>);
         handle.register_project_save_handler(on_project_save::<T>);
         handle.register_clear_cache_handler(on_clear_cache::<T>);
-        handle.register_change_scene_handler(on_change_scene::<T>);
+        // handle.register_change_scene_handler(on_change_scene::<T>);
     }
     handle.register_event_listener(crate::generic::EventType::UpdateObject, || {
         <T as GenericSingleton>::with_instance_mut(|instance| instance.event_update_object_info())
@@ -256,29 +256,31 @@ fn register_plugin_impl<T: GenericSingleton>(
         }
     }
 
-    fn on_change_scene_impl<T: GenericSingleton>(
-        edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
-    ) {
-        <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
-            let edit_section = crate::generic::EditSection::from_raw(edit_section);
-            instance.on_change_scene(&edit_section);
-        });
-    }
-    extern "C" fn on_change_scene<T: GenericSingleton>(
-        edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
-    ) {
-        on_change_scene_impl::<T>(edit_section);
-    }
-    extern "C" fn on_change_scene_unwind<T: GenericSingleton>(
-        edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
-    ) {
-        if let Err(panic_info) =
-            crate::utils::catch_unwind_with_panic_info(|| on_change_scene_impl::<T>(edit_section))
-        {
-            tracing::error!("Panic occurred during on_change_scene: {}", panic_info);
-            let _ = crate::logger::write_error_log(&panic_info);
-        }
-    }
+    // ref: [GenericPlugin::on_change_scene]
+    //
+    // fn on_change_scene_impl<T: GenericSingleton>(
+    //     edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
+    // ) {
+    //     <T as GenericSingleton>::with_instance_mut(|instance| unsafe {
+    //         let edit_section = crate::generic::EditSection::from_raw(edit_section);
+    //         instance.on_change_scene(&edit_section);
+    //     });
+    // }
+    // extern "C" fn on_change_scene<T: GenericSingleton>(
+    //     edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
+    // ) {
+    //     on_change_scene_impl::<T>(edit_section);
+    // }
+    // extern "C" fn on_change_scene_unwind<T: GenericSingleton>(
+    //     edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION,
+    // ) {
+    //     if let Err(panic_info) =
+    //         crate::utils::catch_unwind_with_panic_info(|| on_change_scene_impl::<T>(edit_section))
+    //     {
+    //         tracing::error!("Panic occurred during on_change_scene: {}", panic_info);
+    //         let _ = crate::logger::write_error_log(&panic_info);
+    //     }
+    // }
 }
 
 pub unsafe fn register_plugin<T: GenericSingleton>(

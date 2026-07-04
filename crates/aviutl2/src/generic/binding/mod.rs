@@ -37,10 +37,16 @@ pub trait GenericPlugin: Send + Sync + Sized {
         let _ = edit_section;
     }
 
-    /// シーンを変更した直後に呼ばれる。
-    fn on_change_scene(&mut self, edit_section: &crate::generic::EditSection) {
-        let _ = edit_section;
-    }
+    // NOTE:
+    // on_change_sceneはAviUtl2内でシーンを編集したときに呼ばれるが、これは同期的に呼ばれてしまう。
+    // それにより、GenericPluginを同期ロックしている状態でシーン変更系のイベントを発生すると、デッドロックが発生してしまう。
+    // Rustではトレイトに関数を実装したかどうかを判定する手段がないため、on_change_sceneを本当に呼ぶべきかどうかを判定することができない。
+    // そのため、一旦GenericPlugin::on_change_sceneを無効化する。
+    //
+    // /// シーンを変更した直後に呼ばれる。
+    // fn on_change_scene(&mut self, edit_section: &crate::generic::EditSection) {
+    //     let _ = edit_section;
+    // }
 
     /// オブジェクト情報が更新されたときに呼ばれる。
     ///

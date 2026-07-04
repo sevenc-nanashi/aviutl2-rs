@@ -396,10 +396,15 @@ impl<'plugin> HostAppHandle<'plugin> {
 
     /// シーンを変更した直後に呼ばれる関数を登録します。
     ///
-    /// # Note
+    /// # Warning
     ///
-    /// [`crate::generic::GenericPlugin::on_change_scene`] が自動的に登録されるため、
-    /// 通常はこの関数を直接使用する必要はありません。
+    /// <div class="warning">
+    ///
+    /// この関数はAviUtl2の関数変更直後に同期的に呼ばれます。
+    /// コールバック内でプラグインをロックするとデッドロックする可能性があります。
+    ///
+    /// </div>
+    ///
     pub fn register_change_scene_handler(
         &mut self,
         callback: extern "C" fn(*mut aviutl2_sys::plugin2::EDIT_SECTION),
