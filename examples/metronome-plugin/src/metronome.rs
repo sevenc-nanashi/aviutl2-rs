@@ -59,7 +59,7 @@ impl aviutl2::filter::FilterPlugin for MetronomeFilter {
             .sample_b
             .as_deref()
             .and_then(|path| crate::wav::get_wav_sample(path, sample_rate));
-        let bpm_info = crate::EDIT_HANDLE.call_read_section(|read| read.get_bpm_info())??;
+        let bpm_info = crate::EDIT_HANDLE.call_read_section(|read| read.get_grid_bpm_list())??;
         let mut bpm_grids = bpm_info
             .into_iter()
             .filter_map(BpmGrid::from_bpm_info)

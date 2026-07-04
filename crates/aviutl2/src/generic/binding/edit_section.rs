@@ -837,7 +837,7 @@ impl ReadSection {
     }
 
     /// BPMグリッドのBPM情報の一覧を取得する。
-    pub fn get_bpm_info(&self) -> EditSectionResult<Vec<BpmInfo>> {
+    pub fn get_grid_bpm_list(&self) -> EditSectionResult<Vec<BpmInfo>> {
         let mut bpm_info_list = Vec::<aviutl2_sys::plugin2::BPM_INFO>::new();
         let bpm_num = unsafe { ((*self.internal).get_grid_bpm_list)(std::ptr::null_mut(), 0) };
         if bpm_num <= 0 {
@@ -1434,7 +1434,7 @@ impl EditSection {
     }
 
     /// BPMグリッドのBPM情報の一覧を設定する。
-    pub fn set_bpm_info(&self, bpm_info: &[BpmInfo]) -> EditSectionResult<()> {
+    pub fn set_grid_bpm_list(&self, bpm_info: &[BpmInfo]) -> EditSectionResult<()> {
         let mut raw_bpm_info = bpm_info
             .iter()
             .copied()

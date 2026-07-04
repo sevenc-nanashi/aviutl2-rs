@@ -366,9 +366,9 @@ impl MetronomeApp {
     fn apply_bpm_to_origin(&self) {
         if let Some(bpm) = self.bpm {
             let res = crate::EDIT_HANDLE.call_edit_section(|edit| {
-                let mut bpm_infos = edit.get_bpm_info()?;
+                let mut bpm_infos = edit.get_grid_bpm_list()?;
                 bpm_infos[0].tempo = bpm as f32;
-                edit.set_bpm_info(&bpm_infos)
+                edit.set_grid_bpm_list(&bpm_infos)
             });
             tracing::info!("Applied BPM: {:?}", res);
         }
@@ -380,14 +380,14 @@ impl MetronomeApp {
                 let current_frame = edit.info.frame;
                 let fps = *edit.info.fps.numer() as f64 / *edit.info.fps.denom() as f64;
                 let current_time = current_frame as f64 / fps;
-                let mut bpm_infos = edit.get_bpm_info()?;
+                let mut bpm_infos = edit.get_grid_bpm_list()?;
                 let index = bpm_infos.partition_point(|bpm| bpm.offset <= current_time);
                 if index == 0 {
                     bpm_infos[0].tempo = bpm as f32;
                 } else {
                     bpm_infos[index - 1].tempo = bpm as f32;
                 }
-                edit.set_bpm_info(&bpm_infos)
+                edit.set_grid_bpm_list(&bpm_infos)
             });
             tracing::info!("Applied BPM: {:?}", res);
         }
@@ -399,7 +399,7 @@ impl MetronomeApp {
                 let current_frame = edit.info.frame;
                 let fps = *edit.info.fps.numer() as f64 / *edit.info.fps.denom() as f64;
                 let current_time = current_frame as f64 / fps;
-                let mut bpm_infos = edit.get_bpm_info()?;
+                let mut bpm_infos = edit.get_grid_bpm_list()?;
                 let new_bpm_info = aviutl2::generic::BpmInfo {
                     offset: current_time,
                     tempo: bpm as f32,
@@ -414,7 +414,7 @@ impl MetronomeApp {
                     bpm_infos.push(new_bpm_info);
                 }
                 bpm_infos.sort_by(|a, b| a.offset.total_cmp(&b.offset));
-                edit.set_bpm_info(&bpm_infos)
+                edit.set_grid_bpm_list(&bpm_infos)
             });
             tracing::info!("Added BPM: {:?}", res);
         }
@@ -425,7 +425,7 @@ fn get_current_bpm_from_host() -> Option<f64> {
     let info = crate::EDIT_HANDLE.get_edit_info();
     let current_time = info.frame as f64 * *info.fps.denom() as f64 / *info.fps.numer() as f64;
     let mut bpm_info = crate::EDIT_HANDLE
-        .call_read_section(|read| read.get_bpm_info())
+        .call_read_section(|read| read.get_grid_bpm_list())
         .ok()?
         .ok()?;
     bpm_info.sort_by(|a, b| a.offset.total_cmp(&b.offset));
