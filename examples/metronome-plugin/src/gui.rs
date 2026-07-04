@@ -179,8 +179,7 @@ impl MetronomeApp {
                         .on_hover_text(tr("プロジェクトからBPMを取得します"))
                         .clicked()
                     {
-                        let info = crate::EDIT_HANDLE.get_edit_info();
-                        self.bpm = Some(info.grid_bpm_tempo as f64);
+                        self.bpm = get_current_bpm_from_host();
                         self.will_reset_on_next_tap = true;
                     }
                 } else {
@@ -219,24 +218,33 @@ impl MetronomeApp {
                     }
                 });
                 ui.add_space(8.0);
-                ui.columns(2, |columns| {
-                    if columns[0]
+                ui.columns_const(|[ui]| {
+                    if ui
                         .add_enabled(
                             self.bpm.is_some(),
                             egui::Button::new(tr("0:00を基準に反映")),
                         )
                         .clicked()
                     {
-                        self.apply_bpm_to_host_origin();
+                        self.apply_bpm_to_origin();
                     }
-                    if columns[1]
+                    if ui
                         .add_enabled(
                             self.bpm.is_some(),
-                            egui::Button::new(tr("現在位置を基準に反映")),
+                            egui::Button::new(tr("現在のテンポに反映")),
                         )
                         .clicked()
                     {
-                        self.apply_bpm_to_host_relative();
+                        self.apply_bpm_to_current();
+                    }
+                    if ui
+                        .add_enabled(
+                            self.bpm.is_some(),
+                            egui::Button::new(tr("現在位置に新しく追加")),
+                        )
+                        .clicked()
+                    {
+                        self.add_bpm_at_current_position();
                     }
                 });
             });
@@ -355,25 +363,76 @@ impl MetronomeApp {
         }
     }
 
-    fn apply_bpm_to_host_origin(&self) {
+    fn apply_bpm_to_origin(&self) {
         if let Some(bpm) = self.bpm {
             let res = crate::EDIT_HANDLE.call_edit_section(|edit| {
-                // TODO: 拍子情報も変更できるようにする
-                edit.set_grid_bpm(bpm as f32, 4, 0.0)
+                let mut bpm_infos = edit.get_bpm_info()?;
+                bpm_infos[0].tempo = bpm as f32;
+                edit.set_bpm_info(&bpm_infos)
             });
             tracing::info!("Applied BPM: {:?}", res);
         }
     }
 
-    fn apply_bpm_to_host_relative(&self) {
+    fn apply_bpm_to_current(&self) {
         if let Some(bpm) = self.bpm {
             let res = crate::EDIT_HANDLE.call_edit_section(|edit| {
                 let current_frame = edit.info.frame;
-                let fps = *edit.info.fps.numer() as f32 / *edit.info.fps.denom() as f32;
-                // TODO: 拍子情報も変更できるようにする
-                edit.set_grid_bpm(bpm as f32, 4, current_frame as f32 / fps)
+                let fps = *edit.info.fps.numer() as f64 / *edit.info.fps.denom() as f64;
+                let current_time = current_frame as f64 / fps;
+                let mut bpm_infos = edit.get_bpm_info()?;
+                let index = bpm_infos.partition_point(|bpm| bpm.offset <= current_time);
+                if index == 0 {
+                    bpm_infos[0].tempo = bpm as f32;
+                } else {
+                    bpm_infos[index - 1].tempo = bpm as f32;
+                }
+                edit.set_bpm_info(&bpm_infos)
             });
             tracing::info!("Applied BPM: {:?}", res);
         }
+    }
+
+    fn add_bpm_at_current_position(&self) {
+        if let Some(bpm) = self.bpm {
+            let res = crate::EDIT_HANDLE.call_edit_section(|edit| {
+                let current_frame = edit.info.frame;
+                let fps = *edit.info.fps.numer() as f64 / *edit.info.fps.denom() as f64;
+                let current_time = current_frame as f64 / fps;
+                let mut bpm_infos = edit.get_bpm_info()?;
+                let new_bpm_info = aviutl2::generic::BpmInfo {
+                    offset: current_time,
+                    tempo: bpm as f32,
+                    beat: 4,
+                };
+                if let Some(existing) = bpm_infos
+                    .iter_mut()
+                    .find(|bpm| (bpm.offset - current_time).abs() < 1e-6)
+                {
+                    *existing = new_bpm_info;
+                } else {
+                    bpm_infos.push(new_bpm_info);
+                }
+                bpm_infos.sort_by(|a, b| a.offset.total_cmp(&b.offset));
+                edit.set_bpm_info(&bpm_infos)
+            });
+            tracing::info!("Added BPM: {:?}", res);
+        }
+    }
+}
+
+fn get_current_bpm_from_host() -> Option<f64> {
+    let info = crate::EDIT_HANDLE.get_edit_info();
+    let current_time = info.frame as f64 * *info.fps.denom() as f64 / *info.fps.numer() as f64;
+    let mut bpm_info = crate::EDIT_HANDLE
+        .call_read_section(|read| read.get_bpm_info())
+        .ok()?
+        .ok()?;
+    bpm_info.sort_by(|a, b| a.offset.total_cmp(&b.offset));
+    let index = bpm_info.partition_point(|bpm| bpm.offset <= current_time);
+    if index == 0 {
+        None
+    } else {
+        Some(bpm_info[index - 1].tempo as f64)
     }
 }

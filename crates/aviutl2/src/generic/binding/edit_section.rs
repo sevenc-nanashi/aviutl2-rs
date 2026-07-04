@@ -1433,14 +1433,6 @@ impl EditSection {
         Ok(())
     }
 
-    /// グリッド（BPM）を設定する。
-    pub fn set_grid_bpm(&self, tempo: f32, beat: usize, offset: f32) -> EditSectionResult<()> {
-        unsafe {
-            ((*self.internal).set_grid_bpm)(tempo, beat.try_into()?, offset);
-        }
-        Ok(())
-    }
-
     /// BPMグリッドのBPM情報の一覧を設定する。
     pub fn set_bpm_info(&self, bpm_info: &[BpmInfo]) -> EditSectionResult<()> {
         let mut raw_bpm_info = bpm_info
