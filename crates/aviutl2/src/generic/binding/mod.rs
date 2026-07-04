@@ -38,10 +38,16 @@ pub trait GenericPlugin: Send + Sync + Sized {
     }
 
     // NOTE:
-    // on_change_sceneはAviUtl2内でシーンを編集したときに呼ばれるが、これは同期的に呼ばれてしまう。
-    // それにより、GenericPluginを同期ロックしている状態でシーン変更系のイベントを発生すると、デッドロックが発生してしまう。
-    // Rustではトレイトに関数を実装したかどうかを判定する手段がないため、on_change_sceneを本当に呼ぶべきかどうかを判定することができない。
-    // そのため、一旦GenericPlugin::on_change_sceneを無効化する。
+    // register_change_scene_handlerのコールバックはAviUtl2内でシーンを編集したときに呼ばれるが、これは同期的に呼ばれてしまう。
+    // それにより、
+    // - （register_menusなどで）GenericPluginをwriteロックしているスレッドから
+    // - その中でEditSectionでシーンを編集する
+    // という操作を行うと、GenericPluginのwriteロックを取得したままon_change_sceneが呼ばれ、GenericPluginのwriteロックを取得しようとしてデッドロックする。
+    // `on_change_scene`を定義してあるかどうかを判定できれば、`register_change_scene_handler`に
+    // `GenericSingleton::with_instance_mut(|instance| instance.on_change_scene(...))`を登録するかどうかを判定して
+    // うっかりデッドロックを回避できるが、Rustではトレイトに関数を実装したかどうかを判定する手段がないため、on_change_sceneを本当に呼ぶべきかどうかを判定することができない。
+    // そのため、GenericPlugin::on_change_sceneを無効化する。
+    // いうてevent_change_scene_infoがあるのでなんとかなるんじゃないかなぁ...
     //
     // /// シーンを変更した直後に呼ばれる。
     // fn on_change_scene(&mut self, edit_section: &crate::generic::EditSection) {
