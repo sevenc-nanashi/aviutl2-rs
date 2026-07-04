@@ -352,14 +352,39 @@ impl<'plugin> HostAppHandle<'plugin> {
     ///
     /// [`crate::generic::GenericPlugin::on_project_load`] が自動的に登録されるため、
     /// 通常はこの関数を直接使用する必要はありません。
-    pub fn register_project_load_handler(
-        &mut self,
-        callback: extern "C" fn(*mut aviutl2_sys::plugin2::PROJECT_FILE),
-    ) {
+    pub fn register_project_load_handler<F>(&mut self, callback: F)
+    where
+        F: Fn(&mut crate::generic::ProjectFile) + 'static + Send + Sync,
+    {
         self.assert_not_killed();
-        unsafe {
-            ((*self.internal).register_project_load_handler)(callback);
+
+        type CallbackType = Box<dyn Fn(&mut crate::generic::ProjectFile) + Send + Sync>;
+        static CALLBACKS: std::sync::Mutex<Vec<CallbackType>> = std::sync::Mutex::new(Vec::new());
+
+        let callback_box = Box::new(callback);
+        let mut callbacks = CALLBACKS.lock().unwrap();
+        if callbacks.is_empty() {
+            unsafe extern "C" fn trampoline(project_file: *mut aviutl2_sys::plugin2::PROJECT_FILE) {
+                let callbacks = CALLBACKS.lock().unwrap();
+                let mut project_file =
+                    unsafe { crate::generic::ProjectFile::from_raw(project_file) };
+                for callback in callbacks.iter() {
+                    if let Err(panic_info) = crate::utils::catch_unwind_with_panic_info(
+                        std::panic::AssertUnwindSafe(|| {
+                            callback(&mut project_file);
+                        }),
+                    ) {
+                        tracing::error!("Panic occurred in project load callback: {}", panic_info);
+                        let _ = crate::logger::write_error_log(&panic_info);
+                    }
+                }
+            }
+            unsafe {
+                ((*self.internal).register_project_load_handler)(trampoline);
+            }
         }
+
+        callbacks.push(callback_box);
     }
 
     /// プロジェクトファイルを保存する直前に呼ばれる関数を登録します。
@@ -368,14 +393,39 @@ impl<'plugin> HostAppHandle<'plugin> {
     ///
     /// [`crate::generic::GenericPlugin::on_project_save`] が自動的に登録されるため、
     /// 通常はこの関数を直接使用する必要はありません。
-    pub fn register_project_save_handler(
-        &mut self,
-        callback: extern "C" fn(*mut aviutl2_sys::plugin2::PROJECT_FILE),
-    ) {
+    pub fn register_project_save_handler<F>(&mut self, callback: F)
+    where
+        F: Fn(&mut crate::generic::ProjectFile) + 'static + Send + Sync,
+    {
         self.assert_not_killed();
-        unsafe {
-            ((*self.internal).register_project_save_handler)(callback);
+
+        type CallbackType = Box<dyn Fn(&mut crate::generic::ProjectFile) + Send + Sync>;
+        static CALLBACKS: std::sync::Mutex<Vec<CallbackType>> = std::sync::Mutex::new(Vec::new());
+
+        let callback_box = Box::new(callback);
+        let mut callbacks = CALLBACKS.lock().unwrap();
+        if callbacks.is_empty() {
+            unsafe extern "C" fn trampoline(project_file: *mut aviutl2_sys::plugin2::PROJECT_FILE) {
+                let callbacks = CALLBACKS.lock().unwrap();
+                let mut project_file =
+                    unsafe { crate::generic::ProjectFile::from_raw(project_file) };
+                for callback in callbacks.iter() {
+                    if let Err(panic_info) = crate::utils::catch_unwind_with_panic_info(
+                        std::panic::AssertUnwindSafe(|| {
+                            callback(&mut project_file);
+                        }),
+                    ) {
+                        tracing::error!("Panic occurred in project save callback: {}", panic_info);
+                        let _ = crate::logger::write_error_log(&panic_info);
+                    }
+                }
+            }
+            unsafe {
+                ((*self.internal).register_project_save_handler)(trampoline);
+            }
         }
+
+        callbacks.push(callback_box);
     }
 
     /// 「キャッシュを破棄」が呼ばれたときに呼ばれる関数を登録します。
@@ -384,14 +434,38 @@ impl<'plugin> HostAppHandle<'plugin> {
     ///
     /// [`crate::generic::GenericPlugin::on_clear_cache`] が自動的に登録されるため、
     /// 通常はこの関数を直接使用する必要はありません。
-    pub fn register_clear_cache_handler(
-        &mut self,
-        callback: extern "C" fn(*mut aviutl2_sys::plugin2::EDIT_SECTION),
-    ) {
+    pub fn register_clear_cache_handler<F>(&mut self, callback: F)
+    where
+        F: Fn(&crate::generic::EditSection) + 'static + Send + Sync,
+    {
         self.assert_not_killed();
-        unsafe {
-            ((*self.internal).register_clear_cache_handler)(callback);
+
+        type CallbackType = Box<dyn Fn(&crate::generic::EditSection) + Send + Sync>;
+        static CALLBACKS: std::sync::Mutex<Vec<CallbackType>> = std::sync::Mutex::new(Vec::new());
+
+        let callback_box = Box::new(callback);
+        let mut callbacks = CALLBACKS.lock().unwrap();
+        if callbacks.is_empty() {
+            unsafe extern "C" fn trampoline(edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION) {
+                let callbacks = CALLBACKS.lock().unwrap();
+                let edit_section = unsafe { crate::generic::EditSection::from_raw(edit_section) };
+                for callback in callbacks.iter() {
+                    if let Err(panic_info) = crate::utils::catch_unwind_with_panic_info(
+                        std::panic::AssertUnwindSafe(|| {
+                            callback(&edit_section);
+                        }),
+                    ) {
+                        tracing::error!("Panic occurred in clear cache callback: {}", panic_info);
+                        let _ = crate::logger::write_error_log(&panic_info);
+                    }
+                }
+            }
+            unsafe {
+                ((*self.internal).register_clear_cache_handler)(trampoline);
+            }
         }
+
+        callbacks.push(callback_box);
     }
 
     /// シーンを変更した直後に呼ばれる関数を登録します。
@@ -405,14 +479,38 @@ impl<'plugin> HostAppHandle<'plugin> {
     ///
     /// </div>
     ///
-    pub fn register_change_scene_handler(
-        &mut self,
-        callback: extern "C" fn(*mut aviutl2_sys::plugin2::EDIT_SECTION),
-    ) {
+    pub fn register_change_scene_handler<F>(&mut self, callback: F)
+    where
+        F: Fn(&crate::generic::EditSection) + 'static + Send + Sync,
+    {
         self.assert_not_killed();
-        unsafe {
-            ((*self.internal).register_change_scene_handler)(callback);
+
+        type CallbackType = Box<dyn Fn(&crate::generic::EditSection) + Send + Sync>;
+        static CALLBACKS: std::sync::Mutex<Vec<CallbackType>> = std::sync::Mutex::new(Vec::new());
+
+        let callback_box = Box::new(callback);
+        let mut callbacks = CALLBACKS.lock().unwrap();
+        if callbacks.is_empty() {
+            unsafe extern "C" fn trampoline(edit_section: *mut aviutl2_sys::plugin2::EDIT_SECTION) {
+                let callbacks = CALLBACKS.lock().unwrap();
+                let edit_section = unsafe { crate::generic::EditSection::from_raw(edit_section) };
+                for callback in callbacks.iter() {
+                    if let Err(panic_info) = crate::utils::catch_unwind_with_panic_info(
+                        std::panic::AssertUnwindSafe(|| {
+                            callback(&edit_section);
+                        }),
+                    ) {
+                        tracing::error!("Panic occurred in change scene callback: {}", panic_info);
+                        let _ = crate::logger::write_error_log(&panic_info);
+                    }
+                }
+            }
+            unsafe {
+                ((*self.internal).register_change_scene_handler)(trampoline);
+            }
         }
+
+        callbacks.push(callback_box);
     }
 
     /// 指定のイベントのコールバック関数を登録します。
