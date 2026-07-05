@@ -6,7 +6,7 @@
 
 ### デモプラグイン
 
-（なし）
+- image-rs-input: 透明度周りの処理を修正
 
 ## [0.38.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.38.0)
 

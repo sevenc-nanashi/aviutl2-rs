@@ -245,7 +245,6 @@ impl InputPlugin for ImageInputPlugin {
                     .ok_or_else(|| anyhow::anyhow!("Failed to get frame {}", frame))?;
                 handle.current_frame += 1;
                 let mut img = frame.into_buffer().into_raw();
-                crate::alpha::straight_alpha_to_premultiplied_alpha(&mut img);
                 aviutl2::utils::flip_vertical(
                     &mut img,
                     handle.width as usize * 4,
@@ -269,7 +268,6 @@ impl InputPlugin for ImageInputPlugin {
                 match handle.format {
                     aviutl2::input::InputPixelFormat::Bgra => {
                         let mut img = img.to_rgba8().into_raw();
-                        crate::alpha::straight_alpha_to_premultiplied_alpha(&mut img);
                         aviutl2::utils::flip_vertical(
                             &mut img,
                             handle.width as usize * 4,
