@@ -224,6 +224,7 @@ impl MetronomeApp {
                             self.bpm.is_some(),
                             egui::Button::new(tr("0:00を基準に反映")),
                         )
+                        .on_hover_text(tr("プロジェクトの最初のテンポを変更します。"))
                         .clicked()
                     {
                         self.apply_bpm_to_origin();
@@ -231,8 +232,23 @@ impl MetronomeApp {
                     if ui
                         .add_enabled(
                             self.bpm.is_some(),
-                            egui::Button::new(tr("現在のテンポに反映")),
+                            egui::Button::new(tr("現在のテンポを変更")),
                         )
+                        .on_hover_text(tr(
+                            "現在位置のテンポを変更します。オフセットは変更されません。",
+                        ))
+                        .clicked()
+                    {
+                        self.apply_bpm_to_origin_of_current();
+                    }
+                    if ui
+                        .add_enabled(
+                            self.bpm.is_some(),
+                            egui::Button::new(tr("現在位置を基準に変更")),
+                        )
+                        .on_hover_text(tr(
+                            "現在位置のテンポを変更します。オフセットは現在のフレームに移動されます。",
+                        ))
                         .clicked()
                     {
                         self.apply_bpm_to_current();
@@ -240,8 +256,9 @@ impl MetronomeApp {
                     if ui
                         .add_enabled(
                             self.bpm.is_some(),
-                            egui::Button::new(tr("現在位置に新しく追加")),
+                            egui::Button::new(tr("現在位置から新しく追加")),
                         )
+                        .on_hover_text(tr("現在位置に新しいテンポを追加します。"))
                         .clicked()
                     {
                         self.add_bpm_at_current_position();
@@ -317,6 +334,7 @@ impl MetronomeApp {
         if self.will_reset_on_next_tap {
             self.reset_taps();
             self.will_reset_on_next_tap = false;
+            return;
         }
         let now = Instant::now();
         if let Some(last_tap) = self.last_tap {
@@ -374,6 +392,23 @@ impl MetronomeApp {
         }
     }
 
+    fn apply_bpm_to_origin_of_current(&self) {
+        if let Some(bpm) = self.bpm {
+            let res = crate::EDIT_HANDLE.call_edit_section(|edit| {
+                let current_frame = edit.info.frame;
+                let fps = *edit.info.fps.numer() as f64 / *edit.info.fps.denom() as f64;
+                let current_time = current_frame as f64 / fps;
+                let mut bpm_infos = edit.get_grid_bpm_list()?;
+                let index = bpm_infos
+                    .partition_point(|bpm| bpm.start <= current_time)
+                    .saturating_sub(1);
+                bpm_infos[index].tempo = bpm as f32;
+                edit.set_grid_bpm_list(&bpm_infos)
+            });
+            tracing::info!("Applied BPM: {:?}", res);
+        }
+    }
+
     fn apply_bpm_to_current(&self) {
         if let Some(bpm) = self.bpm {
             let res = crate::EDIT_HANDLE.call_edit_section(|edit| {
@@ -381,12 +416,11 @@ impl MetronomeApp {
                 let fps = *edit.info.fps.numer() as f64 / *edit.info.fps.denom() as f64;
                 let current_time = current_frame as f64 / fps;
                 let mut bpm_infos = edit.get_grid_bpm_list()?;
-                let index = bpm_infos.partition_point(|bpm| bpm.offset <= current_time);
-                if index == 0 {
-                    bpm_infos[0].tempo = bpm as f32;
-                } else {
-                    bpm_infos[index - 1].tempo = bpm as f32;
-                }
+                let index = bpm_infos
+                    .partition_point(|bpm| bpm.start <= current_time)
+                    .saturating_sub(1);
+                bpm_infos[index].tempo = bpm as f32;
+                bpm_infos[index].offset = (current_time - bpm_infos[index].start) as f32;
                 edit.set_grid_bpm_list(&bpm_infos)
             });
             tracing::info!("Applied BPM: {:?}", res);
@@ -401,19 +435,20 @@ impl MetronomeApp {
                 let current_time = current_frame as f64 / fps;
                 let mut bpm_infos = edit.get_grid_bpm_list()?;
                 let new_bpm_info = aviutl2::generic::BpmInfo {
-                    offset: current_time,
                     tempo: bpm as f32,
                     beat: 4,
+                    start: current_time,
+                    offset: 0.0,
                 };
                 if let Some(existing) = bpm_infos
                     .iter_mut()
-                    .find(|bpm| (bpm.offset - current_time).abs() < 1e-6)
+                    .find(|bpm| (bpm.start - current_time).abs() < 1e-6)
                 {
                     *existing = new_bpm_info;
                 } else {
                     bpm_infos.push(new_bpm_info);
                 }
-                bpm_infos.sort_by(|a, b| a.offset.total_cmp(&b.offset));
+                bpm_infos.sort_by(|a, b| a.start.total_cmp(&b.start));
                 edit.set_grid_bpm_list(&bpm_infos)
             });
             tracing::info!("Added BPM: {:?}", res);
@@ -428,8 +463,8 @@ fn get_current_bpm_from_host() -> Option<f64> {
         .call_read_section(|read| read.get_grid_bpm_list())
         .ok()?
         .ok()?;
-    bpm_info.sort_by(|a, b| a.offset.total_cmp(&b.offset));
-    let index = bpm_info.partition_point(|bpm| bpm.offset <= current_time);
+    bpm_info.sort_by(|a, b| a.start.total_cmp(&b.start));
+    let index = bpm_info.partition_point(|bpm| bpm.start <= current_time);
     if index == 0 {
         None
     } else {

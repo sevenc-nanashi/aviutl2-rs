@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: 最小サポートをbeta53aに引き上げ
 
 ### デモプラグイン
 

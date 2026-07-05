@@ -236,22 +236,24 @@ pub enum MediaFileSupportMode {
 ///
 /// # Note
 ///
-/// PartialOrdを実装しています。offset順で並び替えられ、同じoffsetの場合はNoneになります。
+/// PartialOrdを実装しています。start順で並び替えられ、同じstartの場合はNoneになります。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BpmInfo {
     /// テンポ。
     pub tempo: f32,
     /// 拍子。
     pub beat: i32,
-    /// 基準時間。
-    pub offset: f64,
+    /// 開始位置(秒)。
+    pub start: f64,
+    /// 拍子オフセット(秒)。
+    pub offset: f32,
 }
 impl PartialOrd for BpmInfo {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        if self.offset == other.offset {
+        if self.start == other.start {
             None
         } else {
-            self.offset.partial_cmp(&other.offset)
+            self.start.partial_cmp(&other.start)
         }
     }
 }
@@ -260,6 +262,7 @@ impl From<aviutl2_sys::plugin2::BPM_INFO> for BpmInfo {
         Self {
             tempo: value.tempo,
             beat: value.beat,
+            start: value.start,
             offset: value.offset,
         }
     }
@@ -269,6 +272,7 @@ impl From<BpmInfo> for aviutl2_sys::plugin2::BPM_INFO {
         Self {
             tempo: value.tempo,
             beat: value.beat,
+            start: value.start,
             offset: value.offset,
         }
     }
@@ -839,19 +843,23 @@ impl ReadSection {
     /// BPMグリッドのBPM情報の一覧を取得する。
     pub fn get_grid_bpm_list(&self) -> EditSectionResult<Vec<BpmInfo>> {
         let mut bpm_info_list = Vec::<aviutl2_sys::plugin2::BPM_INFO>::new();
-        let bpm_num = unsafe { ((*self.internal).get_grid_bpm_list)(std::ptr::null_mut(), 0) };
+        let bpm_size = std::mem::size_of::<aviutl2_sys::plugin2::BPM_INFO>().try_into()?;
+        let bpm_num =
+            unsafe { ((*self.internal).get_grid_bpm_list)(std::ptr::null_mut(), 0, bpm_size) };
         if bpm_num <= 0 {
             return Ok(vec![]);
         }
         bpm_info_list.resize_with(bpm_num as usize, || aviutl2_sys::plugin2::BPM_INFO {
             tempo: 0.0,
             beat: 0,
+            start: 0.0,
             offset: 0.0,
         });
         let actual_bpm_num = unsafe {
             ((*self.internal).get_grid_bpm_list)(
                 bpm_info_list.as_mut_ptr(),
                 bpm_info_list.len() as i32,
+                bpm_size,
             )
         };
         if actual_bpm_num != bpm_num {
@@ -1444,6 +1452,7 @@ impl EditSection {
             ((*self.internal).set_grid_bpm_list)(
                 raw_bpm_info.as_mut_ptr(),
                 raw_bpm_info.len().try_into()?,
+                std::mem::size_of::<aviutl2_sys::plugin2::BPM_INFO>().try_into()?,
             );
         }
         Ok(())

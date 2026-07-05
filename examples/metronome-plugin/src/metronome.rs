@@ -154,7 +154,7 @@ impl BpmGrid {
         Some(Self {
             tempo: info.tempo as f64,
             beat: info.beat,
-            offset: info.offset,
+            offset: info.start + info.offset as f64,
         })
     }
 }

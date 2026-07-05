@@ -135,8 +135,10 @@ pub struct BPM_INFO {
     pub tempo: f32,
     /// 拍子
     pub beat: i32,
-    /// 基準時間
-    pub offset: f64,
+    /// 開始位置（秒）
+    pub start: f64,
+    /// 拍子オフセット（秒）
+    pub offset: f32,
 }
 
 /// イベント種別
@@ -189,7 +191,7 @@ pub struct EDIT_INFO {
     pub grid_bpm_tempo: f32,
     /// グリッド(BPM)の拍子
     pub grid_bpm_beat: i32,
-    /// グリッド(BPM)の基準時間
+    /// グリッド(BPM)の拍子オフセット
     pub grid_bpm_offset: f32,
     /// シーンのID
     pub scene_id: i32,
@@ -498,11 +500,14 @@ pub struct EDIT_SECTION {
         item_num: i32,
     ) -> i32,
 
-    /// グリッド(BPM)のBPM情報一覧を取得します
-    pub get_grid_bpm_list: unsafe extern "C" fn(bpm_list: *mut BPM_INFO, bpm_num: i32) -> i32,
+    /// 新しい関数に差し替えるので廃止します
+    #[deprecated = "新しい関数に差し替えるので廃止します"]
+    pub deprecated_get_grid_bpm_list:
+        unsafe extern "C" fn(bpm_list: *mut BPM_INFO, bpm_num: i32) -> i32,
 
-    /// グリッド(BPM)のBPM情報一覧を設定します (call_read_section利用不可)
-    pub set_grid_bpm_list: unsafe extern "C" fn(bpm_list: *mut BPM_INFO, bpm_num: i32),
+    /// 新しい関数に差し替えるので廃止します
+    #[deprecated = "新しい関数に差し替えるので廃止します"]
+    pub deprecated_set_grid_bpm_list: unsafe extern "C" fn(bpm_list: *mut BPM_INFO, bpm_num: i32),
 
     /// オブジェクトからエフェクトを検索します
     pub find_effect: unsafe extern "C" fn(object: OBJECT_HANDLE, effect: LPCWSTR) -> EFFECT_HANDLE,
@@ -559,6 +564,14 @@ pub struct EDIT_SECTION {
         info: *mut TRACK_INFO,
         info_size: i32,
     ) -> bool,
+
+    /// グリッド(BPM)のBPM情報一覧を取得します
+    pub get_grid_bpm_list:
+        unsafe extern "C" fn(bpm_list: *mut BPM_INFO, bpm_num: i32, bpm_size: i32) -> i32,
+
+    /// グリッド(BPM)のBPM情報一覧を設定します (call_read_section利用不可)
+    pub set_grid_bpm_list:
+        unsafe extern "C" fn(bpm_list: *mut BPM_INFO, bpm_num: i32, bpm_size: i32),
 }
 
 /// 編集ハンドル構造体
