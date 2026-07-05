@@ -6,7 +6,7 @@
 
 ### デモプラグイン
 
-（なし）
+- metronome: 自動でBPMが更新されるように
 
 ## [0.37.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.37.0)
 

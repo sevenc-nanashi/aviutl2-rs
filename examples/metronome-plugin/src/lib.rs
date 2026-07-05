@@ -52,6 +52,20 @@ impl aviutl2::generic::GenericPlugin for MetronomePlugin {
     fn on_clear_cache(&mut self, _edit_section: &aviutl2::generic::EditSection) {
         crate::wav::clear_sample_cache();
     }
+
+    fn event_change_edit_frame(&mut self) {
+        crate::gui::update_current_bpm();
+        if let Ok(ctx) = self.window.egui_ctx() {
+            ctx.request_repaint()
+        }
+    }
+
+    fn event_change_scene_info(&mut self) {
+        crate::gui::update_current_bpm();
+        if let Ok(ctx) = self.window.egui_ctx() {
+            ctx.request_repaint()
+        }
+    }
 }
 
 impl MetronomePlugin {

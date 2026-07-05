@@ -5,17 +5,35 @@ use std::{collections::VecDeque, time::Instant};
 const MAX_TAP_INTERVAL_SECS: f64 = 3.0;
 const MAX_INTERVALS: usize = 8;
 
+static CURRENT_BPM: std::sync::Mutex<f64> = std::sync::Mutex::new(0.0);
+pub(crate) fn update_current_bpm() {
+    if let Some(bpm) = get_current_bpm_from_host()
+        && let Ok(mut lock) = CURRENT_BPM.lock()
+    {
+        *lock = bpm;
+    }
+}
+
 pub(crate) struct MetronomeApp {
     show_info: bool,
     suppress_info_close_once: bool,
     version: String,
     handle: AviUtl2EframeHandle,
-    last_tap: Option<Instant>,
-    tap_intervals: VecDeque<f64>,
-    bpm: Option<f64>,
     bpm_text_input: String,
-    will_reset_on_next_tap: bool,
     header_collapsed: bool,
+    state: State,
+}
+
+enum State {
+    Idle,
+    Tapping {
+        last_tap: Instant,
+        tap_intervals: VecDeque<f64>,
+        estimated_bpm: Option<f64>,
+    },
+    Dirty {
+        bpm: f64,
+    },
 }
 
 impl MetronomeApp {
@@ -36,12 +54,17 @@ impl MetronomeApp {
             suppress_info_close_once: false,
             version: env!("CARGO_PKG_VERSION").to_string(),
             handle,
-            last_tap: None,
-            tap_intervals: VecDeque::new(),
-            bpm: None,
             bpm_text_input: String::new(),
-            will_reset_on_next_tap: false,
+            state: State::Idle,
             header_collapsed,
+        }
+    }
+
+    fn bpm(&self) -> Option<f64> {
+        match &self.state {
+            State::Idle => CURRENT_BPM.lock().ok().map(|l| *l).filter(|&bpm| bpm > 0.0),
+            State::Tapping { .. } => None,
+            State::Dirty { bpm } => Some(*bpm),
         }
     }
 }
@@ -131,32 +154,59 @@ impl MetronomeApp {
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(16.0);
-                if let Some(last_tap) = self.last_tap {
-                    let since = last_tap.elapsed().as_secs_f64();
-                    if since > MAX_TAP_INTERVAL_SECS {
-                        self.will_reset_on_next_tap = true;
-                    } else {
-                        ui.request_repaint();
+                match &self.state {
+                    State::Tapping {
+                        last_tap,
+                        tap_intervals,
+                        estimated_bpm: _,
+                    } => {
+                        let since = last_tap.elapsed().as_secs_f64();
+                        if since > MAX_TAP_INTERVAL_SECS {
+                            self.state = State::Dirty {
+                                bpm: tap_intervals.iter().copied().sum::<f64>()
+                                    / (tap_intervals.len() as f64),
+                            };
+                        } else {
+                            ui.request_repaint();
+                        }
                     }
+                    _ => {}
                 }
                 let bpm_input_id = ui.make_persistent_id("bpm_input");
-                if !ui.memory(|m| m.has_focus(bpm_input_id)) {
-                    self.bpm_text_input =
-                        self.bpm.map(|bpm| format!("{bpm:.2}")).unwrap_or_default();
+                if !ui.memory(|m| m.has_focus(bpm_input_id))
+                    && let Some(bpm) = self.bpm()
+                {
+                    self.bpm_text_input = format!("{bpm:.2}");
                 }
                 ui.horizontal(|ui| {
                     let width = ui.available_width();
                     let button_width = 40.0;
-                    let response = ui.add_sized(
-                        egui::vec2(
-                            width - button_width - 8.0,
-                            ui.text_style_height(&egui::TextStyle::Heading),
-                        ),
-                        egui::TextEdit::singleline(&mut self.bpm_text_input)
-                            .horizontal_align(egui::Align::Max)
-                            .id(bpm_input_id)
-                            .font(egui::TextStyle::Heading),
-                    );
+                    let response = ui
+                        .scope(|ui| {
+                            let mut current_estimated_bpm_string = match &self.state {
+                                State::Tapping {
+                                    last_tap: _,
+                                    tap_intervals: _,
+                                    estimated_bpm,
+                                } => estimated_bpm.map(|bpm| format!("{bpm:.2}")),
+                                _ => None,
+                            };
+                            ui.add_sized(
+                                egui::vec2(
+                                    width - button_width - 8.0,
+                                    ui.text_style_height(&egui::TextStyle::Heading),
+                                ),
+                                egui::TextEdit::singleline(
+                                    current_estimated_bpm_string
+                                        .as_mut()
+                                        .unwrap_or(&mut self.bpm_text_input),
+                                )
+                                .horizontal_align(egui::Align::Max)
+                                .id(bpm_input_id)
+                                .font(egui::TextStyle::Heading),
+                            )
+                        })
+                        .inner;
                     ui.add_sized(
                         egui::vec2(button_width, response.rect.height()),
                         egui::Label::new(
@@ -170,58 +220,46 @@ impl MetronomeApp {
                     }
                 });
                 ui.add_space(12.0);
-                // Shiftキーを押してるときはプロジェクトからBPMを持ってくる
-                if ui.input(|i| i.modifiers.shift) {
-                    let set_button =
-                        egui::Button::new(tr("BPM取得")).min_size(egui::vec2(160.0, 48.0));
-                    if ui
-                        .add(set_button)
-                        .on_hover_text(tr("プロジェクトからBPMを取得します"))
-                        .clicked()
-                    {
-                        self.bpm = get_current_bpm_from_host();
-                        self.will_reset_on_next_tap = true;
-                    }
-                } else {
-                    let tap_label = if self.will_reset_on_next_tap {
-                        tr("Reset")
-                    } else if self.last_tap.is_some() {
-                        tr("Tap")
-                    } else {
-                        tr("Start")
-                    };
-                    let tap_button = egui::Button::new(tap_label).min_size(egui::vec2(160.0, 48.0));
-                    if ui
-                        .add(tap_button)
-                        .on_hover_text(tr("Spaceキーでもタップできます"))
-                        .clicked()
-                    {
-                        self.register_tap();
-                    }
+                let tap_label = match self.state {
+                    State::Tapping { .. } => tr("Tap"),
+                    State::Dirty { .. } => tr("Reset"),
+                    State::Idle => tr("Start"),
+                };
+                let tap_button = egui::Button::new(tap_label).min_size(egui::vec2(160.0, 48.0));
+                if ui
+                    .add(tap_button)
+                    .on_hover_text(tr("Spaceキーでもタップできます"))
+                    .clicked()
+                {
+                    self.register_tap();
                 }
                 ui.add_space(8.0);
                 ui.columns(3, |columns| {
                     if columns[0]
-                        .add_enabled(self.bpm.is_some(), egui::Button::new(tr("÷ 2")))
+                        .add_enabled(self.bpm().is_some(), egui::Button::new(tr("÷ 2")))
                         .clicked()
                     {
-                        self.bpm = self.bpm.map(|bpm| bpm / 2.0);
+                        self.state = State::Dirty {
+                            bpm: self.bpm().unwrap() / 2.0,
+                        };
                     }
                     if columns[1].button(tr("リセット")).clicked() {
-                        self.reset_taps();
+                        self.state = State::Idle;
                     }
                     if columns[2]
-                        .add_enabled(self.bpm.is_some(), egui::Button::new(tr("× 2")))
+                        .add_enabled(self.bpm().is_some(), egui::Button::new(tr("× 2")))
                         .clicked()
                     {
-                        self.bpm = self.bpm.map(|bpm| bpm * 2.0);
+                        self.state = State::Dirty {
+                            bpm: self.bpm().unwrap() * 2.0,
+                        };
                     }
                 });
                 ui.add_space(8.0);
                 ui.columns_const(|[ui]| {
                     if ui
                         .add_enabled(
-                            self.bpm.is_some(),
+                            self.bpm().is_some(),
                             egui::Button::new(tr("0:00を基準に反映")),
                         )
                         .on_hover_text(tr("プロジェクトの最初のテンポを変更します。"))
@@ -231,7 +269,7 @@ impl MetronomeApp {
                     }
                     if ui
                         .add_enabled(
-                            self.bpm.is_some(),
+                            self.bpm().is_some(),
                             egui::Button::new(tr("現在のテンポを変更")),
                         )
                         .on_hover_text(tr(
@@ -243,19 +281,21 @@ impl MetronomeApp {
                     }
                     if ui
                         .add_enabled(
-                            self.bpm.is_some(),
+                            self.bpm().is_some(),
                             egui::Button::new(tr("現在位置を基準に変更")),
                         )
-                        .on_hover_text(tr(
-                            "現在位置のテンポを変更します。オフセットは現在のフレームに移動されます。",
-                        ))
+                        // NOTE: concat!しないとrustfmtが死ぬ
+                        .on_hover_text(tr(concat!(
+                            "現在位置のテンポを変更します。",
+                            "オフセットは現在のフレームに移動されます。"
+                        )))
                         .clicked()
                     {
                         self.apply_bpm_to_current();
                     }
                     if ui
                         .add_enabled(
-                            self.bpm.is_some(),
+                            self.bpm().is_some(),
                             egui::Button::new(tr("現在位置から新しく追加")),
                         )
                         .on_hover_text(tr("現在位置に新しいテンポを追加します。"))
@@ -331,58 +371,66 @@ impl MetronomeApp {
     }
 
     fn register_tap(&mut self) {
-        if self.will_reset_on_next_tap {
-            self.reset_taps();
-            self.will_reset_on_next_tap = false;
-            return;
-        }
-        let now = Instant::now();
-        if let Some(last_tap) = self.last_tap {
-            let delta = now.duration_since(last_tap).as_secs_f64();
-            self.tap_intervals.push_back(delta);
-            while self.tap_intervals.len() > MAX_INTERVALS {
-                self.tap_intervals.pop_front();
+        match &mut self.state {
+            State::Idle => {
+                self.state = State::Tapping {
+                    last_tap: Instant::now(),
+                    tap_intervals: VecDeque::new(),
+                    estimated_bpm: None,
+                };
+                return;
             }
-            let avg =
-                self.tap_intervals.iter().copied().sum::<f64>() / (self.tap_intervals.len() as f64);
-            if avg > 0.0 {
-                self.bpm = Some(60.0 / avg);
+            State::Tapping {
+                last_tap,
+                tap_intervals,
+                estimated_bpm: _,
+            } => {
+                let now = Instant::now();
+                let delta = now.duration_since(*last_tap).as_secs_f64();
+                if delta > MAX_TAP_INTERVAL_SECS {
+                    self.state = State::Dirty {
+                        bpm: tap_intervals.iter().copied().sum::<f64>()
+                            / (tap_intervals.len() as f64),
+                    };
+                    return;
+                }
+                tap_intervals.push_back(delta);
+                while tap_intervals.len() > MAX_INTERVALS {
+                    tap_intervals.pop_front();
+                }
+                let avg = tap_intervals.iter().copied().sum::<f64>() / (tap_intervals.len() as f64);
+                if avg > 0.0 {
+                    self.state = State::Tapping {
+                        last_tap: now,
+                        tap_intervals: tap_intervals.clone(),
+                        estimated_bpm: Some(60.0 / avg),
+                    };
+                }
+            }
+            State::Dirty { .. } => {
+                self.state = State::Idle;
             }
         }
-        self.last_tap = Some(now);
-    }
-
-    fn reset_taps(&mut self) {
-        self.last_tap = None;
-        self.tap_intervals.clear();
-        self.bpm = None;
-        self.will_reset_on_next_tap = false;
     }
 
     fn apply_bpm_input(&mut self) {
         let trimmed = self.bpm_text_input.trim();
         if trimmed.is_empty() {
-            self.bpm = None;
-            self.last_tap = None;
-            self.tap_intervals.clear();
-            self.will_reset_on_next_tap = false;
+            self.state = State::Idle;
             return;
         }
         match trimmed.parse::<f64>() {
             Ok(value) if value.is_finite() && value > 0.0 => {
-                self.bpm = Some(value);
-                self.last_tap = None;
-                self.tap_intervals.clear();
-                self.will_reset_on_next_tap = false;
+                self.state = State::Dirty { bpm: value };
             }
             _ => {
-                self.bpm_text_input = self.bpm.map(|bpm| format!("{bpm:.2}")).unwrap_or_default();
+                tracing::warn!("Invalid BPM input: {}", trimmed);
             }
         }
     }
 
     fn apply_bpm_to_origin(&self) {
-        if let Some(bpm) = self.bpm {
+        if let Some(bpm) = self.bpm() {
             let res = crate::EDIT_HANDLE.call_edit_section(|edit| {
                 let mut bpm_infos = edit.get_grid_bpm_list()?;
                 bpm_infos[0].tempo = bpm as f32;
@@ -393,7 +441,7 @@ impl MetronomeApp {
     }
 
     fn apply_bpm_to_origin_of_current(&self) {
-        if let Some(bpm) = self.bpm {
+        if let Some(bpm) = self.bpm() {
             let res = crate::EDIT_HANDLE.call_edit_section(|edit| {
                 let current_frame = edit.info.frame;
                 let fps = *edit.info.fps.numer() as f64 / *edit.info.fps.denom() as f64;
@@ -410,7 +458,7 @@ impl MetronomeApp {
     }
 
     fn apply_bpm_to_current(&self) {
-        if let Some(bpm) = self.bpm {
+        if let Some(bpm) = self.bpm() {
             let res = crate::EDIT_HANDLE.call_edit_section(|edit| {
                 let current_frame = edit.info.frame;
                 let fps = *edit.info.fps.numer() as f64 / *edit.info.fps.denom() as f64;
@@ -428,7 +476,7 @@ impl MetronomeApp {
     }
 
     fn add_bpm_at_current_position(&self) {
-        if let Some(bpm) = self.bpm {
+        if let Some(bpm) = self.bpm() {
             let res = crate::EDIT_HANDLE.call_edit_section(|edit| {
                 let current_frame = edit.info.frame;
                 let fps = *edit.info.fps.numer() as f64 / *edit.info.fps.denom() as f64;
