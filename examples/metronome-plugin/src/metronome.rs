@@ -59,19 +59,17 @@ impl aviutl2::filter::FilterPlugin for MetronomeFilter {
             .sample_b
             .as_deref()
             .and_then(|path| crate::wav::get_wav_sample(path, sample_rate));
-        let bpm_info = crate::EDIT_HANDLE.call_read_section(|read| read.get_grid_bpm_list())??;
-        let mut bpm_grids = bpm_info
-            .into_iter()
-            .filter_map(BpmGrid::from_bpm_info)
-            .collect::<Vec<_>>();
+        let mut bpm_grids =
+            crate::EDIT_HANDLE.call_read_section(|read| read.get_grid_bpm_list())??;
         if bpm_grids.is_empty() {
             return Ok(());
         }
-        bpm_grids.sort_by(|a, b| a.offset.total_cmp(&b.offset));
+        bpm_grids.sort_by(|a, b| a.start.total_cmp(&b.start));
 
         let info = crate::EDIT_HANDLE.get_edit_info();
         let object_start_time =
             audio.object.frame_s as f64 * *info.fps.denom() as f64 / *info.fps.numer() as f64;
+        let object_start_sample_index = (object_start_time * sample_rate as f64).round() as u64;
         tracing::debug!(
             "frame_s: {}, fps: {}/{} => time_s: {}, bpm_grid_count: {}",
             audio.object.frame_s,
@@ -88,21 +86,15 @@ impl aviutl2::filter::FilterPlugin for MetronomeFilter {
         let mut rbuf = vec![0.0f32; audio.audio_object.sample_num as usize];
         for i in 0..audio.audio_object.sample_num as usize {
             let current_sample_index = audio.audio_object.sample_index + i as u64;
-            let current_time = object_start_time + current_sample_index as f64 / sample_rate as f64;
-            let Some(bpm_grid) = get_bpm_grid_at(&bpm_grids, current_time) else {
+            let current_timeline_sample_index = object_start_sample_index + current_sample_index;
+            let Some((last_beat_sample_index, beat_number)) =
+                get_last_beat_sample_index(sample_rate, &bpm_grids, current_timeline_sample_index)
+            else {
                 continue;
             };
-            let Some((last_beat_sample_index, beat_number)) = get_last_beat_sample_index(
-                sample_rate,
-                bpm_grid.tempo,
-                bpm_grid.offset - object_start_time,
-                current_sample_index,
-            ) else {
-                continue;
-            };
-            let use_a = beat_number % bpm_grid.beat as i64 == 0;
+            let use_a = beat_number == 0;
 
-            let sample_offset = current_sample_index.saturating_sub(last_beat_sample_index);
+            let sample_offset = current_timeline_sample_index - last_beat_sample_index;
             let sample = if use_a {
                 sample_a.as_deref()
             } else {
@@ -138,29 +130,11 @@ impl aviutl2::filter::FilterPlugin for MetronomeFilter {
         Ok(())
     }
 }
-
-#[derive(Debug, Clone, Copy)]
-struct BpmGrid {
-    tempo: f64,
-    beat: i32,
-    offset: f64,
-}
-
-impl BpmGrid {
-    fn from_bpm_info(info: aviutl2::generic::BpmInfo) -> Option<Self> {
-        if info.tempo < 0.1 || info.beat <= 0 {
-            return None;
-        }
-        Some(Self {
-            tempo: info.tempo as f64,
-            beat: info.beat,
-            offset: info.start + info.offset as f64,
-        })
-    }
-}
-
-fn get_bpm_grid_at(bpm_grids: &[BpmGrid], time: f64) -> Option<BpmGrid> {
-    let index = bpm_grids.partition_point(|grid| grid.offset <= time);
+fn get_bpm_grid_at(
+    bpm_grids: &[aviutl2::generic::BpmInfo],
+    time: f64,
+) -> Option<aviutl2::generic::BpmInfo> {
+    let index = bpm_grids.partition_point(|grid| grid.start <= time);
     if index == 0 {
         None
     } else {
@@ -170,21 +144,84 @@ fn get_bpm_grid_at(bpm_grids: &[BpmGrid], time: f64) -> Option<BpmGrid> {
 
 fn get_last_beat_sample_index(
     sample_rate: u32,
-    bpm: f64,
-    bpm_offset: f64,
+    bpm_grids: &[aviutl2::generic::BpmInfo],
     current_sample_index: u64,
 ) -> Option<(u64, i64)> {
-    let samples_per_beat = (60.0 / bpm) * sample_rate as f64;
-    let offset_samples = bpm_offset * sample_rate as f64;
-    let adjusted_index = current_sample_index as f64 - offset_samples;
+    let current_time = current_sample_index as f64 / sample_rate as f64;
+    let bpm_grid = get_bpm_grid_at(bpm_grids, current_time)?;
+    assert!(bpm_grid.tempo.is_finite() && bpm_grid.tempo > 0.0);
+    assert!(bpm_grid.beat > 0);
+    let samples_per_beat = (60.0 / f64::from(bpm_grid.tempo)) * f64::from(sample_rate);
+    let grid_start_sample_index = bpm_grid.start * f64::from(sample_rate);
+    let offset_sample_index =
+        (bpm_grid.start + f64::from(bpm_grid.offset)) * f64::from(sample_rate);
+    let adjusted_index = current_sample_index as f64 - offset_sample_index;
     let beat_count = (adjusted_index / samples_per_beat).floor();
-    let last_beat_sample_index = (beat_count * samples_per_beat + offset_samples).round();
-    if last_beat_sample_index < 0.0 || last_beat_sample_index > current_sample_index as f64 {
+    let last_beat_sample_index = beat_count * samples_per_beat + offset_sample_index;
+    if last_beat_sample_index < grid_start_sample_index {
         return None;
     }
-    Some((last_beat_sample_index as u64, beat_count as i64))
+    let last_beat_sample_index = last_beat_sample_index.round() as u64;
+    if last_beat_sample_index > current_sample_index {
+        return None;
+    }
+    Some((
+        last_beat_sample_index,
+        (beat_count as i64).rem_euclid(bpm_grid.beat as i64),
+    ))
 }
 
 fn clamp_sample(value: f32) -> f32 {
     value.clamp(-1.0, 1.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bpm_info(start: f64, offset: f32) -> aviutl2::generic::BpmInfo {
+        aviutl2::generic::BpmInfo {
+            tempo: 120.0,
+            beat: 4,
+            start,
+            offset,
+        }
+    }
+
+    #[test]
+    fn emits_beats_before_offset() {
+        let grids = [bpm_info(0.0, 1.0)];
+
+        assert_eq!(get_last_beat_sample_index(1000, &grids, 0), Some((0, 2)));
+        assert_eq!(
+            get_last_beat_sample_index(1000, &grids, 999),
+            Some((500, 3))
+        );
+        assert_eq!(
+            get_last_beat_sample_index(1000, &grids, 1000),
+            Some((1000, 0))
+        );
+    }
+
+    #[test]
+    fn offset_is_relative_to_grid_start() {
+        let grids = [bpm_info(10.0, 0.5)];
+
+        assert_eq!(
+            get_last_beat_sample_index(1000, &grids, 10_000),
+            Some((10_000, 3))
+        );
+        assert_eq!(
+            get_last_beat_sample_index(1000, &grids, 10_499),
+            Some((10_000, 3))
+        );
+        assert_eq!(
+            get_last_beat_sample_index(1000, &grids, 10_500),
+            Some((10_500, 0))
+        );
+        assert_eq!(
+            get_last_beat_sample_index(1000, &grids, 11_000),
+            Some((11_000, 1))
+        );
+    }
 }

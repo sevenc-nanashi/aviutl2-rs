@@ -154,23 +154,19 @@ impl MetronomeApp {
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(16.0);
-                match &self.state {
-                    State::Tapping {
-                        last_tap,
-                        tap_intervals,
-                        estimated_bpm: _,
-                    } => {
-                        let since = last_tap.elapsed().as_secs_f64();
-                        if since > MAX_TAP_INTERVAL_SECS {
-                            self.state = State::Dirty {
-                                bpm: tap_intervals.iter().copied().sum::<f64>()
-                                    / (tap_intervals.len() as f64),
-                            };
-                        } else {
-                            ui.request_repaint();
-                        }
+                if let State::Tapping {
+                    last_tap,
+                    tap_intervals: _,
+                    estimated_bpm,
+                } = &self.state
+                {
+                    let since = last_tap.elapsed().as_secs_f64();
+                    if since > MAX_TAP_INTERVAL_SECS {
+                        self.state = State::Dirty {
+                            bpm: estimated_bpm.unwrap_or(0.0),
+                        };
                     }
-                    _ => {}
+                    ui.request_repaint();
                 }
                 let bpm_input_id = ui.make_persistent_id("bpm_input");
                 if !ui.memory(|m| m.has_focus(bpm_input_id))
@@ -188,7 +184,10 @@ impl MetronomeApp {
                                     last_tap: _,
                                     tap_intervals: _,
                                     estimated_bpm,
-                                } => estimated_bpm.map(|bpm| format!("{bpm:.2}")),
+                                } => {
+                                    ui.disable();
+                                    estimated_bpm.map(|bpm| format!("{bpm:.2}"))
+                                }
                                 _ => None,
                             };
                             ui.add_sized(
@@ -378,7 +377,6 @@ impl MetronomeApp {
                     tap_intervals: VecDeque::new(),
                     estimated_bpm: None,
                 };
-                return;
             }
             State::Tapping {
                 last_tap,
@@ -387,13 +385,6 @@ impl MetronomeApp {
             } => {
                 let now = Instant::now();
                 let delta = now.duration_since(*last_tap).as_secs_f64();
-                if delta > MAX_TAP_INTERVAL_SECS {
-                    self.state = State::Dirty {
-                        bpm: tap_intervals.iter().copied().sum::<f64>()
-                            / (tap_intervals.len() as f64),
-                    };
-                    return;
-                }
                 tap_intervals.push_back(delta);
                 while tap_intervals.len() > MAX_INTERVALS {
                     tap_intervals.pop_front();
