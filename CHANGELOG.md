@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-（なし）
+- common: `AviUtl2Version`を2.0.54以上のバージョンに対応
+
+> [!NOTE]
+> aviutl2-rsは2026/07/08で一周年になります！
 
 ### デモプラグイン
 

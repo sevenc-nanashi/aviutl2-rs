@@ -89,24 +89,46 @@ impl AviUtl2Version {
 }
 impl std::fmt::Display for AviUtl2Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let build_str = if self.build() > 0 {
-            ('a'..='z')
-                .nth((self.build() - 1) as usize)
-                .map(|c| c.to_string())
-                .unwrap_or_default()
+        if self.0 <= 2005301 {
+            write!(
+                f,
+                "{}.{:0>2}beta{}{}",
+                self.major(),
+                self.minor(),
+                self.patch(),
+                int_to_a_to_z(self.build() as u8).unwrap_or_default()
+            )
         } else {
-            String::new()
-        };
-        write!(
-            f,
-            "{}.{:0>2}beta{}{}",
-            self.major(),
-            self.minor(),
-            self.patch(),
-            build_str
-        )
+            write!(
+                f,
+                "v{}.{}.{}{}",
+                self.major(),
+                self.minor(),
+                self.patch(),
+                int_to_a_to_z(self.build() as u8).unwrap_or_default()
+            )
+        }
     }
 }
+
+// NOTE: ビルドバージョンが27以上になった場合はどうなるかはまだ不明なので、
+// 暫定的にExcelの列番号のように変換する。そもそも26以上のビルドバージョンが
+// リリースされることなんてないと思うけど...
+fn int_to_a_to_z(n: u8) -> Option<String> {
+    let mut n = n;
+    if n == 0 {
+        return None;
+    }
+
+    let mut result = String::new();
+    while n > 0 {
+        n -= 1;
+        result.insert(0, (b'a' + (n % 26)) as char);
+        n /= 26;
+    }
+    Some(result)
+}
+
 #[cfg(feature = "aviutl2-alias")]
 impl aviutl2_alias::FromTableValue for AviUtl2Version {
     type Err = std::num::ParseIntError;
@@ -662,6 +684,26 @@ mod tests {
 
         let u32_from_version: u32 = version.into();
         assert_eq!(u32_from_version, 2001500);
+
+        assert_eq!(version.to_string(), "2.00beta15");
+
+        let version2 = AviUtl2Version::new(2, 0, 15, 1);
+        assert_eq!(version2.to_string(), "2.00beta15a");
+
+        let version3 = AviUtl2Version::new(2, 0, 54, 0);
+        assert_eq!(version3.to_string(), "v2.0.54");
+
+        let version4 = AviUtl2Version::new(2, 0, 54, 1);
+        assert_eq!(version4.to_string(), "v2.0.54a");
+
+        let version5 = AviUtl2Version::new(2, 0, 54, 26);
+        assert_eq!(version5.to_string(), "v2.0.54z");
+
+        let version6 = AviUtl2Version::new(2, 0, 54, 27);
+        assert_eq!(version6.to_string(), "v2.0.54aa");
+
+        let version7 = AviUtl2Version::new(2, 0, 54, 52);
+        assert_eq!(version7.to_string(), "v2.0.54az");
     }
 
     #[test]
