@@ -48,6 +48,10 @@ impl From<EffectHandle> for aviutl2_sys::plugin2::EFFECT_HANDLE {
     }
 }
 
+// これもある程度グローバルに持っておくことを想定されてそうなので大丈夫なはず
+unsafe impl Send for EffectHandle {}
+unsafe impl Sync for EffectHandle {}
+
 /// 編集情報構造体。
 ///
 /// # Note
