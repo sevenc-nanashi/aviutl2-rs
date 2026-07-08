@@ -164,7 +164,7 @@ const _: () = {
         ///
         /// # Note
         ///
-        /// 今現在の実装ではデータはMessagePackにシリアライズされ、zlibのデフォルトで圧縮された後にbase64エンコードされて保存されます。
+        /// 今現在の実装ではデータはMessagePackにシリアライズされ、必要に応じてzlibで圧縮された後にbase64エンコードされて保存されます。
         ///
         /// # Errors
         ///
@@ -175,7 +175,20 @@ const _: () = {
             value: &T,
         ) -> Result<(), ProjectFileSerdeError> {
             let base_bytes = rmp_serde::to_vec_named(value)?;
-            let mut compressed_bytes = vec![0u8; zlib_rs::compress_bound(base_bytes.len())];
+            let compressed_bound = zlib_rs::compress_bound(base_bytes.len());
+            if compressed_bound > base_bytes.len() {
+                // 圧縮後のサイズが元のサイズより大きい場合は、圧縮せずに保存する
+                self.set_param_string(
+                    key,
+                    &format!("{NAMESPACE}:serde-rmp-base64-v1:{}", base_bytes.len()),
+                )?;
+                for (i, chunk) in base_bytes.chunks(BASE64_CHUNK_RAW_SIZE).enumerate() {
+                    let chunk_key = format!("{NAMESPACE}:serde-base64-chunk:{}:{}", key, i);
+                    self.set_param_string(&chunk_key, &BASE64.encode(chunk))?;
+                }
+                return Ok(());
+            }
+            let mut compressed_bytes = vec![0u8; compressed_bound];
             let (compressed_bytes, result) = zlib_rs::compress_slice(
                 &mut compressed_bytes,
                 &base_bytes,
