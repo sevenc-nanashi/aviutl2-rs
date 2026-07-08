@@ -133,7 +133,7 @@ const _: () = {
 
     static NAMESPACE: &str = "--aviutl2-rs";
     const BINARY_CHUNK_SIZE: usize = 4096;
-    // 現状制限はないが、一応4096文字くらいにしておく
+    // 現状制限はないが、一応4096バイトで分割しておく
     const BASE64_CHUNK_RAW_SIZE: usize = 3072;
 
     /// プロジェクトのシリアライズ・デシリアライズ関連のエラー。
@@ -174,9 +174,20 @@ const _: () = {
             key: &str,
             value: &T,
         ) -> Result<(), ProjectFileSerdeError> {
+            self.delete_old_chunks(key)?;
             let base_bytes = rmp_serde::to_vec_named(value)?;
             let compressed_bound = zlib_rs::compress_bound(base_bytes.len());
-            if compressed_bound > base_bytes.len() {
+            let mut compressed_bytes = vec![0u8; compressed_bound];
+            let (compressed_bytes, result) = zlib_rs::compress_slice(
+                &mut compressed_bytes,
+                &base_bytes,
+                zlib_rs::DeflateConfig::default(),
+            );
+            if result != zlib_rs::ReturnCode::Ok {
+                return Err(ProjectFileSerdeError::Zlib(result));
+            }
+            let num_bytes = compressed_bytes.len();
+            if num_bytes > base_bytes.len() {
                 // 圧縮後のサイズが元のサイズより大きい場合は、圧縮せずに保存する
                 self.set_param_string(
                     key,
@@ -188,16 +199,6 @@ const _: () = {
                 }
                 return Ok(());
             }
-            let mut compressed_bytes = vec![0u8; compressed_bound];
-            let (compressed_bytes, result) = zlib_rs::compress_slice(
-                &mut compressed_bytes,
-                &base_bytes,
-                zlib_rs::DeflateConfig::default(),
-            );
-            if result != zlib_rs::ReturnCode::Ok {
-                return Err(ProjectFileSerdeError::Zlib(result));
-            }
-            let num_bytes = compressed_bytes.len();
             self.set_param_string(
                 key,
                 &format!(
@@ -415,6 +416,46 @@ const _: () = {
             decoder.read_to_end(&mut decompressed_bytes)?;
             let value: T = rmp_serde::from_slice(&decompressed_bytes)?;
             Ok(value)
+        }
+
+        fn delete_old_chunks(&mut self, key: &str) -> Result<(), ProjectFileSerdeError> {
+            for i in 0.. {
+                let chunk_key = format!("{NAMESPACE}:serde-base64-chunk:{}:{}", key, i);
+                match self.get_param_string(&chunk_key) {
+                    Ok(_) => {
+                        self.set_param_string(&chunk_key, "")?;
+                    }
+                    Err(_) => break,
+                }
+            }
+            for i in 0.. {
+                let chunk_key = format!("{NAMESPACE}:serde-chunk:{}:{}", key, i);
+                match self.get_param_binary(&chunk_key, &mut [0u8; 1]) {
+                    Ok(_) => {
+                        self.set_param_string(&chunk_key, "")?;
+                    }
+                    Err(_) => break,
+                }
+            }
+            for i in 0.. {
+                let chunk_key = format!("{NAMESPACE}:serde-zstd-v1:chunk:{}:{}", key, i);
+                match self.get_param_binary(&chunk_key, &mut [0u8; 1]) {
+                    Ok(_) => {
+                        self.set_param_string(&chunk_key, "")?;
+                    }
+                    Err(_) => break,
+                }
+            }
+            for i in 0.. {
+                let chunk_key = format!("{NAMESPACE}:serde-base64-chunk:{}:{}", key, i);
+                match self.get_param_string(&chunk_key) {
+                    Ok(_) => {
+                        self.set_param_string(&chunk_key, "")?;
+                    }
+                    Err(_) => break,
+                }
+            }
+            Ok(())
         }
     }
 };
