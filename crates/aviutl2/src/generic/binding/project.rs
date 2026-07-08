@@ -147,6 +147,8 @@ const _: () = {
         Base64Decode(#[from] base64::DecodeError),
         #[error("zstd dompression error: {0}")]
         Decompression(#[from] std::io::Error),
+        #[error("zlib error: {0:?}")]
+        Zlib(zlib_rs::ReturnCode),
         #[error("project file error: {0}")]
         ProjectFile(#[from] ProjectFileError),
         #[error("unsupported serialization format")]
@@ -162,7 +164,7 @@ const _: () = {
         ///
         /// # Note
         ///
-        /// 今現在の実装ではデータはMessagePackにシリアライズされています。
+        /// 今現在の実装ではデータはMessagePackにシリアライズされ、zlibのデフォルトで圧縮された後にbase64エンコードされて保存されます。
         ///
         /// # Errors
         ///
@@ -172,13 +174,26 @@ const _: () = {
             key: &str,
             value: &T,
         ) -> Result<(), ProjectFileSerdeError> {
-            let bytes = rmp_serde::to_vec_named(value)?;
-            let num_bytes = bytes.len();
+            let base_bytes = rmp_serde::to_vec_named(value)?;
+            let mut compressed_bytes = vec![0u8; zlib_rs::compress_bound(base_bytes.len())];
+            let (compressed_bytes, result) = zlib_rs::compress_slice(
+                &mut compressed_bytes,
+                &base_bytes,
+                zlib_rs::DeflateConfig::default(),
+            );
+            if result != zlib_rs::ReturnCode::Ok {
+                return Err(ProjectFileSerdeError::Zlib(result));
+            }
+            let num_bytes = compressed_bytes.len();
             self.set_param_string(
                 key,
-                &format!("{NAMESPACE}:serde-rmp-base64-v1:{}", num_bytes),
+                &format!(
+                    "{NAMESPACE}:serde-rmp-base64-zlib-v1:{},{}",
+                    num_bytes,
+                    base_bytes.len()
+                ),
             )?;
-            for (i, chunk) in bytes.chunks(BASE64_CHUNK_RAW_SIZE).enumerate() {
+            for (i, chunk) in compressed_bytes.chunks(BASE64_CHUNK_RAW_SIZE).enumerate() {
                 let chunk_key = format!("{NAMESPACE}:serde-base64-chunk:{}:{}", key, i);
                 self.set_param_string(&chunk_key, &BASE64.encode(chunk))?;
             }
@@ -197,7 +212,13 @@ const _: () = {
             if let Ok(value) = self.decode_serde_zstd_v1(key, &header) {
                 return Ok(value);
             }
-            self.decode_serde_rmp_v1(key, &header)
+            if let Ok(value) = self.decode_serde_rmp_v1(key, &header) {
+                return Ok(value);
+            }
+            if let Ok(value) = self.decode_serde_rmp_base64_zlib_v1(key, &header) {
+                return Ok(value);
+            }
+            Err(ProjectFileSerdeError::UnsupportedFormat)
         }
 
         fn decode_serde_rmp_base64_v1<T: serde::de::DeserializeOwned>(
@@ -241,6 +262,46 @@ const _: () = {
             }
             let chunks = self.collect_chunks(num_bytes, key)?;
             let value: T = rmp_serde::from_slice(&chunks)?;
+            Ok(value)
+        }
+
+        fn decode_serde_rmp_base64_zlib_v1<T: serde::de::DeserializeOwned>(
+            &self,
+            key: &str,
+            header: &str,
+        ) -> Result<T, ProjectFileSerdeError> {
+            let header_prefix = format!("{NAMESPACE}:serde-rmp-base64-zlib-v1:");
+            let num_bytes = header
+                .strip_prefix(&header_prefix)
+                .ok_or(ProjectFileSerdeError::UnsupportedFormat)?;
+            let (compressed_size, uncompressed_size) =
+                num_bytes
+                    .split_once(',')
+                    .ok_or(ProjectFileSerdeError::InvalidHeaderFormat(
+                        header.to_string(),
+                    ))?;
+            let compressed_size: usize = compressed_size
+                .parse()
+                .map_err(|_| ProjectFileSerdeError::InvalidHeaderFormat(header.to_string()))?;
+            let uncompressed_size: usize = uncompressed_size
+                .parse()
+                .map_err(|_| ProjectFileSerdeError::InvalidHeaderFormat(header.to_string()))?;
+            if compressed_size == 0 || uncompressed_size == 0 {
+                return Err(ProjectFileSerdeError::InvalidHeaderFormat(
+                    header.to_string(),
+                ));
+            }
+            let compressed_chunks = self.collect_base64_chunks(compressed_size, key)?;
+            let mut decompressed_bytes = vec![0u8; uncompressed_size];
+            let (decompressed_bytes, result) = zlib_rs::decompress_slice(
+                &mut decompressed_bytes,
+                &compressed_chunks,
+                zlib_rs::InflateConfig::default(),
+            );
+            if result != zlib_rs::ReturnCode::Ok {
+                return Err(ProjectFileSerdeError::Zlib(result));
+            }
+            let value: T = rmp_serde::from_slice(decompressed_bytes)?;
             Ok(value)
         }
 

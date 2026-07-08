@@ -40,6 +40,7 @@ tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "tracing-log"] }
 windows = { version = "0.62.2", features = ["Win32_System_Diagnostics_Debug", "Win32_UI_WindowsAndMessaging"] }
 zerocopy = { version = "0.8.53", features = ["std"] }
+zlib-rs = { version = "0.6.5", optional = true }
 
 [features]
 default = [
@@ -60,5 +61,5 @@ input = []
 module = []
 output = []
 
-serde = ["dep:rmp-serde", "dep:ruzstd", "dep:serde", "dep:base64"]
+serde = ["dep:rmp-serde", "dep:ruzstd", "dep:serde", "dep:base64", "dep:zlib-rs"]
 wrap_log = ["dep:process_path"]
