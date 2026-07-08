@@ -359,6 +359,11 @@ impl EframeWindow {
                     &name,
                     native_options,
                     Box::new(|cc| {
+                        use winit::platform::windows::WindowExtWindows as _;
+                        let window = cc.winit_window().expect("should not be headless");
+                        // NOTE: これがないと上に1pxの影ができる
+                        window.set_undecorated_shadow(false);
+
                         let raw_window_handle::RawWindowHandle::Win32(hwnd) = cc
                             .window_handle()
                             .expect("Failed to get window handle")
