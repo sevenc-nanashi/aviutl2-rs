@@ -19,14 +19,14 @@ proc-macro = true
 [dependencies]
 decimal-rs = "0.1.43"
 either = "1.16.0"
-itertools = "0.14.0"
+itertools = "0.15.0"
 proc-macro2 = "1.0.106"
-quote = "1.0.45"
+quote = "1.0.46"
 strum = { version = "0.28.0", features = ["derive"] }
-syn = { version = "2.0.117", features = ["full"] }
+syn = { version = "2.0.118", features = ["full"] }
 
 [dev-dependencies]
-anyhow = "1.0.102"
+anyhow = "1.0.103"
 # https://github.com/rust-lang/cargo/issues/4242 のワークアラウンド。
 # aviutl2.workspace = true
 aviutl2 = { path = "../aviutl2" }

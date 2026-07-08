@@ -12,16 +12,16 @@ name = "rusty_binaural_filter"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.102"
+anyhow = "1.0.103"
 aviutl2.workspace = true
 dashmap = "6.2.1"
 hrtf = "0.8.1"
-itertools = "0.14.0"
+itertools = "0.15.0"
 lru = "0.18.0"
 num-integer = "0.1.46"
 ringbuffer = "0.16.0"
 
 [build-dependencies]
-anyhow = "1.0.102"
-fs-err = "3.3.0"
+anyhow = "1.0.103"
+fs-err = "3.3.1"
 ureq = "3.3.0"

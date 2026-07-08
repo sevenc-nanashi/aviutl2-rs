@@ -91,7 +91,7 @@ impl eframe::App for LocalAliasApp {
             self.render_toolbar(ui);
         }
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             if aliases.is_empty() {
                 ui.label(tr(
                     "エイリアスがありません。オブジェクトを選択して「ローカルエイリアスに追加」メニューで追加してください。",
@@ -290,7 +290,7 @@ impl LocalAliasApp {
     fn render_collapsed_header(&mut self, ui: &mut egui::Ui) {
         let toolbar = egui::Panel::top("header")
             .exact_size(8.0)
-            .show_inside(ui, |_ui| {});
+            .show(ui, |_ui| {});
         let response = toolbar
             .response
             .on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -308,7 +308,7 @@ impl LocalAliasApp {
     }
 
     fn render_toolbar(&mut self, ui: &mut egui::Ui) {
-        egui::Panel::top("toolbar").show_inside(ui, |ui| {
+        egui::Panel::top("toolbar").show(ui, |ui| {
             ui.horizontal(|ui| {
                 let clicked = ui
                     .heading("Rusty Local Alias Plugin")

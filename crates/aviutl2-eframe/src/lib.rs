@@ -155,11 +155,6 @@ impl eframe::App for WrappedApp {
         self.internal_app.logic(ctx, frame);
     }
 
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        #[expect(deprecated)]
-        self.internal_app.update(ctx, frame);
-    }
-
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         self.internal_app.save(storage);
     }
@@ -522,8 +517,8 @@ impl AviUtl2EframeHandle {
     /// # use aviutl2_eframe::{AviUtl2EframeHandle, egui};
     /// # struct YourAppStruct { handle: AviUtl2EframeHandle }
     /// # impl YourAppStruct {
-    /// # fn ui(&self, ctx: &egui::Context) {
-    /// egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+    /// # fn ui(&self, ui: &mut egui::Ui) {
+    /// egui::Panel::top("toolbar").show(ui, |ui| {
     ///     let clicked = ui
     ///         .heading("My Plugin")
     ///         .interact(egui::Sense::click());

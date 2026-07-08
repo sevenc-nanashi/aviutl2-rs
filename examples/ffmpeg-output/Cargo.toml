@@ -12,18 +12,18 @@ name = "rusty_ffmpeg_output"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.102"
+anyhow = "1.0.103"
 aviutl2 = { workspace = true, features = ["serde"] }
 aviutl2-eframe.workspace = true
 chrono = "0.4.45"
 dedent = "0.1.1"
-eframe = { version = "0.34.3", default-features = false, features = ["glow"] }
-egui_commonmark = { version = "0.23.0", features = ["macros"] }
+eframe = { version = "0.35.0", default-features = false, features = ["glow"] }
+egui_commonmark = { version = "0.24.0", features = ["macros"] }
 process_path = "0.1.4"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 ureq = "3.3.0"
-uuid = { version = "1.23.3", features = ["v4"] }
+uuid = { version = "1.23.4", features = ["v4"] }
 windows = { version = "0.62.2", features = ["Win32_Security", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Pipes"] }
-zerocopy = "0.8.52"
+zerocopy = "0.8.53"
 zip = "8.6.0"

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking**: 依存関係を更新
 - generic: `ReadSection::get_object_section_ranges`を追加
 
 ### デモプラグイン

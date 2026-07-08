@@ -12,7 +12,7 @@ name = "rusty_image_rs_single_output"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.102"
+anyhow = "1.0.103"
 aviutl2.workspace = true
 image = "0.25.10"
 lazy-regex = "3.6.0"

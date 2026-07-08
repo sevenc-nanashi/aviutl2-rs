@@ -132,6 +132,15 @@ fn egui_key_to_windows_key(key: eframe::egui::Key) -> Option<u32> {
         F24 => Some(0x87),
         F25 | F26 | F27 | F28 | F29 | F30 | F31 | F32 | F33 | F34 | F35 => None,
         BrowserBack => Some(0xA6),
+        ShiftLeft => Some(0xA0),
+        ShiftRight => Some(0xA1),
+        ControlLeft => Some(0xA2),
+        ControlRight => Some(0xA3),
+        AltLeft => Some(0xA4),
+        AltRight => Some(0xA5),
+        SuperLeft => Some(0x5B),
+        SuperRight => Some(0x5C),
+        IntlBackslash => Some(0xE2),
     }
 }
 
@@ -228,6 +237,15 @@ fn egui_physical_key_to_windows_scancode(key: eframe::egui::Key) -> Option<u32> 
         F24 => Some(0x0076),
         F25 | F26 | F27 | F28 | F29 | F30 | F31 | F32 | F33 | F34 | F35 => None,
         BrowserBack => Some(0xe06a),
+        ShiftLeft => Some(0x002a),
+        ShiftRight => Some(0x0036),
+        ControlLeft => Some(0x001d),
+        ControlRight => Some(0xe01d),
+        AltLeft => Some(0x0038),
+        AltRight => Some(0xe038),
+        SuperLeft => Some(0xe05b),
+        SuperRight => Some(0xe05c),
+        IntlBackslash => Some(0x0056),
     }
 }
 

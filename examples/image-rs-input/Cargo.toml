@@ -12,7 +12,7 @@ name = "rusty_image_rs_input"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.102"
+anyhow = "1.0.103"
 aviutl2 = { workspace = true, features = ["input", "image"] }
 duplicate = "2.0.1"
 gif = "0.14.2"

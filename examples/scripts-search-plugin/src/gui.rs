@@ -177,7 +177,7 @@ impl ScriptsSearchApp {
     fn render_collapsed_header(&mut self, ui: &mut egui::Ui) {
         let toolbar = egui::Panel::top("header")
             .exact_size(8.0)
-            .show_inside(ui, |_ui| {});
+            .show(ui, |_ui| {});
         let response = toolbar
             .response
             .on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -196,7 +196,7 @@ impl ScriptsSearchApp {
 
     fn render_toolbar(&mut self, ui: &mut egui::Ui) {
         // TODO: toolbarの右クリックイベントに右クリックメニューを割り当てる
-        egui::Panel::top("toolbar").show_inside(ui, |ui| {
+        egui::Panel::top("toolbar").show(ui, |ui| {
             ui.horizontal(|ui| {
                 let clicked = ui
                     .heading("Rusty Scripts Search Plugin")
@@ -253,7 +253,7 @@ impl ScriptsSearchApp {
     }
 
     fn render_main_panel(&mut self, ui: &mut egui::Ui) {
-        egui::CentralPanel::default().show_inside(ui, |ui| match crate::EFFECTS.get() {
+        egui::CentralPanel::default().show(ui, |ui| match crate::EFFECTS.get() {
             None => {
                 ui.label(tr("エフェクト情報を読み込み中..."));
 

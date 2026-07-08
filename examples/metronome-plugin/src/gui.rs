@@ -91,7 +91,7 @@ impl MetronomeApp {
     fn render_collapsed_header(&mut self, ui: &mut egui::Ui) {
         let toolbar = egui::Panel::top("header")
             .exact_size(8.0)
-            .show_inside(ui, |_ui| {});
+            .show(ui, |_ui| {});
         let response = toolbar
             .response
             .on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -108,7 +108,7 @@ impl MetronomeApp {
         }
     }
     fn render_toolbar(&mut self, ui: &mut egui::Ui) {
-        egui::Panel::top("toolbar").show_inside(ui, |ui| {
+        egui::Panel::top("toolbar").show(ui, |ui| {
             ui.horizontal(|ui| {
                 let clicked = ui
                     .heading(tr("Rusty Metronome Plugin"))
@@ -151,7 +151,7 @@ impl MetronomeApp {
     }
 
     fn render_main_panel(&mut self, ui: &mut egui::Ui) {
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(16.0);
                 if let State::Tapping {

@@ -13,8 +13,8 @@ name = "rusty_random_color_filter"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.102"
+anyhow = "1.0.103"
 aviutl2.workspace = true
 tracing = "0.1.44"
-rand = "0.10.1"
+rand = "0.10.2"
 windows = { version = "0.62.2", features = ["Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D11"] }

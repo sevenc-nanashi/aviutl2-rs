@@ -12,15 +12,15 @@ name = "rusty_scripts_search_plugin"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.102"
+anyhow = "1.0.103"
 aviutl2 = { workspace = true, features = ["serde"] }
 aviutl2-eframe.workspace = true
 serde = { version = "1.0.228", features = ["derive"] }
 nucleo-matcher = "0.3.1"
 # lindera = { version = "2.0.1", features = ["embed-ipadic"] }
-itertools = "0.14.0"
-egui_extras = { version = "0.34.3", features = ["svg"] }
+itertools = "0.15.0"
+egui_extras = { version = "0.35.0", features = ["svg"] }
 iconify = "0.3.1"
-formatx = "0.2.4"
+formatx = "0.4.0"
 windows = { version = "0.62.2", features = ["Win32_System_Diagnostics_Debug", "Win32_UI_WindowsAndMessaging"] }
 
