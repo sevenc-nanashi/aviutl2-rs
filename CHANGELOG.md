@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.38.2](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.38.2)
+
 - common: `AviUtl2Version`を2.0.54以上のバージョンに対応
 
 > [!NOTE]
