@@ -602,17 +602,45 @@ impl ReadSection {
     }
 
     /// オブジェクトの区間のフレーム番号の一覧を取得する。
+    ///
+    /// # Note
+    ///
+    /// 終端のフレーム番号は含まれません。
+    /// 終端のフレーム番号を含めたい場合は、[`Self::get_object_section_ranges`]を使用してください。
     pub fn get_object_section_frames(&self, object: ObjectHandle) -> EditSectionResult<Vec<usize>> {
         self.ensure_object_exists(object)?;
         let section_num = self.get_object_section_num(object)?;
         let mut frames = Vec::new();
-        for section in 0..=section_num {
+        for section in 0..section_num {
             frames.push(
                 self.get_object_section_frame(object, section)?
                     .ok_or(EditSectionError::ApiCallFailed)?,
             );
         }
         Ok(frames)
+    }
+
+    /// オブジェクトの区間のフレーム番号の範囲を取得する。
+    pub fn get_object_section_ranges(
+        &self,
+        object: ObjectHandle,
+    ) -> EditSectionResult<Vec<std::ops::Range<usize>>> {
+        self.ensure_object_exists(object)?;
+        let frames = self.get_object_section_frames(object)?;
+        let position = self.get_object_layer_frame(object)?;
+
+        Ok(frames
+            .iter()
+            .enumerate()
+            .map(|(i, &start)| {
+                let end = if i + 1 < frames.len() {
+                    frames[i + 1]
+                } else {
+                    position.end + 1
+                };
+                start..end
+            })
+            .collect())
     }
 
     /// 指定フレーム位置でのオブジェクトのトラックバー項目の値を取得する。

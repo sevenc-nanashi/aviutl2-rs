@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-（なし）
+- generic: `ReadSection::get_object_section_ranges`を追加
 
 ### デモプラグイン
 
