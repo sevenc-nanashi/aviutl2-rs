@@ -18,7 +18,7 @@ mod key;
 use anyhow::Context;
 use aviutl2::{AnyResult, raw_window_handle, tracing};
 use eframe::EframeWinitApplication;
-use std::{num::NonZeroIsize, os::windows::io::AsRawHandle, sync::mpsc};
+use std::{num::NonZeroIsize, sync::mpsc};
 use windows::Win32::{
     Foundation::{HWND, SetLastError},
     UI::WindowsAndMessaging::{
@@ -47,6 +47,8 @@ pub struct EframeWindow {
     >,
     thread: Option<std::thread::JoinHandle<()>>,
     thread_terminator: std::sync::Arc<std::sync::OnceLock<()>>,
+    event_loop_proxy:
+        std::sync::Arc<std::sync::OnceLock<winit::event_loop::EventLoopProxy<eframe::UserEvent>>>,
     panic_message: std::sync::Arc<std::sync::OnceLock<String>>,
 }
 
@@ -314,9 +316,11 @@ impl EframeWindow {
         >();
         let name = name.to_string();
         let thread_terminator = std::sync::Arc::new(std::sync::OnceLock::new());
+        let event_loop_proxy = std::sync::Arc::new(std::sync::OnceLock::new());
         let panic_message = std::sync::Arc::new(std::sync::OnceLock::<String>::new());
         let thread = std::thread::spawn({
             let thread_terminator = thread_terminator.clone();
+            let event_loop_proxy = event_loop_proxy.clone();
             let panic_message = panic_message.clone();
             move || {
                 // Painc hookはtracing等のロックを取得しないようにする。
@@ -354,6 +358,9 @@ impl EframeWindow {
                         .with_any_thread(true)
                         .build()
                         .unwrap();
+                event_loop_proxy
+                    .set(event_loop.create_proxy())
+                    .expect("event loop proxy should only be initialized once");
                 event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
                 let app = eframe::create_native(
                     &name,
@@ -439,6 +446,7 @@ impl EframeWindow {
             init_rx: std::sync::Mutex::new(Some(rx)),
             thread: Some(thread),
             thread_terminator,
+            event_loop_proxy,
             panic_message,
         })
     }
@@ -560,64 +568,25 @@ impl Drop for EframeWindow {
         if let Some(thread) = self.thread.take() {
             tracing::debug!("Terminating Egui window thread...");
             self.thread_terminator.set(()).ok();
-            // スレッドがすでに終了している場合（パニックなど）はすぐに返る
-            if let Some(msg) = self.panic_message.get() {
-                tracing::error!("Egui thread panicked: {}", msg);
-                tracing::warn!("Forcing termination of Egui window thread due to panic...");
-                let res = unsafe {
-                    windows::Win32::System::Threading::TerminateThread(
-                        windows::Win32::Foundation::HANDLE(thread.as_raw_handle() as _),
-                        0,
-                    )
-                };
-                match res {
-                    Ok(_) => tracing::debug!("Egui window thread terminated successfully."),
-                    Err(e) => tracing::error!("Failed to terminate Egui window thread: {:?}", e),
-                }
-                return;
-            }
-            if let Some(hwnd) = self.hwnd.get() {
-                let res = unsafe {
-                    windows::Win32::UI::WindowsAndMessaging::PostMessageW(
-                        Some(HWND(hwnd.get() as *mut std::ffi::c_void)),
-                        windows::Win32::UI::WindowsAndMessaging::WM_CLOSE,
-                        windows::Win32::Foundation::WPARAM(0),
-                        windows::Win32::Foundation::LPARAM(0),
-                    )
-                };
-                match res {
-                    Ok(_) => tracing::debug!("Posted WM_CLOSE to Egui window successfully."),
-                    Err(e) => tracing::warn!("Failed to post WM_CLOSE to Egui window: {:?}", e),
-                }
+            if let Some(proxy) = self.event_loop_proxy.get() {
+                proxy
+                    .send_event(eframe::UserEvent::RequestRepaint {
+                        viewport_id: egui::ViewportId::ROOT,
+                        when: std::time::Instant::now(),
+                        cumulative_pass_nr: 0,
+                    })
+                    .ok();
             }
             tracing::debug!("Waiting for Egui window thread to exit...");
-            let mut is_finished = false;
-            for _ in 0..50 {
-                if thread.is_finished() {
-                    is_finished = true;
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(100));
-            }
-            if is_finished {
-                tracing::debug!("Egui window thread exited successfully.");
+            if thread.join().is_err() {
+                let msg = self
+                    .panic_message
+                    .get()
+                    .map_or("<unknown panic>", String::as_str);
+                tracing::error!("Egui thread panicked: {}", msg);
             } else {
-                tracing::warn!(
-                    "Egui window thread did not exit within timeout, forcing termination."
-                );
-                // 強制終了（安全ではないが、どうしようもないので…）
-                let res = unsafe {
-                    windows::Win32::System::Threading::TerminateThread(
-                        windows::Win32::Foundation::HANDLE(thread.as_raw_handle() as _),
-                        0,
-                    )
-                };
-                match res {
-                    Ok(_) => tracing::debug!("Egui window thread terminated successfully."),
-                    Err(e) => tracing::error!("Failed to terminate Egui window thread: {:?}", e),
-                }
+                tracing::debug!("Egui window thread exited successfully.");
             }
-            tracing::debug!("Egui window thread exited.");
         }
     }
 }
