@@ -175,6 +175,9 @@ fn register_plugin_impl<T: GenericSingleton>(
     handle.register_event_listener(crate::generic::EventType::ChangeEditScene, || {
         <T as GenericSingleton>::with_instance_mut(|instance| instance.event_change_scene_info())
     });
+    handle.register_event_listener(crate::generic::EventType::ChangeFocusObject, || {
+        <T as GenericSingleton>::with_instance_mut(|instance| instance.event_change_focus_object())
+    });
     plugin_state
         .register_plugin_done
         .store(true, std::sync::atomic::Ordering::SeqCst);

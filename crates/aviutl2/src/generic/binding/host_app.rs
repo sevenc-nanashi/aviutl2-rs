@@ -569,6 +569,8 @@ pub enum EventType {
     ChangeEditFrame,
     /// 現在の編集シーンの変更。
     ChangeEditScene,
+    /// 選択されているオブジェクトの変更。
+    ChangeFocusObject,
 }
 
 impl From<EventType> for aviutl2_sys::plugin2::EVENT_TYPE {
@@ -577,6 +579,7 @@ impl From<EventType> for aviutl2_sys::plugin2::EVENT_TYPE {
             EventType::UpdateObject => aviutl2_sys::plugin2::EVENT_TYPE::UPDATE_OBJECT,
             EventType::ChangeEditFrame => aviutl2_sys::plugin2::EVENT_TYPE::CHANGE_EDIT_FRAME,
             EventType::ChangeEditScene => aviutl2_sys::plugin2::EVENT_TYPE::CHANGE_EDIT_SCENE,
+            EventType::ChangeFocusObject => aviutl2_sys::plugin2::EVENT_TYPE::CHANGE_FOCUS_OBJECT,
         }
     }
 }

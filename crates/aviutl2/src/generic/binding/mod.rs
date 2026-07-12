@@ -75,6 +75,13 @@ pub trait GenericPlugin: Send + Sync + Sized {
     /// イベント用スレッドから呼び出されます。[`crate::generic::EditHandle::call_edit_section`]は利用できません。
     fn event_change_scene_info(&mut self) {}
 
+    /// 選択されているオブジェクトが変更されたときに呼ばれる。
+    ///
+    /// # Note
+    ///
+    /// イベント用スレッドから呼び出されます。[`crate::generic::EditHandle::call_edit_section`]は利用できません。
+    fn event_change_focus_object(&mut self) {}
+
     /// シングルトンインスタンスを参照するためのヘルパーメソッド。
     ///
     /// # Panics

@@ -151,6 +151,8 @@ pub enum EVENT_TYPE {
     CHANGE_EDIT_FRAME = 2,
     /// 現在の編集シーンの変更
     CHANGE_EDIT_SCENE = 3,
+    /// 選択されているオブジェクトの変更
+    CHANGE_FOCUS_OBJECT = 4,
 }
 
 /// 編集情報構造体

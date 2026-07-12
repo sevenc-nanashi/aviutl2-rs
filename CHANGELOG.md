@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking**: 最小サポートを2.1.0に引き上げ
 - **Breaking**: 依存関係を更新
 - generic: `ReadSection::get_object_section_ranges`を追加
 - generic: serdeのシリアライズにzlib-rsを使用するように変更
