@@ -148,36 +148,38 @@ pub fn generic_menus(
         };
 
         let method_ident = method.sig.ident.clone();
-        let (attr_idx, entry_type) = match find_menu_attr(&method.attrs) {
-            Ok(Some(v)) => v,
-            Ok(None) => {
-                return Err(syn::Error::new_spanned(
-                    &method.sig.ident,
-                    format!("method must have one of {}", all_entry_types_display()),
-                )
-                .to_compile_error());
-            }
-            Err(e) => return Err(e),
-        };
-
-        // Take and parse attribute
-        let attr = method.attrs.remove(attr_idx);
-        let (menu_name, error_mode) = parse_menu_attr(attr, &method_ident.to_string())?;
+        let menu_attrs = find_menu_attrs(&method.attrs);
+        if menu_attrs.is_empty() {
+            return Err(syn::Error::new_spanned(
+                &method.sig.ident,
+                format!("method must have one of {}", all_entry_types_display()),
+            )
+            .to_compile_error());
+        }
 
         // Analyze receiver
         let (has_self, self_is_mut) = analyze_receiver(&method.sig)?;
-        let wrapper_ident =
-            syn::Ident::new(&format!("bridge_{}", method_ident), method_ident.span());
+        let has_multiple_attrs = menu_attrs.len() > 1;
+        for (menu_attr_index, (attr_idx, entry_type)) in menu_attrs.into_iter().enumerate() {
+            let (menu_name, error_mode) =
+                parse_menu_attr(method.attrs[attr_idx].clone(), &method_ident.to_string())?;
+            let wrapper_name = if has_multiple_attrs {
+                format!("bridge_{}_{}", method_ident, menu_attr_index)
+            } else {
+                format!("bridge_{}", method_ident)
+            };
 
-        entries.push(Entry {
-            entry_type,
-            menu_name,
-            method_ident,
-            wrapper_ident,
-            has_self,
-            self_is_mut,
-            error_mode,
-        });
+            entries.push(Entry {
+                entry_type,
+                menu_name,
+                method_ident: method_ident.clone(),
+                wrapper_ident: syn::Ident::new(&wrapper_name, method_ident.span()),
+                has_self,
+                self_is_mut,
+                error_mode,
+            });
+        }
+        method.attrs.retain(|attr| menu_attr_type(attr).is_none());
     }
 
     // Build registration lines and wrapper fn bodies
@@ -421,25 +423,16 @@ fn has_generic_args_in_type(ty: &syn::Type) -> bool {
     }
 }
 
-fn find_menu_attr(
-    attrs: &[syn::Attribute],
-) -> Result<Option<(usize, EntryType)>, proc_macro2::TokenStream> {
-    let mut found: Option<(usize, EntryType)> = None;
-    for (idx, attr) in attrs.iter().enumerate() {
-        for entry_type in EntryType::iter() {
-            if attr.path().is_ident(entry_type.as_ref()) {
-                if found.is_some() {
-                    return Err(syn::Error::new_spanned(
-                        &attrs[0],
-                        format!("method can have only one of {}", all_entry_types_display()),
-                    )
-                    .to_compile_error());
-                }
-                found = Some((idx, entry_type));
-            }
-        }
-    }
-    Ok(found)
+fn menu_attr_type(attr: &syn::Attribute) -> Option<EntryType> {
+    EntryType::iter().find(|entry_type| attr.path().is_ident(entry_type.as_ref()))
+}
+
+fn find_menu_attrs(attrs: &[syn::Attribute]) -> Vec<(usize, EntryType)> {
+    attrs
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, attr)| menu_attr_type(attr).map(|entry_type| (idx, entry_type)))
+        .collect()
 }
 
 #[cfg(test)]
@@ -532,6 +525,22 @@ mod tests {
         };
         let attr = quote::quote! { unwind = true };
         let output = generic_menus(attr, input).unwrap();
+        insta::assert_snapshot!(format_tokens(output));
+    }
+
+    #[test]
+    fn test_multiple_attributes() {
+        let input = quote::quote! {
+            impl MyPlugin {
+                #[import(name = "Import One")]
+                #[import(name = "Import Two", error = "ignore")]
+                #[export(name = "Export")]
+                fn file_menu() -> Result<(), ()> {
+                    Ok(())
+                }
+            }
+        };
+        let output = generic_menus(proc_macro2::TokenStream::new(), input).unwrap();
         insta::assert_snapshot!(format_tokens(output));
     }
 

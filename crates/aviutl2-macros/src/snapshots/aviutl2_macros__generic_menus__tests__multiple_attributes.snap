@@ -1,0 +1,55 @@
+---
+source: crates/aviutl2-macros/src/generic_menus.rs
+expression: format_tokens(output)
+---
+impl MyPlugin {
+    fn file_menu() -> Result<(), ()> {
+        Ok(())
+    }
+}
+::aviutl2::__internal_module! {
+    impl ::aviutl2::generic::GenericPluginMenus for MyPlugin {
+        fn register_menus(host: &mut ::aviutl2::generic::HostAppHandle) {
+            host.register_import_menu("Import One", bridge_file_menu_0);
+            host.register_import_menu("Import Two", bridge_file_menu_1);
+            host.register_export_menu("Export", bridge_file_menu_2);
+            return;
+            fn bridge_file_menu_0() {
+                if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
+                    let ret = <MyPlugin>::file_menu();
+                    ::aviutl2::common::__log_and_beep_if_error(ret);
+                }) {
+                    ::aviutl2::tracing::error!(
+                        "Panic occurred during {}: {}",
+                        "file_menu",
+                        panic_info
+                    );
+                }
+            }
+            fn bridge_file_menu_1() {
+                if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
+                    let ret = <MyPlugin>::file_menu();
+                    let _ = ret;
+                }) {
+                    ::aviutl2::tracing::error!(
+                        "Panic occurred during {}: {}",
+                        "file_menu",
+                        panic_info
+                    );
+                }
+            }
+            fn bridge_file_menu_2() {
+                if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
+                    let ret = <MyPlugin>::file_menu();
+                    ::aviutl2::common::__log_and_beep_if_error(ret);
+                }) {
+                    ::aviutl2::tracing::error!(
+                        "Panic occurred during {}: {}",
+                        "file_menu",
+                        panic_info
+                    );
+                }
+            }
+        }
+    }
+}
