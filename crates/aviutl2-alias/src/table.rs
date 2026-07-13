@@ -183,9 +183,10 @@ impl Table {
         ArraySubTablesIterator::new(self)
     }
 
-    // pub fn iter_subtables_as_array_mut<'a>(&'a mut self) -> ArraySubTablesIteratorMut<'a> {
-    //     ArraySubTablesIteratorMut::new(self)
-    // }
+    /// `0`、`1`、`2`...のキーを持つ子テーブルを可変参照で配列として列挙します。
+    pub fn iter_subtables_as_array_mut<'a>(&'a mut self) -> ArraySubTablesIteratorMut<'a> {
+        ArraySubTablesIteratorMut::new(self)
+    }
 
     /// テーブルを文字列として書き出します。
     ///
@@ -352,35 +353,46 @@ impl<'a> Iterator for ArraySubTablesIterator<'a> {
     }
 }
 
-// TODO: コメントを解除する（有識者求む）
-// pub struct ArraySubTablesIteratorMut<'a> {
-//     index: usize,
-//     table: &'a mut Table,
-// }
-// impl<'a> ArraySubTablesIteratorMut<'a> {
-//     pub fn new(table: &'a mut Table) -> Self {
-//         Self {
-//             index: 0,
-//             table,
-//         }
-//     }
-// }
-// impl<'a> Iterator for ArraySubTablesIteratorMut<'a> {
-//     type Item = &'a mut Table;
-//     fn next(&mut self) -> Option<Self::Item> {
-//         let raw: *mut Table = self.table;
-//         let key = self.index.to_string();
-//         self.index += 1;
-//
-//         // Safety: &mut self.tableは他に存在しないはず
-//         unsafe {
-//             match (&mut *raw).get_table_mut(&key) {
-//                 Some(sub) => Some(sub),
-//                 None => None,
-//             }
-//         }
-//     }
-// }
+/// [`Table::iter_subtables_as_array_mut`]で使われるイテレーター。
+pub struct ArraySubTablesIteratorMut<'a> {
+    inner: std::vec::IntoIter<&'a mut Table>,
+}
+impl<'a> ArraySubTablesIteratorMut<'a> {
+    pub fn new(table: &'a mut Table) -> Self {
+        let mut indexed_tables = table
+            .items
+            .iter_mut()
+            .filter_map(|(key, item)| {
+                let index = key.parse::<usize>().ok()?;
+                (index.to_string() == *key)
+                    .then(|| item.table.as_mut().map(|table| (index, table)))?
+            })
+            .collect::<Vec<_>>();
+        indexed_tables.sort_unstable_by_key(|(index, _)| *index);
+
+        let tables = indexed_tables
+            .into_iter()
+            .enumerate()
+            .take_while(|(expected, (index, _))| expected == index)
+            .map(|(_, (_, table))| table)
+            .collect::<Vec<_>>();
+
+        Self {
+            inner: tables.into_iter(),
+        }
+    }
+}
+impl<'a> Iterator for ArraySubTablesIteratorMut<'a> {
+    type Item = &'a mut Table;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
 
 /// テーブルのパースエラー。
 #[derive(Debug, Clone, thiserror::Error)]
@@ -637,5 +649,27 @@ mod tests {
             table.get_table("sub1").unwrap().get_value("updated"),
             Some(&"true".to_string())
         );
+    }
+
+    #[test]
+    fn test_array_subtables_mut_iterator() {
+        let mut table = Table::new();
+        table.insert_table("1", Table::new());
+        table.insert_table("0", Table::new());
+        table.insert_table("3", Table::new());
+
+        for (index, sub_table) in table.iter_subtables_as_array_mut().enumerate() {
+            sub_table.insert_value("index", index);
+        }
+
+        assert_eq!(
+            table.get_table("0").unwrap().get_value("index"),
+            Some(&"0".to_string())
+        );
+        assert_eq!(
+            table.get_table("1").unwrap().get_value("index"),
+            Some(&"1".to_string())
+        );
+        assert_eq!(table.get_table("3").unwrap().get_value("index"), None);
     }
 }

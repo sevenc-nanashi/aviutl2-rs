@@ -3,6 +3,7 @@
 ## Unreleased
 
 - generic: 複数の種類のメニューを登録できるようにする
+- alias: iter_subtables_as_array_mutを追加
 
 ### デモプラグイン
 
