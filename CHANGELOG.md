@@ -13,9 +13,14 @@
 
 - **Breaking**: 最小サポートを2.1.0に引き上げ
 - **Breaking**: 依存関係を更新
+- eframe: 終了処理を改善
 - generic: `ReadSection::get_object_section_ranges`を追加
 - generic: serdeのシリアライズにzlib-rsを使用するように変更
 - generic: `EffectHandle`にSend・Syncを実装
+
+> [!IMPORTANT]
+> aviutl2-eframeの終了周りの処理が大幅に改善されました。
+> aviutl2-eframeを使っている場合はアップデートを強く推奨します。
 
 ### デモプラグイン
 
