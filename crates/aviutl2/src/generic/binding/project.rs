@@ -121,7 +121,11 @@ impl<'a> ProjectFile<'a> {
             if raw_str.is_null() {
                 return None;
             }
-            Some(std::path::PathBuf::from(load_wide_string(raw_str)))
+            let path_str = load_wide_string(raw_str);
+            if path_str.is_empty() {
+                return None;
+            }
+            Some(std::path::PathBuf::from(path_str))
         }
     }
 }
