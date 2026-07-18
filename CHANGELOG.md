@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-- **Breaking** generic: `ProjectFile::get_path`も戻り値が正しくNoneになるように
+- **Breaking**: generic: 最小サポートを2.1.1に引き上げ
+- **Breaking**: generic: `ProjectFile::get_path`も戻り値が正しくNoneになるように
+- **Breaking**: generic: `EditSection::focus_object`を`EditSection::set_focus_object`に改名
+- **Breaking**: generic: `EditSection::set_focus_object`の引数を`Option<ObjectHandle>`に変更
 - generic: 複数の種類のメニューを登録できるようにする
 - alias: iter_subtables_as_array_mutを追加
 

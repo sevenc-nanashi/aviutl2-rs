@@ -288,7 +288,7 @@ pub struct EDIT_SECTION {
     pub get_focus_object: unsafe extern "C" fn() -> OBJECT_HANDLE,
 
     /// オブジェクト設定ウィンドウで選択するオブジェクトを設定します (コールバック処理の終了時に設定されます)
-    /// object : オブジェクトのハンドル
+    /// object : オブジェクトのハンドル (nullptrを指定すると選択を解除します)
     pub set_focus_object: unsafe extern "C" fn(object: OBJECT_HANDLE),
 
     /// プロジェクトファイルのポインタを取得します

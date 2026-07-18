@@ -735,7 +735,7 @@ impl ScriptsSearchApp {
             .call_edit_section(|e| {
                 let created =
                     e.create_object(&effect.effect.name, e.info.layer, e.info.frame, None)?;
-                e.focus_object(created)?;
+                e.set_focus_object(Some(created))?;
                 anyhow::Ok(())
             })
             .map_err(anyhow::Error::from)
@@ -784,7 +784,7 @@ impl ScriptsSearchApp {
                 );
                 match created {
                     Ok(created) => {
-                        e.focus_object(created)?;
+                        e.set_focus_object(Some(created))?;
                         tracing::debug!("Output effect added successfully");
                     }
                     Err(err) => {
@@ -796,7 +796,7 @@ impl ScriptsSearchApp {
                             position.start,
                             0,
                         )?;
-                        e.focus_object(restored)?;
+                        e.set_focus_object(Some(restored))?;
                         return Err(anyhow::anyhow!("Failed to add output effect: {}", err));
                     }
                 }
@@ -969,7 +969,7 @@ impl ScriptsSearchApp {
                 0,
             ) {
                 Ok(created) => {
-                    edit.focus_object(created)?;
+                    edit.set_focus_object(Some(created))?;
                     anyhow::Ok(())
                 }
                 Err(err) => {
@@ -1012,7 +1012,7 @@ impl ScriptsSearchApp {
                 e.info.frame,
                 0,
             )?;
-            e.focus_object(created)?;
+            e.set_focus_object(Some(created))?;
 
             anyhow::Ok(())
         })?

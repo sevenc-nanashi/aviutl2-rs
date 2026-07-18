@@ -1313,9 +1313,13 @@ impl EditSection {
     /// # Note
     ///
     /// コールバック処理の終了時に設定されます。
-    pub fn focus_object(&self, object: ObjectHandle) -> EditSectionResult<()> {
-        self.read_section.ensure_object_exists(object)?;
-        unsafe { ((*self.internal).set_focus_object)(object.internal) };
+    pub fn set_focus_object(&self, object: Option<ObjectHandle>) -> EditSectionResult<()> {
+        if let Some(object) = object {
+            self.read_section.ensure_object_exists(object)?;
+            unsafe { ((*self.internal).set_focus_object)(object.internal) };
+        } else {
+            unsafe { ((*self.internal).set_focus_object)(std::ptr::null_mut()) };
+        }
         Ok(())
     }
 
@@ -1913,8 +1917,8 @@ impl EditSectionObjectCaller<'_, EditSection> {
     /// # Note
     ///
     /// コールバック処理の終了時に設定されます。
-    pub fn focus_object(&self) -> EditSectionResult<()> {
-        self.edit_section.focus_object(self.handle)
+    pub fn set_focus_object(&self) -> EditSectionResult<()> {
+        self.edit_section.set_focus_object(Some(self.handle))
     }
 
     /// オブジェクトの名前を設定する。
