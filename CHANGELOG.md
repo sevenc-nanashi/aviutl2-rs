@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.40.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.40.0)
+
 - **Breaking**: generic: 最小サポートを2.1.1に引き上げ
 - **Breaking**: generic: `ProjectFile::get_path`も戻り値が正しくNoneになるように
 - **Breaking**: generic: `EditSection::focus_object`を`EditSection::set_focus_object`に改名
