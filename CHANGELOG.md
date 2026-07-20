@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-（なし）
+- input: 高速なAPIを追加
 
 ### デモプラグイン
 

@@ -30,6 +30,16 @@ impl AudioFormat {
     }
 }
 
+fn audio_sample_count(written: usize, block_align: usize) -> i32 {
+    assert_ne!(block_align, 0, "Audio block alignment must not be zero");
+    assert_eq!(
+        written % block_align,
+        0,
+        "Audio data size must be aligned to the sample frame size"
+    );
+    i32::try_from(written / block_align).expect("Audio sample count overflow")
+}
+
 impl VideoInputInfo {
     fn into_raw(self) -> aviutl2_sys::input2::BITMAPINFOHEADER {
         let bi_compression = match self.format {
@@ -426,7 +436,20 @@ extern "C" fn func_read_video<T: InputSingleton>(
     let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
     let plugin = &plugin_state.instance;
     let frame = frame as u32;
-    let mut returner = unsafe { ImageReturner::new(buf as *mut u8) };
+    let output_size = {
+        let video_format = handle
+            .input_info
+            .as_ref()
+            .expect("Unreachable: Input info not set")
+            .video
+            .as_ref()
+            .expect("Unreachable: Video format not set");
+        (video_format.width as usize)
+            .checked_mul(video_format.height as usize)
+            .and_then(|size| size.checked_mul(video_format.format.bytes_count_per_pixel()))
+            .expect("Video output buffer size overflow")
+    };
+    let mut returner = unsafe { ImageReturner::new(buf as *mut u8, output_size) };
     let read_result = if plugin_state.plugin_info.concurrent {
         T::read_video(plugin, &handle.handle, frame, &mut returner)
     } else {
@@ -436,17 +459,8 @@ extern "C" fn func_read_video<T: InputSingleton>(
         Ok(()) => {
             #[cfg(debug_assertions)]
             {
-                let video_format = handle
-                    .input_info
-                    .as_ref()
-                    .expect("Unreachable: Input info not set")
-                    .video
-                    .as_ref()
-                    .expect("Unreachable: Video format not set");
                 assert_eq!(
-                    returner.written,
-                    ((video_format.width * video_format.height) as usize
-                        * video_format.format.bytes_count_per_pixel()),
+                    returner.written, output_size,
                     "Image data size does not match expected size"
                 );
             }
@@ -486,33 +500,32 @@ extern "C" fn func_read_audio<T: InputSingleton>(
     plugin_state.leak_manager.free_leaked_memory();
     let handle = unsafe { &mut *(ih as *mut InternalInputHandle<T::InputHandle>) };
     let plugin = &plugin_state.instance;
-    let mut returner = unsafe { AudioReturner::new(buf as *mut u8) };
+    let (output_size, block_align) = {
+        let audio_format = handle
+            .input_info
+            .as_ref()
+            .expect("Unreachable: Input info not set")
+            .audio
+            .as_ref()
+            .expect("Unreachable: Audio format not set");
+        let block_align = (audio_format.channels as usize)
+            .checked_mul(audio_format.format.bytes_per_sample())
+            .expect("Audio block alignment overflow");
+        assert_ne!(block_align, 0, "Audio block alignment must not be zero");
+        let output_size = usize::try_from(length)
+            .expect("Audio read length must not be negative")
+            .checked_mul(block_align)
+            .expect("Audio output buffer size overflow");
+        (output_size, block_align)
+    };
+    let mut returner = unsafe { AudioReturner::new(buf as *mut u8, output_size) };
     let read_result = if plugin_state.plugin_info.concurrent {
         T::read_audio(plugin, &handle.handle, start, length, &mut returner)
     } else {
         T::read_audio_mut(plugin, &mut handle.handle, start, length, &mut returner)
     };
     match read_result {
-        Ok(()) => {
-            #[cfg(debug_assertions)]
-            {
-                let audio_format = handle
-                    .input_info
-                    .as_ref()
-                    .expect("Unreachable: Input info not set")
-                    .audio
-                    .as_ref()
-                    .expect("Unreachable: Audio format not set");
-                assert_eq!(
-                    returner.written,
-                    ((length as usize)
-                        * (audio_format.channels as usize)
-                        * audio_format.format.bytes_per_sample()),
-                    "Audio data size does not match expected size"
-                );
-            }
-            returner.written as i32
-        }
+        Ok(()) => audio_sample_count(returner.written, block_align),
         Err(e) => {
             tracing::error!("Error during func_read_audio: {}", e);
             0
@@ -858,4 +871,25 @@ macro_rules! register_input_plugin {
     ($struct:ident) => {
         $crate::register_input_plugin!($struct, );
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::audio_sample_count;
+
+    #[test]
+    fn audio_sample_count_converts_bytes_to_sample_frames() {
+        assert_eq!(audio_sample_count(8192, 8), 1024);
+    }
+
+    #[test]
+    fn audio_sample_count_accepts_partial_reads() {
+        assert_eq!(audio_sample_count(400, 8), 50);
+    }
+
+    #[test]
+    #[should_panic(expected = "Audio data size must be aligned to the sample frame size")]
+    fn audio_sample_count_rejects_incomplete_sample_frames() {
+        audio_sample_count(7, 8);
+    }
 }

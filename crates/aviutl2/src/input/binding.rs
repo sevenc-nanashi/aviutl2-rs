@@ -216,29 +216,104 @@ duplicate::duplicate! {
     /// AviUtl2側にバイト列を返すためのstruct。
     pub struct Name {
         ptr: *mut u8,
+        capacity: usize,
         pub(crate) written: usize,
     }
 
     impl Name {
         /// # Safety
         ///
-        /// AviUtl2側から渡されるポインタのみが許容される。
-        pub(crate) unsafe fn new(ptr: *mut u8) -> Self {
-            Self { ptr, written: 0 }
+        /// `ptr` はAviUtl2側から渡された、`capacity` バイト書き込み可能な
+        /// バッファを指している必要があります。
+        pub(crate) unsafe fn new(ptr: *mut u8, capacity: usize) -> Self {
+            Self {
+                ptr,
+                capacity,
+                written: 0,
+            }
         }
 
+        fn assert_writable(&self, len: usize) {
+            let remaining = self.capacity - self.written;
+            assert!(
+                len <= remaining,
+                "Output buffer overflow: attempted to write {len} bytes with {remaining} bytes remaining"
+            );
+        }
+
+        /// AviUtl2側の出力バッファに書き込む。
         pub fn write(&mut self, data: &impl Trait) {
             let image = data.method();
+            self.assert_writable(image.len());
             unsafe {
                 std::ptr::copy_nonoverlapping(image.as_ptr(), self.ptr.add(self.written), image.len());
             }
             self.written += image.len();
         }
+
+        /// AviUtl2側の出力バッファに直接書き込む。
+        ///
+        /// 書き込み処理が成功した場合のみ、書き込み済みサイズを更新します。
+        pub fn write_with<E>(
+            &mut self,
+            len: usize,
+            writer: impl FnOnce(&mut [u8]) -> Result<(), E>,
+        ) -> Result<(), E> {
+            self.assert_writable(len);
+            let buffer = unsafe {
+                std::slice::from_raw_parts_mut(self.ptr.add(self.written), len)
+            };
+            writer(buffer)?;
+            self.written += len;
+            Ok(())
+        }
+    }
+}
+
+#[cfg(test)]
+mod returner_tests {
+    use super::ImageReturner;
+
+    #[test]
+    fn write_with_writes_directly_and_updates_length() {
+        let mut output = [0u8; 4];
+        let mut returner = unsafe { ImageReturner::new(output.as_mut_ptr(), output.len()) };
+
+        returner
+            .write_with(output.len(), |destination| {
+                destination.copy_from_slice(&[1, 2, 3, 4]);
+                Ok::<(), ()>(())
+            })
+            .unwrap();
+
+        assert_eq!(returner.written, output.len());
+        assert_eq!(output, [1, 2, 3, 4]);
+    }
+
+    #[test]
+    #[should_panic(expected = "Output buffer overflow")]
+    fn write_rejects_data_larger_than_remaining_capacity() {
+        let mut output = [0u8; 4];
+        let mut returner = unsafe { ImageReturner::new(output.as_mut_ptr(), output.len()) };
+
+        returner.write(&vec![0u8; output.len() + 1]);
+    }
+
+    #[test]
+    #[should_panic(expected = "Output buffer overflow")]
+    fn write_with_rejects_length_larger_than_remaining_capacity() {
+        let mut output = [0u8; 4];
+        let mut returner = unsafe { ImageReturner::new(output.as_mut_ptr(), output.len()) };
+
+        returner
+            .write_with(output.len() + 1, |_| Ok::<(), ()>(()))
+            .unwrap();
     }
 }
 
 #[duplicate::duplicate_item(
     T;
+
     [Vec<u16>];
     [Vec<i16>];
     [Vec<f16>];
