@@ -88,12 +88,13 @@ impl eframe::App for WrappedApp {
                         self.hwnd.get() as *mut std::ffi::c_void
                     ))
                 };
-                let Ok(parent_window) = parent_window else {
-                    tracing::warn!(
-                        "Failed to get parent window for input handling: {:?}",
-                        windows::core::Error::from_thread()
-                    );
-                    return;
+                let parent_window = match parent_window {
+                    Ok(parent_window) => parent_window,
+                    Err(e) => {
+                        tracing::warn!("Failed to get parent window for input handling: {:?}", e);
+
+                        return;
+                    }
                 };
 
                 for event in &i.events {
@@ -133,8 +134,14 @@ impl eframe::App for WrappedApp {
                         continue;
                     };
                     tracing::trace!(
-                        "Forwarding key event to parent window: key={:?}, physical_key={:?}, pressed={}, message=0x{:04X}",
-                        key, physical_key, pressed, message
+                        concat!(
+                            "Forwarding key event to parent window: ",
+                            "key={:?}, physical_key={:?}, pressed={}, message=0x{:04X}"
+                        ),
+                        key,
+                        physical_key,
+                        pressed,
+                        message
                     );
 
                     unsafe {
@@ -707,18 +714,72 @@ pub fn aviutl2_visuals() -> eframe::egui::Visuals {
 pub fn aviutl2_fonts() -> eframe::egui::FontDefinitions {
     let mut fonts = eframe::egui::FontDefinitions::default();
 
+    // NOTE: だいぶ重い処理を行っているが、まぁプラグイン毎に１回程度なのでまぁ...
     let mut db = fontdb::Database::new();
     db.load_system_fonts();
+    db.load_fonts_dir(aviutl2::config::app_data_path().join("Font"));
+
+    // NOTE: フォント名を大文字小文字区別無しでマッチさせたいが、fontdbのやる気が無さそうなので
+    // 自前で大文字小文字区別無しから大文字小文字を合わせたマップを作る。
+    // 大文字小文字違いで複数のフォントが存在する場合は壊れるけど、まぁそんなユーザーなんていない...よね？
+    // ref: https://github.com/RazrFalcon/fontdb/issues/42
+    let mut insensitive_font_match = std::collections::HashMap::new();
+    for face in db.faces() {
+        let Some(primary_family_name) = face.families.first().map(|(family, _)| family.to_owned())
+        else {
+            continue;
+        };
+        for (family, _language) in &face.families {
+            insensitive_font_match.insert(family.to_lowercase(), primary_family_name.clone());
+        }
+    }
 
     let control_font = aviutl2::config::get_font_info("Control")
         .expect("Unreachable: key does not contain null byte");
     let text_font = aviutl2::config::get_font_info("EditControl")
         .expect("Unreachable: key does not contain null byte");
 
-    if let Some(control_font_id) = db.query(&fontdb::Query {
-        families: &[fontdb::Family::Name(&control_font.name)],
+    // フォールバックとしてYu Gothic UIを使う。
+    // （Yu Gothic UIはハードコードされてる）
+    if let Some(default_font) = db.query(&fontdb::Query {
+        families: &[fontdb::Family::Name("Yu Gothic UI")],
         ..Default::default()
     }) {
+        db.with_face_data(default_font, |data, _| {
+            static FALLBACK_FONT: &str = "aviutl2::Fallback";
+            let mut font_data = egui::FontData::from_owned(data.to_vec());
+            // Yu Gothic UIは体感上にずれているので、微調整する
+            font_data.tweak = egui::FontTweak {
+                y_offset_factor: 0.2,
+                ..Default::default()
+            };
+            fonts
+                .font_data
+                .insert(FALLBACK_FONT.to_string(), std::sync::Arc::new(font_data));
+            fonts
+                .families
+                .entry(eframe::egui::FontFamily::Proportional)
+                .or_default()
+                .insert(0, FALLBACK_FONT.to_string());
+            fonts
+                .families
+                .entry(eframe::egui::FontFamily::Monospace)
+                .or_default()
+                .insert(0, FALLBACK_FONT.to_string());
+        });
+    } else {
+        tracing::warn!("Failed to load fallback font 'Yu Gothic UI'");
+    }
+
+    if let Some(control_font_id) = insensitive_font_match
+        .get(&control_font.name.to_lowercase())
+        .and_then(|name| {
+            db.query(&fontdb::Query {
+                families: &[fontdb::Family::Name(name)],
+                ..Default::default()
+            })
+        })
+    {
         db.with_face_data(control_font_id, |data, _| {
             let mut font_data = egui::FontData::from_owned(data.to_vec());
             // Yu Gothic UIは体感上にずれているので、微調整する
@@ -738,11 +799,21 @@ pub fn aviutl2_fonts() -> eframe::egui::FontDefinitions {
                 .or_default()
                 .insert(0, "aviutl2::Control".to_string());
         });
+    } else {
+        tracing::warn!(
+            "Failed to load control font '{}', falling back to default",
+            control_font.name
+        );
     }
-    if let Some(monospace_font) = db.query(&fontdb::Query {
-        families: &[fontdb::Family::Name(&text_font.name)],
-        ..Default::default()
-    }) {
+    if let Some(monospace_font) = insensitive_font_match
+        .get(&text_font.name.to_lowercase())
+        .and_then(|name| {
+            db.query(&fontdb::Query {
+                families: &[fontdb::Family::Name(name)],
+                ..Default::default()
+            })
+        })
+    {
         db.with_face_data(monospace_font, |data, _| {
             fonts.font_data.insert(
                 "aviutl2::EditControl".to_string(),
@@ -754,6 +825,11 @@ pub fn aviutl2_fonts() -> eframe::egui::FontDefinitions {
                 .or_default()
                 .insert(0, "aviutl2::EditControl".to_string());
         });
+    } else {
+        tracing::warn!(
+            "Failed to load edit control font '{}', falling back to default",
+            text_font.name
+        );
     }
 
     fonts

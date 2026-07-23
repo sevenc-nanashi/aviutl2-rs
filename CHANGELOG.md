@@ -3,6 +3,8 @@
 ## Unreleased
 
 - input: 高速なAPIを追加
+- eframe: フォント読み込みで大文字小文字違いを許容するようにする
+- eframe: Yu Gothic UIを常に読み込むようにする
 
 ### デモプラグイン
 
