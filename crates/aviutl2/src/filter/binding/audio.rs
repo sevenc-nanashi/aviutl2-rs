@@ -92,6 +92,19 @@ impl From<AudioChannel> for i32 {
 }
 
 impl<U: super::FilterUserdata> FilterProcAudio<U> {
+    /// 可変長の汎用データ項目のサイズを変更する。
+    ///
+    /// データのread/writeガードが存在する場合は失敗します。
+    pub fn set_filter_config_data_size(
+        &self,
+        data: &mut crate::filter::VariableLengthFilterConfigDataHandle,
+        size: usize,
+    ) -> FilterProcResult<()> {
+        data.try_resize(size, |data, size| unsafe {
+            ((*self.inner).set_filter_item_data_size)(data, size);
+        })
+    }
+
     /// 現在の音声のデータを取得する。
     /// `channel` は 0 が左チャンネル、1 が右チャンネルです。
     ///

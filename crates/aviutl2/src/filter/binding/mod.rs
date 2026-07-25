@@ -253,6 +253,10 @@ pub enum FilterProcError {
     InputCwstrContainsNull(#[from] crate::common::NullByteError),
     #[error("value is out of range")]
     ValueOutOfRange,
+    #[error("filter config data is locked")]
+    FilterConfigDataLocked,
+    #[error("filter config data is not bound to the current filter process")]
+    FilterConfigDataNotBound,
 }
 
 pub type FilterProcResult<T> = Result<T, FilterProcError>;

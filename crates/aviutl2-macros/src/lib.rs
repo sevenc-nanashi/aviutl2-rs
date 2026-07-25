@@ -218,22 +218,25 @@ mod utils;
 /// ## `data`
 ///
 /// ```rust
-/// # use aviutl2::filter::FilterConfigDataHandle;
+/// # use aviutl2::filter::{FilterConfigDataHandle, VariableLengthFilterConfigDataHandle};
 /// # #[derive(Debug, Default, Clone, Copy)]
 /// # struct MyData {
 /// #    value: i32,
 /// # }
 /// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
-/// #[data(name = "サンプルデータ", default = MyData { value: 0 })]
+/// #[data(name = "サンプル固定長データ", default = MyData { value: 0 })]
 /// data_field: FilterConfigDataHandle<MyData>,
+/// #[data(name = "サンプル可変長データ")]
+/// variable_data_field: VariableLengthFilterConfigDataHandle,
 /// # }
 /// ```
 ///
 /// - `name`: データの名前。省略した場合、フィールド名が使用されます。
 /// - `default`: データの初期値。省略した場合、`Default::default()`が使用されます。
 ///
-/// - 値の型は`aviutl2::filter::FilterConfigDataHandle<T>`である必要があります。
+/// - 値の型は`aviutl2::filter::FilterConfigDataHandle<T>`または
+///   `aviutl2::filter::VariableLengthFilterConfigDataHandle`である必要があります。
 ///
 /// ## `group`
 ///
@@ -287,7 +290,7 @@ mod utils;
 /// # Example
 ///
 /// ```rust
-/// use aviutl2::filter::FilterConfigDataHandle;
+/// use aviutl2::filter::{FilterConfigDataHandle, VariableLengthFilterConfigDataHandle};
 ///
 /// #[derive(Debug, Default, Clone, Copy)]
 /// struct MyData {
@@ -323,8 +326,12 @@ mod utils;
 ///         "すべてのファイル" => [],
 ///     })]
 ///     sample_file: std::path::PathBuf,
-///     #[data(name = "サンプルデータ")]
+///     #[folder(name = "サンプルフォルダ", default = "C:\\\\")]
+///     sample_folder: std::path::PathBuf,
+///     #[data(name = "サンプル固定長データ")]
 ///     sample_data: FilterConfigDataHandle<MyData>,
+///     #[data(name = "サンプル可変長データ")]
+///     sample_variable_data: VariableLengthFilterConfigDataHandle,
 ///
 ///     #[button(name = "サンプルボタン")]
 ///     on_button_pressed: my_button_handler,

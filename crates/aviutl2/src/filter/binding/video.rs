@@ -804,6 +804,19 @@ fn image_data_byte_len(pitch: u32, height: u32) -> FilterProcResult<usize> {
 }
 
 impl<U: super::FilterUserdata> FilterProcVideo<U> {
+    /// 可変長の汎用データ項目のサイズを変更する。
+    ///
+    /// データのread/writeガードが存在する場合は失敗します。
+    pub fn set_filter_config_data_size(
+        &self,
+        data: &mut crate::filter::VariableLengthFilterConfigDataHandle,
+        size: usize,
+    ) -> FilterProcResult<()> {
+        data.try_resize(size, |data, size| unsafe {
+            ((*self.inner).set_filter_item_data_size)(data, size);
+        })
+    }
+
     /// 現在の画像のデータを取得する。
     /// RGBA32bit で取得されます。
     ///

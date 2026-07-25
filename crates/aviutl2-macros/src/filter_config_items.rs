@@ -500,24 +500,20 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                 default,
                 value_type,
             } => {
-                if let Some(expr) = default {
-                    quote::quote! {
-                        ::aviutl2::filter::FilterConfigItem::Data(
-                            ::aviutl2::filter::ErasedFilterConfigData::with_default_value(
-                                #name.to_string(),
-                                #expr,
-                            )
-                        )
-                    }
+                let value = if let Some(expr) = default {
+                    quote::quote! { #expr.into() }
                 } else {
                     quote::quote! {
-                        ::aviutl2::filter::FilterConfigItem::Data(
-                            ::aviutl2::filter::ErasedFilterConfigData::with_default_value(
-                                #name.to_string(),
-                                <#value_type>::__generics_default_value()
-                            )
-                        )
+                        <#value_type as ::aviutl2::filter::FilterConfigDataHandleType>::__default_value()
                     }
+                };
+                quote::quote! {
+                    ::aviutl2::filter::FilterConfigItem::Data(
+                        <#value_type as ::aviutl2::filter::FilterConfigDataHandleType>::__to_erased(
+                            #name.to_string(),
+                            #value,
+                        )
+                    )
                 }
             }
             FilterConfigField::String {
@@ -819,11 +815,12 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                     }
                 })
             }
-            FilterConfigField::Data { id, .. } => {
+            FilterConfigField::Data { id, value_type, .. } => {
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
                 Some(quote::quote! {
                     #id_ident: match items[#i] {
-                        ::aviutl2::filter::FilterConfigItem::Data(ref data) => ::aviutl2::filter::FilterConfigDataHandle::__from_erased(data),
+                        ::aviutl2::filter::FilterConfigItem::Data(ref data) =>
+                            <#value_type as ::aviutl2::filter::FilterConfigDataHandleType>::__from_erased_data(data),
                         _ => panic!("expected Data at index {}", #i),
                     }
                 })
@@ -925,15 +922,23 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
                 #id_ident: #default
             })
         }
-        FilterConfigField::Data { id, default, .. } => {
+        FilterConfigField::Data {
+            id,
+            default,
+            value_type,
+            ..
+        } => {
             let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
             let value = if let Some(expr) = default {
-                quote::quote! { #expr }
+                quote::quote! { #expr.into() }
             } else {
-                quote::quote! { ::std::default::Default::default() }
+                quote::quote! {
+                    <#value_type as ::aviutl2::filter::FilterConfigDataHandleType>::__default_value()
+                }
             };
             Some(quote::quote! {
-                #id_ident: ::aviutl2::filter::FilterConfigDataHandle::__new_owned(#value)
+                #id_ident:
+                    <#value_type as ::aviutl2::filter::FilterConfigDataHandleType>::__new_owned_data(#value)
             })
         }
         FilterConfigField::String { id, default, .. } => {
@@ -2040,6 +2045,24 @@ mod tests {
         };
         let output = filter_config_items(input).unwrap();
         insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
+    fn test_variable_length_data_behavior() {
+        use aviutl2::filter::{FilterConfigItems, VariableLengthFilterConfigDataHandle};
+
+        #[aviutl2::filter::filter_config_items]
+        struct Config {
+            #[data(name = "Data", default = [1, 2, 3])]
+            data: VariableLengthFilterConfigDataHandle,
+        }
+
+        let default = Config::default();
+        assert_eq!(&*default.data.read(), &[1, 2, 3]);
+
+        let items = Config::to_config_items();
+        let config = Config::from_config_items(&items);
+        assert_eq!(&*config.data.read(), &[1, 2, 3]);
     }
 
     #[test]

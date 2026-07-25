@@ -391,7 +391,19 @@ impl FilterConfigItem {
                     _ => true,
                 };
 
-                size_changed || ptr_changed
+                let binding_changed = item.variable_state.as_ref().is_some_and(|state| {
+                    let state = state.read();
+                    !matches!(
+                        *state,
+                        VariableLengthDataBacking::Host(pointer)
+                            if std::ptr::eq(
+                                pointer.as_ptr(),
+                                raw.cast_mut().cast::<aviutl2_sys::filter2::FILTER_ITEM_DATA>()
+                            )
+                    )
+                });
+
+                size_changed || ptr_changed || binding_changed
             }
             (FilterConfigItem::Group(_), FilterConfigItemValue::Group) => false,
             (FilterConfigItem::Button(_), FilterConfigItemValue::Button) => false,
@@ -438,6 +450,14 @@ impl FilterConfigItem {
             (FilterConfigItem::Data(item), FilterConfigItemValue::Data { value, size }) => {
                 item.size = size;
                 item.value = NonNull::new(value);
+                if let Some(state) = &item.variable_state {
+                    let raw = NonNull::new(
+                        raw.cast_mut()
+                            .cast::<aviutl2_sys::filter2::FILTER_ITEM_DATA>(),
+                    )
+                    .expect("FILTER_ITEM_DATA pointer must not be null");
+                    *state.write() = VariableLengthDataBacking::Host(raw);
+                }
             }
             (FilterConfigItem::Group(_), FilterConfigItemValue::Group) => {
                 // グループは値を持たないので何もしない
@@ -681,11 +701,12 @@ pub struct ErasedFilterConfigData {
     ///
     /// # Note
     ///
-    /// 1024バイトを超えることはできません。
+    /// 16KiBを超えるデータはサポートされません。
     pub size: usize,
     /// 現在の値を指すポインタ。
     pub value: Option<NonNull<std::ffi::c_void>>,
-    default_value: [u8; 1024],
+    default_value: [u8; 16 * 1024],
+    variable_state: Option<std::sync::Arc<parking_lot::RwLock<VariableLengthDataBacking>>>,
 }
 
 impl ErasedFilterConfigData {
@@ -694,7 +715,7 @@ impl ErasedFilterConfigData {
     ///
     /// # Panics
     ///
-    /// Tが1024バイトを超える場合、パニックします。
+    /// Tが16KiBを超える場合、パニックします。
     pub fn new<T: Copy + Default + 'static>(name: String) -> Self {
         Self::with_default_value(name, T::default())
     }
@@ -704,14 +725,14 @@ impl ErasedFilterConfigData {
     ///
     /// # Panics
     ///
-    /// Tが1024バイトを超える場合、パニックします。
+    /// Tが16KiBを超える場合、パニックします。
     pub fn with_default_value<T: Copy + 'static>(name: String, default_value: T) -> Self {
         assert!(
-            std::mem::size_of::<T>() <= 1024,
-            "FilterConfigData<T> size must be <= 1024 bytes"
+            std::mem::size_of::<T>() <= 16 * 1024,
+            "FilterConfigData<T> size must be <= 16 KiB"
         );
         let size = std::mem::size_of::<T>();
-        let mut default_value_bytes = [0u8; 1024];
+        let mut default_value_bytes = [0u8; 16 * 1024];
         let default_value_ptr = (&raw const default_value).cast::<u8>();
         default_value_bytes[..size]
             .copy_from_slice(unsafe { std::slice::from_raw_parts(default_value_ptr, size) });
@@ -721,6 +742,7 @@ impl ErasedFilterConfigData {
             size,
             value: None,
             default_value: default_value_bytes,
+            variable_state: None,
         }
     }
 
@@ -758,6 +780,8 @@ impl ErasedFilterConfigData {
 
 /// 汎用データ。
 ///
+/// [`VariableLengthFilterConfigData`]と違い、サイズが固定されています。
+///
 /// # Note
 ///
 /// Tのサイズが変わったとき、値はデフォルト値にリセットされます。
@@ -779,11 +803,11 @@ impl<T: Copy + 'static> FilterConfigData<T> {
     /// Tが1024バイトを超える場合、パニックします。
     pub fn erase_type(&self) -> ErasedFilterConfigData {
         assert!(
-            std::mem::size_of::<T>() <= 1024,
-            "FilterConfigData<T> size must be <= 1024 bytes"
+            std::mem::size_of::<T>() <= 16 * 1024,
+            "FilterConfigData<T> size must be <= 16 KiB"
         );
         let size = std::mem::size_of::<T>();
-        let mut default_value = [0u8; 1024];
+        let mut default_value = [0u8; 16 * 1024];
         let default_value_ptr = (&raw const self.default_value).cast::<u8>();
         default_value[..size]
             .copy_from_slice(unsafe { std::slice::from_raw_parts(default_value_ptr, size) });
@@ -795,6 +819,7 @@ impl<T: Copy + 'static> FilterConfigData<T> {
                 .value
                 .map(|v| NonNull::new(v.as_ptr().cast::<c_void>()).unwrap()),
             default_value,
+            variable_state: None,
         }
     }
 }
@@ -802,6 +827,83 @@ impl<T: Copy + 'static> FilterConfigData<T> {
 impl<T: Copy + 'static> From<FilterConfigData<T>> for ErasedFilterConfigData {
     fn from(value: FilterConfigData<T>) -> Self {
         value.erase_type()
+    }
+}
+
+/// 可変長の汎用データ。
+///
+/// [`FilterConfigData`]と違い、サイズを変更することができます。
+/// 必要に応じて、`bytemuck`などのクレートを使用して型変換してください。
+#[derive(Debug, Clone)]
+pub struct VariableLengthFilterConfigData {
+    /// 設定名。
+    pub name: String,
+    /// 設定値。
+    pub value: Option<NonNull<[u8]>>,
+    /// データのサイズ。
+    pub size: usize,
+    /// デフォルト値。
+    pub default_value: Vec<u8>,
+}
+
+impl VariableLengthFilterConfigData {
+    /// 新しく作成します。
+    ///
+    /// # Panics
+    ///
+    /// `size` が16KiBを超える場合、パニックします。
+    pub fn new(name: String, size: usize) -> Self {
+        Self::with_default_value(name, vec![0u8; size])
+    }
+
+    /// デフォルト値を指定して新しく作成します。
+    ///
+    /// # Panics
+    ///
+    /// `default_value.len()` が16KiBを超える場合、パニックします。
+    pub fn with_default_value(name: String, default_value: Vec<u8>) -> Self {
+        assert!(
+            default_value.len() <= 16 * 1024,
+            "VariableLengthFilterConfigData default_value size must be <= 16 KiB"
+        );
+        let size = default_value.len();
+        VariableLengthFilterConfigData {
+            name,
+            value: None,
+            size,
+            default_value,
+        }
+    }
+}
+impl From<VariableLengthFilterConfigData> for ErasedFilterConfigData {
+    fn from(value: VariableLengthFilterConfigData) -> Self {
+        let size = value.size;
+        let mut default_value = [0u8; 16 * 1024];
+        assert!(
+            size <= 16 * 1024,
+            "VariableLengthFilterConfigData size must be <= 16 KiB"
+        );
+        assert_eq!(
+            size,
+            value.default_value.len(),
+            "VariableLengthFilterConfigData size must match default_value length"
+        );
+        default_value[..size].copy_from_slice(&value.default_value);
+        let backing = match value.value {
+            Some(value) => VariableLengthDataBacking::Borrowed {
+                pointer: value.as_ptr().cast(),
+                size,
+            },
+            None => VariableLengthDataBacking::Owned(value.default_value),
+        };
+
+        ErasedFilterConfigData {
+            name: value.name,
+            size,
+            value: None,
+            default_value,
+            variable_state: Some(std::sync::Arc::new(parking_lot::RwLock::new(backing))),
+        }
     }
 }
 
@@ -846,7 +948,204 @@ pub struct FilterConfigSeparator {
     pub name: String,
 }
 
-/// フィルタプラグインでのデータを使うためのハンドル。
+static HANDLES: std::sync::LazyLock<dashmap::DashMap<usize, parking_lot::RawRwLock>> =
+    std::sync::LazyLock::new(dashmap::DashMap::new);
+static OWNED_REFERENCES: std::sync::LazyLock<
+    std::sync::Arc<dashmap::DashMap<usize, std::sync::atomic::AtomicUsize>>,
+> = std::sync::LazyLock::new(|| std::sync::Arc::new(dashmap::DashMap::new()));
+
+#[derive(Debug)]
+enum VariableLengthDataBacking {
+    Borrowed { pointer: *mut u8, size: usize },
+    Owned(Vec<u8>),
+    Host(NonNull<aviutl2_sys::filter2::FILTER_ITEM_DATA>),
+}
+
+unsafe impl Send for VariableLengthDataBacking {}
+unsafe impl Sync for VariableLengthDataBacking {}
+
+impl VariableLengthDataBacking {
+    fn as_slice(&self) -> &[u8] {
+        match self {
+            Self::Borrowed { pointer, size } => unsafe {
+                std::slice::from_raw_parts(non_null_slice_pointer(*pointer, *size), *size)
+            },
+            Self::Owned(value) => value,
+            Self::Host(raw) => {
+                let raw = unsafe { raw.as_ref() };
+                let size =
+                    usize::try_from(raw.size).expect("FILTER_ITEM_DATA size must not be negative");
+                assert!(size <= 16 * 1024, "FILTER_ITEM_DATA size must be <= 16 KiB");
+                unsafe {
+                    std::slice::from_raw_parts(non_null_slice_pointer(raw.value.cast(), size), size)
+                }
+            }
+        }
+    }
+
+    fn as_mut_slice(&mut self) -> &mut [u8] {
+        match self {
+            Self::Borrowed { pointer, size } => unsafe {
+                std::slice::from_raw_parts_mut(non_null_slice_pointer(*pointer, *size), *size)
+            },
+            Self::Owned(value) => value,
+            Self::Host(raw) => {
+                let raw = unsafe { raw.as_mut() };
+                let size =
+                    usize::try_from(raw.size).expect("FILTER_ITEM_DATA size must not be negative");
+                assert!(size <= 16 * 1024, "FILTER_ITEM_DATA size must be <= 16 KiB");
+                unsafe {
+                    std::slice::from_raw_parts_mut(
+                        non_null_slice_pointer(raw.value.cast(), size),
+                        size,
+                    )
+                }
+            }
+        }
+    }
+}
+
+fn non_null_slice_pointer(pointer: *mut u8, size: usize) -> *mut u8 {
+    if size == 0 {
+        NonNull::<u8>::dangling().as_ptr()
+    } else {
+        assert!(
+            !pointer.is_null(),
+            "filter config data pointer must not be null"
+        );
+        pointer
+    }
+}
+
+/// フィルタプラグインで可変長の汎用データ項目を使うためのハンドル。
+#[derive(Debug, Clone)]
+pub struct VariableLengthFilterConfigDataHandle {
+    inner: std::sync::Arc<parking_lot::RwLock<VariableLengthDataBacking>>,
+}
+
+impl VariableLengthFilterConfigDataHandle {
+    #[doc(hidden)]
+    pub fn __from_erased(erased: &ErasedFilterConfigData) -> Self {
+        Self {
+            inner: erased
+                .variable_state
+                .as_ref()
+                .expect("expected variable-length filter config data")
+                .clone(),
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn __new_owned(value: Vec<u8>) -> Self {
+        assert!(
+            value.len() <= 16 * 1024,
+            "VariableLengthFilterConfigData size must be <= 16 KiB"
+        );
+        Self {
+            inner: std::sync::Arc::new(parking_lot::RwLock::new(VariableLengthDataBacking::Owned(
+                value,
+            ))),
+        }
+    }
+
+    /// データを読み取るためのロックを取得する。
+    pub fn read(&self) -> VariableLengthFilterConfigDataReadGuard<'_> {
+        VariableLengthFilterConfigDataReadGuard {
+            inner: self.inner.read(),
+        }
+    }
+
+    /// データを読み取るためのロックの取得を試みる。
+    pub fn try_read(&self) -> Option<VariableLengthFilterConfigDataReadGuard<'_>> {
+        self.inner
+            .try_read()
+            .map(|inner| VariableLengthFilterConfigDataReadGuard { inner })
+    }
+
+    /// データを書き込むためのロックを取得する。
+    pub fn write(&self) -> VariableLengthFilterConfigDataWriteGuard<'_> {
+        VariableLengthFilterConfigDataWriteGuard {
+            inner: self.inner.write(),
+        }
+    }
+
+    /// データを書き込むためのロックの取得を試みる。
+    pub fn try_write(&self) -> Option<VariableLengthFilterConfigDataWriteGuard<'_>> {
+        self.inner
+            .try_write()
+            .map(|inner| VariableLengthFilterConfigDataWriteGuard { inner })
+    }
+
+    pub(crate) fn try_resize(
+        &mut self,
+        size: usize,
+        resize: impl FnOnce(*mut c_void, i32),
+    ) -> crate::filter::FilterProcResult<()> {
+        if size > 16 * 1024 {
+            return Err(crate::filter::FilterProcError::ValueOutOfRange);
+        }
+        let size =
+            i32::try_from(size).map_err(|_| crate::filter::FilterProcError::ValueOutOfRange)?;
+        let mut backing = self
+            .inner
+            .try_write()
+            .ok_or(crate::filter::FilterProcError::FilterConfigDataLocked)?;
+        let VariableLengthDataBacking::Host(raw) = &mut *backing else {
+            return Err(crate::filter::FilterProcError::FilterConfigDataNotBound);
+        };
+        resize(raw.as_ptr().cast(), size);
+        let backing = &mut *backing;
+        match backing {
+            VariableLengthDataBacking::Host(raw) => {
+                unsafe { raw.as_mut() }.size = size;
+            }
+            VariableLengthDataBacking::Borrowed {
+                pointer: _,
+                size: s,
+            } => {
+                *s = size as usize;
+            }
+            VariableLengthDataBacking::Owned(vec) => {
+                vec.resize(size as usize, 0);
+            }
+        }
+        Ok(())
+    }
+}
+
+/// 可変長の汎用データを読み取るためのガード。
+pub struct VariableLengthFilterConfigDataReadGuard<'handle> {
+    inner: parking_lot::RwLockReadGuard<'handle, VariableLengthDataBacking>,
+}
+
+impl std::ops::Deref for VariableLengthFilterConfigDataReadGuard<'_> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.inner.as_slice()
+    }
+}
+
+/// 可変長の汎用データを書き込むためのガード。
+pub struct VariableLengthFilterConfigDataWriteGuard<'handle> {
+    inner: parking_lot::RwLockWriteGuard<'handle, VariableLengthDataBacking>,
+}
+
+impl std::ops::Deref for VariableLengthFilterConfigDataWriteGuard<'_> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.inner.as_slice()
+    }
+}
+
+impl std::ops::DerefMut for VariableLengthFilterConfigDataWriteGuard<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.inner.as_mut_slice()
+    }
+}
+
+/// フィルタプラグインで固定長の汎用データ項目を使うためのハンドル。
 /// RwLockのような仕組みで安全にデータを扱うことができます。
 #[derive(Debug)]
 pub struct FilterConfigDataHandle<T: Copy> {
@@ -855,12 +1154,6 @@ pub struct FilterConfigDataHandle<T: Copy> {
 
 unsafe impl<T: Send + Sync + Copy> Send for FilterConfigDataHandle<T> {}
 unsafe impl<T: Send + Sync + Copy> Sync for FilterConfigDataHandle<T> {}
-
-static HANDLES: std::sync::LazyLock<dashmap::DashMap<usize, parking_lot::RawRwLock>> =
-    std::sync::LazyLock::new(dashmap::DashMap::new);
-static OWNED_REFERENCES: std::sync::LazyLock<
-    std::sync::Arc<dashmap::DashMap<usize, std::sync::atomic::AtomicUsize>>,
-> = std::sync::LazyLock::new(|| std::sync::Arc::new(dashmap::DashMap::new()));
 
 impl<T: Copy> Clone for FilterConfigDataHandle<T> {
     fn clone(&self) -> Self {
@@ -998,6 +1291,54 @@ impl<T: Copy> FilterConfigDataHandle<T> {
     /// このポインタを直接操作するとデータ競合が発生する可能性があります。
     pub fn as_ptr(&self) -> *mut T {
         self.inner
+    }
+}
+
+#[doc(hidden)]
+pub trait FilterConfigDataHandleType: Sized {
+    type Value;
+
+    fn __default_value() -> Self::Value
+    where
+        Self::Value: Default,
+    {
+        Self::Value::default()
+    }
+
+    fn __to_erased(name: String, value: Self::Value) -> ErasedFilterConfigData;
+    fn __from_erased_data(data: &ErasedFilterConfigData) -> Self;
+    fn __new_owned_data(value: Self::Value) -> Self;
+}
+
+impl<T: Copy + 'static> FilterConfigDataHandleType for FilterConfigDataHandle<T> {
+    type Value = T;
+
+    fn __to_erased(name: String, value: Self::Value) -> ErasedFilterConfigData {
+        ErasedFilterConfigData::with_default_value(name, value)
+    }
+
+    fn __from_erased_data(data: &ErasedFilterConfigData) -> Self {
+        Self::__from_erased(data)
+    }
+
+    fn __new_owned_data(value: Self::Value) -> Self {
+        Self::__new_owned(value)
+    }
+}
+
+impl FilterConfigDataHandleType for VariableLengthFilterConfigDataHandle {
+    type Value = Vec<u8>;
+
+    fn __to_erased(name: String, value: Self::Value) -> ErasedFilterConfigData {
+        VariableLengthFilterConfigData::with_default_value(name, value).into()
+    }
+
+    fn __from_erased_data(data: &ErasedFilterConfigData) -> Self {
+        Self::__from_erased(data)
+    }
+
+    fn __new_owned_data(value: Self::Value) -> Self {
+        Self::__new_owned(value)
     }
 }
 
@@ -1200,5 +1541,59 @@ mod tests {
         drop(read_guard);
         drop(handle);
         drop(boxed);
+    }
+
+    #[test]
+    fn variable_length_filter_config_data_handle_reads_and_writes_owned_data() {
+        let handle = VariableLengthFilterConfigDataHandle::__new_owned(vec![1, 2, 3]);
+        let cloned = handle.clone();
+
+        assert_eq!(&*handle.read(), &[1, 2, 3]);
+        {
+            let mut value = cloned.write();
+            value[1] = 9;
+        }
+        assert_eq!(&*handle.read(), &[1, 9, 3]);
+    }
+
+    #[test]
+    fn variable_length_filter_config_data_resize_updates_all_clones() {
+        let mut old_value = vec![1u8, 2, 3];
+        let mut new_value = vec![4u8, 5, 6, 7];
+        let mut raw = aviutl2_sys::filter2::FILTER_ITEM_DATA {
+            r#type: std::ptr::null(),
+            name: std::ptr::null(),
+            value: old_value.as_mut_ptr().cast(),
+            size: old_value.len() as i32,
+            default_value: [MaybeUninit::new(0); 16 * 1024],
+        };
+        let mut handle = VariableLengthFilterConfigDataHandle {
+            inner: std::sync::Arc::new(parking_lot::RwLock::new(VariableLengthDataBacking::Host(
+                NonNull::from(&mut raw),
+            ))),
+        };
+        let cloned = handle.clone();
+
+        handle
+            .try_resize(new_value.len(), |raw, size| {
+                let raw = unsafe { &mut *raw.cast::<aviutl2_sys::filter2::FILTER_ITEM_DATA>() };
+                raw.value = new_value.as_mut_ptr().cast();
+                raw.size = size;
+            })
+            .unwrap();
+
+        assert_eq!(&*cloned.read(), &[4, 5, 6, 7]);
+    }
+
+    #[test]
+    fn variable_length_filter_config_data_rejects_oversized_resize() {
+        let mut handle = VariableLengthFilterConfigDataHandle::__new_owned(Vec::new());
+
+        let result = handle.try_resize(16 * 1024 + 1, |_, _| panic!("resize must not be called"));
+
+        assert!(matches!(
+            result,
+            Err(crate::filter::FilterProcError::ValueOutOfRange)
+        ));
     }
 }
