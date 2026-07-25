@@ -111,7 +111,7 @@ impl<U: super::FilterUserdata> FilterProcAudio<U> {
     /// # Panics
     ///
     /// `buffer` の長さが `sample_num` と一致しない場合、パニックします。
-    pub fn get_sample_data(&mut self, channel: AudioChannel, buffer: &mut [f32]) -> usize {
+    pub fn get_sample_data(&self, channel: AudioChannel, buffer: &mut [f32]) -> usize {
         let sample_num = self.audio_object.sample_num as usize;
         assert_eq!(
             buffer.len(),
@@ -129,7 +129,7 @@ impl<U: super::FilterUserdata> FilterProcAudio<U> {
     /// # Panics
     ///
     /// `data` の長さが `sample_num` と一致しない場合、パニックします。
-    pub fn set_sample_data(&mut self, channel: AudioChannel, data: &[f32]) {
+    pub fn set_sample_data(&self, channel: AudioChannel, data: &[f32]) {
         let sample_num = self.audio_object.sample_num as usize;
         assert_eq!(
             data.len(),
@@ -141,7 +141,7 @@ impl<U: super::FilterUserdata> FilterProcAudio<U> {
     }
 
     /// 読み取り専用の編集セクション。
-    pub fn read_section(&mut self) -> &crate::generic::ReadSection {
+    pub fn read_section(&self) -> &crate::generic::ReadSection {
         &self.read_section
     }
 
@@ -185,7 +185,7 @@ impl<U: super::FilterUserdata> FilterProcAudio<U> {
         }
     }
 
-    pub(crate) fn apply_param(&mut self) {
+    pub(crate) fn apply_param(&self) {
         let inner = unsafe { &mut *(*self.inner).param };
         inner.vol_l = self.param.vol_l;
         inner.vol_r = self.param.vol_r;

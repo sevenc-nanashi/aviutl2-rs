@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-（なし）
+- filter: FilterAudioProcのレシーバを`&self`にする
 
 ### デモプラグイン
 

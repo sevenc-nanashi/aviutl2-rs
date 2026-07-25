@@ -300,7 +300,6 @@ impl aviutl2::filter::FilterPlugin for BinauralFilter {
         )?;
         let new_left = new_left[(new_left.len() - num_samples)..].to_vec();
         let new_right = new_right[(new_right.len() - num_samples)..].to_vec();
-        drop(userdata);
 
         audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &new_left);
         audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &new_right);

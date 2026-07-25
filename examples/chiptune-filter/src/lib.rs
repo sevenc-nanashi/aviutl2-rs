@@ -60,20 +60,20 @@ impl Synthesizer {
     }
 }
 
-#[aviutl2::plugin(FilterPlugin)]
-struct ChiptuneFilter {
-    synthesizers: std::sync::RwLock<
-        std::collections::HashMap<i64, std::sync::Arc<std::sync::Mutex<Synthesizer>>>,
-    >,
+impl aviutl2::filter::FilterUserdata for Synthesizer {
+    fn new(_effect_id: i64) -> Self {
+        Self::new()
+    }
 }
 
+#[aviutl2::plugin(FilterPlugin)]
+struct ChiptuneFilter;
+
 impl FilterPlugin for ChiptuneFilter {
-    type Userdata = ();
+    type Userdata = Synthesizer;
 
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
-        Ok(Self {
-            synthesizers: std::sync::RwLock::new(std::collections::HashMap::new()),
-        })
+        Ok(Self)
     }
 
     fn plugin_info(&self) -> FilterPluginTable {
@@ -98,21 +98,7 @@ impl FilterPlugin for ChiptuneFilter {
         audio: &mut FilterProcAudio<Self::Userdata>,
     ) -> AnyResult<()> {
         let config: FilterConfig = config.to_struct();
-
-        let synthesizer = {
-            let synthesizers = self.synthesizers.read().unwrap();
-            synthesizers.get(&audio.object.id).cloned()
-        };
-        let synthesizer = if let Some(synthesizer) = synthesizer {
-            synthesizer
-        } else {
-            let new_synthesizer = std::sync::Arc::new(std::sync::Mutex::new(Synthesizer::new()));
-            let mut synthesizers = self.synthesizers.write().unwrap();
-            synthesizers.insert(audio.object.id, new_synthesizer.clone());
-            new_synthesizer
-        };
-
-        let mut synthesizer = synthesizer.lock().unwrap();
+        let mut synthesizer = audio.userdata.write();
 
         let sample_rate = audio.scene.sample_rate as f64;
         let sample_num = audio.audio_object.sample_num as usize;

@@ -175,7 +175,6 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
                 );
                 let left = cache.left.clone();
                 let right = cache.right.clone();
-                drop(userdata);
                 audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &left);
                 audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &right);
                 return Ok(());
@@ -227,7 +226,6 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
         cache.right.clear();
         cache.right.extend_from_slice(&right_samples);
         q_state.next_cache_index = (q_state.next_cache_index + 1) % NUM_CACHES;
-        drop(userdata);
 
         audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &left_samples);
         audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &right_samples);
