@@ -24,6 +24,8 @@ pub struct MetronomeFilterConfig {
 pub struct MetronomeFilter;
 
 impl aviutl2::filter::FilterPlugin for MetronomeFilter {
+    type Userdata = ();
+
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
         Ok(Self)
     }
@@ -47,7 +49,7 @@ impl aviutl2::filter::FilterPlugin for MetronomeFilter {
     fn proc_audio(
         &self,
         config: &[aviutl2::filter::FilterConfigItem],
-        audio: &mut aviutl2::filter::FilterProcAudio,
+        audio: &mut aviutl2::filter::FilterProcAudio<Self::Userdata>,
     ) -> anyhow::Result<()> {
         let config: MetronomeFilterConfig = config.to_struct();
         let sample_rate = audio.scene.sample_rate;

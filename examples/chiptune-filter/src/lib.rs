@@ -68,6 +68,8 @@ struct ChiptuneFilter {
 }
 
 impl FilterPlugin for ChiptuneFilter {
+    type Userdata = ();
+
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
         Ok(Self {
             synthesizers: std::sync::RwLock::new(std::collections::HashMap::new()),
@@ -93,7 +95,7 @@ impl FilterPlugin for ChiptuneFilter {
     fn proc_audio(
         &self,
         config: &[aviutl2::filter::FilterConfigItem],
-        audio: &mut FilterProcAudio,
+        audio: &mut FilterProcAudio<Self::Userdata>,
     ) -> AnyResult<()> {
         let config: FilterConfig = config.to_struct();
 

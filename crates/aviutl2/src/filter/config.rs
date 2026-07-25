@@ -355,7 +355,7 @@ impl FilterConfigItem {
             }
             "group" => FilterConfigItemValue::Group,
             "button" => FilterConfigItemValue::Button,
-            "checksection" => {
+            "checksection" | "checksection2" => {
                 let raw_check_section = unsafe { &(*raw).check_section };
                 FilterConfigItemValue::CheckSection(raw_check_section.value)
             }

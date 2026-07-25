@@ -41,7 +41,7 @@ pub struct AudioObjectInfo {
 
 /// 音声フィルタ処理のための構造体。
 #[derive(Debug)]
-pub struct FilterProcAudio {
+pub struct FilterProcAudio<U: super::FilterUserdata> {
     /// シーン情報。
     pub scene: SceneInfo,
     /// オブジェクト情報。
@@ -56,12 +56,15 @@ pub struct FilterProcAudio {
     /// このパラメータは音声出力項目のパラメータからの相対設定になります。
     pub param: ObjectAudioParam,
 
+    /// エフェクト毎に保持されるユーザーデータ。
+    pub userdata: super::FilterUserdataHandle<U>,
+
     pub(crate) read_section: crate::generic::ReadSection,
     pub(crate) inner: *const aviutl2_sys::filter2::FILTER_PROC_AUDIO,
 }
 
-unsafe impl Send for FilterProcAudio {}
-unsafe impl Sync for FilterProcAudio {}
+unsafe impl<U: super::FilterUserdata> Send for FilterProcAudio<U> {}
+unsafe impl<U: super::FilterUserdata> Sync for FilterProcAudio<U> {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AudioChannel {
@@ -88,7 +91,7 @@ impl From<AudioChannel> for i32 {
     }
 }
 
-impl FilterProcAudio {
+impl<U: super::FilterUserdata> FilterProcAudio<U> {
     /// 現在の音声のデータを取得する。
     /// `channel` は 0 が左チャンネル、1 が右チャンネルです。
     ///

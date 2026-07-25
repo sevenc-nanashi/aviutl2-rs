@@ -36,14 +36,14 @@ pub struct FilterConfig {
 
     #[group(name = "Hi-pass Filter")]
     hi_pass: group! {
-        #[check(name = "Hi-pass: Enable", default = false)]
+        #[checksection(name = "Hi-pass: Enable", default = false)]
         hipass_enable: bool,
         #[track(name = "Hi-pass: Frequency", range = 20.0..=20000.0, step = 1.0, default = 20.0)]
         hipass_freq: f64,
     },
     #[group(name = "Lo-pass Filter")]
     lo_pass: group! {
-        #[check(name = "Lo-pass: Enable", default = false)]
+        #[checksection(name = "Lo-pass: Enable", default = false)]
         lopass_enable: bool,
         #[track(name = "Lo-pass: Frequency", range = 20.0..=20000.0, step = 1.0, default = 20000.0)]
         lopass_freq: f64,
@@ -65,6 +65,18 @@ struct EqCache {
     left: Vec<f32>,
     right: Vec<f32>,
 }
+
+struct EqualizerUserdata {
+    eq_states: Option<EqStates>,
+}
+
+impl aviutl2::filter::FilterUserdata for EqualizerUserdata {
+    fn new(effect_id: i64) -> Self {
+        tracing::info!("Creating userdata for effect ID {}", effect_id);
+        Self { eq_states: None }
+    }
+}
+
 impl EqStates {
     fn new(sample_rate: f64, config: &FilterConfig) -> Self {
         Self {
@@ -97,11 +109,11 @@ impl EqStates {
 }
 
 #[aviutl2::plugin(FilterPlugin)]
-struct EqualizerFilter {
-    q_states: dashmap::DashMap<i64, EqStates>,
-}
+struct EqualizerFilter;
 
 impl aviutl2::filter::FilterPlugin for EqualizerFilter {
+    type Userdata = EqualizerUserdata;
+
     fn new(_info: aviutl2::AviUtl2Info) -> aviutl2::AnyResult<Self> {
         aviutl2::tracing_subscriber::fmt()
             .with_max_level(if cfg!(debug_assertions) {
@@ -112,9 +124,7 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
             .event_format(aviutl2::logger::AviUtl2Formatter)
             .with_writer(aviutl2::logger::AviUtl2LogWriter)
             .init();
-        Ok(Self {
-            q_states: dashmap::DashMap::new(),
-        })
+        Ok(Self)
     }
 
     fn plugin_info(&self) -> aviutl2::filter::FilterPluginTable {
@@ -136,7 +146,7 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
     fn proc_audio(
         &self,
         config: &[aviutl2::filter::FilterConfigItem],
-        audio: &mut aviutl2::filter::FilterProcAudio,
+        audio: &mut aviutl2::filter::FilterProcAudio<Self::Userdata>,
     ) -> anyhow::Result<()> {
         let config: FilterConfig = config.to_struct();
 
@@ -145,11 +155,10 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
         audio.get_sample_data(aviutl2::filter::AudioChannel::Left, &mut left_samples);
         audio.get_sample_data(aviutl2::filter::AudioChannel::Right, &mut right_samples);
         let sample_rate = audio.scene.sample_rate as f64;
-        let obj_id = audio.object.effect_id;
-
-        let mut q_state = self.q_states.entry(obj_id).or_insert_with(|| {
-            tracing::info!("Creating new EQ state for object ID {}", obj_id);
-
+        let effect_id = audio.object.effect_id;
+        let mut userdata = audio.userdata.write();
+        let q_state = userdata.eq_states.get_or_insert_with(|| {
+            tracing::info!("Creating new EQ state for effect ID {}", effect_id);
             EqStates::new(sample_rate, &config)
         });
 
@@ -160,27 +169,30 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
                 && cache.right.len() == right_samples.len()
             {
                 tracing::debug!(
-                    "Using cached EQ result for object ID {} at sample_index {}",
-                    obj_id,
+                    "Using cached EQ result for effect ID {} at sample_index {}",
+                    effect_id,
                     audio.audio_object.sample_index
                 );
-                audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &cache.left);
-                audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &cache.right);
+                let left = cache.left.clone();
+                let right = cache.right.clone();
+                drop(userdata);
+                audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &left);
+                audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &right);
                 return Ok(());
             }
         }
         if q_state.expected_next_index != audio.audio_object.sample_index {
             tracing::debug!(
-                "Audio discontinuity detected for object ID {}: expected {}, got {}",
-                obj_id,
+                "Audio discontinuity detected for effect ID {}: expected {}, got {}",
+                effect_id,
                 q_state.expected_next_index,
                 audio.audio_object.sample_index
             );
             q_state.reset();
         }
         tracing::debug!(
-            "Processing audio for object ID {}: sample_index {}, num_samples {}",
-            obj_id,
+            "Processing audio for effect ID {}: sample_index {}, num_samples {}",
+            effect_id,
             audio.audio_object.sample_index,
             left_samples.len()
         );
@@ -189,8 +201,8 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
         q_state.update_params(sample_rate, &config);
         if config.bypass {
             tracing::debug!(
-                "Bypass enabled, skipping EQ processing for object ID {}",
-                obj_id
+                "Bypass enabled, skipping EQ processing for effect ID {}",
+                effect_id
             );
             return Ok(());
         }
@@ -207,9 +219,6 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
         let next_cache_index = q_state.next_cache_index;
         let left_samples = left_samples.iter().map(|&s| s as f32).collect::<Vec<_>>();
         let right_samples = right_samples.iter().map(|&s| s as f32).collect::<Vec<_>>();
-        audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &left_samples);
-        audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &right_samples);
-
         let cache = &mut q_state.caches[next_cache_index];
         cache.sample_index = audio.audio_object.sample_index;
         cache.config = config.clone();
@@ -218,6 +227,10 @@ impl aviutl2::filter::FilterPlugin for EqualizerFilter {
         cache.right.clear();
         cache.right.extend_from_slice(&right_samples);
         q_state.next_cache_index = (q_state.next_cache_index + 1) % NUM_CACHES;
+        drop(userdata);
+
+        audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &left_samples);
+        audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &right_samples);
 
         Ok(())
     }

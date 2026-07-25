@@ -163,7 +163,7 @@ impl From<OutputImageResourcePixelFormat> for aviutl2_sys::filter2::OUTPUT_PIXEL
 
 /// 画像フィルタ処理のための構造体。
 #[derive(Debug)]
-pub struct FilterProcVideo {
+pub struct FilterProcVideo<U: super::FilterUserdata> {
     /// シーン情報。
     pub scene: SceneInfo,
     /// オブジェクト情報。
@@ -176,13 +176,16 @@ pub struct FilterProcVideo {
     /// などの呼び出し前に反映されます。
     pub param: ObjectImageParam,
 
+    /// エフェクト毎に保持されるユーザーデータ。
+    pub userdata: super::FilterUserdataHandle<U>,
+
     pub(crate) prevent_post_effect: bool,
 
     pub(crate) read_section: crate::generic::ReadSection,
     pub(crate) inner: *const aviutl2_sys::filter2::FILTER_PROC_VIDEO,
 }
-unsafe impl Send for FilterProcVideo {}
-unsafe impl Sync for FilterProcVideo {}
+unsafe impl<U: super::FilterUserdata> Send for FilterProcVideo<U> {}
+unsafe impl<U: super::FilterUserdata> Sync for FilterProcVideo<U> {}
 
 /// 描画時の画像リソース。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -800,7 +803,7 @@ fn image_data_byte_len(pitch: u32, height: u32) -> FilterProcResult<usize> {
         .ok_or(FilterProcError::ValueOutOfRange)
 }
 
-impl FilterProcVideo {
+impl<U: super::FilterUserdata> FilterProcVideo<U> {
     /// 現在の画像のデータを取得する。
     /// RGBA32bit で取得されます。
     ///
@@ -1564,7 +1567,7 @@ mod tests {
     }
 
     #[allow(dead_code)]
-    fn smoke_new_filter2_api(video: &mut FilterProcVideo) -> FilterProcResult<()> {
+    fn smoke_new_filter2_api(video: &mut FilterProcVideo<()>) -> FilterProcResult<()> {
         let writable = WritableImageResource::Resource("dst".to_string());
         let readable = ReadableImageResource::Resource("src".to_string());
         let drawable = DrawImageResource::Resource("src".to_string());

@@ -44,6 +44,8 @@ struct Color {
 struct RandomColorFilter {}
 
 impl FilterPlugin for RandomColorFilter {
+    type Userdata = ();
+
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
         aviutl2::tracing_subscriber::fmt()
             .with_max_level(if cfg!(debug_assertions) {
@@ -76,7 +78,7 @@ impl FilterPlugin for RandomColorFilter {
     fn proc_video(
         &self,
         config: &[aviutl2::filter::FilterConfigItem],
-        video: &mut FilterProcVideo,
+        video: &mut FilterProcVideo<Self::Userdata>,
     ) -> AnyResult<()> {
         let config: FilterConfig = config.to_struct();
         let width = config.width;

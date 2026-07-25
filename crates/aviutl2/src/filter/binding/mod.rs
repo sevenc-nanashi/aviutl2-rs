@@ -52,9 +52,98 @@ define_bitflag! {
     }
 }
 
+/// フィルタプラグインで使用するユーザーデータのトレイト。
+pub trait FilterUserdata: Send + Sync + Sized + 'static {
+    /// ユーザーデータを初期化する。
+    fn new(effect_id: i64) -> Self;
+}
+
+impl FilterUserdata for () {
+    fn new(_effect_id: i64) -> Self {
+        ()
+    }
+}
+
+/// フィルタプラグインのユーザーデータを参照するためのハンドル。
+#[derive(Debug)]
+pub struct FilterUserdataHandle<T: FilterUserdata> {
+    pub(crate) inner: std::sync::Arc<parking_lot::RwLock<T>>,
+}
+
+impl<T: FilterUserdata> FilterUserdataHandle<T> {
+    pub(crate) fn new(inner: std::sync::Arc<parking_lot::RwLock<T>>) -> Self {
+        Self { inner }
+    }
+
+    /// ユーザーデータを読み取るためのロックを取得する。
+    pub fn read(&self) -> FilterUserdataReadGuard<'_, T> {
+        FilterUserdataReadGuard {
+            inner: self.inner.read(),
+        }
+    }
+
+    /// ユーザーデータを読み取るためのロックの取得を試みる。
+    pub fn try_read(&self) -> Option<FilterUserdataReadGuard<'_, T>> {
+        self.inner
+            .try_read()
+            .map(|inner| FilterUserdataReadGuard { inner })
+    }
+
+    /// ユーザーデータを書き込むためのロックを取得する。
+    pub fn write(&self) -> FilterUserdataWriteGuard<'_, T> {
+        FilterUserdataWriteGuard {
+            inner: self.inner.write(),
+        }
+    }
+
+    /// ユーザーデータを書き込むためのロックの取得を試みる。
+    pub fn try_write(&self) -> Option<FilterUserdataWriteGuard<'_, T>> {
+        self.inner
+            .try_write()
+            .map(|inner| FilterUserdataWriteGuard { inner })
+    }
+}
+
+/// フィルタプラグインのユーザーデータを読み取るためのガード。
+pub struct FilterUserdataReadGuard<'handle, T: FilterUserdata> {
+    inner: parking_lot::RwLockReadGuard<'handle, T>,
+}
+
+impl<T: FilterUserdata> std::ops::Deref for FilterUserdataReadGuard<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+/// フィルタプラグインのユーザーデータを書き込むためのガード。
+pub struct FilterUserdataWriteGuard<'handle, T: FilterUserdata> {
+    inner: parking_lot::RwLockWriteGuard<'handle, T>,
+}
+
+impl<T: FilterUserdata> std::ops::Deref for FilterUserdataWriteGuard<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<T: FilterUserdata> std::ops::DerefMut for FilterUserdataWriteGuard<'_, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
 /// フィルタプラグインのトレイト。
 /// このトレイトを実装し、[`crate::register_filter_plugin!`] マクロを使用してプラグインを登録します。
 pub trait FilterPlugin: Send + Sync + Sized {
+    /// エフェクト毎に保持するユーザーデータの型。
+    ///
+    /// 使用しない場合は`()`を指定してください。
+    type Userdata: FilterUserdata;
+
     /// プラグインを初期化する。
     fn new(info: crate::common::AviUtl2Info) -> crate::common::AnyResult<Self>;
 
@@ -69,7 +158,7 @@ pub trait FilterPlugin: Send + Sync + Sized {
     fn proc_video(
         &self,
         _config: &[crate::filter::FilterConfigItem],
-        _video: &mut crate::filter::FilterProcVideo,
+        _video: &mut crate::filter::FilterProcVideo<Self::Userdata>,
     ) -> crate::common::AnyResult<()> {
         anyhow::bail!("proc_video is not implemented");
     }
@@ -78,7 +167,7 @@ pub trait FilterPlugin: Send + Sync + Sized {
     fn proc_audio(
         &self,
         _config: &[crate::filter::FilterConfigItem],
-        _audio: &mut crate::filter::FilterProcAudio,
+        _audio: &mut crate::filter::FilterProcAudio<Self::Userdata>,
     ) -> crate::common::AnyResult<()> {
         anyhow::bail!("proc_audio is not implemented");
     }

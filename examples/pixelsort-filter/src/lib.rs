@@ -53,6 +53,8 @@ pub struct FilterConfig {
 struct PixelSortFilter;
 
 impl FilterPlugin for PixelSortFilter {
+    type Userdata = ();
+
     fn new(_info: AviUtl2Info) -> AnyResult<Self> {
         aviutl2::tracing_subscriber::fmt()
             .with_max_level(if cfg!(debug_assertions) {
@@ -85,7 +87,7 @@ impl FilterPlugin for PixelSortFilter {
     fn proc_video(
         &self,
         config: &[aviutl2::filter::FilterConfigItem],
-        video: &mut FilterProcVideo,
+        video: &mut FilterProcVideo<Self::Userdata>,
     ) -> AnyResult<()> {
         let config: FilterConfig = config.to_struct();
         let (width, height) = (
