@@ -59,9 +59,7 @@ pub trait FilterUserdata: Send + Sync + Sized + 'static {
 }
 
 impl FilterUserdata for () {
-    fn new(_effect_id: i64) -> Self {
-        ()
-    }
+    fn new(_effect_id: i64) -> Self {}
 }
 
 /// フィルタプラグインのユーザーデータを参照するためのハンドル。
