@@ -1643,7 +1643,13 @@ impl EditSection {
     }
 }
 
-trait ReadSectionProvider {
+mod sealed {
+    pub trait Sealed {}
+    impl Sealed for super::ReadSection {}
+    impl Sealed for super::EditSection {}
+}
+
+pub trait ReadSectionProvider: sealed::Sealed {
     fn as_read_section(&self) -> &ReadSection;
 }
 
@@ -1662,11 +1668,11 @@ impl ReadSectionProvider for EditSection {
 /// オブジェクト主体で関数を呼び出すための構造体。
 /// EditSection と ObjectHandle の組をまとめ、対象オブジェクトに対する
 /// 操作を簡潔に呼び出せるようにします。
-pub struct EditSectionObjectCaller<'a, S> {
+pub struct EditSectionObjectCaller<'a, S: ReadSectionProvider> {
     edit_section: &'a S,
     pub handle: ObjectHandle,
 }
-impl<'a, S> EditSectionObjectCaller<'a, S> {
+impl<'a, S: ReadSectionProvider> EditSectionObjectCaller<'a, S> {
     pub fn new(edit_section: &'a S, object: ObjectHandle) -> Self {
         Self {
             edit_section,
@@ -1675,7 +1681,7 @@ impl<'a, S> EditSectionObjectCaller<'a, S> {
     }
 }
 
-impl<S> std::ops::Deref for EditSectionObjectCaller<'_, S> {
+impl<S: ReadSectionProvider> std::ops::Deref for EditSectionObjectCaller<'_, S> {
     type Target = ObjectHandle;
 
     fn deref(&self) -> &Self::Target {
@@ -1683,7 +1689,6 @@ impl<S> std::ops::Deref for EditSectionObjectCaller<'_, S> {
     }
 }
 
-#[expect(private_bounds)]
 impl<S> EditSectionObjectCaller<'_, S>
 where
     S: ReadSectionProvider,
@@ -1931,11 +1936,11 @@ impl EditSectionObjectCaller<'_, EditSection> {
 /// エフェクト主体で関数を呼び出すための構造体。
 /// EditSection と EffectHandle の組をまとめ、対象エフェクトに対する
 /// 操作を簡潔に呼び出せるようにします。
-pub struct EditSectionEffectCaller<'a, S> {
+pub struct EditSectionEffectCaller<'a, S: ReadSectionProvider> {
     edit_section: &'a S,
     pub handle: EffectHandle,
 }
-impl<'a, S> EditSectionEffectCaller<'a, S> {
+impl<'a, S: ReadSectionProvider> EditSectionEffectCaller<'a, S> {
     pub fn new(edit_section: &'a S, effect: EffectHandle) -> Self {
         Self {
             edit_section,
@@ -1944,7 +1949,7 @@ impl<'a, S> EditSectionEffectCaller<'a, S> {
     }
 }
 
-impl<S> std::ops::Deref for EditSectionEffectCaller<'_, S> {
+impl<S: ReadSectionProvider> std::ops::Deref for EditSectionEffectCaller<'_, S> {
     type Target = EffectHandle;
 
     fn deref(&self) -> &Self::Target {
@@ -1952,7 +1957,6 @@ impl<S> std::ops::Deref for EditSectionEffectCaller<'_, S> {
     }
 }
 
-#[expect(private_bounds)]
 impl<S> EditSectionEffectCaller<'_, S>
 where
     S: ReadSectionProvider,
@@ -2051,7 +2055,6 @@ impl<'a, S> EditSectionLayerCaller<'a, S> {
     }
 }
 
-#[expect(private_bounds)]
 impl<S> EditSectionLayerCaller<'_, S>
 where
     S: ReadSectionProvider,
