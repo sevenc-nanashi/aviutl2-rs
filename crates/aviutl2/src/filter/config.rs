@@ -215,12 +215,15 @@ impl FilterConfigItem {
                     name: leak_manager.leak_as_wide_string(&item.name),
                     value: std::ptr::null_mut(),
                     size: item.size as i32,
-                    default_value: [MaybeUninit::new(0); 1024],
+                    default_value: [MaybeUninit::new(0); 16 * 1024],
                 };
-                assert!(item.size <= 1024, "FilterConfigData size must be <= 1024");
+                assert!(
+                    item.size <= 16 * 1024,
+                    "FilterConfigData size must be <= 16 KiB"
+                );
                 unsafe {
                     // SAFETY:
-                    // - item.size <= 1024かつ、
+                    // - item.size <= 16KiBかつ、
                     // - item.default_value()はitem.size分のデータを持っている
                     std::ptr::copy_nonoverlapping(
                         item.default_value().as_ptr(),
@@ -342,8 +345,8 @@ impl FilterConfigItem {
                 let size =
                     usize::try_from(raw_size).expect("FILTER_ITEM_DATA size must not be negative");
                 assert!(
-                    size <= 1024,
-                    "FILTER_ITEM_DATA size must be 1024 bytes or less"
+                    size <= 16 * 1024,
+                    "FILTER_ITEM_DATA size must be 16 KiB or less"
                 );
                 FilterConfigItemValue::Data {
                     value: raw_data,

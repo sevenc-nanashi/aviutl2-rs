@@ -289,6 +289,8 @@ fn create_table_impl<T: FilterSingleton>(
         items: config_items as _,
         func_proc_video: Some(func_proc_video),
         func_proc_audio: Some(func_proc_audio),
+        func_create: None,
+        func_destroy: None,
     };
     let table = Box::new(table);
     Box::leak(table)

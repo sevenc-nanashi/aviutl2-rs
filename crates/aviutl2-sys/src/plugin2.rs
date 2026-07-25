@@ -574,6 +574,23 @@ pub struct EDIT_SECTION {
     /// グリッド(BPM)のBPM情報一覧を設定します (call_read_section利用不可)
     pub set_grid_bpm_list:
         unsafe extern "C" fn(bpm_list: *mut BPM_INFO, bpm_num: i32, bpm_size: i32),
+
+    /// オブジェクトにエフェクトを追加します (call_read_section利用不可)
+    pub create_effect:
+        unsafe extern "C" fn(object: OBJECT_HANDLE, effect: LPCWSTR) -> EFFECT_HANDLE,
+
+    /// オブジェクトからエフェクトを削除します (call_read_section利用不可)
+    pub delete_effect: unsafe extern "C" fn(object: OBJECT_HANDLE, effect: EFFECT_HANDLE) -> bool,
+
+    /// オブジェクトに中間点（区間）を追加します (call_read_section利用不可)
+    pub create_object_section: unsafe extern "C" fn(object: OBJECT_HANDLE, frame: i32) -> bool,
+
+    /// オブジェクトの中間点（区間）を削除します (call_read_section利用不可)
+    pub delete_object_section: unsafe extern "C" fn(object: OBJECT_HANDLE, section: i32) -> bool,
+
+    /// オブジェクトの中間点（区間）を移動します (call_read_section利用不可)
+    pub move_object_section:
+        unsafe extern "C" fn(object: OBJECT_HANDLE, section: i32, frame: i32) -> bool,
 }
 
 /// 編集ハンドル構造体

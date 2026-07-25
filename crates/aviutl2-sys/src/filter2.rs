@@ -146,7 +146,7 @@ pub struct FILTER_ITEM_FILE {
 }
 
 /// 汎用データ項目構造体
-/// `default_value` は最大1024バイトまでの任意のデータを格納できます。
+/// `default_value` は最大16KiBまでの任意のデータを格納できます。
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct FILTER_ITEM_DATA {
@@ -154,12 +154,12 @@ pub struct FILTER_ITEM_DATA {
     pub r#type: LPCWSTR,
     /// 設定名
     pub name: LPCWSTR,
-    /// 設定値（フィルタ処理の呼び出し時に現在の値のポインタに更新されます）
+    /// 汎用データのポインタ（フィルタ処理の呼び出し時に現在のポインタに更新されます）
     pub value: *mut c_void,
-    /// 汎用データのサイズ（1024バイト以下）
+    /// 汎用データのサイズ（フィルタ処理の呼び出し時に現在のサイズに更新されます、16KiB以下）
     pub size: i32,
     /// デフォルト値（sizeで指定した長さまで有効）
-    pub default_value: [MaybeUninit<u8>; 1024],
+    pub default_value: [MaybeUninit<u8>; 16 * 1024],
 }
 
 /// 設定グループ項目構造体
@@ -732,6 +732,12 @@ pub struct FILTER_PROC_VIDEO {
     /// 冗長なので廃止します ※EDIT_SECTIONに移動しました
     #[deprecated = "冗長なので廃止します ※EDIT_SECTIONに移動しました"]
     pub deprecated_get_font: unsafe extern "C" fn(font: LPCWSTR) -> *mut c_void,
+
+    /// 指定の汎用データ項目のデータサイズを変更します
+    pub set_filter_item_data_size: unsafe extern "C" fn(filter_item_data: *mut c_void, size: i32),
+
+    /// `func_create` で返却したユーザーデータのポインタ
+    pub userdata: *mut c_void,
 }
 
 /// 音声フィルタ処理用構造体
@@ -769,6 +775,12 @@ pub struct FILTER_PROC_AUDIO {
 
     /// 指定のレイヤー位置にある音声オブジェクトを取得します
     pub get_audio_object: unsafe extern "C" fn(layer: i32, offset: f64) -> OBJECT_HANDLE,
+
+    /// 指定の汎用データ項目のデータサイズを変更します
+    pub set_filter_item_data_size: unsafe extern "C" fn(filter_item_data: *mut c_void, size: i32),
+
+    /// `func_create` で返却したユーザーデータのポインタ
+    pub userdata: *mut c_void,
 }
 
 impl FILTER_PLUGIN_TABLE {
@@ -781,6 +793,8 @@ impl FILTER_PLUGIN_TABLE {
     /// フィルタオブジェクトをサポートする (フィルタオブジェクトに対応する場合)
     /// フィルタオブジェクトの場合は画像サイズの変更が出来ません
     pub const FLAG_FILTER: i32 = 8;
+    /// ユーザーデータをサポートする
+    pub const FLAG_USERDATA: i32 = 16;
 }
 
 /// フィルタプラグイン構造体
@@ -804,4 +818,10 @@ pub struct FILTER_PLUGIN_TABLE {
 
     /// 音声フィルタ処理関数へのポインタ (FLAG_AUDIOが有効の時のみ呼ばれます)
     pub func_proc_audio: Option<extern "C" fn(audio: *mut FILTER_PROC_AUDIO) -> bool>,
+
+    /// エフェクトのインスタンスが生成される時に呼ばれる関数へのポインタ
+    pub func_create: Option<extern "C" fn(effect_id: i64) -> *mut c_void>,
+
+    /// エフェクトのインスタンスが破棄される時に呼ばれる関数へのポインタ
+    pub func_destroy: Option<extern "C" fn(effect_id: i64, userdata: *mut c_void)>,
 }
