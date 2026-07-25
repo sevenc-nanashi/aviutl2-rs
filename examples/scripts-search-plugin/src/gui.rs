@@ -935,53 +935,11 @@ impl ScriptsSearchApp {
 
     fn add_filter_to_focused_object(effect: &crate::EffectData) -> anyhow::Result<()> {
         crate::EDIT_HANDLE.call_edit_section(|edit| {
-            // フィルターを追加するAPIがないため、エイリアスを編集して対応する
             let focused_object = edit
                 .get_focused_object()?
                 .ok_or_else(|| anyhow::anyhow!("オブジェクトが選択されていません。"))?;
-            let alias_str = edit.object(focused_object).get_alias()?;
-            let mut alias: aviutl2::alias::Table = alias_str
-                .parse()
-                .map_err(|e| anyhow::anyhow!("Failed to parse alias: {}", e))?;
-            let alias_table = alias
-                .get_table_mut("Object")
-                .ok_or_else(|| anyhow::anyhow!("Failed to get Object table from alias"))?;
-            let last_table = alias_table
-                .subtables()
-                .last()
-                .ok_or_else(|| anyhow::anyhow!("Failed to get last subtable from Object table"))?;
-            let effect_index = last_table
-                .0
-                .parse::<u32>()
-                .map_err(|e| anyhow::anyhow!("Failed to parse last subtable index: {}", e))?
-                + 1;
-            alias_table.insert_table(&effect_index.to_string(), {
-                let mut table = aviutl2::alias::Table::new();
-                table.insert_value("effect.name", &effect.effect.name);
-                table
-            });
-            let base_position = edit.object(focused_object).get_layer_frame()?;
-            edit.object(focused_object).delete_object()?;
-            match edit.create_object_from_alias(
-                &alias.to_string(),
-                base_position.layer,
-                base_position.start,
-                0,
-            ) {
-                Ok(created) => {
-                    edit.set_focus_object(Some(created))?;
-                    anyhow::Ok(())
-                }
-                Err(err) => {
-                    edit.create_object_from_alias(
-                        &alias_str,
-                        base_position.layer,
-                        base_position.start,
-                        0,
-                    )?;
-                    Err(err.into())
-                }
-            }
+            edit.create_effect(focused_object, &effect.effect.name)?;
+            anyhow::Ok(())
         })?
     }
 
@@ -996,23 +954,8 @@ impl ScriptsSearchApp {
         crate::EDIT_HANDLE.call_edit_section(|e| {
             let filter =
                 e.create_object("フィルタオブジェクト", e.info.layer, e.info.frame, None)?;
-            let mut filter_alias = e.object(filter).get_alias_parsed()?;
-            e.object(filter).delete_object()?;
-            filter_alias
-                .get_table_mut("Object")
-                .expect("Failed to get Object table")
-                .insert_table("1", {
-                    let mut table = aviutl2::alias::Table::new();
-                    table.insert_value("effect.name", &effect.effect.name);
-                    table
-                });
-            let created = e.create_object_from_alias(
-                &filter_alias.to_string(),
-                e.info.layer,
-                e.info.frame,
-                0,
-            )?;
-            e.set_focus_object(Some(created))?;
+            e.create_effect(filter, &effect.effect.name)?;
+            e.set_focus_object(Some(filter))?;
 
             anyhow::Ok(())
         })?

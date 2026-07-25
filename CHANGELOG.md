@@ -6,7 +6,7 @@
 
 ### デモプラグイン
 
-（なし）
+- scripts-search: フィルタ追加APIを使うようにする
 
 ## [0.41.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.41.0)
 
