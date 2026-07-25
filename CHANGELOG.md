@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Breaking**: generic: 最小サポートを2.1.2に引き上げ
+- **Breaking**: generic: `ReadSection::get_object_section_frame`の戻り値を`EditSectionResult<usize>`に
 - input: 高速なAPIを追加
 - generic: ReadSectionProviderをpubにする
 - eframe: フォント読み込みで大文字小文字違いを許容するようにする

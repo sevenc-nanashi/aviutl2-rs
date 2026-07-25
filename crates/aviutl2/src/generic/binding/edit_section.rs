@@ -593,15 +593,15 @@ impl ReadSection {
         &self,
         object: ObjectHandle,
         section: usize,
-    ) -> EditSectionResult<Option<usize>> {
+    ) -> EditSectionResult<usize> {
         self.ensure_object_exists(object)?;
         let frame = unsafe {
             ((*self.internal).get_object_section_frame)(object.internal, section.try_into()?)
         };
         if frame == -1 {
-            Ok(None)
+            Err(EditSectionError::ApiCallFailed)
         } else {
-            Ok(Some(frame.try_into()?))
+            Ok(frame.try_into()?)
         }
     }
 
@@ -616,10 +616,7 @@ impl ReadSection {
         let section_num = self.get_object_section_num(object)?;
         let mut frames = Vec::new();
         for section in 0..section_num {
-            frames.push(
-                self.get_object_section_frame(object, section)?
-                    .ok_or(EditSectionError::ApiCallFailed)?,
-            );
+            frames.push(self.get_object_section_frame(object, section)?);
         }
         Ok(frames)
     }
@@ -1433,6 +1430,100 @@ impl EditSection {
         })
     }
 
+    /// オブジェクトにエフェクトを追加する。
+    ///
+    /// # Arguments
+    ///
+    /// - `object`：対象のオブジェクトハンドル。
+    /// - `effect`：追加するエフェクト名。（エイリアスファイルの effect.name の値）
+    pub fn create_effect(
+        &self,
+        object: ObjectHandle,
+        effect: &str,
+    ) -> EditSectionResult<EffectHandle> {
+        self.read_section.ensure_object_exists(object)?;
+        let c_effect = crate::common::CWString::new(effect)?;
+        let effect_handle =
+            unsafe { ((*self.internal).create_effect)(object.internal, c_effect.as_ptr()) };
+        if effect_handle.is_null() {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(EffectHandle {
+            internal: effect_handle,
+        })
+    }
+
+    /// オブジェクトからエフェクトを削除する。
+    pub fn delete_effect(
+        &self,
+        object: ObjectHandle,
+        effect: EffectHandle,
+    ) -> EditSectionResult<()> {
+        self.read_section.ensure_object_exists(object)?;
+        self.read_section.ensure_effect_exists(effect)?;
+        let success = unsafe { ((*self.internal).delete_effect)(object.internal, effect.internal) };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(())
+    }
+
+    /// オブジェクトに中間点（区間）を追加する。
+    pub fn create_object_section(
+        &self,
+        object: ObjectHandle,
+        frame: usize,
+    ) -> EditSectionResult<()> {
+        self.read_section.ensure_object_exists(object)?;
+        let success =
+            unsafe { ((*self.internal).create_object_section)(object.internal, frame.try_into()?) };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(())
+    }
+
+    /// オブジェクトの中間点（区間）を削除する。
+    pub fn delete_object_section(
+        &self,
+        object: ObjectHandle,
+        section: usize,
+    ) -> EditSectionResult<()> {
+        self.read_section.ensure_object_exists(object)?;
+        let success = unsafe {
+            ((*self.internal).delete_object_section)(object.internal, section.try_into()?)
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(())
+    }
+
+    /// オブジェクトの中間点（区間）を移動する。
+    ///
+    /// # Note
+    ///
+    /// 区間をまたいだ移動は出来ません。
+    pub fn move_object_section(
+        &self,
+        object: ObjectHandle,
+        section: usize,
+        new_frame: usize,
+    ) -> EditSectionResult<()> {
+        self.read_section.ensure_object_exists(object)?;
+        let success = unsafe {
+            ((*self.internal).move_object_section)(
+                object.internal,
+                section.try_into()?,
+                new_frame.try_into()?,
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(())
+    }
+
     /// 現在のレイヤー・フレーム位置を設定する。
     ///
     /// # Note
@@ -1805,7 +1896,7 @@ where
     }
 
     /// オブジェクトの区間の開始フレーム番号を取得する。
-    pub fn get_section_frame(&self, section: usize) -> EditSectionResult<Option<usize>> {
+    pub fn get_section_frame(&self, section: usize) -> EditSectionResult<usize> {
         self.read_section()
             .get_object_section_frame(self.handle, section)
     }
@@ -1877,6 +1968,35 @@ where
 }
 
 impl EditSectionObjectCaller<'_, EditSection> {
+    /// オブジェクトにエフェクトを追加する。
+    pub fn create_effect(&self, effect: &str) -> EditSectionResult<EffectHandle> {
+        self.edit_section.create_effect(self.handle, effect)
+    }
+
+    /// オブジェクトからエフェクトを削除する。
+    pub fn delete_effect(&self, effect: EffectHandle) -> EditSectionResult<()> {
+        self.edit_section.delete_effect(self.handle, effect)
+    }
+
+    /// オブジェクトに中間点（区間）を追加する。
+    pub fn create_section(&self, frame: usize) -> EditSectionResult<()> {
+        self.edit_section.create_object_section(self.handle, frame)
+    }
+
+    /// オブジェクトの中間点（区間）を削除する。
+    pub fn delete_section(&self, section: usize) -> EditSectionResult<()> {
+        self.edit_section
+            .delete_object_section(self.handle, section)
+    }
+
+    /// オブジェクトの中間点（区間）を移動する。
+    ///
+    /// 区間をまたいだ移動は出来ません。
+    pub fn move_section(&self, section: usize, new_frame: usize) -> EditSectionResult<()> {
+        self.edit_section
+            .move_object_section(self.handle, section, new_frame)
+    }
+
     /// オブジェクトの設定項目の値を文字列で設定する。
     ///
     /// # Arguments
