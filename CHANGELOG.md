@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.41.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.41.0)
+
 - **Breaking**: generic: 最小サポートを2.1.2に引き上げ
 - **Breaking**: generic: `ReadSection::get_object_section_frame`の戻り値を`EditSectionResult<usize>`に
 - **Breaking**: filter: トレイトに`Userdata`型を追加
