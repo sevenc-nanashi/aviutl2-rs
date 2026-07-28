@@ -7,10 +7,10 @@ impl<'a> ::aviutl2::module::FromScriptModuleParam<'a> for MyParam {
     fn from_param(
         param: &'a ::aviutl2::module::ScriptModuleCallHandle,
         index: usize,
-    ) -> ::aviutl2::module::GetParamResult<Self, Self::Error> {
+    ) -> ::aviutl2::module::ScriptModuleCallHandleResult<Self, Self::Error> {
         let table = ::aviutl2::module::ScriptModuleParamTable::from_param(param, index).map_err(
             |error| {
-                ::aviutl2::module::GetParamError::ConversionError(
+                ::aviutl2::module::ScriptModuleCallHandleError::ConversionError(
                     ::aviutl2::module::ParamConversionError::new(error.to_string()),
                 )
             },
@@ -22,7 +22,7 @@ impl<'a> ::aviutl2::module::FromScriptModuleParam<'a> for MyParam {
                     "string_value",
                 )
                 .map_err(|error| {
-                    ::aviutl2::module::GetParamError::ConversionError(
+                    ::aviutl2::module::ScriptModuleCallHandleError::ConversionError(
                         ::aviutl2::module::ParamConversionError::new(format!(
                             "field `{}`: {}",
                             "string_value", error
@@ -34,7 +34,7 @@ impl<'a> ::aviutl2::module::FromScriptModuleParam<'a> for MyParam {
                 "int_value",
             )
             .map_err(|error| {
-                ::aviutl2::module::GetParamError::ConversionError(
+                ::aviutl2::module::ScriptModuleCallHandleError::ConversionError(
                     ::aviutl2::module::ParamConversionError::new(format!(
                         "field `{}`: {}",
                         "int_value", error

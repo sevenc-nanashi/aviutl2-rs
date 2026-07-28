@@ -13,7 +13,23 @@ pub struct ScriptModuleCallHandle {
 
 /// [`ScriptModuleCallHandle`]関連のエラー。
 #[derive(thiserror::Error, Debug)]
-pub enum ScriptModuleCallHandleError {
+pub enum ScriptModuleCallHandleError<T: std::fmt::Debug = std::convert::Infallible> {
+    #[error("expected {expected:?}, but got {actual:?}")]
+    TypeMismatch {
+        /// 期待される型。
+        expected: ParamType,
+        /// 実際の型。
+        actual: ParamType,
+    },
+
+    #[error("index {index} is out of bounds, {len} given")]
+    IndexOutOfBounds {
+        /// 取得しようとした引数のインデックス。
+        index: usize,
+        /// 引数の総数。
+        len: usize,
+    },
+
     #[error("key contains null byte")]
     KeyContainsNullByte(std::ffi::NulError),
 
@@ -22,9 +38,13 @@ pub enum ScriptModuleCallHandleError {
 
     #[error("too many elements")]
     TooManyElements,
+
+    #[error("failed to convert value: {0}")]
+    ConversionError(T),
 }
 
-pub type ScriptModuleCallHandleResult<T> = std::result::Result<T, ScriptModuleCallHandleError>;
+pub type ScriptModuleCallHandleResult<T, E = std::convert::Infallible> =
+    std::result::Result<T, ScriptModuleCallHandleError<E>>;
 
 /// `push_result_function` で返すスクリプトモジュール関数コールバック。
 #[derive(Debug, Clone, Copy)]
@@ -135,28 +155,6 @@ pub enum ParamType {
     Thread,
 }
 
-/// 引数の取得に失敗した場合のエラー。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum GetParamError<T: std::fmt::Debug> {
-    #[error("expected {expected:?}, but got {actual:?}")]
-    TypeMismatch {
-        /// 期待される型。
-        expected: ParamType,
-        /// 実際の型。
-        actual: ParamType,
-    },
-    #[error("index {index} is out of bounds, {len} given")]
-    IndexOutOfBounds {
-        /// 取得しようとした引数のインデックス。
-        index: usize,
-        /// 引数の総数。
-        len: usize,
-    },
-    #[error("failed to convert value: {0}")]
-    ConversionError(T),
-}
-pub type GetParamResult<T, E = std::convert::Infallible> = std::result::Result<T, GetParamError<E>>;
-
 /// 引数変換に失敗した場合のエラー。
 #[derive(Debug, thiserror::Error)]
 #[error("{message}")]
@@ -172,16 +170,25 @@ impl ParamConversionError {
     }
 }
 
-impl GetParamError<std::convert::Infallible> {
-    fn into_conversion_error<T: std::fmt::Debug>(self) -> GetParamError<T> {
+impl ScriptModuleCallHandleError<std::convert::Infallible> {
+    fn into_conversion_error<T: std::fmt::Debug>(self) -> ScriptModuleCallHandleError<T> {
         match self {
-            GetParamError::TypeMismatch { expected, actual } => {
-                GetParamError::TypeMismatch { expected, actual }
+            ScriptModuleCallHandleError::TypeMismatch { expected, actual } => {
+                ScriptModuleCallHandleError::TypeMismatch { expected, actual }
             }
-            GetParamError::IndexOutOfBounds { index, len } => {
-                GetParamError::IndexOutOfBounds { index, len }
+            ScriptModuleCallHandleError::IndexOutOfBounds { index, len } => {
+                ScriptModuleCallHandleError::IndexOutOfBounds { index, len }
             }
-            GetParamError::ConversionError(error) => match error {},
+            ScriptModuleCallHandleError::KeyContainsNullByte(error) => {
+                ScriptModuleCallHandleError::KeyContainsNullByte(error)
+            }
+            ScriptModuleCallHandleError::ValueContainsNullByte(error) => {
+                ScriptModuleCallHandleError::ValueContainsNullByte(error)
+            }
+            ScriptModuleCallHandleError::TooManyElements => {
+                ScriptModuleCallHandleError::TooManyElements
+            }
+            ScriptModuleCallHandleError::ConversionError(error) => match error {},
         }
     }
 }
@@ -232,15 +239,19 @@ impl ScriptModuleCallHandle {
         }
     }
 
-    fn assert_param_type(&self, index: usize, expected: ParamType) -> GetParamResult<()> {
-        let actual = self
-            .get_param_type(index)
-            .ok_or(GetParamError::IndexOutOfBounds {
-                index,
-                len: self.len(),
-            })?;
+    fn assert_param_type(
+        &self,
+        index: usize,
+        expected: ParamType,
+    ) -> ScriptModuleCallHandleResult<()> {
+        let actual =
+            self.get_param_type(index)
+                .ok_or(ScriptModuleCallHandleError::IndexOutOfBounds {
+                    index,
+                    len: self.len(),
+                })?;
         if actual != expected {
-            return Err(GetParamError::TypeMismatch { expected, actual });
+            return Err(ScriptModuleCallHandleError::TypeMismatch { expected, actual });
         }
         Ok(())
     }
@@ -249,24 +260,24 @@ impl ScriptModuleCallHandle {
     pub fn get_param<'a, T: FromScriptModuleParam<'a>>(
         &'a self,
         index: usize,
-    ) -> GetParamResult<T, T::Error> {
+    ) -> ScriptModuleCallHandleResult<T, T::Error> {
         T::from_param(self, index)
     }
 
     /// 引数を整数として取得する。
-    pub fn get_param_int(&self, index: usize) -> GetParamResult<i32> {
+    pub fn get_param_int(&self, index: usize) -> ScriptModuleCallHandleResult<i32> {
         self.assert_param_type(index, ParamType::Number)?;
         Ok(unsafe { ((*self.internal).get_param_int)(index as i32) })
     }
 
     /// 引数を浮動小数点数として取得する。
-    pub fn get_param_float(&self, index: usize) -> GetParamResult<f64> {
+    pub fn get_param_float(&self, index: usize) -> ScriptModuleCallHandleResult<f64> {
         self.assert_param_type(index, ParamType::Number)?;
         Ok(unsafe { ((*self.internal).get_param_double)(index as i32) })
     }
 
     /// 引数を文字列として取得する。
-    pub fn get_param_str(&self, index: usize) -> GetParamResult<String> {
+    pub fn get_param_str(&self, index: usize) -> ScriptModuleCallHandleResult<String> {
         self.assert_param_type(index, ParamType::String)?;
         unsafe {
             let c_str = ((*self.internal).get_param_string)(index as i32);
@@ -278,24 +289,15 @@ impl ScriptModuleCallHandle {
     }
 
     /// 引数をデータポインタとして取得する。
-    ///
-    /// # Note
-    ///
-    /// 引数を取得できない場合は`None`を返します。
-    pub fn get_param_data<T>(&self, index: usize) -> Option<NonNull<T>> {
-        unsafe {
-            let data_ptr = ((*self.internal).get_param_data)(index as i32);
-            NonNull::new(data_ptr as *mut T)
-        }
+    pub fn get_param_data<T>(&self, index: usize) -> ScriptModuleCallHandleResult<*mut T> {
+        self.assert_param_type(index, ParamType::LightUserdata)?;
+        unsafe { Ok(((*self.internal).get_param_data)(index as i32) as *mut T) }
     }
 
     /// 引数をブール値として取得する。
-    ///
-    /// # Note
-    ///
-    /// 引数を取得できない場合は`false`を返します。
-    pub fn get_param_boolean(&self, index: usize) -> bool {
-        unsafe { ((*self.internal).get_param_boolean)(index as i32) }
+    pub fn get_param_boolean(&self, index: usize) -> ScriptModuleCallHandleResult<bool> {
+        self.assert_param_type(index, ParamType::Boolean)?;
+        unsafe { Ok(((*self.internal).get_param_boolean)(index as i32)) }
     }
 
     /// 引数のテーブルの要素を整数として取得する。
@@ -308,6 +310,7 @@ impl ScriptModuleCallHandle {
         index: usize,
         key: &str,
     ) -> ScriptModuleCallHandleResult<i32> {
+        self.assert_param_type(index, ParamType::Table)?;
         let c_key = std::ffi::CString::new(key)
             .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         Ok(unsafe { ((*self.internal).get_param_table_int)(index as i32, c_key.as_ptr()) })
@@ -323,6 +326,7 @@ impl ScriptModuleCallHandle {
         index: usize,
         key: &str,
     ) -> ScriptModuleCallHandleResult<f64> {
+        self.assert_param_type(index, ParamType::Table)?;
         let c_key = std::ffi::CString::new(key)
             .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         Ok(unsafe { ((*self.internal).get_param_table_double)(index as i32, c_key.as_ptr()) })
@@ -334,6 +338,7 @@ impl ScriptModuleCallHandle {
         index: usize,
         key: &str,
     ) -> ScriptModuleCallHandleResult<Option<String>> {
+        self.assert_param_type(index, ParamType::Table)?;
         let c_key = std::ffi::CString::new(key)
             .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         unsafe {
@@ -360,6 +365,7 @@ impl ScriptModuleCallHandle {
         index: usize,
         key: &str,
     ) -> ScriptModuleCallHandleResult<bool> {
+        self.assert_param_type(index, ParamType::Table)?;
         let c_key = std::ffi::CString::new(key)
             .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         Ok(unsafe { ((*self.internal).get_param_table_boolean)(index as i32, c_key.as_ptr()) })
@@ -652,7 +658,7 @@ pub trait FromScriptModuleParam<'a>: Sized {
     fn from_param(
         param: &'a crate::module::ScriptModuleCallHandle,
         index: usize,
-    ) -> GetParamResult<Self, Self::Error>;
+    ) -> ScriptModuleCallHandleResult<Self, Self::Error>;
 }
 
 pub use aviutl2_macros::FromScriptModuleParam;
@@ -663,7 +669,7 @@ impl<'a> FromScriptModuleParam<'a> for &'a crate::generic::ReadSection {
     fn from_param(
         param: &'a crate::module::ScriptModuleCallHandle,
         _index: usize,
-    ) -> GetParamResult<Self> {
+    ) -> ScriptModuleCallHandleResult<Self> {
         Ok(param.read_section())
     }
 }
@@ -671,7 +677,10 @@ impl<'a> FromScriptModuleParam<'a> for &'a crate::generic::ReadSection {
 impl<'a> FromScriptModuleParam<'a> for i32 {
     type Error = std::convert::Infallible;
 
-    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> GetParamResult<Self> {
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> ScriptModuleCallHandleResult<Self> {
         param.get_param_int(index)
     }
 }
@@ -695,13 +704,13 @@ impl<'a> FromScriptModuleParam<'a> for Integer {
     fn from_param(
         param: &'a ScriptModuleCallHandle,
         index: usize,
-    ) -> GetParamResult<Self, Self::Error> {
+    ) -> ScriptModuleCallHandleResult<Self, Self::Error> {
         let value = param
             .get_param_int(index)
-            .map_err(GetParamError::into_conversion_error)?;
+            .map_err(ScriptModuleCallHandleError::into_conversion_error)?;
         comptime_if::comptime_if!(
             if failable where (failable = Failable) {
-                value.try_into().map_err(GetParamError::ConversionError)
+                value.try_into().map_err(ScriptModuleCallHandleError::ConversionError)
             } else {
                 Ok(value as Integer)
             }
@@ -711,30 +720,66 @@ impl<'a> FromScriptModuleParam<'a> for Integer {
 impl<'a> FromScriptModuleParam<'a> for f64 {
     type Error = std::convert::Infallible;
 
-    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> GetParamResult<Self> {
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> ScriptModuleCallHandleResult<Self> {
         param.get_param_float(index)
     }
 }
 impl<'a> FromScriptModuleParam<'a> for f32 {
     type Error = std::convert::Infallible;
 
-    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> GetParamResult<Self> {
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> ScriptModuleCallHandleResult<Self> {
         param.get_param_float(index).map(|value| value as f32)
     }
 }
 impl<'a> FromScriptModuleParam<'a> for bool {
     type Error = std::convert::Infallible;
 
-    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> GetParamResult<Self> {
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> ScriptModuleCallHandleResult<Self> {
         param.assert_param_type(index, ParamType::Boolean)?;
-        Ok(param.get_param_boolean(index))
+        Ok(param.get_param_boolean(index)?)
     }
 }
 impl<'a> FromScriptModuleParam<'a> for String {
     type Error = std::convert::Infallible;
 
-    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> GetParamResult<Self> {
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> ScriptModuleCallHandleResult<Self> {
         param.get_param_str(index)
+    }
+}
+impl<'a, T> FromScriptModuleParam<'a> for *mut T {
+    type Error = ParamConversionError;
+
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> ScriptModuleCallHandleResult<Self, Self::Error> {
+        param
+            .get_param_data(index)
+            .map_err(ScriptModuleCallHandleError::into_conversion_error)
+    }
+}
+impl<'a, T> FromScriptModuleParam<'a> for *const T {
+    type Error = ParamConversionError;
+
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> ScriptModuleCallHandleResult<Self, Self::Error> {
+        Ok(param
+            .get_param_data(index)
+            .map_err(ScriptModuleCallHandleError::into_conversion_error)? as _)
     }
 }
 impl<'a, T> FromScriptModuleParam<'a> for NonNull<T> {
@@ -743,9 +788,12 @@ impl<'a, T> FromScriptModuleParam<'a> for NonNull<T> {
     fn from_param(
         param: &'a ScriptModuleCallHandle,
         index: usize,
-    ) -> GetParamResult<Self, Self::Error> {
-        param.get_param_data(index).ok_or_else(|| {
-            GetParamError::ConversionError(ParamConversionError::new("param data is null"))
+    ) -> ScriptModuleCallHandleResult<Self, Self::Error> {
+        let ptr = param
+            .get_param_data(index)
+            .map_err(ScriptModuleCallHandleError::into_conversion_error)?;
+        NonNull::new(ptr).ok_or_else(|| {
+            ScriptModuleCallHandleError::ConversionError(ParamConversionError::new("value is null"))
         })
     }
 }
@@ -769,21 +817,21 @@ impl<'a> FromScriptModuleParam<'a> for NonZero {
     fn from_param(
         param: &'a ScriptModuleCallHandle,
         index: usize,
-    ) -> GetParamResult<Self, Self::Error> {
+    ) -> ScriptModuleCallHandleResult<Self, Self::Error> {
         let value = param
             .get_param_int(index)
-            .map_err(GetParamError::into_conversion_error)?;
+            .map_err(ScriptModuleCallHandleError::into_conversion_error)?;
         let value: Integer = comptime_if::comptime_if!(
             if failable where (failable = Failable) {
                 value
                     .try_into()
-                    .map_err(|error: std::num::TryFromIntError| GetParamError::ConversionError(ParamConversionError::new(error.to_string())))?
+                    .map_err(|error: std::num::TryFromIntError| ScriptModuleCallHandleError::ConversionError(ParamConversionError::new(error.to_string())))?
             } else {
                 value as Integer
             }
         );
         NonZero::new(value).ok_or_else(|| {
-            GetParamError::ConversionError(ParamConversionError::new("value is zero"))
+            ScriptModuleCallHandleError::ConversionError(ParamConversionError::new("value is zero"))
         })
     }
 }
@@ -793,12 +841,12 @@ impl<'a> FromScriptModuleParam<'a> for NonZeroI32 {
     fn from_param(
         param: &'a ScriptModuleCallHandle,
         index: usize,
-    ) -> GetParamResult<Self, Self::Error> {
+    ) -> ScriptModuleCallHandleResult<Self, Self::Error> {
         let value = param
             .get_param_int(index)
-            .map_err(GetParamError::into_conversion_error)?;
+            .map_err(ScriptModuleCallHandleError::into_conversion_error)?;
         NonZeroI32::new(value).ok_or_else(|| {
-            GetParamError::ConversionError(ParamConversionError::new("value is zero"))
+            ScriptModuleCallHandleError::ConversionError(ParamConversionError::new("value is zero"))
         })
     }
 }
@@ -812,7 +860,7 @@ where
     fn from_param(
         param: &'a ScriptModuleCallHandle,
         index: usize,
-    ) -> GetParamResult<Self, Self::Error> {
+    ) -> ScriptModuleCallHandleResult<Self, Self::Error> {
         match param.get_param_type(index) {
             None | Some(ParamType::Nil) => Ok(None),
             Some(_) => T::from_param(param, index).map(Some),
@@ -822,14 +870,16 @@ where
 impl<'a> FromScriptModuleParam<'a> for () {
     type Error = std::convert::Infallible;
 
-    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> GetParamResult<Self> {
-        param
-            .get_param_type(index)
-            .map(|_| ())
-            .ok_or(GetParamError::IndexOutOfBounds {
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> ScriptModuleCallHandleResult<Self> {
+        param.get_param_type(index).map(|_| ()).ok_or(
+            ScriptModuleCallHandleError::IndexOutOfBounds {
                 index,
                 len: param.len(),
-            })
+            },
+        )
     }
 }
 
@@ -890,7 +940,10 @@ impl<'a> ScriptModuleParamArray<'a> {
 impl<'a> FromScriptModuleParam<'a> for ScriptModuleParamArray<'a> {
     type Error = std::convert::Infallible;
 
-    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> GetParamResult<Self> {
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> ScriptModuleCallHandleResult<Self> {
         param.assert_param_type(index, ParamType::Table)?;
         Ok(ScriptModuleParamArray {
             index,
@@ -948,7 +1001,10 @@ impl<'a> ScriptModuleParamTable<'a> {
 impl<'a> FromScriptModuleParam<'a> for ScriptModuleParamTable<'a> {
     type Error = std::convert::Infallible;
 
-    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> GetParamResult<Self> {
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> ScriptModuleCallHandleResult<Self> {
         param.assert_param_type(index, ParamType::Table)?;
         Ok(ScriptModuleParamTable {
             index,
@@ -964,13 +1020,13 @@ impl<'a> FromScriptModuleParam<'a> for Vec<String> {
     fn from_param(
         param: &'a ScriptModuleCallHandle,
         index: usize,
-    ) -> GetParamResult<Self, Self::Error> {
+    ) -> ScriptModuleCallHandleResult<Self, Self::Error> {
         let array = ScriptModuleParamArray::from_param(param, index)
-            .map_err(GetParamError::into_conversion_error)?;
+            .map_err(ScriptModuleCallHandleError::into_conversion_error)?;
         let mut result = Vec::new();
         for i in 0..array.len() {
             let value = array.get_str(i).ok_or_else(|| {
-                GetParamError::ConversionError(ParamConversionError::new(format!(
+                ScriptModuleCallHandleError::ConversionError(ParamConversionError::new(format!(
                     "array element #{i} is not a string"
                 )))
             })?;
@@ -982,7 +1038,10 @@ impl<'a> FromScriptModuleParam<'a> for Vec<String> {
 impl<'a> FromScriptModuleParam<'a> for Vec<i32> {
     type Error = std::convert::Infallible;
 
-    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> GetParamResult<Self> {
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> ScriptModuleCallHandleResult<Self> {
         let array = ScriptModuleParamArray::from_param(param, index)?;
         let mut result = Vec::new();
         for i in 0..array.len() {
@@ -994,7 +1053,10 @@ impl<'a> FromScriptModuleParam<'a> for Vec<i32> {
 impl<'a> FromScriptModuleParam<'a> for Vec<f64> {
     type Error = std::convert::Infallible;
 
-    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> GetParamResult<Self> {
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> ScriptModuleCallHandleResult<Self> {
         let array = ScriptModuleParamArray::from_param(param, index)?;
         let mut result = Vec::new();
         for i in 0..array.len() {
@@ -1011,13 +1073,16 @@ pub trait FromScriptModuleParamTable<'a>: Sized {
     fn from_param_table(
         param: &'a crate::module::ScriptModuleParamTable,
         key: &str,
-    ) -> GetParamResult<Self, Self::Error>;
+    ) -> ScriptModuleCallHandleResult<Self, Self::Error>;
 }
 
 impl<'a> FromScriptModuleParamTable<'a> for i32 {
     type Error = std::convert::Infallible;
 
-    fn from_param_table(param: &'a ScriptModuleParamTable, key: &str) -> GetParamResult<Self> {
+    fn from_param_table(
+        param: &'a ScriptModuleParamTable,
+        key: &str,
+    ) -> ScriptModuleCallHandleResult<Self> {
         Ok(param.get_int(key))
     }
 }
@@ -1041,11 +1106,11 @@ impl<'a> FromScriptModuleParamTable<'a> for Integer {
     fn from_param_table(
         param: &'a ScriptModuleParamTable,
         key: &str,
-    ) -> GetParamResult<Self, Self::Error> {
+    ) -> ScriptModuleCallHandleResult<Self, Self::Error> {
         let value = param.get_int(key);
         comptime_if::comptime_if!(
             if failable where (failable = Failable) {
-                value.try_into().map_err(GetParamError::ConversionError)
+                value.try_into().map_err(ScriptModuleCallHandleError::ConversionError)
             } else {
                 Ok(value as Integer)
             }
@@ -1055,14 +1120,20 @@ impl<'a> FromScriptModuleParamTable<'a> for Integer {
 impl<'a> FromScriptModuleParamTable<'a> for f64 {
     type Error = std::convert::Infallible;
 
-    fn from_param_table(param: &'a ScriptModuleParamTable, key: &str) -> GetParamResult<Self> {
+    fn from_param_table(
+        param: &'a ScriptModuleParamTable,
+        key: &str,
+    ) -> ScriptModuleCallHandleResult<Self> {
         Ok(param.get_float(key))
     }
 }
 impl<'a> FromScriptModuleParamTable<'a> for f32 {
     type Error = std::convert::Infallible;
 
-    fn from_param_table(param: &'a ScriptModuleParamTable, key: &str) -> GetParamResult<Self> {
+    fn from_param_table(
+        param: &'a ScriptModuleParamTable,
+        key: &str,
+    ) -> ScriptModuleCallHandleResult<Self> {
         Ok(param.get_float(key) as f32)
     }
 }
@@ -1072,9 +1143,9 @@ impl<'a> FromScriptModuleParamTable<'a> for String {
     fn from_param_table(
         param: &'a ScriptModuleParamTable,
         key: &str,
-    ) -> GetParamResult<Self, Self::Error> {
+    ) -> ScriptModuleCallHandleResult<Self, Self::Error> {
         param.get_str(key).ok_or_else(|| {
-            GetParamError::ConversionError(ParamConversionError::new(format!(
+            ScriptModuleCallHandleError::ConversionError(ParamConversionError::new(format!(
                 "key `{key}` is not a string"
             )))
         })
@@ -1083,7 +1154,10 @@ impl<'a> FromScriptModuleParamTable<'a> for String {
 impl<'a> FromScriptModuleParamTable<'a> for bool {
     type Error = std::convert::Infallible;
 
-    fn from_param_table(param: &'a ScriptModuleParamTable, key: &str) -> GetParamResult<Self> {
+    fn from_param_table(
+        param: &'a ScriptModuleParamTable,
+        key: &str,
+    ) -> ScriptModuleCallHandleResult<Self> {
         Ok(param.get_boolean(key))
     }
 }
@@ -1093,10 +1167,10 @@ impl<'a, T: FromScriptModuleParamTable<'a>> FromScriptModuleParamTable<'a> for O
     fn from_param_table(
         param: &'a ScriptModuleParamTable,
         key: &str,
-    ) -> GetParamResult<Self, Self::Error> {
+    ) -> ScriptModuleCallHandleResult<Self, Self::Error> {
         match T::from_param_table(param, key) {
             Ok(value) => Ok(Some(value)),
-            Err(GetParamError::ConversionError(_)) => Ok(None),
+            Err(ScriptModuleCallHandleError::ConversionError(_)) => Ok(None),
             Err(error) => Err(error),
         }
     }

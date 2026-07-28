@@ -25,7 +25,7 @@ pub fn from_script_module_param(
         quote::quote! {
             #field_name: <#ty as ::aviutl2::module::FromScriptModuleParamTable>::from_param_table(&table, #field_name_str)
                 .map_err(|error| {
-                    ::aviutl2::module::GetParamError::ConversionError(
+                    ::aviutl2::module::ScriptModuleCallHandleError::ConversionError(
                         ::aviutl2::module::ParamConversionError::new(format!(
                             "field `{}`: {}",
                             #field_name_str,
@@ -43,10 +43,10 @@ pub fn from_script_module_param(
             fn from_param(
                 param: &'a ::aviutl2::module::ScriptModuleCallHandle,
                 index: usize,
-            ) -> ::aviutl2::module::GetParamResult<Self, Self::Error> {
+            ) -> ::aviutl2::module::ScriptModuleCallHandleResult<Self, Self::Error> {
                 let table = ::aviutl2::module::ScriptModuleParamTable::from_param(param, index)
                     .map_err(|error| {
-                        ::aviutl2::module::GetParamError::ConversionError(
+                        ::aviutl2::module::ScriptModuleCallHandleError::ConversionError(
                             ::aviutl2::module::ParamConversionError::new(error.to_string())
                         )
                     })?;
