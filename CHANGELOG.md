@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking**: module: パラメーター取得関連を`Result<T, GetParamError>`に変更
 - filter: FilterAudioProcのレシーバを`&self`にする
 
 ### デモプラグイン

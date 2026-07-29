@@ -14,6 +14,14 @@ pub struct ScriptModuleCallHandle {
 /// [`ScriptModuleCallHandle`]関連のエラー。
 #[derive(thiserror::Error, Debug)]
 pub enum ScriptModuleCallHandleError {
+    #[error("expected {expected:?}, but got {actual:?}")]
+    TypeMismatch {
+        /// 期待される型。
+        expected: ParamType,
+        /// 実際の型。
+        actual: ParamType,
+    },
+
     #[error("key contains null byte")]
     KeyContainsNullByte(std::ffi::NulError),
 
@@ -245,6 +253,20 @@ impl ScriptModuleCallHandle {
         Ok(())
     }
 
+    fn assert_param_type_for_call(
+        &self,
+        index: usize,
+        expected: ParamType,
+    ) -> ScriptModuleCallHandleResult<()> {
+        let Some(actual) = self.get_param_type(index) else {
+            return Ok(());
+        };
+        if actual != expected {
+            return Err(ScriptModuleCallHandleError::TypeMismatch { expected, actual });
+        }
+        Ok(())
+    }
+
     /// 引数を取得する。
     pub fn get_param<'a, T: FromScriptModuleParam<'a>>(
         &'a self,
@@ -278,24 +300,15 @@ impl ScriptModuleCallHandle {
     }
 
     /// 引数をデータポインタとして取得する。
-    ///
-    /// # Note
-    ///
-    /// 引数を取得できない場合は`None`を返します。
-    pub fn get_param_data<T>(&self, index: usize) -> Option<NonNull<T>> {
-        unsafe {
-            let data_ptr = ((*self.internal).get_param_data)(index as i32);
-            NonNull::new(data_ptr as *mut T)
-        }
+    pub fn get_param_data<T>(&self, index: usize) -> GetParamResult<*mut T> {
+        self.assert_param_type(index, ParamType::LightUserdata)?;
+        unsafe { Ok(((*self.internal).get_param_data)(index as i32) as *mut T) }
     }
 
     /// 引数をブール値として取得する。
-    ///
-    /// # Note
-    ///
-    /// 引数を取得できない場合は`false`を返します。
-    pub fn get_param_boolean(&self, index: usize) -> bool {
-        unsafe { ((*self.internal).get_param_boolean)(index as i32) }
+    pub fn get_param_boolean(&self, index: usize) -> GetParamResult<bool> {
+        self.assert_param_type(index, ParamType::Boolean)?;
+        unsafe { Ok(((*self.internal).get_param_boolean)(index as i32)) }
     }
 
     /// 引数のテーブルの要素を整数として取得する。
@@ -308,6 +321,7 @@ impl ScriptModuleCallHandle {
         index: usize,
         key: &str,
     ) -> ScriptModuleCallHandleResult<i32> {
+        self.assert_param_type_for_call(index, ParamType::Table)?;
         let c_key = std::ffi::CString::new(key)
             .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         Ok(unsafe { ((*self.internal).get_param_table_int)(index as i32, c_key.as_ptr()) })
@@ -323,6 +337,7 @@ impl ScriptModuleCallHandle {
         index: usize,
         key: &str,
     ) -> ScriptModuleCallHandleResult<f64> {
+        self.assert_param_type_for_call(index, ParamType::Table)?;
         let c_key = std::ffi::CString::new(key)
             .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         Ok(unsafe { ((*self.internal).get_param_table_double)(index as i32, c_key.as_ptr()) })
@@ -334,6 +349,7 @@ impl ScriptModuleCallHandle {
         index: usize,
         key: &str,
     ) -> ScriptModuleCallHandleResult<Option<String>> {
+        self.assert_param_type_for_call(index, ParamType::Table)?;
         let c_key = std::ffi::CString::new(key)
             .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         unsafe {
@@ -360,6 +376,7 @@ impl ScriptModuleCallHandle {
         index: usize,
         key: &str,
     ) -> ScriptModuleCallHandleResult<bool> {
+        self.assert_param_type_for_call(index, ParamType::Table)?;
         let c_key = std::ffi::CString::new(key)
             .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         Ok(unsafe { ((*self.internal).get_param_table_boolean)(index as i32, c_key.as_ptr()) })
@@ -726,8 +743,7 @@ impl<'a> FromScriptModuleParam<'a> for bool {
     type Error = std::convert::Infallible;
 
     fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> GetParamResult<Self> {
-        param.assert_param_type(index, ParamType::Boolean)?;
-        Ok(param.get_param_boolean(index))
+        param.get_param_boolean(index)
     }
 }
 impl<'a> FromScriptModuleParam<'a> for String {
@@ -737,6 +753,20 @@ impl<'a> FromScriptModuleParam<'a> for String {
         param.get_param_str(index)
     }
 }
+impl<'a, T> FromScriptModuleParam<'a> for *mut T {
+    type Error = std::convert::Infallible;
+
+    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> GetParamResult<Self> {
+        param.get_param_data(index)
+    }
+}
+impl<'a, T> FromScriptModuleParam<'a> for *const T {
+    type Error = std::convert::Infallible;
+
+    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> GetParamResult<Self> {
+        Ok(param.get_param_data(index)? as _)
+    }
+}
 impl<'a, T> FromScriptModuleParam<'a> for NonNull<T> {
     type Error = ParamConversionError;
 
@@ -744,8 +774,11 @@ impl<'a, T> FromScriptModuleParam<'a> for NonNull<T> {
         param: &'a ScriptModuleCallHandle,
         index: usize,
     ) -> GetParamResult<Self, Self::Error> {
-        param.get_param_data(index).ok_or_else(|| {
-            GetParamError::ConversionError(ParamConversionError::new("param data is null"))
+        let ptr = param
+            .get_param_data(index)
+            .map_err(GetParamError::into_conversion_error)?;
+        NonNull::new(ptr).ok_or_else(|| {
+            GetParamError::ConversionError(ParamConversionError::new("value is null"))
         })
     }
 }
