@@ -745,7 +745,7 @@ impl<'a> FromScriptModuleParam<'a> for bool {
         index: usize,
     ) -> ScriptModuleCallHandleResult<Self> {
         param.assert_param_type(index, ParamType::Boolean)?;
-        Ok(param.get_param_boolean(index)?)
+        param.get_param_boolean(index)
     }
 }
 impl<'a> FromScriptModuleParam<'a> for String {
