@@ -13,7 +13,7 @@ pub struct ScriptModuleCallHandle {
 
 /// [`ScriptModuleCallHandle`]関連のエラー。
 #[derive(thiserror::Error, Debug)]
-pub enum ScriptModuleCallHandleError {
+pub enum ScriptModuleCallHandleError<E: std::fmt::Debug = std::convert::Infallible> {
     #[error("expected {expected:?}, but got {actual:?}")]
     TypeMismatch {
         /// 期待される型。
@@ -30,9 +30,86 @@ pub enum ScriptModuleCallHandleError {
 
     #[error("too many elements")]
     TooManyElements,
+
+    #[error("failed to convert value: {0}")]
+    ConversionError(E),
 }
 
-pub type ScriptModuleCallHandleResult<T> = std::result::Result<T, ScriptModuleCallHandleError>;
+pub type ScriptModuleCallHandleResult<T, E = std::convert::Infallible> =
+    std::result::Result<T, ScriptModuleCallHandleError<E>>;
+
+impl ScriptModuleCallHandleError<std::convert::Infallible> {
+    fn into_conversion_error<E: std::fmt::Debug>(self) -> ScriptModuleCallHandleError<E> {
+        match self {
+            ScriptModuleCallHandleError::TypeMismatch { expected, actual } => {
+                ScriptModuleCallHandleError::TypeMismatch { expected, actual }
+            }
+            ScriptModuleCallHandleError::KeyContainsNullByte(error) => {
+                ScriptModuleCallHandleError::KeyContainsNullByte(error)
+            }
+            ScriptModuleCallHandleError::ValueContainsNullByte(error) => {
+                ScriptModuleCallHandleError::ValueContainsNullByte(error)
+            }
+            ScriptModuleCallHandleError::TooManyElements => {
+                ScriptModuleCallHandleError::TooManyElements
+            }
+            ScriptModuleCallHandleError::ConversionError(error) => match error {},
+        }
+    }
+}
+
+/// スクリプトモジュールの整数値から変換できる型。
+pub trait FromScriptModuleInteger: Sized {
+    type Error: std::fmt::Debug;
+
+    fn from_script_module_integer(value: i32) -> Result<Self, Self::Error>;
+}
+
+#[duplicate::duplicate_item(
+    Integer;
+    [i8];
+    [i16];
+    [isize];
+    [u8];
+    [u16];
+    [u32];
+    [u64];
+    [u128];
+    [usize];
+)]
+impl FromScriptModuleInteger for Integer {
+    type Error = <Self as TryFrom<i32>>::Error;
+
+    fn from_script_module_integer(value: i32) -> Result<Self, Self::Error> {
+        value.try_into()
+    }
+}
+impl FromScriptModuleInteger for i32 {
+    type Error = std::convert::Infallible;
+
+    fn from_script_module_integer(value: i32) -> Result<Self, Self::Error> {
+        Ok(value)
+    }
+}
+#[duplicate::duplicate_item(
+    Integer;
+    [i64];
+    [i128];
+)]
+impl FromScriptModuleInteger for Integer {
+    type Error = std::convert::Infallible;
+
+    fn from_script_module_integer(value: i32) -> Result<Self, Self::Error> {
+        Ok(value.into())
+    }
+}
+
+fn convert_script_module_integer<T>(value: i32) -> ScriptModuleCallHandleResult<T, T::Error>
+where
+    T: FromScriptModuleInteger,
+{
+    T::from_script_module_integer(value).map_err(ScriptModuleCallHandleError::ConversionError)
+}
 
 /// `push_result_function` で返すスクリプトモジュール関数コールバック。
 #[derive(Debug, Clone, Copy)]
@@ -325,6 +402,21 @@ impl ScriptModuleCallHandle {
         let c_key = std::ffi::CString::new(key)
             .map_err(ScriptModuleCallHandleError::KeyContainsNullByte)?;
         Ok(unsafe { ((*self.internal).get_param_table_int)(index as i32, c_key.as_ptr()) })
+    }
+
+    /// 引数のテーブルの要素を整数として取得し、指定された型に変換する。
+    pub fn get_param_table_integer<T>(
+        &self,
+        index: usize,
+        key: &str,
+    ) -> ScriptModuleCallHandleResult<T, T::Error>
+    where
+        T: FromScriptModuleInteger,
+    {
+        let value = self
+            .get_param_table_int(index, key)
+            .map_err(ScriptModuleCallHandleError::into_conversion_error)?;
+        convert_script_module_integer(value)
     }
 
     /// 引数のテーブルの要素を浮動小数点数として取得する。
@@ -1024,6 +1116,43 @@ impl<'a> FromScriptModuleParam<'a> for Vec<i32> {
         Ok(result)
     }
 }
+#[duplicate::duplicate_item(
+    Integer Failable;
+    [i8]    [true];
+    [i16]   [true];
+    [i64]   [false];
+    [i128]  [false];
+    [isize] [false];
+    [u8]    [true];
+    [u16]   [true];
+    [u32]   [true];
+    [u64]   [true];
+    [u128]  [true];
+    [usize] [true];
+)]
+impl<'a> FromScriptModuleParam<'a> for Vec<Integer> {
+    type Error = std::num::TryFromIntError;
+
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> GetParamResult<Self, Self::Error> {
+        let array = ScriptModuleParamArray::from_param(param, index)
+            .map_err(GetParamError::into_conversion_error)?;
+        let mut result = Vec::new();
+        for i in 0..array.len() {
+            let value = array.get_int(i);
+            comptime_if::comptime_if!(
+                if failable where (failable = Failable) {
+                    result.push(value.try_into().map_err(GetParamError::ConversionError)?);
+                } else {
+                    result.push(value as Integer);
+                }
+            );
+        }
+        Ok(result)
+    }
+}
 impl<'a> FromScriptModuleParam<'a> for Vec<f64> {
     type Error = std::convert::Infallible;
 
@@ -1032,6 +1161,18 @@ impl<'a> FromScriptModuleParam<'a> for Vec<f64> {
         let mut result = Vec::new();
         for i in 0..array.len() {
             result.push(array.get_float(i));
+        }
+        Ok(result)
+    }
+}
+impl<'a> FromScriptModuleParam<'a> for Vec<f32> {
+    type Error = std::convert::Infallible;
+
+    fn from_param(param: &'a ScriptModuleCallHandle, index: usize) -> GetParamResult<Self> {
+        let array = ScriptModuleParamArray::from_param(param, index)?;
+        let mut result = Vec::new();
+        for i in 0..array.len() {
+            result.push(array.get_float(i) as f32);
         }
         Ok(result)
     }
@@ -1460,10 +1601,53 @@ impl IntoScriptModuleReturnValue for Vec<i32> {
         Ok(vec![ScriptModuleReturnValue::IntArray(self)])
     }
 }
+#[duplicate::duplicate_item(
+    Integer;
+    [i8];
+    [i16];
+    [u8];
+    [u16];
+)]
+impl IntoScriptModuleReturnValue for Vec<Integer> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        Ok(vec![ScriptModuleReturnValue::IntArray(
+            self.into_iter().map(|value| value as i32).collect(),
+        )])
+    }
+}
+#[duplicate::duplicate_item(
+    Integer;
+    [i64];
+    [i128];
+    [isize];
+    [u32];
+    [u64];
+    [u128];
+    [usize];
+)]
+impl IntoScriptModuleReturnValue for Vec<Integer> {
+    type Err = std::num::TryFromIntError;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        Ok(vec![ScriptModuleReturnValue::IntArray(
+            self.into_iter()
+                .map(i32::try_from)
+                .collect::<Result<_, _>>()?,
+        )])
+    }
+}
 impl IntoScriptModuleReturnValue for Vec<f64> {
     type Err = std::convert::Infallible;
     fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::FloatArray(self)])
+    }
+}
+impl IntoScriptModuleReturnValue for Vec<f32> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        Ok(vec![ScriptModuleReturnValue::FloatArray(
+            self.into_iter().map(f64::from).collect(),
+        )])
     }
 }
 impl<T> IntoScriptModuleReturnValue for &[T]
@@ -1484,10 +1668,57 @@ impl IntoScriptModuleReturnValue for std::collections::HashMap<String, i32> {
         Ok(vec![ScriptModuleReturnValue::IntTable(self)])
     }
 }
+#[duplicate::duplicate_item(
+    Integer;
+    [i8];
+    [i16];
+    [u8];
+    [u16];
+)]
+impl IntoScriptModuleReturnValue for std::collections::HashMap<String, Integer> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        Ok(vec![ScriptModuleReturnValue::IntTable(
+            self.into_iter()
+                .map(|(key, value)| (key, value as i32))
+                .collect(),
+        )])
+    }
+}
+#[duplicate::duplicate_item(
+    Integer;
+    [i64];
+    [i128];
+    [isize];
+    [u32];
+    [u64];
+    [u128];
+    [usize];
+)]
+impl IntoScriptModuleReturnValue for std::collections::HashMap<String, Integer> {
+    type Err = std::num::TryFromIntError;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        Ok(vec![ScriptModuleReturnValue::IntTable(
+            self.into_iter()
+                .map(|(key, value)| Ok((key, value.try_into()?)))
+                .collect::<Result<_, Self::Err>>()?,
+        )])
+    }
+}
 impl IntoScriptModuleReturnValue for std::collections::HashMap<String, f64> {
     type Err = std::convert::Infallible;
     fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
         Ok(vec![ScriptModuleReturnValue::FloatTable(self)])
+    }
+}
+impl IntoScriptModuleReturnValue for std::collections::HashMap<String, f32> {
+    type Err = std::convert::Infallible;
+    fn into_return_values(self) -> Result<Vec<ScriptModuleReturnValue>, Self::Err> {
+        Ok(vec![ScriptModuleReturnValue::FloatTable(
+            self.into_iter()
+                .map(|(key, value)| (key, f64::from(value)))
+                .collect(),
+        )])
     }
 }
 impl IntoScriptModuleReturnValue for std::collections::HashMap<String, String> {
@@ -1510,14 +1741,25 @@ pub mod __table_converter {
             self.clone()
         }
     }
-    impl ToOptionalTableEntry for i32 {
-        type Value = i32;
-        fn to_optional(&self) -> Option<Self::Value> {
-            Some(*self)
-        }
-    }
-    impl ToOptionalTableEntry for f64 {
-        type Value = f64;
+    #[duplicate::duplicate_item(
+        Number;
+        [i8];
+        [i16];
+        [i32];
+        [i64];
+        [i128];
+        [isize];
+        [u8];
+        [u16];
+        [u32];
+        [u64];
+        [u128];
+        [usize];
+        [f32];
+        [f64];
+    )]
+    impl ToOptionalTableEntry for Number {
+        type Value = Number;
         fn to_optional(&self) -> Option<Self::Value> {
             Some(*self)
         }
@@ -1544,4 +1786,140 @@ where
             }
         })
         .push_into(param);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_from_param<T>()
+    where
+        for<'a> T: FromScriptModuleParam<'a>,
+    {
+    }
+
+    fn assert_into_return_value<T: IntoScriptModuleReturnValue>() {}
+
+    fn assert_table_entry<T: __table_converter::ToOptionalTableEntry>() {}
+
+    fn assert_zero_is_convertible<T>()
+    where
+        T: FromScriptModuleInteger,
+    {
+        assert!(convert_script_module_integer::<T>(0).is_ok());
+    }
+
+    #[test]
+    fn converts_table_integer_to_all_numeric_types() {
+        assert_zero_is_convertible::<i8>();
+        assert_zero_is_convertible::<i16>();
+        assert_zero_is_convertible::<i32>();
+        assert_zero_is_convertible::<i64>();
+        assert_zero_is_convertible::<i128>();
+        assert_zero_is_convertible::<isize>();
+        assert_zero_is_convertible::<u8>();
+        assert_zero_is_convertible::<u16>();
+        assert_zero_is_convertible::<u32>();
+        assert_zero_is_convertible::<u64>();
+        assert_zero_is_convertible::<u128>();
+        assert_zero_is_convertible::<usize>();
+    }
+
+    #[test]
+    fn implements_numeric_collection_traits() {
+        macro_rules! assert_integer_traits {
+            ($($integer:ty),+ $(,)?) => {
+                $(
+                    assert_from_param::<Vec<$integer>>();
+                    assert_into_return_value::<Vec<$integer>>();
+                    assert_into_return_value::<std::collections::HashMap<String, $integer>>();
+                    assert_table_entry::<$integer>();
+                )+
+            };
+        }
+
+        assert_integer_traits!(
+            i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
+        );
+        assert_from_param::<Vec<f32>>();
+        assert_from_param::<Vec<f64>>();
+        assert_into_return_value::<Vec<f32>>();
+        assert_into_return_value::<Vec<f64>>();
+        assert_into_return_value::<std::collections::HashMap<String, f32>>();
+        assert_into_return_value::<std::collections::HashMap<String, f64>>();
+        assert_table_entry::<f32>();
+        assert_table_entry::<f64>();
+    }
+
+    #[test]
+    fn converts_numeric_collections_to_internal_types() {
+        let values = Vec::<u16>::from([0, u16::MAX])
+            .into_return_values()
+            .unwrap();
+        assert!(matches!(
+            values.as_slice(),
+            [ScriptModuleReturnValue::IntArray(values)]
+                if values == &vec![0, u16::MAX as i32]
+        ));
+
+        let values = Vec::<f32>::from([1.5, -2.25]).into_return_values().unwrap();
+        assert!(matches!(
+            values.as_slice(),
+            [ScriptModuleReturnValue::FloatArray(values)]
+                if values == &vec![1.5, -2.25]
+        ));
+
+        let values = std::collections::HashMap::from([("value".to_string(), 1.5_f32)])
+            .into_return_values()
+            .unwrap();
+        assert!(matches!(
+            values.as_slice(),
+            [ScriptModuleReturnValue::FloatTable(values)]
+                if values.get("value") == Some(&1.5)
+        ));
+    }
+
+    #[test]
+    fn reports_numeric_collection_conversion_errors() {
+        assert!(
+            Vec::from([i64::from(i32::MAX) + 1])
+                .into_return_values()
+                .is_err()
+        );
+        assert!(
+            std::collections::HashMap::from([("value".to_string(), u64::MAX)])
+                .into_return_values()
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn reports_table_integer_conversion_errors() {
+        assert!(matches!(
+            convert_script_module_integer::<i8>(i8::MAX as i32 + 1),
+            Err(ScriptModuleCallHandleError::ConversionError(_))
+        ));
+        assert!(matches!(
+            convert_script_module_integer::<u32>(-1),
+            Err(ScriptModuleCallHandleError::ConversionError(_))
+        ));
+    }
+
+    #[test]
+    fn preserves_existing_error_when_changing_conversion_error_type() {
+        let error: ScriptModuleCallHandleError<ParamConversionError> =
+            ScriptModuleCallHandleError::TypeMismatch {
+                expected: ParamType::Table,
+                actual: ParamType::Number,
+            }
+            .into_conversion_error();
+
+        assert!(matches!(
+            error,
+            ScriptModuleCallHandleError::TypeMismatch {
+                expected: ParamType::Table,
+                actual: ParamType::Number,
+            }
+        ));
+    }
 }
