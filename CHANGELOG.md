@@ -2,7 +2,6 @@
 
 ## Unreleased
 
-- **Breaking**: module: GetParamErrorとScriptModuleCallHandleErrorを統合する
 - filter: FilterAudioProcのレシーバを`&self`にする
 
 ### デモプラグイン
