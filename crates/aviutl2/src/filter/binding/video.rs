@@ -906,17 +906,22 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
         &self.read_section
     }
 
-    /// 指定オブジェクトの画像出力項目のパラメータを取得する。
+    /// 指定オブジェクト、または現在のオブジェクトの画像出力項目のパラメータを取得する。
+    ///
+    /// # Arguments
+    ///
+    /// - `object`: 取得するオブジェクト。`None` の場合は現在のオブジェクト。
+    /// - `offset`: 取得する時間のオフセット。
     pub fn get_output_image_param(
         &mut self,
-        object: crate::generic::ObjectHandle,
+        object: Option<crate::generic::ObjectHandle>,
         offset: f64,
     ) -> FilterProcResult<ObjectImageParam> {
         let inner = unsafe { &*self.inner };
         let mut param = std::mem::MaybeUninit::<aviutl2_sys::filter2::OBJECT_IMAGE_PARAM>::uninit();
         unsafe {
             let ok = (inner.get_output_image_param)(
-                object.internal,
+                object.map_or(std::ptr::null_mut(), |o| o.internal as *mut _),
                 offset,
                 param.as_mut_ptr(),
                 std::mem::size_of::<aviutl2_sys::filter2::OBJECT_IMAGE_PARAM>() as i32,
