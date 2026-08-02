@@ -756,50 +756,9 @@ impl ScriptsSearchApp {
                 let Some(target) = e.get_focused_object()? else {
                     anyhow::bail!("オブジェクトが選択されていません。");
                 };
-                let original_alias = e.object(target).get_alias_parsed()?;
-                let mut alias = original_alias.clone();
-                let Some(output_table) = alias.get_table("Object.1").cloned() else {
-                    anyhow::bail!("選択中のオブジェクトは出力効果を設定できません。");
-                };
-                let maybe_output_effect_name = output_table
-                    .get_value("effect.name")
-                    .map_or("", |v| v.as_str());
-                if !crate::EFFECTS.get().unwrap().effects.iter().any(|eff| {
-                    eff.effect.effect_type == aviutl2::generic::EffectType::Output
-                        && eff.name == maybe_output_effect_name
-                }) {
-                    anyhow::bail!("選択中のオブジェクトは出力効果を設定できません。");
-                }
 
-                let mut new_table = aviutl2::alias::Table::new();
-                new_table.insert_value("effect.name", &effect.name);
-                alias.insert_table("Object.1", new_table);
-                let position = e.object(target).get_layer_frame()?;
-                e.object(target).delete_object()?;
-                let created = e.create_object_from_alias(
-                    &alias.to_string(),
-                    position.layer,
-                    position.start,
-                    0,
-                );
-                match created {
-                    Ok(created) => {
-                        e.set_focus_object(Some(created))?;
-                        tracing::debug!("Output effect added successfully");
-                    }
-                    Err(err) => {
-                        tracing::warn!("Failed to add output effect, reverting changes: {}", err);
-                        // エラーが発生した場合は元の状態に戻す
-                        let restored = e.create_object_from_alias(
-                            &original_alias.to_string(),
-                            position.layer,
-                            position.start,
-                            0,
-                        )?;
-                        e.set_focus_object(Some(restored))?;
-                        return Err(anyhow::anyhow!("Failed to add output effect: {}", err));
-                    }
-                }
+                e.create_effect(target, &effect.effect.name)?;
+
                 anyhow::Ok(())
             })
             .map_err(anyhow::Error::from)
