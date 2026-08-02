@@ -1001,6 +1001,89 @@ impl ReadSection {
         T::from_table_value(&value_str).map_err(EditSectionParsedError::ParseError)
     }
 
+    /// エフェクトの汎用データ項目のサイズを取得する。
+    pub fn get_effect_data_size(
+        &self,
+        effect: EffectHandle,
+        item: &str,
+    ) -> EditSectionResult<usize> {
+        self.ensure_effect_exists(effect)?;
+        let c_item = crate::common::CWString::new(item)?;
+        let size = unsafe {
+            ((*self.internal).get_effect_data_value)(
+                effect.internal,
+                c_item.as_ptr(),
+                std::ptr::null_mut(),
+                0,
+            )
+        };
+        Ok(size.try_into()?)
+    }
+
+    /// エフェクトの汎用データ項目の値をVec<u8>で取得する。
+    pub fn get_effect_data_value(
+        &self,
+        effect: EffectHandle,
+        item: &str,
+    ) -> EditSectionResult<Vec<u8>> {
+        self.ensure_effect_exists(effect)?;
+        let c_item = crate::common::CWString::new(item)?;
+        let size = self.get_effect_data_size(effect, item)?;
+        if size == 0 {
+            return Ok(Vec::new());
+        }
+        let mut buffer = vec![0u8; size];
+        let actual_size = unsafe {
+            ((*self.internal).get_effect_data_value)(
+                effect.internal,
+                c_item.as_ptr(),
+                buffer.as_mut_ptr() as *mut std::ffi::c_void,
+                size.try_into()?,
+            )
+        };
+        if actual_size != size.try_into()? {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(buffer)
+    }
+
+    /// エフェクトの汎用データ項目の値を指定の型で取得する。
+    ///
+    /// # Errors
+    ///
+    /// `T`
+    /// のサイズがエフェクトのデータ項目のサイズと一致しない場合、`EditSectionError::ApiCallFailed`
+    /// を返します。
+    ///
+    /// # Safety
+    ///
+    /// `T` は `repr(C)` であり、かつエフェクトのデータ項目のサイズと一致している必要があります。
+    pub unsafe fn get_effect_data_value_as<T>(
+        &self,
+        effect: EffectHandle,
+        item: &str,
+    ) -> EditSectionResult<T> {
+        let size = std::mem::size_of::<T>();
+        let actual_size = self.get_effect_data_size(effect, item)?;
+        if actual_size != size {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        let value = unsafe {
+            let mut value = std::mem::MaybeUninit::<T>::uninit();
+            let actual_size = ((*self.internal).get_effect_data_value)(
+                effect.internal,
+                crate::common::CWString::new(item)?.as_ptr(),
+                value.as_mut_ptr() as *mut std::ffi::c_void,
+                size.try_into()?,
+            );
+            if actual_size != size.try_into()? {
+                return Err(EditSectionError::ApiCallFailed);
+            }
+            value.assume_init()
+        };
+        Ok(value)
+    }
+
     /// エフェクトの指定フレーム位置でのトラックバー項目の値を取得する。
     pub fn get_effect_track_value(
         &self,
@@ -1277,6 +1360,52 @@ impl EditSection {
         Ok(())
     }
 
+    /// エフェクトの汎用データ項目の値をバイト列で設定する。
+    pub fn set_effect_data_value(
+        &self,
+        effect: EffectHandle,
+        item: &str,
+        data: &[u8],
+    ) -> EditSectionResult<()> {
+        self.read_section.ensure_effect_exists(effect)?;
+        let c_item = crate::common::CWString::new(item)?;
+        let success = unsafe {
+            ((*self.internal).set_effect_data_value)(
+                effect.internal,
+                c_item.as_ptr(),
+                data.as_ptr() as *mut std::ffi::c_void,
+                data.len().try_into()?,
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(())
+    }
+
+    /// エフェクトの汎用データ項目の値を指定の型で設定する。
+    pub fn set_effect_data_value_with<T>(
+        &self,
+        effect: EffectHandle,
+        item: &str,
+        data: &T,
+    ) -> EditSectionResult<()> {
+        self.read_section.ensure_effect_exists(effect)?;
+        let c_item = crate::common::CWString::new(item)?;
+        let success = unsafe {
+            ((*self.internal).set_effect_data_value)(
+                effect.internal,
+                c_item.as_ptr(),
+                data as *const T as *mut std::ffi::c_void,
+                std::mem::size_of::<T>().try_into()?,
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(())
+    }
+
     /// オブジェクトを移動する。
     pub fn move_object(
         &self,
@@ -1432,6 +1561,10 @@ impl EditSection {
 
     /// オブジェクトにエフェクトを追加する。
     ///
+    /// # Note
+    ///
+    /// エフェクトが入出力エフェクトの場合は、効果が追加される代わりに、オブジェクトのエフェクトが置き換えられます。
+    ///
     /// # Arguments
     ///
     /// - `object`：対象のオブジェクトハンドル。
@@ -1522,6 +1655,28 @@ impl EditSection {
             return Err(EditSectionError::ApiCallFailed);
         }
         Ok(())
+    }
+
+    /// オブジェクトのエフェクトの順序を移動する。
+    ///
+    /// # Returns
+    ///
+    /// 移動処理後のエフェクトの順序を返します。
+    pub fn move_effect(
+        &self,
+        object: ObjectHandle,
+        effect: EffectHandle,
+        index: usize,
+    ) -> EditSectionResult<usize> {
+        self.read_section.ensure_object_exists(object)?;
+        self.read_section.ensure_effect_exists(effect)?;
+        let success = unsafe {
+            ((*self.internal).move_effect)(object.internal, effect.internal, index.try_into()?)
+        };
+        if success == -1 {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(success.try_into()?)
     }
 
     /// 現在のレイヤー・フレーム位置を設定する。
@@ -1704,6 +1859,16 @@ impl EditSection {
         if !success {
             return Err(EditSectionError::ApiCallFailed);
         }
+        Ok(())
+    }
+
+    /// 編集データを編集済み状態に設定する。
+    ///
+    /// # Note
+    ///
+    /// 通常は自動的に設定されます。
+    pub fn set_edited_state(&self) -> EditSectionResult<()> {
+        unsafe { ((*self.internal).set_edited_state)() };
         Ok(())
     }
 
@@ -1978,6 +2143,11 @@ impl EditSectionObjectCaller<'_, EditSection> {
         self.edit_section.delete_effect(self.handle, effect)
     }
 
+    /// オブジェクトのエフェクトの順序を移動する。
+    pub fn move_effect(&self, effect: EffectHandle, index: usize) -> EditSectionResult<usize> {
+        self.edit_section.move_effect(self.handle, effect, index)
+    }
+
     /// オブジェクトに中間点（区間）を追加する。
     pub fn create_section(&self, frame: usize) -> EditSectionResult<()> {
         self.edit_section.create_object_section(self.handle, frame)
@@ -2123,6 +2293,28 @@ where
         T::from_table_value(&value_str).map_err(EditSectionParsedError::ParseError)
     }
 
+    /// エフェクトの汎用データ項目のサイズを取得する。
+    pub fn get_data_size(&self, item: &str) -> EditSectionResult<usize> {
+        self.read_section().get_effect_data_size(self.handle, item)
+    }
+
+    /// エフェクトの汎用データ項目の値をバイト列で取得する。
+    pub fn get_data_value(&self, item: &str) -> EditSectionResult<Vec<u8>> {
+        self.read_section().get_effect_data_value(self.handle, item)
+    }
+
+    /// エフェクトの汎用データ項目の値を指定の型で取得する。
+    ///
+    /// # Safety
+    ///
+    /// `T` は `repr(C)` であり、かつエフェクトのデータ項目のサイズと一致している必要があります。
+    pub unsafe fn get_data_value_as<T>(&self, item: &str) -> EditSectionResult<T> {
+        unsafe {
+            self.read_section()
+                .get_effect_data_value_as(self.handle, item)
+        }
+    }
+
     /// 指定フレーム位置でのトラックバー項目の値を取得する。
     pub fn get_track_value(&self, item: &str, frame: f64) -> EditSectionResult<f64> {
         self.read_section()
@@ -2156,6 +2348,18 @@ impl EditSectionEffectCaller<'_, EditSection> {
     pub fn set_item_value(&self, item: &str, value: &str) -> EditSectionResult<()> {
         self.edit_section
             .set_effect_item_value(self.handle, item, value)
+    }
+
+    /// エフェクトの汎用データ項目の値をバイト列で設定する。
+    pub fn set_data_value(&self, item: &str, data: &[u8]) -> EditSectionResult<()> {
+        self.edit_section
+            .set_effect_data_value(self.handle, item, data)
+    }
+
+    /// エフェクトの汎用データ項目の値を指定の型で設定する。
+    pub fn set_data_value_with<T>(&self, item: &str, data: &T) -> EditSectionResult<()> {
+        self.edit_section
+            .set_effect_data_value_with(self.handle, item, data)
     }
 }
 

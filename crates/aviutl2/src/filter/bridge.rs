@@ -90,6 +90,7 @@ impl ObjectInfo {
                 != 0,
             frame_s: raw.frame_s as u32,
             frame_e: raw.frame_e as u32,
+            effect_layer: raw.effect_layer as u32,
         }
     }
 }

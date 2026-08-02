@@ -233,6 +233,8 @@ pub struct ObjectInfo {
     pub frame_s: u32,
     /// シーン基準のオブジェクトの終了フレーム。
     pub frame_e: u32,
+    /// 対象エフェクトの現在のレイヤー番号。
+    pub effect_layer: u32,
 }
 
 impl ObjectInfo {

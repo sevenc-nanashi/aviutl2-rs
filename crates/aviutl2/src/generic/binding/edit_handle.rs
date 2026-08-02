@@ -476,7 +476,7 @@ impl EditHandle {
     /// 現在のシーンの映像レンダリングを要求する。
     ///
     /// この関数はレンダリングタスクの追加のみを行います。レンダリング完了時に
-    /// コールバックがレンダリング用スレッドから呼ばれます。
+    /// コールバックがイベント通知スレッドから呼ばれます。
     pub fn rendering_scene_video<F>(&self, frame: u32, callback: F) -> Result<(), EditHandleError>
     where
         F: FnMut(RenderingSceneVideo<'_>) + Send + 'static,
@@ -549,7 +549,7 @@ impl EditHandle {
     /// 現在のシーンの音声レンダリングを要求する。
     ///
     /// この関数はレンダリングタスクの追加のみを行います。レンダリング完了時に
-    /// コールバックがレンダリング用スレッドから呼ばれます。
+    /// コールバックがイベント通知スレッドから呼ばれます。
     pub fn rendering_scene_audio<F>(&self, frame: u32, callback: F) -> Result<(), EditHandleError>
     where
         F: FnMut(RenderingSceneAudio<'_>) + Send + 'static,
@@ -600,6 +600,175 @@ impl EditHandle {
         let success = unsafe {
             ((*self.internal).rendering_scene_audio)(
                 frame,
+                param as *mut std::ffi::c_void,
+                trampoline::<F>,
+            )
+        };
+        if success {
+            Ok(())
+        } else {
+            unsafe {
+                drop(Box::from_raw(param));
+            }
+            Err(EditHandleError::ApiCallFailed)
+        }
+    }
+
+    /// 指定のオブジェクトの映像のレンダリングを要求する。
+    ///
+    /// レンダリング完了時はイベント通知スレッドからコールバックが呼ばれます。
+    ///
+    /// # Arguments
+    ///
+    /// - `object`：レンダリング対象のオブジェクト。
+    /// - `frame`：レンダリング対象のフレーム番号。
+    /// - `apply_effect`：レンダリング時にエフェクトを適用するかどうか。
+    /// - `callback`：レンダリング完了時に呼ばれるコールバック関数。
+    pub fn rendering_object_video<F>(
+        &self,
+        object: crate::generic::ObjectHandle,
+        frame: u32,
+        apply_effect: bool,
+        callback: F,
+    ) -> Result<(), EditHandleError>
+    where
+        F: FnMut(RenderingSceneVideo<'_>) + Send + 'static,
+    {
+        assert!(
+            self.is_ready(),
+            "rendering_object_video cannot be called before register_plugin is done"
+        );
+
+        type CallbackParam<F> = Mutex<Option<F>>;
+
+        unsafe extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            frame: i32,
+            buffer: *const std::ffi::c_void,
+            width: i32,
+            height: i32,
+            pitch: i32,
+        ) where
+            F: FnMut(RenderingSceneVideo<'_>),
+        {
+            let callback = unsafe { Box::from_raw(param as *mut CallbackParam<F>) };
+            let len = usize::try_from(pitch)
+                .ok()
+                .and_then(|pitch| {
+                    usize::try_from(height)
+                        .ok()
+                        .and_then(|height| pitch.checked_mul(height))
+                })
+                .unwrap_or(0);
+            let buffer = if buffer.is_null() || len == 0 {
+                &[]
+            } else {
+                unsafe { std::slice::from_raw_parts(buffer as *const u8, len) }
+            };
+            let video = RenderingSceneVideo {
+                frame: frame as u32,
+                width: width as u32,
+                height: height as u32,
+                pitch: pitch as u32,
+                buffer,
+            };
+            let mut callback = callback
+                .lock()
+                .unwrap()
+                .take()
+                .expect("Callback already taken");
+            callback(video);
+        }
+
+        let frame = i32::try_from(frame).map_err(|_| EditHandleError::ValueOutOfRange)?;
+        let param = Box::into_raw(Box::new(Mutex::new(Some(callback))));
+        let success = unsafe {
+            ((*self.internal).rendering_object_video)(
+                object.internal,
+                frame,
+                apply_effect as _,
+                param as *mut std::ffi::c_void,
+                trampoline::<F>,
+            )
+        };
+        if success {
+            Ok(())
+        } else {
+            unsafe {
+                drop(Box::from_raw(param));
+            }
+            Err(EditHandleError::ApiCallFailed)
+        }
+    }
+
+    /// 指定のオブジェクトの音声のレンダリングを要求する。
+    ///
+    /// レンダリング完了時はイベント通知スレッドからコールバックが呼ばれます。
+    ///
+    /// # Arguments
+    ///
+    /// - `object`：レンダリング対象のオブジェクト。
+    /// - `frame`：レンダリング対象のフレーム番号。
+    /// - `apply_effect`：レンダリング時にエフェクトを適用するかどうか。
+    /// - `callback`：レンダリング完了時に呼ばれるコールバック関数。
+    pub fn rendering_object_audio<F>(
+        &self,
+        object: crate::generic::ObjectHandle,
+        frame: u32,
+        apply_effect: bool,
+        callback: F,
+    ) -> Result<(), EditHandleError>
+    where
+        F: FnMut(RenderingSceneAudio<'_>) + Send + 'static,
+    {
+        assert!(
+            self.is_ready(),
+            "rendering_object_audio cannot be called before register_plugin is done"
+        );
+
+        type CallbackParam<F> = Mutex<Option<F>>;
+
+        unsafe extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            frame: i32,
+            buffer0: *const f32,
+            buffer1: *const f32,
+            sample_num: i32,
+        ) where
+            F: FnMut(RenderingSceneAudio<'_>),
+        {
+            let callback = unsafe { Box::from_raw(param as *mut CallbackParam<F>) };
+            let len = usize::try_from(sample_num).unwrap_or(0);
+            let buffer0 = if buffer0.is_null() || len == 0 {
+                &[]
+            } else {
+                unsafe { std::slice::from_raw_parts(buffer0, len) }
+            };
+            let buffer1 = if buffer1.is_null() || len == 0 {
+                &[]
+            } else {
+                unsafe { std::slice::from_raw_parts(buffer1, len) }
+            };
+            let audio = RenderingSceneAudio {
+                frame: frame as u32,
+                buffer0,
+                buffer1,
+            };
+            let mut callback = callback
+                .lock()
+                .unwrap()
+                .take()
+                .expect("Callback already taken");
+            callback(audio);
+        }
+
+        let frame = i32::try_from(frame).map_err(|_| EditHandleError::ValueOutOfRange)?;
+        let param = Box::into_raw(Box::new(Mutex::new(Some(callback))));
+        let success = unsafe {
+            ((*self.internal).rendering_object_audio)(
+                object.internal,
+                frame,
+                apply_effect as _,
                 param as *mut std::ffi::c_void,
                 trampoline::<F>,
             )

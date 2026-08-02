@@ -67,6 +67,10 @@ pub enum FilterConfigItem {
     /// フォルダ選択。
     Folder(FilterConfigFolder),
     /// 汎用データ。
+    ///
+    /// # Note
+    ///
+    /// Undoポイントの作成や編集済みフラグの設定はされません。
     Data(ErasedFilterConfigData),
     /// グループ。
     Group(FilterConfigGroup),

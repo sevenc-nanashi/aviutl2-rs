@@ -576,6 +576,7 @@ pub struct EDIT_SECTION {
         unsafe extern "C" fn(bpm_list: *mut BPM_INFO, bpm_num: i32, bpm_size: i32),
 
     /// オブジェクトにエフェクトを追加します (call_read_section利用不可)
+    /// エフェクトが入出力項目（図形や標準描画等）の場合は差し替えになります
     pub create_effect:
         unsafe extern "C" fn(object: OBJECT_HANDLE, effect: LPCWSTR) -> EFFECT_HANDLE,
 
@@ -591,6 +592,30 @@ pub struct EDIT_SECTION {
     /// オブジェクトの中間点（区間）を移動します (call_read_section利用不可)
     pub move_object_section:
         unsafe extern "C" fn(object: OBJECT_HANDLE, section: i32, frame: i32) -> bool,
+
+    /// エフェクトの順序を移動します (call_read_section利用不可)
+    /// エフェクト種別がフィルタ効果の場合に順序を移動できます
+    pub move_effect:
+        unsafe extern "C" fn(object: OBJECT_HANDLE, effect: EFFECT_HANDLE, index: i32) -> i32,
+
+    /// エフェクトの汎用データ項目の値を取得します
+    pub get_effect_data_value: unsafe extern "C" fn(
+        effect: EFFECT_HANDLE,
+        item: LPCWSTR,
+        data: *mut c_void,
+        size: i32,
+    ) -> i32,
+
+    /// エフェクトの汎用データ項目の値を設定します (call_read_section利用不可)
+    pub set_effect_data_value: unsafe extern "C" fn(
+        effect: EFFECT_HANDLE,
+        item: LPCWSTR,
+        data: *mut c_void,
+        size: i32,
+    ) -> bool,
+
+    /// 編集データを編集済み状態に設定します
+    pub set_edited_state: unsafe extern "C" fn(),
 }
 
 /// 編集ハンドル構造体
@@ -722,6 +747,37 @@ pub struct EDIT_HANDLE {
         param: *mut c_void,
         func_proc_enum_palette: unsafe extern "C" fn(param: *mut c_void, name: LPCWSTR),
     ),
+
+    /// 指定のオブジェクトの映像のレンダリングをします
+    pub rendering_object_video: unsafe extern "C" fn(
+        object: OBJECT_HANDLE,
+        frame: i32,
+        apply_effect: bool,
+        param: *mut c_void,
+        func_proc_rendering_video: unsafe extern "C" fn(
+            param: *mut c_void,
+            frame: i32,
+            buffer: *const c_void,
+            width: i32,
+            height: i32,
+            pitch: i32,
+        ),
+    ) -> bool,
+
+    /// 指定のオブジェクトの音声のレンダリングをします
+    pub rendering_object_audio: unsafe extern "C" fn(
+        object: OBJECT_HANDLE,
+        frame: i32,
+        apply_effect: bool,
+        param: *mut c_void,
+        func_proc_rendering_audio: unsafe extern "C" fn(
+            param: *mut c_void,
+            frame: i32,
+            buffer0: *const f32,
+            buffer1: *const f32,
+            sample_num: i32,
+        ),
+    ) -> bool,
 }
 
 impl EDIT_HANDLE {

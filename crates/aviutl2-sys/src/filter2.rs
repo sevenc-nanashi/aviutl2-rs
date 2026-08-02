@@ -147,6 +147,7 @@ pub struct FILTER_ITEM_FILE {
 
 /// 汎用データ項目構造体
 /// `default_value` は最大16KiBまでの任意のデータを格納できます。
+/// フィルタ処理関数内で `value` の参照先データを更新できますが、Undoポイントの作成や編集済みフラグの設定はされません。
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct FILTER_ITEM_DATA {
@@ -480,6 +481,8 @@ pub struct OBJECT_INFO {
     pub frame_s: i32,
     /// 全体(シーン)基準のオブジェクトの終了フレーム(0からの番号)
     pub frame_e: i32,
+    /// 対象エフェクトの現在のレイヤー番号 ※自身のオブジェクトのレイヤー番号
+    pub effect_layer: i32,
 }
 
 impl OBJECT_INFO {

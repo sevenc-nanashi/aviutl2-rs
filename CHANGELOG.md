@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking**: 最小サポートを2.1.3に引き上げ
 - **Breaking**: filter: `get_output_image_param`の`ObjectHandle`を`Option<ObjectHandle>`に変更
 - **Breaking**: module: パラメーター取得関連を`Result<T, GetParamError>`に変更
 - module: テーブルの整数を任意の数値型として取得するAPIを追加
