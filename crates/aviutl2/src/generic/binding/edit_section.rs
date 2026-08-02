@@ -1020,7 +1020,7 @@ impl ReadSection {
         Ok(size.try_into()?)
     }
 
-    /// エフェクトの汎用データ項目の値をVec<u8>で取得する。
+    /// エフェクトの汎用データ項目の値を`Vec<u8>`で取得する。
     pub fn get_effect_data_value(
         &self,
         effect: EffectHandle,
