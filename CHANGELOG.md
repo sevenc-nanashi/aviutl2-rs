@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.42.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.42.0)
+
 - **Breaking**: 最小サポートを2.1.3に引き上げ
 - **Breaking**: filter: `get_output_image_param`の`ObjectHandle`を`Option<ObjectHandle>`に変更
 - **Breaking**: module: パラメーター取得関連を`Result<T, GetParamError>`に変更
