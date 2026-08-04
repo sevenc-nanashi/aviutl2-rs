@@ -357,6 +357,7 @@ dependencies = [
  "aviutl2",
  "eframe",
  "fontdb",
+ "process_path",
  "windows",
  "winit",
 ]

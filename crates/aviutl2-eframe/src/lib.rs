@@ -34,6 +34,15 @@ pub use eframe::egui;
 ///
 /// この構造体は、別スレッドで動作するegui/eframeウィンドウを管理します。
 /// ウィンドウのハンドル（HWND）やeguiのコンテキストへのアクセスを提供します。
+///
+/// # Note
+///
+/// eframeのデフォルトからいくつか変更が加えられています：
+/// - デフォルトのアプリデータの保存先は`DLLのあるディレクトリ/DLL名.data`になります。
+///   -
+/// - ウィンドウの装飾は無効化されています。
+///
+/// [`eframe::NativeOptions`]をカスタマイズしたい場合は、[`EframeWindow::new_with_options`]を使用してください。
 pub struct EframeWindow {
     hwnd: std::sync::OnceLock<NonZeroIsize>,
     egui_ctx: std::sync::OnceLock<egui::Context>,
@@ -302,6 +311,20 @@ impl<'a> winit::application::ApplicationHandler<eframe::UserEvent> for WinitEven
     }
 }
 
+/// デフォルトのeguiの永続化データを保存するパスを取得する。
+///
+/// デフォルトは`DLLのあるディレクトリ/DLL名.data/アプリ名.ron`に保存されます。
+/// また、もしこのパスが指定されているかつ、aviutl2-eframe
+/// 0.42.0以前のバージョンで保存されているデータが存在する場合、そのデータを自動的に移行します。
+pub fn default_persist_path(name: &str) -> std::path::PathBuf {
+    let path = process_path::get_dylib_path().expect("Should not fail on windows");
+
+    let dir = path.with_added_extension("data");
+    tracing::debug!("Eframe persistence path: {:?}", path);
+    let escaped_name = name.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+    dir.join(&escaped_name).with_added_extension("ron")
+}
+
 impl EframeWindow {
     /// 新しいEframeWindowを作成する。
     ///
@@ -311,6 +334,27 @@ impl EframeWindow {
     pub fn new<F>(name: &str, app_creator: F) -> AnyResult<Self>
     where
         F: 'static
+            + Send
+            + FnOnce(
+                &eframe::CreationContext<'_>,
+                AviUtl2EframeHandle,
+            )
+                -> Result<Box<dyn eframe::App>, Box<dyn std::error::Error + Send + Sync>>,
+    {
+        Self::new_with_options(name, |opts| opts, app_creator)
+    }
+
+    /// 新しいEframeWindowを作成する。
+    ///
+    /// [`Self::new`]と違い、`native_options_builder`を指定することで、`eframe::NativeOptions`をカスタマイズできます。
+    pub fn new_with_options<F, F2>(
+        name: &str,
+        native_options_builder: F,
+        app_creator: F2,
+    ) -> AnyResult<Self>
+    where
+        F: 'static + Send + FnOnce(eframe::NativeOptions) -> eframe::NativeOptions,
+        F2: 'static
             + Send
             + FnOnce(
                 &eframe::CreationContext<'_>,
@@ -348,6 +392,7 @@ impl EframeWindow {
                         .unwrap_or_else(|| "<unknown location>".to_string());
                     panic_message.set(format!("{msg} (at {location})")).ok();
                 }));
+                let default_persist_path = default_persist_path(&name);
                 let native_options = eframe::NativeOptions {
                     viewport: egui::ViewportBuilder::default()
                         .with_visible(false)
@@ -357,8 +402,56 @@ impl EframeWindow {
                     window_builder: Some(Box::new(|wb| {
                         wb.with_visible(false).with_decorations(false)
                     })),
+                    persist_window: false,
+                    persistence_path: Some(default_persist_path.clone()),
                     ..Default::default()
                 };
+                let native_options = native_options_builder(native_options);
+
+                if native_options
+                    .persistence_path
+                    .as_ref()
+                    .is_some_and(|o| o == &default_persist_path)
+                    && !default_persist_path.exists()
+                {
+                    let app_id = native_options.viewport.app_id.as_ref().unwrap_or(&name);
+                    let legacy_persist_path = eframe::storage_dir(app_id)
+                        .expect("should be available on windows")
+                        .join("app.ron");
+                    if legacy_persist_path.exists() {
+                        tracing::debug!(
+                            "Legacy persistence file found at {:?}, copying to {:?}",
+                            legacy_persist_path,
+                            default_persist_path
+                        );
+                        if let Err(e) = std::fs::create_dir_all(
+                            default_persist_path
+                                .parent()
+                                .expect("should have parent directory"),
+                        ) {
+                            tracing::warn!(
+                                "Failed to create persistence directory {:?}: {:?}",
+                                default_persist_path.parent(),
+                                e
+                            );
+                        } else if let Err(e) =
+                            std::fs::copy(&legacy_persist_path, &default_persist_path)
+                        {
+                            tracing::warn!(
+                                "Failed to migrate legacy persistence file from {:?} to {:?}: {:?}",
+                                legacy_persist_path,
+                                default_persist_path,
+                                e
+                            );
+                        } else {
+                            tracing::debug!(
+                                "Successfully migrated legacy persistence file from {:?} to {:?}",
+                                legacy_persist_path,
+                                default_persist_path
+                            );
+                        }
+                    }
+                }
 
                 let event_loop =
                     winit::event_loop::EventLoop::<eframe::UserEvent>::with_user_event()
