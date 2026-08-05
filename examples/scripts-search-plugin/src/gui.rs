@@ -904,7 +904,8 @@ impl ScriptsSearchApp {
 
     fn add_filter_as_object(effect: &crate::EffectData) -> anyhow::Result<()> {
         crate::EDIT_HANDLE.call_edit_section(|e| {
-            e.create_object(&effect.effect.name, e.info.layer, e.info.frame, None)?;
+            let effect = e.create_object(&effect.effect.name, e.info.layer, e.info.frame, None)?;
+            e.set_focus_object(Some(effect))?;
             anyhow::Ok(())
         })?
     }
