@@ -902,7 +902,7 @@ pub fn aviutl2_fonts() -> eframe::egui::FontDefinitions {
 
 fn load_color(key: &str) -> egui::Color32 {
     let (r, g, b) = aviutl2::config::get_color_code(key)
-        .expect("Key contains null byte")?
+        .expect("Key contains null byte")
         .expect("unreachable: default theme key missing");
     egui::Color32::from_rgb(r, g, b)
 }
