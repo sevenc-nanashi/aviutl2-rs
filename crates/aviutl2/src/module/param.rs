@@ -378,7 +378,19 @@ impl ScriptModuleCallHandle {
 
     /// 引数をデータポインタとして取得する。
     pub fn get_param_data<T>(&self, index: usize) -> GetParamResult<*mut T> {
-        self.assert_param_type(index, ParamType::LightUserdata)?;
+        // self.assert_param_type(index, ParamType::LightUserdata)?;
+        let param_type = self
+            .get_param_type(index)
+            .ok_or(GetParamError::IndexOutOfBounds {
+                index,
+                len: self.len(),
+            })?;
+        if param_type != ParamType::LightUserdata && param_type != ParamType::Userdata {
+            return Err(GetParamError::TypeMismatch {
+                expected: ParamType::LightUserdata,
+                actual: param_type,
+            });
+        }
         unsafe { Ok(((*self.internal).get_param_data)(index as i32) as *mut T) }
     }
 
