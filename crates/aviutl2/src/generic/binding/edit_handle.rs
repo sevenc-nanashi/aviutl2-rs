@@ -393,6 +393,54 @@ impl EditHandle {
         Ok(items)
     }
 
+    /// 指定の設定項目が所属するグループの所属アイテム名と、設定項目のグループ内でのインデックスを取得する。
+    pub fn get_effect_item_group_names(
+        &self,
+        effect: &str,
+        item_name: &str,
+    ) -> Result<Option<(usize, Vec<String>)>, EditHandleError> {
+        assert!(
+            self.is_ready(),
+            "get_effect_item_group_members cannot be called before register_plugin is done"
+        );
+        let effect = crate::common::CWString::new(effect)?;
+        let item_name = crate::common::CWString::new(item_name)?;
+        let item_count = unsafe {
+            ((*self.internal).get_effect_item_group_names)(
+                effect.as_ptr(),
+                item_name.as_ptr(),
+                std::ptr::null_mut(),
+                0,
+                std::ptr::null_mut(),
+            )
+        };
+        if item_count <= 0 {
+            return Ok(None);
+        }
+
+        let mut names: Vec<*const u16> = vec![std::ptr::null(); item_count as usize];
+        let mut index: i32 = 0;
+        let actual_item_count = unsafe {
+            ((*self.internal).get_effect_item_group_names)(
+                effect.as_ptr(),
+                item_name.as_ptr(),
+                names.as_mut_ptr(),
+                item_count,
+                &mut index as *mut i32,
+            )
+        };
+        if actual_item_count != item_count {
+            return Err(EditHandleError::ApiCallFailed);
+        }
+
+        let names: Vec<String> = names
+            .into_iter()
+            .map(|ptr| unsafe { crate::common::load_wide_string(ptr) })
+            .collect();
+
+        Ok(Some((index as usize, names)))
+    }
+
     /// モジュールの一覧をコールバック関数で取得する。
     pub fn enumerate_modules<F>(&self, callback: F)
     where

@@ -216,6 +216,22 @@ impl PaletteInfo {
             }),
         }
     }
+
+    fn to_raw(&self) -> aviutl2_sys::plugin2::PALETTE_INFO {
+        let colors: [aviutl2_sys::plugin2::PALETTE_INFO_COLOR; Self::PALETTE_NUM] = self
+            .colors
+            .iter()
+            .map(|color| aviutl2_sys::plugin2::PALETTE_INFO_COLOR {
+                r: color.r,
+                g: color.g,
+                b: color.b,
+                a: color.a,
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .expect("PaletteInfo colors length mismatch");
+        aviutl2_sys::plugin2::PALETTE_INFO { color: colors }
+    }
 }
 
 /// パレット色。
@@ -1195,6 +1211,36 @@ impl ReadSection {
         Ok(unsafe { crate::common::load_wide_string(name_ptr) })
     }
 
+    /// マークされているフレームの一覧を取得する。
+    pub fn get_mark_frame_list(&self) -> EditSectionResult<Vec<usize>> {
+        let num_frames = unsafe { ((*self.internal).get_mark_frame_list)(std::ptr::null_mut(), 0) };
+        if num_frames < 0 {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        let num_frames = num_frames.try_into()?;
+        let mut frames = vec![0; num_frames];
+        let actual_num_frames = unsafe {
+            ((*self.internal).get_mark_frame_list)(frames.as_mut_ptr(), num_frames.try_into()?)
+        };
+        if actual_num_frames != num_frames.try_into()? {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(frames
+            .into_iter()
+            .map(|f| f.try_into())
+            .collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// 指定フレームのマークのメモを取得する。
+    pub fn get_mark_frame_memo(&self, frame: usize) -> EditSectionResult<String> {
+        let c_memo_ptr = unsafe { ((*self.internal).get_mark_frame_memo)(frame.try_into()?) };
+        if c_memo_ptr.is_null() {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        let memo = unsafe { crate::common::load_wide_string(c_memo_ptr) };
+        Ok(memo)
+    }
+
     /// オブジェクトが存在するかどうか調べる。
     pub fn object_exists(&self, object: ObjectHandle) -> bool {
         let object = unsafe { ((*self.internal).get_object_layer_frame)(object.internal) };
@@ -1636,7 +1682,8 @@ impl EditSection {
     ///
     /// # Note
     ///
-    /// 区間をまたいだ移動は出来ません。
+    /// - `section`に0を指定すると開始地点を、区間数（最終区間+1）を指定すると終了地点を移動します。
+    /// - 区間をまたいだ移動は出来ません。
     pub fn move_object_section(
         &self,
         object: ObjectHandle,
@@ -1854,6 +1901,56 @@ impl EditSection {
                 effect.internal,
                 c_item.as_ptr(),
                 c_value.as_ptr(),
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(())
+    }
+
+    /// 指定フレームをマークする。
+    pub fn set_mark_frame(&self, frame: usize, memo: &str) -> EditSectionResult<()> {
+        let c_memo = crate::common::CWString::new(memo)?;
+        unsafe {
+            ((*self.internal).set_mark_frame)(
+                frame.try_into()?,
+                if memo.is_empty() {
+                    std::ptr::null()
+                } else {
+                    c_memo.as_ptr()
+                },
+            )
+        };
+        Ok(())
+    }
+
+    /// 指定フレームのマークを解除する。
+    pub fn clear_mark_frame(&self, frame: usize) -> EditSectionResult<()> {
+        unsafe { ((*self.internal).clear_mark_frame)(frame.try_into()?) };
+        Ok(())
+    }
+
+    /// 指定フレームのマークを移動する。
+    pub fn move_mark_frame(&self, old_frame: usize, new_frame: usize) -> EditSectionResult<()> {
+        let success = unsafe {
+            ((*self.internal).move_mark_frame)(old_frame.try_into()?, new_frame.try_into()?)
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok(())
+    }
+
+    /// 指定のパレット情報を設定する。
+    pub fn set_palette_info(&self, name: &str, palette: &PaletteInfo) -> EditSectionResult<()> {
+        let name = crate::common::CWString::new(name)?;
+        let mut raw_palette = palette.to_raw();
+        let success = unsafe {
+            ((*self.internal).set_palette_info)(
+                name.as_ptr(),
+                &mut raw_palette as *mut aviutl2_sys::plugin2::PALETTE_INFO,
+                std::mem::size_of::<aviutl2_sys::plugin2::PALETTE_INFO>().try_into()?,
             )
         };
         if !success {

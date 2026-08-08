@@ -1,4 +1,5 @@
 use std::ffi::c_void;
+use windows::core::Interface;
 
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
@@ -187,189 +188,55 @@ pub struct FilterProcVideo<U: super::FilterUserdata> {
 unsafe impl<U: super::FilterUserdata> Send for FilterProcVideo<U> {}
 unsafe impl<U: super::FilterUserdata> Sync for FilterProcVideo<U> {}
 
-/// 描画時の画像リソース。
+/// 画像リソース。
+///
+/// APIごとに利用できるリソースの種類が異なります。各メソッドの引数説明を参照してください。
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DrawImageResource {
-    /// 現在の画像データ。
+pub enum ImageResource {
+    /// 現在のオブジェクト（`object`）。
     Object,
-    /// 標準リソース。
+    /// 標準リソース（`resource:名前`）。
     Resource(String),
-    /// 仮想バッファ。
-    TempBuffer,
-    /// キャッシュバッファ。
-    CacheBuffer(String),
-    /// 画像ファイル。
-    ImageFile(std::path::PathBuf),
-}
-impl std::fmt::Display for DrawImageResource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DrawImageResource::Object => write!(f, "object"),
-            DrawImageResource::Resource(name) => write!(f, "resource:{}", name),
-            DrawImageResource::TempBuffer => write!(f, "tempbuffer"),
-            DrawImageResource::CacheBuffer(name) => write!(f, "cache:{}", name),
-            DrawImageResource::ImageFile(path) => write!(f, "image:{}", path.to_string_lossy()),
-        }
-    }
-}
-
-/// 書き込み先として使う画像リソース。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum WritableImageResource {
-    /// 現在の画像データ。
-    Object,
-    /// 標準リソース。
-    Resource(String),
-    /// 仮想バッファ。
-    TempBuffer,
-    /// キャッシュバッファ。
-    CacheBuffer(String),
-}
-impl std::fmt::Display for WritableImageResource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            WritableImageResource::Object => write!(f, "object"),
-            WritableImageResource::Resource(name) => write!(f, "resource:{}", name),
-            WritableImageResource::TempBuffer => write!(f, "tempbuffer"),
-            WritableImageResource::CacheBuffer(name) => write!(f, "cache:{}", name),
-        }
-    }
-}
-
-/// 読み込み元として使う画像リソース。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ReadableImageResource {
-    /// 現在の画像データ。
-    Object,
-    /// 標準リソース。
-    Resource(String),
-    /// フレームバッファ。
+    /// フレームバッファ（`framebuffer`）。
     Framebuffer,
-    /// 仮想バッファ。
+    /// 仮想バッファ（`tempbuffer`）。
     TempBuffer,
-    /// キャッシュバッファ。
+    /// キャッシュバッファ（`cache:名前`）。
     CacheBuffer(String),
-    /// 画像ファイル。
+    /// 画像ファイル（`image:ファイルパス`）。
     ImageFile(std::path::PathBuf),
-    /// 乱数バッファ。
+    /// 乱数バッファ（`random`）。
     Random,
+    /// レイヤー上のオブジェクト（`layer:レイヤー番号`、追加フィルタを実行する場合は末尾に`+`）。
+    Layer {
+        /// レイヤー番号。
+        layer: u32,
+        /// 追加フィルタを実行するかどうか。
+        apply_additional_effects: bool,
+    },
+    /// 直前オブジェクト（`before`）。
+    PreviousObject,
 }
-impl std::fmt::Display for ReadableImageResource {
+
+impl std::fmt::Display for ImageResource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ReadableImageResource::Object => write!(f, "object"),
-            ReadableImageResource::Resource(name) => write!(f, "resource:{}", name),
-            ReadableImageResource::Framebuffer => write!(f, "framebuffer"),
-            ReadableImageResource::TempBuffer => write!(f, "tempbuffer"),
-            ReadableImageResource::CacheBuffer(name) => write!(f, "cache:{}", name),
-            ReadableImageResource::ImageFile(path) => write!(f, "image:{}", path.to_string_lossy()),
-            ReadableImageResource::Random => write!(f, "random"),
-        }
-    }
-}
-
-/// シェーダーの出力先として使う画像リソース。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ShaderTargetResource {
-    /// 現在の画像データ。
-    Object,
-    /// 標準リソース。
-    Resource(String),
-    /// フレームバッファ。
-    Framebuffer,
-    /// 仮想バッファ。
-    TempBuffer,
-    /// キャッシュバッファ。
-    CacheBuffer(String),
-}
-impl std::fmt::Display for ShaderTargetResource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ShaderTargetResource::Object => write!(f, "object"),
-            ShaderTargetResource::Resource(name) => write!(f, "resource:{}", name),
-            ShaderTargetResource::Framebuffer => write!(f, "framebuffer"),
-            ShaderTargetResource::TempBuffer => write!(f, "tempbuffer"),
-            ShaderTargetResource::CacheBuffer(name) => write!(f, "cache:{}", name),
-        }
-    }
-}
-
-/// [`ShaderTargetResource`]や[`DrawImageResource`]などの他の画像リソース型に変換するためのトレイト。
-pub trait AsImageResource: std::fmt::Display {
-    /// [`DrawImageResource`] に変換する。
-    fn as_draw_image_resource(&self) -> Option<DrawImageResource>;
-    /// [`WritableImageResource`] に変換する。
-    fn as_writable_image_resource(&self) -> Option<WritableImageResource>;
-    /// [`ReadableImageResource`] に変換する。
-    fn as_readable_image_resource(&self) -> Option<ReadableImageResource>;
-    /// [`ShaderTargetResource`] に変換する。
-    fn as_shader_target_resource(&self) -> Option<ShaderTargetResource>;
-}
-
-impl<T: std::fmt::Display> AsImageResource for T {
-    fn as_draw_image_resource(&self) -> Option<DrawImageResource> {
-        let s = self.to_string();
-        if s == "object" {
-            Some(DrawImageResource::Object)
-        } else if s == "tempbuffer" {
-            Some(DrawImageResource::TempBuffer)
-        } else if let Some(name) = s.strip_prefix("resource:") {
-            Some(DrawImageResource::Resource(name.to_string()))
-        } else if let Some(name) = s.strip_prefix("cache:") {
-            Some(DrawImageResource::CacheBuffer(name.to_string()))
-        } else {
-            s.strip_prefix("image:")
-                .map(|path| DrawImageResource::ImageFile(std::path::PathBuf::from(path)))
-        }
-    }
-
-    fn as_writable_image_resource(&self) -> Option<WritableImageResource> {
-        let s = self.to_string();
-        if s == "object" {
-            Some(WritableImageResource::Object)
-        } else if s == "tempbuffer" {
-            Some(WritableImageResource::TempBuffer)
-        } else if let Some(name) = s.strip_prefix("resource:") {
-            Some(WritableImageResource::Resource(name.to_string()))
-        } else {
-            s.strip_prefix("cache:")
-                .map(|name| WritableImageResource::CacheBuffer(name.to_string()))
-        }
-    }
-
-    fn as_readable_image_resource(&self) -> Option<ReadableImageResource> {
-        let s = self.to_string();
-        if s == "object" {
-            Some(ReadableImageResource::Object)
-        } else if s == "framebuffer" {
-            Some(ReadableImageResource::Framebuffer)
-        } else if s == "tempbuffer" {
-            Some(ReadableImageResource::TempBuffer)
-        } else if s == "random" {
-            Some(ReadableImageResource::Random)
-        } else if let Some(name) = s.strip_prefix("resource:") {
-            Some(ReadableImageResource::Resource(name.to_string()))
-        } else if let Some(name) = s.strip_prefix("cache:") {
-            Some(ReadableImageResource::CacheBuffer(name.to_string()))
-        } else {
-            s.strip_prefix("image:")
-                .map(|path| ReadableImageResource::ImageFile(std::path::PathBuf::from(path)))
-        }
-    }
-
-    fn as_shader_target_resource(&self) -> Option<ShaderTargetResource> {
-        let s = self.to_string();
-        if s == "object" {
-            Some(ShaderTargetResource::Object)
-        } else if s == "framebuffer" {
-            Some(ShaderTargetResource::Framebuffer)
-        } else if s == "tempbuffer" {
-            Some(ShaderTargetResource::TempBuffer)
-        } else if let Some(name) = s.strip_prefix("resource:") {
-            Some(ShaderTargetResource::Resource(name.to_string()))
-        } else {
-            s.strip_prefix("cache:")
-                .map(|name| ShaderTargetResource::CacheBuffer(name.to_string()))
+            ImageResource::Object => write!(f, "object"),
+            ImageResource::Resource(name) => write!(f, "resource:{name}"),
+            ImageResource::Framebuffer => write!(f, "framebuffer"),
+            ImageResource::TempBuffer => write!(f, "tempbuffer"),
+            ImageResource::CacheBuffer(name) => write!(f, "cache:{name}"),
+            ImageResource::ImageFile(path) => write!(f, "image:{}", path.to_string_lossy()),
+            ImageResource::Random => write!(f, "random"),
+            ImageResource::Layer {
+                layer,
+                apply_additional_effects,
+            } => write!(
+                f,
+                "layer:{layer}{}",
+                if *apply_additional_effects { "+" } else { "" }
+            ),
+            ImageResource::PreviousObject => write!(f, "before"),
         }
     }
 }
@@ -763,25 +630,8 @@ fn vertex_list_as_raw(
     }
 }
 
-fn resource_ptr_list(
-    resources: &[ReadableImageResource],
-) -> Result<
-    (
-        Vec<crate::common::CWString>,
-        Vec<aviutl2_sys::common::LPCWSTR>,
-    ),
-    FilterProcError,
-> {
-    let strings = resources
-        .iter()
-        .map(|resource| crate::common::CWString::new(&resource.to_string()))
-        .collect::<Result<Vec<_>, _>>()?;
-    let ptrs = strings.iter().map(|s| s.as_ptr()).collect();
-    Ok((strings, ptrs))
-}
-
-fn target_ptr_list(
-    resources: &[ShaderTargetResource],
+fn image_resource_ptr_list(
+    resources: &[ImageResource],
 ) -> Result<
     (
         Vec<crate::common::CWString>,
@@ -886,9 +736,14 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     /// # Warning
     ///
     /// [`Self::set_image_data`] によって現在の画像が変更されるかフィルタ処理の終了まで有効です。
-    pub fn get_image_texture2d(&mut self) -> *mut std::ffi::c_void {
+    pub fn get_image_texture2d(
+        &mut self,
+    ) -> Option<windows::Win32::Graphics::Direct3D11::ID3D11Texture2D> {
         let inner = unsafe { &*self.inner };
-        unsafe { (inner.get_image_texture2d)() }
+        let ptr = unsafe { (inner.get_image_texture2d)() };
+        (!ptr.is_null()).then(|| unsafe {
+            windows::Win32::Graphics::Direct3D11::ID3D11Texture2D::from_raw(ptr)
+        })
     }
 
     /// 現在のフレームバッファの画像データのポインタをID3D11Texture2Dのポインタとして取得する。
@@ -896,9 +751,14 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     /// # Warning
     ///
     /// フィルタ処理の終了まで有効です。
-    pub fn get_framebuffer_texture2d(&mut self) -> *mut std::ffi::c_void {
+    pub fn get_framebuffer_texture2d(
+        &mut self,
+    ) -> Option<windows::Win32::Graphics::Direct3D11::ID3D11Texture2D> {
         let inner = unsafe { &*self.inner };
-        unsafe { (inner.get_framebuffer_texture2d)() }
+        let ptr = unsafe { (inner.get_framebuffer_texture2d)() };
+        (!ptr.is_null()).then(|| unsafe {
+            windows::Win32::Graphics::Direct3D11::ID3D11Texture2D::from_raw(ptr)
+        })
     }
 
     /// 読み取り専用の編集セクション。
@@ -910,8 +770,8 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     ///
     /// # Arguments
     ///
-    /// - `object`: 取得するオブジェクト。`None` の場合は現在のオブジェクト。
-    /// - `offset`: 取得する時間のオフセット。
+    /// - `object`：取得するオブジェクト。`None` の場合は現在のオブジェクト。
+    /// - `offset`：取得する時間のオフセット。
     pub fn get_output_image_param(
         &mut self,
         object: Option<crate::generic::ObjectHandle>,
@@ -952,11 +812,13 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     ///
     /// # Arguments
     ///
-    /// - `resource`: 描画する画像リソース。
-    /// - `param`: 描画パラメーター。
+    /// - `resource`：描画する画像リソース。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::TempBuffer`]、
+    ///   [`ImageResource::CacheBuffer`]、[`ImageResource::ImageFile`]。
+    /// - `param`：描画パラメーター。
     pub fn draw_image(
         &mut self,
-        resource: &DrawImageResource,
+        resource: &ImageResource,
         param: DrawImageParam,
     ) -> FilterProcResult<()> {
         self.apply_param();
@@ -985,10 +847,17 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     }
 
     /// 指定の頂点リストをフレームバッファに描画する。
+    ///
+    /// # Arguments
+    ///
+    /// - `resource`：テクスチャ画像リソース。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::TempBuffer`]、
+    ///   [`ImageResource::CacheBuffer`]、[`ImageResource::ImageFile`]。
+    ///   `None` の場合は [`ImageResource::TempBuffer`] を利用します。
     pub fn draw_poly(
         &mut self,
         vertices: &VertexList,
-        resource: Option<&DrawImageResource>,
+        resource: Option<&ImageResource>,
     ) -> FilterProcResult<()> {
         self.apply_param();
 
@@ -1067,12 +936,18 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     ///
     /// - 既に同名の画像リソースが存在する場合、上書きされます。
     ///
+    /// # Arguments
+    ///
+    /// - `resource`：作成する画像リソース。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::TempBuffer`]、
+    ///   [`ImageResource::CacheBuffer`]。
+    ///
     /// # Panics
     ///
     /// `data` をバイト列に変換した際の長さが `width * height * 4` と一致しない場合、パニックします。
     pub fn create_image_resource<T: IntoBytes + Immutable>(
         &mut self,
-        resource: &WritableImageResource,
+        resource: &ImageResource,
         data: &[T],
         width: u32,
         height: u32,
@@ -1097,9 +972,16 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     }
 
     /// 指定の画像リソースのD3D画像リソースのポインタを取得する。
+    ///
+    /// # Arguments
+    ///
+    /// - `resource`：取得する画像リソース。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::TempBuffer`]、
+    ///   [`ImageResource::CacheBuffer`]、[`ImageResource::ImageFile`]、
+    ///   [`ImageResource::Random`]。
     pub fn get_image_resource_texture2d(
         &mut self,
-        resource: &ReadableImageResource,
+        resource: &ImageResource,
     ) -> FilterProcResult<*mut c_void> {
         let inner = unsafe { &*self.inner };
         let resource_cw = crate::common::CWString::new(&resource.to_string())?;
@@ -1112,9 +994,15 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     }
 
     /// 指定の画像リソースのサイズを取得する。
+    ///
+    /// # Arguments
+    ///
+    /// - `resource`：取得する画像リソース。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::TempBuffer`]、
+    ///   [`ImageResource::CacheBuffer`]、[`ImageResource::ImageFile`]。
     pub fn get_image_resource_size(
         &mut self,
-        resource: &ReadableImageResource,
+        resource: &ImageResource,
     ) -> FilterProcResult<(u32, u32)> {
         let inner = unsafe { &*self.inner };
         let resource_cw = crate::common::CWString::new(&resource.to_string())?;
@@ -1131,10 +1019,21 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     }
 
     /// 画像リソースをコピーする。
+    ///
+    /// # Arguments
+    ///
+    /// - `src_resource`：コピー元。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::Framebuffer`]、
+    ///   [`ImageResource::TempBuffer`]、[`ImageResource::CacheBuffer`]、
+    ///   [`ImageResource::ImageFile`]、[`ImageResource::Random`]、
+    ///   [`ImageResource::Layer`]、[`ImageResource::PreviousObject`]。
+    /// - `dst_resource`：コピー先。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::TempBuffer`]、
+    ///   [`ImageResource::CacheBuffer`]。
     pub fn copy_image_resource(
         &mut self,
-        src_resource: &ReadableImageResource,
-        dst_resource: &WritableImageResource,
+        src_resource: &ImageResource,
+        dst_resource: &ImageResource,
     ) -> FilterProcResult<()> {
         let inner = unsafe { &*self.inner };
         let dst_resource = crate::common::CWString::new(&dst_resource.to_string())?;
@@ -1149,9 +1048,15 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     }
 
     /// 画像リソースをクリアする。
+    ///
+    /// # Arguments
+    ///
+    /// - `resource`：クリアする画像リソース。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::TempBuffer`]、
+    ///   [`ImageResource::CacheBuffer`]。
     pub fn clear_image_resource(
         &mut self,
-        resource: &WritableImageResource,
+        resource: &ImageResource,
         color: RgbaPixel,
     ) -> FilterProcResult<()> {
         let inner = unsafe { &*self.inner };
@@ -1173,9 +1078,14 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     /// 画像リソースから指定フォーマットの画像データを取得する。
     ///
     /// `buffer` は少なくとも `pitch * height` バイト必要です。
+    ///
+    /// # Arguments
+    ///
+    /// - `resource`：読み取る画像リソース。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]。
     pub fn get_image_resource_data(
         &mut self,
-        resource: &ReadableImageResource,
+        resource: &ImageResource,
         buffer: &mut [u8],
         width: u32,
         height: u32,
@@ -1209,9 +1119,14 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     /// 画像リソースに指定フォーマットの画像データを設定する。
     ///
     /// `data` をバイト列に変換した長さは少なくとも `pitch * height` バイト必要です。
+    ///
+    /// # Arguments
+    ///
+    /// - `resource`：書き込む画像リソース。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]。
     pub fn set_image_resource_data<T: IntoBytes + Immutable>(
         &mut self,
-        resource: &WritableImageResource,
+        resource: &ImageResource,
         data: &[T],
         width: u32,
         height: u32,
@@ -1244,10 +1159,19 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     }
 
     /// 指定の画像リソースを描画先の画像リソースに描画する。
+    ///
+    /// # Arguments
+    ///
+    /// - `src_resource`：描画元。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::TempBuffer`]、
+    ///   [`ImageResource::CacheBuffer`]、[`ImageResource::ImageFile`]。
+    /// - `dst_resource`：描画先。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::TempBuffer`]、
+    ///   [`ImageResource::CacheBuffer`]。
     pub fn draw_image_to_resource(
         &mut self,
-        src_resource: &DrawImageResource,
-        dst_resource: &WritableImageResource,
+        src_resource: &ImageResource,
+        dst_resource: &ImageResource,
         param: DrawImageParam,
     ) -> FilterProcResult<()> {
         self.apply_param();
@@ -1278,11 +1202,21 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     }
 
     /// 指定の頂点リストのポリゴンを描画先の画像リソースに描画する。
+    ///
+    /// # Arguments
+    ///
+    /// - `dst_resource`：描画先。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::TempBuffer`]、
+    ///   [`ImageResource::CacheBuffer`]。
+    /// - `src_resource`：テクスチャ画像リソース。利用できる種類は
+    ///   [`ImageResource::Object`]、[`ImageResource::Resource`]、
+    ///   [`ImageResource::TempBuffer`]、[`ImageResource::CacheBuffer`]、
+    ///   [`ImageResource::ImageFile`]。`None` の場合は [`ImageResource::TempBuffer`] を利用します。
     pub fn draw_poly_to_resource(
         &mut self,
-        dst_resource: &WritableImageResource,
+        dst_resource: &ImageResource,
         vertices: &VertexList,
-        src_resource: Option<&DrawImageResource>,
+        src_resource: Option<&ImageResource>,
     ) -> FilterProcResult<()> {
         self.apply_param();
         let inner = unsafe { &*self.inner };
@@ -1310,20 +1244,30 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     ///
     /// シェーダー側とメモリレイアウトを合わせるため、`constant` を構造体で渡す場合は `#[repr(C)]`
     /// を推奨します。
+    ///
+    /// # Arguments
+    ///
+    /// - `target`：出力先。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::Framebuffer`]、
+    ///   [`ImageResource::TempBuffer`]、[`ImageResource::CacheBuffer`]。
+    /// - `resources`：参照する画像リソース。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::TempBuffer`]、
+    ///   [`ImageResource::CacheBuffer`]、[`ImageResource::ImageFile`]、
+    ///   [`ImageResource::Random`]。
     pub fn exec_pixelshader<T: Copy>(
         &mut self,
         cso_file: &str,
-        target: &ShaderTargetResource,
-        resources: &[ReadableImageResource],
+        target: &ImageResource,
+        resources: &[ImageResource],
         constant: T,
-        blend_state: Option<*mut c_void>,
-        sampler_state: Option<*mut c_void>,
+        blend_state: &windows::Win32::Graphics::Direct3D11::ID3D11BlendState,
+        sampler_state: &windows::Win32::Graphics::Direct3D11::ID3D11SamplerState,
     ) -> FilterProcResult<()> {
         self.apply_param();
         let inner = unsafe { &*self.inner };
         let cso_file = crate::common::CWString::new(cso_file)?;
         let target = crate::common::CWString::new(&target.to_string())?;
-        let (_resource_strings, mut resource_ptrs) = resource_ptr_list(resources)?;
+        let (_resource_strings, mut resource_ptrs) = image_resource_ptr_list(resources)?;
         let constant_ptr = Box::new(constant);
         let success = unsafe {
             (inner.exec_pixelshader_file)(
@@ -1337,8 +1281,8 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
                 resource_ptrs.len() as i32,
                 constant_ptr.as_ref() as *const T as *mut c_void,
                 std::mem::size_of::<T>() as i32,
-                blend_state.unwrap_or(std::ptr::null_mut()),
-                sampler_state.unwrap_or(std::ptr::null_mut()),
+                blend_state.as_raw(),
+                sampler_state.as_raw(),
             )
         };
         if success {
@@ -1352,20 +1296,30 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     ///
     /// シェーダー側とメモリレイアウトを合わせるため、`constant` を構造体で渡す場合は `#[repr(C)]`
     /// を推奨します。
+    ///
+    /// # Arguments
+    ///
+    /// - `target`：出力先。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::Framebuffer`]、
+    ///   [`ImageResource::TempBuffer`]、[`ImageResource::CacheBuffer`]。
+    /// - `resources`：参照する画像リソース。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::TempBuffer`]、
+    ///   [`ImageResource::CacheBuffer`]、[`ImageResource::ImageFile`]、
+    ///   [`ImageResource::Random`]。
     pub fn exec_pixelshader_data<T: Copy>(
         &mut self,
         data: &[u8],
-        target: &ShaderTargetResource,
-        resources: &[ReadableImageResource],
+        target: &ImageResource,
+        resources: &[ImageResource],
         constant: T,
-        blend_state: Option<*mut c_void>,
-        sampler_state: Option<*mut c_void>,
+        blend_state: &windows::Win32::Graphics::Direct3D11::ID3D11BlendState,
+        sampler_state: &windows::Win32::Graphics::Direct3D11::ID3D11SamplerState,
     ) -> FilterProcResult<()> {
         self.apply_param();
         let inner = unsafe { &*self.inner };
         let data_size = i32::try_from(data.len()).map_err(|_| FilterProcError::ValueOutOfRange)?;
         let target = crate::common::CWString::new(&target.to_string())?;
-        let (_resource_strings, mut resource_ptrs) = resource_ptr_list(resources)?;
+        let (_resource_strings, mut resource_ptrs) = image_resource_ptr_list(resources)?;
         let constant_ptr = Box::new(constant);
         let success = unsafe {
             (inner.exec_pixelshader_data)(
@@ -1380,8 +1334,8 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
                 resource_ptrs.len() as i32,
                 constant_ptr.as_ref() as *const T as *mut c_void,
                 std::mem::size_of::<T>() as i32,
-                blend_state.unwrap_or(std::ptr::null_mut()),
-                sampler_state.unwrap_or(std::ptr::null_mut()),
+                blend_state.as_raw(),
+                sampler_state.as_raw(),
             )
         };
         if success {
@@ -1395,20 +1349,30 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     ///
     /// シェーダー側とメモリレイアウトを合わせるため、`constant` を構造体で渡す場合は `#[repr(C)]`
     /// を推奨します。
+    ///
+    /// # Arguments
+    ///
+    /// - `targets`：読み書き先。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::Framebuffer`]、
+    ///   [`ImageResource::TempBuffer`]、[`ImageResource::CacheBuffer`]。
+    /// - `resources`：参照する画像リソース。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::TempBuffer`]、
+    ///   [`ImageResource::CacheBuffer`]、[`ImageResource::ImageFile`]、
+    ///   [`ImageResource::Random`]。
     pub fn exec_computeshader<T: Copy>(
         &mut self,
         cso_file: &str,
-        targets: &[ShaderTargetResource],
-        resources: &[ReadableImageResource],
+        targets: &[ImageResource],
+        resources: &[ImageResource],
         constant: T,
         count: [u32; 3],
-        sampler_state: Option<*mut c_void>,
+        sampler_state: &windows::Win32::Graphics::Direct3D11::ID3D11SamplerState,
     ) -> FilterProcResult<()> {
         self.apply_param();
         let inner = unsafe { &*self.inner };
         let cso_file = crate::common::CWString::new(cso_file)?;
-        let (_target_strings, mut target_ptrs) = target_ptr_list(targets)?;
-        let (_resource_strings, mut resource_ptrs) = resource_ptr_list(resources)?;
+        let (_target_strings, mut target_ptrs) = image_resource_ptr_list(targets)?;
+        let (_resource_strings, mut resource_ptrs) = image_resource_ptr_list(resources)?;
         let constant_ptr = Box::new(constant);
         let success = unsafe {
             (inner.exec_computeshader_file)(
@@ -1430,7 +1394,7 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
                 count[0] as i32,
                 count[1] as i32,
                 count[2] as i32,
-                sampler_state.unwrap_or(std::ptr::null_mut()),
+                sampler_state.as_raw(),
             )
         };
         if success {
@@ -1444,20 +1408,30 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     ///
     /// シェーダー側とメモリレイアウトを合わせるため、`constant` を構造体で渡す場合は `#[repr(C)]`
     /// を推奨します。
+    ///
+    /// # Arguments
+    ///
+    /// - `targets`：読み書き先。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::Framebuffer`]、
+    ///   [`ImageResource::TempBuffer`]、[`ImageResource::CacheBuffer`]。
+    /// - `resources`：参照する画像リソース。利用できる種類は [`ImageResource::Object`]、
+    ///   [`ImageResource::Resource`]、[`ImageResource::TempBuffer`]、
+    ///   [`ImageResource::CacheBuffer`]、[`ImageResource::ImageFile`]、
+    ///   [`ImageResource::Random`]。
     pub fn exec_computeshader_data<T: Copy>(
         &mut self,
         data: &[u8],
-        targets: &[ShaderTargetResource],
-        resources: &[ReadableImageResource],
+        targets: &[ImageResource],
+        resources: &[ImageResource],
         constant: T,
         count: [u32; 3],
-        sampler_state: Option<*mut c_void>,
+        sampler_state: &windows::Win32::Graphics::Direct3D11::ID3D11SamplerState,
     ) -> FilterProcResult<()> {
         self.apply_param();
         let inner = unsafe { &*self.inner };
         let data_size = i32::try_from(data.len()).map_err(|_| FilterProcError::ValueOutOfRange)?;
-        let (_target_strings, mut target_ptrs) = target_ptr_list(targets)?;
-        let (_resource_strings, mut resource_ptrs) = resource_ptr_list(resources)?;
+        let (_target_strings, mut target_ptrs) = image_resource_ptr_list(targets)?;
+        let (_resource_strings, mut resource_ptrs) = image_resource_ptr_list(resources)?;
         let constant_ptr = Box::new(constant);
         let success = unsafe {
             (inner.exec_computeshader_data)(
@@ -1480,7 +1454,82 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
                 count[0] as i32,
                 count[1] as i32,
                 count[2] as i32,
-                sampler_state.unwrap_or(std::ptr::null_mut()),
+                sampler_state.as_raw(),
+            )
+        };
+        if success {
+            Ok(())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
+    /// 画像リソースを解放する。
+    ///
+    /// # Arguments
+    ///
+    /// - `resource`：解放する画像リソース。利用できる種類は [`ImageResource::Resource`]。
+    pub fn release_image_resource(&mut self, resource: &ImageResource) -> FilterProcResult<()> {
+        let inner = unsafe { &*self.inner };
+        let resource = crate::common::CWString::new(&resource.to_string())?;
+        let success = unsafe { (inner.release_image_resource)(resource.as_ptr()) };
+        if success {
+            Ok(())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
+    /// 指定のエフェクトを実行する。
+    ///
+    /// フィルタ効果、入力項目のエフェクトが実行できます。
+    ///
+    /// # Arguments
+    ///
+    /// - `effect_name`：実行するエフェクトの名前。
+    /// - `param`：エフェクトのパラメーター。Key・Valueはどちらもエイリアスと同様のフォーマットで指定します。
+    /// - `resource`：処理対象の画像リソース。利用できる種類は
+    /// [`ImageResource::Object`]、[`ImageResource::Resource`]。
+    pub fn exec_effect<'a, C, K, V>(
+        &mut self,
+        effect_name: &str,
+        param: &'a C,
+        resource: &ImageResource,
+    ) -> FilterProcResult<()>
+    where
+        &'a C: IntoIterator<Item = (&'a K, &'a V)>,
+        K: AsRef<str> + 'a,
+        V: AsRef<str> + 'a,
+    {
+        let inner = unsafe { &*self.inner };
+        let effect_name = crate::common::CWString::new(effect_name)?;
+        let resource = crate::common::CWString::new(&resource.to_string())?;
+        let mut param_key_cwstrs = vec![];
+        let mut param_value_cstrs = vec![];
+        for (key, value) in param {
+            param_key_cwstrs.push(crate::common::CWString::new(key.as_ref())?);
+            param_value_cstrs.push(std::ffi::CString::new(value.as_ref())?);
+        }
+
+        let mut params = param_key_cwstrs
+            .iter()
+            .zip(param_value_cstrs.iter())
+            .map(|(key, value)| aviutl2_sys::filter2::EFFECT_ITEM_PARAM {
+                name: key.as_ptr(),
+                value: value.as_ptr(),
+            })
+            .collect::<Vec<_>>();
+
+        let success = unsafe {
+            (inner.exec_effect)(
+                effect_name.as_ptr(),
+                if params.is_empty() {
+                    std::ptr::null_mut()
+                } else {
+                    params.as_mut_ptr()
+                },
+                params.len() as i32,
+                resource.as_ptr(),
             )
         };
         if success {
@@ -1491,17 +1540,27 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     }
 
     /// 定義済みのD3Dの出力ブレンドのリソースのポインタを取得する。
-    pub fn get_blend_state(&mut self, mode: BlendStateMode) -> Option<*mut c_void> {
+    pub fn get_blend_state(
+        &mut self,
+        mode: BlendStateMode,
+    ) -> Option<windows::Win32::Graphics::Direct3D11::ID3D11BlendState> {
         let inner = unsafe { &*self.inner };
         let ptr = unsafe { (inner.get_blend_state)(mode.into()) };
-        (!ptr.is_null()).then_some(ptr)
+        (!ptr.is_null()).then_some(unsafe {
+            windows::Win32::Graphics::Direct3D11::ID3D11BlendState::from_raw(ptr)
+        })
     }
 
     /// 定義済みのD3Dのサンプラーのリソースのポインタを取得する。
-    pub fn get_sampler_state(&mut self, mode: SamplerMode) -> Option<*mut c_void> {
+    pub fn get_sampler_state(
+        &mut self,
+        mode: SamplerMode,
+    ) -> Option<windows::Win32::Graphics::Direct3D11::ID3D11SamplerState> {
         let inner = unsafe { &*self.inner };
         let ptr = unsafe { (inner.get_sampler_state)(mode.into()) };
-        (!ptr.is_null()).then_some(ptr)
+        (!ptr.is_null()).then_some(unsafe {
+            windows::Win32::Graphics::Direct3D11::ID3D11SamplerState::from_raw(ptr)
+        })
     }
 
     /// フィルタ処理後の処理を中断する。
@@ -1534,62 +1593,48 @@ mod tests {
     use super::*;
 
     #[test]
-    fn converts_image_resources_to_supported_resource_types() {
-        let readable_image = ReadableImageResource::ImageFile(std::path::PathBuf::from("foo.png"));
+    fn formats_image_resources_for_sdk() {
+        assert_eq!(ImageResource::Object.to_string(), "object");
         assert_eq!(
-            readable_image.as_draw_image_resource(),
-            Some(DrawImageResource::ImageFile(std::path::PathBuf::from(
-                "foo.png"
-            )))
+            ImageResource::Resource("name".to_string()).to_string(),
+            "resource:name"
         );
-        assert_eq!(readable_image.as_writable_image_resource(), None);
-        assert_eq!(readable_image.as_shader_target_resource(), None);
-
-        let shader_target = ShaderTargetResource::Framebuffer;
+        assert_eq!(ImageResource::Framebuffer.to_string(), "framebuffer");
+        assert_eq!(ImageResource::TempBuffer.to_string(), "tempbuffer");
         assert_eq!(
-            shader_target.as_readable_image_resource(),
-            Some(ReadableImageResource::Framebuffer)
+            ImageResource::CacheBuffer("name".to_string()).to_string(),
+            "cache:name"
         );
         assert_eq!(
-            shader_target.as_shader_target_resource(),
-            Some(ShaderTargetResource::Framebuffer)
+            ImageResource::ImageFile(std::path::PathBuf::from("foo.png")).to_string(),
+            "image:foo.png"
         );
-        assert_eq!(shader_target.as_draw_image_resource(), None);
-        assert_eq!(shader_target.as_writable_image_resource(), None);
-    }
-
-    #[test]
-    fn converts_common_image_resources_to_all_compatible_resource_types() {
-        let cache = DrawImageResource::CacheBuffer("buf".to_string());
+        assert_eq!(ImageResource::Random.to_string(), "random");
         assert_eq!(
-            cache.as_writable_image_resource(),
-            Some(WritableImageResource::CacheBuffer("buf".to_string()))
+            ImageResource::Layer {
+                layer: 3,
+                apply_additional_effects: false,
+            }
+            .to_string(),
+            "layer:3"
         );
         assert_eq!(
-            cache.as_readable_image_resource(),
-            Some(ReadableImageResource::CacheBuffer("buf".to_string()))
+            ImageResource::Layer {
+                layer: 3,
+                apply_additional_effects: true,
+            }
+            .to_string(),
+            "layer:3+"
         );
-        assert_eq!(
-            cache.as_shader_target_resource(),
-            Some(ShaderTargetResource::CacheBuffer("buf".to_string()))
-        );
-
-        let random = ReadableImageResource::Random;
-        assert_eq!(random.as_draw_image_resource(), None);
-        assert_eq!(random.as_writable_image_resource(), None);
-        assert_eq!(random.as_shader_target_resource(), None);
-        assert_eq!(
-            random.as_readable_image_resource(),
-            Some(ReadableImageResource::Random)
-        );
+        assert_eq!(ImageResource::PreviousObject.to_string(), "before");
     }
 
     #[allow(dead_code)]
     fn smoke_new_filter2_api(video: &mut FilterProcVideo<()>) -> FilterProcResult<()> {
-        let writable = WritableImageResource::Resource("dst".to_string());
-        let readable = ReadableImageResource::Resource("src".to_string());
-        let drawable = DrawImageResource::Resource("src".to_string());
-        let target = ShaderTargetResource::Resource("target".to_string());
+        let writable = ImageResource::Resource("dst".to_string());
+        let readable = ImageResource::Resource("src".to_string());
+        let drawable = ImageResource::Resource("src".to_string());
+        let target = ImageResource::Resource("target".to_string());
         let vertices = VertexList::TriangleColor(vec![[
             VertexColor {
                 x: 0.0,
@@ -1627,15 +1672,15 @@ mod tests {
         video.clear_image_resource(&writable, RgbaPixel::default())?;
         video.draw_image_to_resource(&drawable, &writable, DrawImageParam::default())?;
         video.draw_poly_to_resource(&writable, &vertices, Some(&drawable))?;
-        let blend_state = video.get_blend_state(BlendStateMode::Draw);
-        let sampler_state = video.get_sampler_state(SamplerMode::Clamp);
+        let blend_state = video.get_blend_state(BlendStateMode::Draw).unwrap();
+        let sampler_state = video.get_sampler_state(SamplerMode::Clamp).unwrap();
         video.exec_pixelshader(
             "shader.cso",
             &target,
             std::slice::from_ref(&readable),
             Some(&constant),
-            blend_state,
-            sampler_state,
+            &blend_state,
+            &sampler_state,
         )?;
         video.exec_computeshader(
             "compute.cso",
@@ -1643,7 +1688,7 @@ mod tests {
             std::slice::from_ref(&readable),
             Some(&constant),
             [1, 1, 1],
-            sampler_state,
+            &sampler_state,
         )?;
         Ok(())
     }

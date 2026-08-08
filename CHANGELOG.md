@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Breaking**: 最小サポートを2.1.4に引き上げ
+- **Breaking**: filter: 画像リソースをImageResourceに統合
 - eframe: eguiのデフォルトの保存先のフォルダをPluginフォルダの横に移動
   - 自動的に移動するので、ユーザーが手動で移動する必要はありません。
 

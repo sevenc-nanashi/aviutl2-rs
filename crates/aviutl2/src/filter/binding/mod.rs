@@ -251,6 +251,8 @@ pub enum FilterProcError {
     ApiCallFailed,
     #[error("input string contains null byte")]
     InputCwstrContainsNull(#[from] crate::common::NullByteError),
+    #[error("input string contains null byte")]
+    InputCstrContainsNull(#[from] std::ffi::NulError),
     #[error("value is out of range")]
     ValueOutOfRange,
     #[error("filter config data is locked")]

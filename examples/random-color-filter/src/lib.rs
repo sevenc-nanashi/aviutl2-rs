@@ -1,8 +1,8 @@
 use aviutl2::{
     AnyResult,
     filter::{
-        AsImageResource, FilterConfigDataHandle, FilterConfigItemSliceExt, FilterConfigItems,
-        FilterPlugin, FilterPluginTable, FilterProcVideo,
+        FilterConfigDataHandle, FilterConfigItemSliceExt, FilterConfigItems, FilterPlugin,
+        FilterPluginTable, FilterProcVideo, ImageResource,
     },
 };
 use rand::RngExt;
@@ -99,24 +99,16 @@ impl FilterPlugin for RandomColorFilter {
             *color_handle
         };
 
-        let resource = aviutl2::filter::DrawImageResource::Resource("random_color".to_string());
+        let resource = ImageResource::Resource("random_color".to_string());
         let blank_image = vec![0u8; width as usize * height as usize * 4];
-        video.create_image_resource(
-            &resource.as_writable_image_resource().unwrap(),
-            &blank_image,
-            width,
-            height,
-        )?;
+        video.create_image_resource(&resource, &blank_image, width, height)?;
         match config.shape {
             Shape::Rectangle => {
-                video.clear_image_resource(
-                    &resource.as_writable_image_resource().unwrap(),
-                    (color.r, color.g, color.b, 255).into(),
-                )?;
+                video.clear_image_resource(&resource, (color.r, color.g, color.b, 255).into())?;
             }
             Shape::Triangle => {
                 video.draw_poly_to_resource(
-                    &resource.as_writable_image_resource().unwrap(),
+                    &resource,
                     &aviutl2::filter::VertexList::TriangleColor(vec![[
                         aviutl2::filter::VertexColor {
                             x: 0.0,
@@ -146,7 +138,7 @@ impl FilterPlugin for RandomColorFilter {
                             a: 1.0,
                         },
                     ]]),
-                    Some(&resource.as_draw_image_resource().unwrap()),
+                    Some(&resource),
                 )?;
             }
             Shape::Ellipse => {
@@ -186,16 +178,13 @@ impl FilterPlugin for RandomColorFilter {
                     ]);
                 }
                 video.draw_poly_to_resource(
-                    &resource.as_writable_image_resource().unwrap(),
+                    &resource,
                     &aviutl2::filter::VertexList::TriangleColor(vertices),
-                    Some(&resource.as_draw_image_resource().unwrap()),
+                    Some(&resource),
                 )?;
             }
         }
-        video.copy_image_resource(
-            &resource.as_readable_image_resource().unwrap(),
-            &aviutl2::filter::WritableImageResource::Object,
-        )?;
+        video.copy_image_resource(&resource, &ImageResource::Object)?;
 
         Ok(())
     }
