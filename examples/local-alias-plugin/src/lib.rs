@@ -199,12 +199,8 @@ impl LocalAliasPlugin {
             let Some(alias) = current_alias else {
                 anyhow::bail!("エイリアスが選択されていません。")
             };
-            let info = edit_section.info;
-            let length = match (info.select_range_start, info.select_range_end) {
-                (Some(start), Some(end)) if end >= start => end - start + 1,
-                _ => 1,
-            };
-            edit_section.create_object_from_alias(&alias.alias, info.layer, info.frame, length)?;
+            let info = &edit_section.info;
+            edit_section.create_object_from_alias(&alias.alias, info.layer, info.frame, 1)?;
             Ok(())
         })?
     }

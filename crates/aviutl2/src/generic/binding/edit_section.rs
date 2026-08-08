@@ -76,22 +76,20 @@ pub struct EditInfo {
     pub frame_max: usize,
     /// オブジェクトが存在する最大のレイヤー番号。
     pub layer_max: usize,
-    /// レイヤー編集で表示されているフレームの開始番号。
-    pub display_frame_start: usize,
-    /// レイヤー編集で表示されているレイヤーの開始番号。
-    pub display_layer_start: usize,
-    /// レイヤー編集で表示されているフレーム数。
+    /// レイヤー編集で表示されているフレーム。
     ///
     /// # Note
     ///
-    /// この値は厳密な値ではありません。
-    pub display_frame_num: usize,
-    /// レイヤー編集で表示されているレイヤー数
+    /// 終了フレームは厳密な値ではありません。
+    /// フレーム数は`len()`で取得できます。
+    pub display_frame: std::ops::Range<usize>,
+    /// レイヤー編集で表示されているレイヤー。
     ///
     /// # Note
     ///
-    /// この値は厳密な値ではありません。
-    pub display_layer_num: usize,
+    /// 終了レイヤーは厳密な値ではありません。
+    /// レイヤー数は`len()`で取得できます。
+    pub display_layer: std::ops::Range<usize>,
     /// フレーム範囲選択の開始フレーム番号・終了フレーム番号。
     /// 未選択の場合は`None`になります。
     pub select_range: Option<std::ops::RangeInclusive<usize>>,
@@ -114,10 +112,10 @@ impl EditInfo {
             layer: raw.layer as usize,
             frame_max: raw.frame_max as usize,
             layer_max: raw.layer_max as usize,
-            display_frame_start: raw.display_frame_start as usize,
-            display_layer_start: raw.display_layer_start as usize,
-            display_frame_num: raw.display_frame_num as usize,
-            display_layer_num: raw.display_layer_num as usize,
+            display_frame: raw.display_frame_start as usize
+                ..(raw.display_frame_start + raw.display_frame_num) as usize,
+            display_layer: raw.display_layer_start as usize
+                ..(raw.display_layer_start + raw.display_layer_num) as usize,
 
             select_range: if raw.select_range_start >= 0 && raw.select_range_end >= 0 {
                 Some(raw.select_range_start as usize..=raw.select_range_end as usize)

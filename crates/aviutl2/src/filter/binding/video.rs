@@ -1489,15 +1489,15 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     /// - `effect_name`：実行するエフェクトの名前。
     /// - `param`：エフェクトのパラメーター。Key・Valueはどちらもエイリアスと同様のフォーマットで指定します。
     /// - `resource`：処理対象の画像リソース。利用できる種類は
-    /// [`ImageResource::Object`]、[`ImageResource::Resource`]。
+    ///   [`ImageResource::Object`]、[`ImageResource::Resource`]。
     pub fn exec_effect<'a, C, K, V>(
         &mut self,
         effect_name: &str,
-        param: &'a C,
+        param: C,
         resource: &ImageResource,
     ) -> FilterProcResult<()>
     where
-        &'a C: IntoIterator<Item = (&'a K, &'a V)>,
+        C: IntoIterator<Item = (&'a K, &'a V)>,
         K: AsRef<str> + 'a,
         V: AsRef<str> + 'a,
     {
