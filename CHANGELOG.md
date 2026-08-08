@@ -4,6 +4,8 @@
 
 - **Breaking**: 最小サポートを2.1.4に引き上げ
 - **Breaking**: filter: 画像リソースをImageResourceに統合
+- **Breaking**: generic: `EditInfo.select_range_start`・`EditInfo.select_range_end`を`EditInfo.select_range`に統合
+  - また、その影響でEditInfoからCopyを削除
 - eframe: eguiのデフォルトの保存先のフォルダをPluginフォルダの横に移動
   - 自動的に移動するので、ユーザーが手動で移動する必要はありません。
 

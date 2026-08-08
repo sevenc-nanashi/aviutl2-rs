@@ -57,7 +57,7 @@ unsafe impl Sync for EffectHandle {}
 /// # Note
 ///
 /// UI表示と異なり、フレーム番号・レイヤー番号は0始まりです。
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct EditInfo {
     /// シーンの幅。
@@ -92,12 +92,9 @@ pub struct EditInfo {
     ///
     /// この値は厳密な値ではありません。
     pub display_layer_num: usize,
-    /// フレーム範囲選択の開始フレーム番号
+    /// フレーム範囲選択の開始フレーム番号・終了フレーム番号。
     /// 未選択の場合は`None`になります。
-    pub select_range_start: Option<usize>,
-    /// フレーム範囲選択の終了フレーム番号。
-    /// 未選択の場合は`None`になります。
-    pub select_range_end: Option<usize>,
+    pub select_range: Option<std::ops::RangeInclusive<usize>>,
     /// シーンのID
     pub scene_id: i32,
 }
@@ -122,9 +119,11 @@ impl EditInfo {
             display_frame_num: raw.display_frame_num as usize,
             display_layer_num: raw.display_layer_num as usize,
 
-            select_range_start: (raw.select_range_start >= 0)
-                .then_some(raw.select_range_start as usize),
-            select_range_end: (raw.select_range_end >= 0).then_some(raw.select_range_end as usize),
+            select_range: if raw.select_range_start >= 0 && raw.select_range_end >= 0 {
+                Some(raw.select_range_start as usize..=raw.select_range_end as usize)
+            } else {
+                None
+            },
 
             scene_id: raw.scene_id,
         }
