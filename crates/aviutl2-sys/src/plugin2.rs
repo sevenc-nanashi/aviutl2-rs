@@ -589,7 +589,8 @@ pub struct EDIT_SECTION {
     /// オブジェクトの中間点（区間）を削除します (call_read_section利用不可)
     pub delete_object_section: unsafe extern "C" fn(object: OBJECT_HANDLE, section: i32) -> bool,
 
-    /// オブジェクトの中間点（区間）を移動します (call_read_section利用不可)
+    /// オブジェクトの区間の開始位置を移動します (call_read_section利用不可)
+    /// 移動する区間番号が区間数（最終区間+1）の場合は終了点を移動します
     pub move_object_section:
         unsafe extern "C" fn(object: OBJECT_HANDLE, section: i32, frame: i32) -> bool,
 
@@ -616,6 +617,25 @@ pub struct EDIT_SECTION {
 
     /// 編集データを編集済み状態に設定します
     pub set_edited_state: unsafe extern "C" fn(),
+
+    /// マークされているフレームの一覧を取得します
+    pub get_mark_frame_list: unsafe extern "C" fn(frame_list: *mut i32, frame_num: i32) -> i32,
+
+    /// 指定フレームのマークのメモを取得します
+    pub get_mark_frame_memo: unsafe extern "C" fn(frame: i32) -> LPCWSTR,
+
+    /// 指定フレームをマークします (call_read_section利用不可)
+    pub set_mark_frame: unsafe extern "C" fn(frame: i32, memo: LPCWSTR),
+
+    /// 指定フレームのマークを解除します (call_read_section利用不可)
+    pub clear_mark_frame: unsafe extern "C" fn(frame: i32),
+
+    /// 指定フレームのマークを移動します (call_read_section利用不可)
+    pub move_mark_frame: unsafe extern "C" fn(frame: i32, frame_to: i32) -> bool,
+
+    /// 指定のパレットの情報を設定します (call_read_section利用不可)
+    pub set_palette_info:
+        unsafe extern "C" fn(name: LPCWSTR, info: *mut PALETTE_INFO, info_size: i32) -> bool,
 }
 
 /// 編集ハンドル構造体
@@ -778,6 +798,15 @@ pub struct EDIT_HANDLE {
             sample_num: i32,
         ),
     ) -> bool,
+
+    /// 指定の設定項目が所属するグループの所属アイテム名を取得します
+    pub get_effect_item_group_names: unsafe extern "C" fn(
+        effect: LPCWSTR,
+        item: LPCWSTR,
+        item_names: *mut LPCWSTR,
+        item_num: i32,
+        item_index: *mut i32,
+    ) -> i32,
 }
 
 impl EDIT_HANDLE {

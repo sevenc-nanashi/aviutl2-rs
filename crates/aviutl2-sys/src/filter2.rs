@@ -2,7 +2,10 @@
 
 use std::{ffi::c_void, mem::MaybeUninit};
 
-use crate::{common::LPCWSTR, plugin2::EDIT_SECTION};
+use crate::{
+    common::LPCWSTR,
+    plugin2::{EDIT_SECTION, LPCSTR},
+};
 
 /// オブジェクトハンドル
 pub type OBJECT_HANDLE = *mut c_void;
@@ -521,6 +524,15 @@ pub struct OBJECT_AUDIO_PARAM {
     pub vol_r: f32,
 }
 
+/// エフェクト実行の設定パラメータ構造体
+#[repr(C)]
+pub struct EFFECT_ITEM_PARAM {
+    /// 設定名 ※エイリアスファイルの設定のキーの名称
+    pub name: LPCWSTR,
+    /// 設定値(UTF8) ※エイリアスファイルの設定値と同じフォーマット
+    pub value: LPCSTR,
+}
+
 /// 画像フィルタ処理用構造体
 #[repr(C)]
 pub struct FILTER_PROC_VIDEO {
@@ -741,6 +753,17 @@ pub struct FILTER_PROC_VIDEO {
 
     /// `func_create` で返却したユーザーデータのポインタ
     pub userdata: *mut c_void,
+
+    /// 画像リソースを解放します
+    pub release_image_resource: unsafe extern "C" fn(resource: LPCWSTR) -> bool,
+
+    /// 指定のエフェクトを実行します
+    pub exec_effect: unsafe extern "C" fn(
+        name: LPCWSTR,
+        param_list: *mut EFFECT_ITEM_PARAM,
+        param_num: i32,
+        resource: LPCWSTR,
+    ) -> bool,
 }
 
 /// 音声フィルタ処理用構造体
