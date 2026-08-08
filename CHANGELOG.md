@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.43.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.43.0)
+
 - **Breaking**: 最小サポートを2.1.4に引き上げ
 - **Breaking**: filter: 画像リソースをImageResourceに統合
 - **Breaking**: generic: `EditInfo.select_range_start`・`EditInfo.select_range_end`を`EditInfo.select_range`に統合
