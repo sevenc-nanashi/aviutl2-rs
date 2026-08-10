@@ -1054,7 +1054,7 @@ impl ReadSection {
                 size.try_into()?,
             )
         };
-        if actual_size != size.try_into()? {
+        if actual_size != i32::try_from(size)? {
             return Err(EditSectionError::ApiCallFailed);
         }
         Ok(buffer)
@@ -1089,7 +1089,7 @@ impl ReadSection {
                 value.as_mut_ptr() as *mut std::ffi::c_void,
                 size.try_into()?,
             );
-            if actual_size != size.try_into()? {
+            if actual_size != i32::try_from(size)? {
                 return Err(EditSectionError::ApiCallFailed);
             }
             value.assume_init()
@@ -1219,7 +1219,7 @@ impl ReadSection {
         let actual_num_frames = unsafe {
             ((*self.internal).get_mark_frame_list)(frames.as_mut_ptr(), num_frames.try_into()?)
         };
-        if actual_num_frames != num_frames.try_into()? {
+        if actual_num_frames != i32::try_from(num_frames)? {
             return Err(EditSectionError::ApiCallFailed);
         }
         Ok(frames
