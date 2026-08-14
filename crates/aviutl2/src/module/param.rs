@@ -134,8 +134,7 @@ impl<T: Send + Sync + 'static + AsScriptModuleUserData> From<ScriptModuleUserDat
     for ErasedScriptModuleUserData
 {
     fn from(meta_table: ScriptModuleUserData<T>) -> Self {
-        let data =
-            Box::into_raw(Box::new(meta_table.data)) as *mut std::ffi::c_void;
+        let data = std::sync::Arc::into_raw(meta_table.data) as *mut std::ffi::c_void;
         let meta_method_functions = T::META_METHOD_FUNCTIONS;
         ErasedScriptModuleUserData {
             meta_method_functions,
@@ -178,8 +177,8 @@ unsafe extern "C" fn script_module_user_data_gc<
     let userdata = unsafe { (*smp).userdata };
     if !userdata.is_null() {
         unsafe {
-            drop(Box::<std::sync::Arc<std::sync::Mutex<T>>>::from_raw(
-                userdata as *mut std::sync::Arc<std::sync::Mutex<T>>,
+            drop(std::sync::Arc::<std::sync::Mutex<T>>::from_raw(
+                userdata as *const std::sync::Mutex<T>,
             ));
         }
     }
@@ -419,9 +418,11 @@ impl ScriptModuleCallHandle {
             )));
         }
         let arc_ref = unsafe {
-            &*(ptr as *const std::sync::Arc<std::sync::Mutex<T>>)
+            let ptr = ptr as *const std::sync::Mutex<T>;
+            std::sync::Arc::increment_strong_count(ptr);
+            std::sync::Arc::from_raw(ptr)
         };
-        Ok(ScriptModuleUserData { data: arc_ref.clone() })
+        Ok(ScriptModuleUserData { data: arc_ref })
     }
 
     /// 引数をブール値として取得する。

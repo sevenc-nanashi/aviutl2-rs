@@ -273,7 +273,11 @@ fn create_userdata_call_body(
             let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
             {
                 let __userdata = unsafe {
-                    &*(*((*smp).userdata as *const ::std::sync::Arc<::std::sync::Mutex<#impl_token>>))
+                    ::std::mem::ManuallyDrop::new(
+                        ::std::sync::Arc::<::std::sync::Mutex<#impl_token>>::from_raw(
+                            (*smp).userdata as *const ::std::sync::Mutex<#impl_token>,
+                        ),
+                    )
                 };
                 let __userdata = __userdata
                     .lock()
@@ -286,7 +290,11 @@ fn create_userdata_call_body(
             let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
             {
                 let __userdata = unsafe {
-                    &*(*((*smp).userdata as *const ::std::sync::Arc<::std::sync::Mutex<#impl_token>>))
+                    ::std::mem::ManuallyDrop::new(
+                        ::std::sync::Arc::<::std::sync::Mutex<#impl_token>>::from_raw(
+                            (*smp).userdata as *const ::std::sync::Mutex<#impl_token>,
+                        ),
+                    )
                 };
                 let mut __userdata = __userdata
                     .lock()
