@@ -394,6 +394,37 @@ impl ScriptModuleCallHandle {
         unsafe { Ok(((*self.internal).get_param_data)(index as i32) as *mut T) }
     }
 
+    /// 引数をメタテーブルを持つ型付きuserdataとして取得する。
+    ///
+    /// # Note
+    ///
+    /// `T::META_METHOD_FUNCTIONS`に一致するメタテーブルを持つuserdataのみを受け入れます。
+    /// 型が一致しない場合は[`GetParamError::ConversionError`]を返します。
+    pub fn get_param_userdata<T: AsScriptModuleUserData>(
+        &self,
+        index: usize,
+    ) -> GetParamResult<ScriptModuleUserData<T>, ParamConversionError> {
+        self.assert_param_type(index, ParamType::Userdata)
+            .map_err(GetParamError::into_conversion_error)?;
+        let ptr = unsafe {
+            ((*self.internal).get_param_meta_table)(
+                index as i32,
+                T::META_METHOD_FUNCTIONS.as_ptr() as *mut _,
+            )
+        };
+        if ptr.is_null() {
+            return Err(GetParamError::ConversionError(ParamConversionError::new(
+                "userdata type mismatch",
+            )));
+        }
+        let arc = unsafe {
+            std::sync::Arc::<std::sync::Mutex<T>>::from_raw(ptr as *const std::sync::Mutex<T>)
+        };
+        let cloned = arc.clone();
+        std::mem::forget(arc);
+        Ok(ScriptModuleUserData { data: cloned })
+    }
+
     /// 引数をブール値として取得する。
     pub fn get_param_boolean(&self, index: usize) -> GetParamResult<bool> {
         self.assert_param_type(index, ParamType::Boolean)?;
@@ -884,6 +915,18 @@ impl<'a, T> FromScriptModuleParam<'a> for NonNull<T> {
         NonNull::new(ptr).ok_or_else(|| {
             GetParamError::ConversionError(ParamConversionError::new("value is null"))
         })
+    }
+}
+impl<'a, T: Send + Sync + 'static + AsScriptModuleUserData> FromScriptModuleParam<'a>
+    for ScriptModuleUserData<T>
+{
+    type Error = ParamConversionError;
+
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> GetParamResult<Self, Self::Error> {
+        param.get_param_userdata(index)
     }
 }
 #[duplicate::duplicate_item(
