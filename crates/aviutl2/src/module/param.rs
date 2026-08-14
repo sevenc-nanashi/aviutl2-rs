@@ -418,14 +418,10 @@ impl ScriptModuleCallHandle {
                 "userdata type mismatch",
             )));
         }
-        let boxed = unsafe {
-            Box::<std::sync::Arc<std::sync::Mutex<T>>>::from_raw(
-                ptr as *mut std::sync::Arc<std::sync::Mutex<T>>,
-            )
+        let arc_ref = unsafe {
+            &*(ptr as *const std::sync::Arc<std::sync::Mutex<T>>)
         };
-        let cloned = (*boxed).clone();
-        Box::into_raw(boxed);
-        Ok(ScriptModuleUserData { data: cloned })
+        Ok(ScriptModuleUserData { data: arc_ref.clone() })
     }
 
     /// 引数をブール値として取得する。
