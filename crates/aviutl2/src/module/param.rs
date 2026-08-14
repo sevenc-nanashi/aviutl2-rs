@@ -134,7 +134,8 @@ impl<T: Send + Sync + 'static + AsScriptModuleUserData> From<ScriptModuleUserDat
     for ErasedScriptModuleUserData
 {
     fn from(meta_table: ScriptModuleUserData<T>) -> Self {
-        let data = std::sync::Arc::into_raw(meta_table.data) as *mut std::ffi::c_void;
+        let data =
+            Box::into_raw(Box::new(meta_table.data)) as *mut std::ffi::c_void;
         let meta_method_functions = T::META_METHOD_FUNCTIONS;
         ErasedScriptModuleUserData {
             meta_method_functions,
@@ -177,8 +178,8 @@ unsafe extern "C" fn script_module_user_data_gc<
     let userdata = unsafe { (*smp).userdata };
     if !userdata.is_null() {
         unsafe {
-            drop(std::sync::Arc::<std::sync::Mutex<T>>::from_raw(
-                userdata as *const std::sync::Mutex<T>,
+            drop(Box::<std::sync::Arc<std::sync::Mutex<T>>>::from_raw(
+                userdata as *mut std::sync::Arc<std::sync::Mutex<T>>,
             ));
         }
     }
@@ -417,11 +418,13 @@ impl ScriptModuleCallHandle {
                 "userdata type mismatch",
             )));
         }
-        let arc = unsafe {
-            std::sync::Arc::<std::sync::Mutex<T>>::from_raw(ptr as *const std::sync::Mutex<T>)
+        let boxed = unsafe {
+            Box::<std::sync::Arc<std::sync::Mutex<T>>>::from_raw(
+                ptr as *mut std::sync::Arc<std::sync::Mutex<T>>,
+            )
         };
-        let cloned = arc.clone();
-        std::mem::forget(arc);
+        let cloned = (*boxed).clone();
+        Box::into_raw(boxed);
         Ok(ScriptModuleUserData { data: cloned })
     }
 
