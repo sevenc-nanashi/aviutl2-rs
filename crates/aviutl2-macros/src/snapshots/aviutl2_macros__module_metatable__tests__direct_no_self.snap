@@ -1,6 +1,5 @@
 ---
 source: crates/aviutl2-macros/src/module_metatable.rs
-assertion_line: 204
 expression: format_tokens(output)
 ---
 impl UserData {
@@ -42,8 +41,8 @@ impl UserData {
         smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
     ) {
         unsafe {
-            let _ = ::std::sync::Arc::<::std::sync::Mutex<UserData>>::from_raw(
-                (*smp).userdata as *const ::std::sync::Mutex<UserData>,
+            let _ = ::std::boxed::Box::<::std::sync::Arc<::std::sync::Mutex<UserData>>>::from_raw(
+                (*smp).userdata as *mut ::std::sync::Arc<::std::sync::Mutex<UserData>>,
             );
         }
     }
