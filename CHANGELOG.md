@@ -10,7 +10,10 @@
 
 ## [0.44.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.44.0)
 
-（なし）
+- **Breaking**: 最小サポートを2.1.5に引き上げ
+- **Breaking**: generic: `EditHandle::get_effect_item_group_names`を`EditHandle::get_effect_item_group_names`と`EditHandle::get_effect_item_group_index`に分割
+- module: `get_param_userdata`を追加
+- `try_into`が一意に定まらないときのコンパイルエラーを修正
 
 ### デモプラグイン
 

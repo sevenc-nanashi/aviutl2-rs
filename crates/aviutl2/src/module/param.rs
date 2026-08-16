@@ -429,8 +429,8 @@ impl ScriptModuleCallHandle {
     ///
     /// # Note
     ///
-    /// `T::META_METHOD_FUNCTIONS`に一致するメタテーブルを持つuserdataのみを受け入れます。
-    /// 型が一致しない場合は[`GetParamError::ConversionError`]を返します。
+    /// `T`ではない型から作成されたuserdataを取得しようとした場合は
+    /// [`GetParamError::ConversionError`]を返します。
     pub fn get_param_userdata<T: AsScriptModuleUserData>(
         &self,
         index: usize,
