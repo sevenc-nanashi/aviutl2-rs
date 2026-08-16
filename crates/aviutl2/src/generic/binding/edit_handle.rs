@@ -283,6 +283,7 @@ impl EditHandle {
                 };
                 callback(effect);
             } else {
+                #[cfg(debug_assertions)]
                 tracing::warn!("Unknown effect type: {}", r#type);
             }
         }
@@ -393,15 +394,15 @@ impl EditHandle {
         Ok(items)
     }
 
-    /// 指定の設定項目が所属するグループの所属アイテム名と、設定項目のグループ内でのインデックスを取得する。
-    pub fn get_effect_item_group_names(
+    /// 指定の設定項目が所属するグループ内での所属インデックスを取得する。
+    pub fn get_effect_item_group_index(
         &self,
         effect: &str,
         item_name: &str,
-    ) -> Result<Option<(usize, Vec<String>)>, EditHandleError> {
+    ) -> Result<Option<usize>, EditHandleError> {
         assert!(
             self.is_ready(),
-            "get_effect_item_group_members cannot be called before register_plugin is done"
+            "get_effect_item_group_index cannot be called before register_plugin is done"
         );
         let effect = crate::common::CWString::new(effect)?;
         let item_name = crate::common::CWString::new(item_name)?;
@@ -419,8 +420,8 @@ impl EditHandle {
         }
 
         let mut names: Vec<*const u16> = vec![std::ptr::null(); item_count as usize];
-        let mut index: i32 = 0;
-        let actual_item_count = unsafe {
+        let mut index: i32 = -1;
+        unsafe {
             ((*self.internal).get_effect_item_group_names)(
                 effect.as_ptr(),
                 item_name.as_ptr(),
@@ -429,6 +430,48 @@ impl EditHandle {
                 &mut index as *mut i32,
             )
         };
+        if index < 0 {
+            return Err(EditHandleError::ApiCallFailed);
+        }
+        Ok(Some(index as usize))
+    }
+
+    /// 指定の設定項目が所属するグループ、または指定したグループの所属アイテム名を取得する。
+    pub fn get_effect_item_group_names(
+        &self,
+        effect: &str,
+        item_name: &str,
+    ) -> Result<Option<Vec<String>>, EditHandleError> {
+        assert!(
+            self.is_ready(),
+            "get_effect_item_group_names cannot be called before register_plugin is done"
+        );
+        let effect = crate::common::CWString::new(effect)?;
+        let item_name = crate::common::CWString::new(item_name)?;
+        let item_count = unsafe {
+            ((*self.internal).get_effect_item_group_names)(
+                effect.as_ptr(),
+                item_name.as_ptr(),
+                std::ptr::null_mut(),
+                0,
+                std::ptr::null_mut(),
+            )
+        };
+        if item_count <= 0 {
+            return Ok(None);
+        }
+
+        let mut names: Vec<*const u16> = vec![std::ptr::null(); item_count as usize];
+        let actual_item_count = unsafe {
+            ((*self.internal).get_effect_item_group_names)(
+                effect.as_ptr(),
+                item_name.as_ptr(),
+                names.as_mut_ptr(),
+                item_count,
+                std::ptr::null_mut(),
+            )
+        };
+
         if actual_item_count != item_count {
             return Err(EditHandleError::ApiCallFailed);
         }
@@ -438,7 +481,7 @@ impl EditHandle {
             .map(|ptr| unsafe { crate::common::load_wide_string(ptr) })
             .collect();
 
-        Ok(Some((index as usize, names)))
+        Ok(Some(names))
     }
 
     /// モジュールの一覧をコールバック関数で取得する。
@@ -993,7 +1036,7 @@ pub enum EffectType {
 pub enum EffectItemType {
     /// 整数。
     Integer,
-    /// 数値。
+    /// 数値（トラックバー）。
     Number,
     /// チェックボックス。
     Check,
@@ -1023,6 +1066,12 @@ pub enum EffectItemType {
     Data,
     /// フォルダ。
     Folder,
+    /// 数値（トラックバー）グループ。
+    NumberGroup,
+    /// 設定グループ。（明示的なグループのみ）
+    Group,
+    /// セパレーター。
+    Separator,
 }
 
 define_bitflag! {
@@ -1091,6 +1140,9 @@ impl TryFrom<i32> for EffectItemType {
             14 => Ok(EffectItemType::Figure),
             15 => Ok(EffectItemType::Data),
             16 => Ok(EffectItemType::Folder),
+            17 => Ok(EffectItemType::NumberGroup),
+            18 => Ok(EffectItemType::Group),
+            19 => Ok(EffectItemType::Separator),
             _ => Err(()),
         }
     }
@@ -1114,6 +1166,9 @@ impl From<EffectItemType> for i32 {
             EffectItemType::Figure => 14,
             EffectItemType::Data => 15,
             EffectItemType::Folder => 16,
+            EffectItemType::NumberGroup => 17,
+            EffectItemType::Group => 18,
+            EffectItemType::Separator => 19,
         }
     }
 }

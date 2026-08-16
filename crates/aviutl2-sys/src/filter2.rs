@@ -486,6 +486,8 @@ pub struct OBJECT_INFO {
     pub frame_e: i32,
     /// 対象エフェクトの現在のレイヤー番号 ※自身のオブジェクトのレイヤー番号
     pub effect_layer: i32,
+    /// 全体(シーン)基準のレンダリングの起点フレーム(0からの整数)
+    pub origin_frame: i32,
 }
 
 impl OBJECT_INFO {

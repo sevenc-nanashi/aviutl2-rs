@@ -91,6 +91,7 @@ impl ObjectInfo {
             frame_s: raw.frame_s as u32,
             frame_e: raw.frame_e as u32,
             effect_layer: raw.effect_layer as u32,
+            origin_frame: raw.origin_frame as u32,
         }
     }
 }

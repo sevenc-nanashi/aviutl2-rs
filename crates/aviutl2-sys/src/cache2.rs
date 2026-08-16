@@ -158,4 +158,10 @@ pub struct CACHE_HANDLE {
         buffer0: *mut f32,
         buffer1: *mut f32,
     ) -> i32,
+
+    /// 画像キャッシュデータをクリアする
+    pub clear_image_cache: unsafe extern "C" fn(identifier: *mut c_void, name: LPCWSTR),
+
+    /// 音声キャッシュデータをクリアする
+    pub clear_audio_cache: unsafe extern "C" fn(identifier: *mut c_void, name: LPCWSTR),
 }

@@ -209,6 +209,10 @@ pub struct SceneInfo {
 }
 
 /// オブジェクト情報。
+///
+/// # Note
+///
+/// フレームは0-indexedです。
 #[derive(Debug, Clone, Copy)]
 pub struct ObjectInfo {
     /// 描画対象のオブジェクトの固有ID。
@@ -235,6 +239,8 @@ pub struct ObjectInfo {
     pub frame_e: u32,
     /// 対象エフェクトの現在のレイヤー番号。
     pub effect_layer: u32,
+    /// シーン基準のレンダリングの起点フレーム。
+    pub origin_frame: u32,
 }
 
 impl ObjectInfo {

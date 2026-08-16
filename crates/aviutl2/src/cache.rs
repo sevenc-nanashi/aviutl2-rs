@@ -529,6 +529,32 @@ pub fn create_audio_cache(
     audio_write_guard(raw)
 }
 
+/// 画像キャッシュデータをクリアする。
+pub fn clear_image_cache(
+    identifier: &impl AsCacheIdentifier,
+    name: &str,
+) -> Result<(), CacheError> {
+    let wide_name = CWString::new(name)?;
+    let identifier = identifier.as_cache_identifier();
+    with_cache_handle(|handle| unsafe {
+        ((*handle).clear_image_cache)(identifier, wide_name.as_ptr())
+    })?;
+    Ok(())
+}
+
+/// 音声キャッシュデータをクリアする。
+pub fn clear_audio_cache(
+    identifier: &impl AsCacheIdentifier,
+    name: &str,
+) -> Result<(), CacheError> {
+    let wide_name = CWString::new(name)?;
+    let identifier = identifier.as_cache_identifier();
+    with_cache_handle(|handle| unsafe {
+        ((*handle).clear_audio_cache)(identifier, wide_name.as_ptr())
+    })?;
+    Ok(())
+}
+
 /// メディアファイルのビデオ情報を取得する。
 pub fn get_video_file_info(path: impl AsRef<Path>) -> Result<Option<VideoFileInfo>, CacheError> {
     let file = CWString::new(&path.as_ref().to_string_lossy())?;

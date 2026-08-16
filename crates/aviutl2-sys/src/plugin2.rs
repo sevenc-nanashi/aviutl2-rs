@@ -800,6 +800,7 @@ pub struct EDIT_HANDLE {
     ) -> bool,
 
     /// 指定の設定項目が所属するグループの所属アイテム名を取得します
+    /// グループ項目を直接指定することも出来ます (item_indexにはnullptrを指定します)
     pub get_effect_item_group_names: unsafe extern "C" fn(
         effect: LPCWSTR,
         item: LPCWSTR,
@@ -836,7 +837,7 @@ impl EDIT_HANDLE {
     pub const EDIT_STATE_SAVE: i32 = 2;
     /// 設定項目種別：整数 ※今後追加される可能性があります
     pub const EFFECT_ITEM_TYPE_INTEGER: i32 = 1;
-    /// 設定項目種別：数値 ※今後追加される可能性があります
+    /// 設定項目種別：数値(トラックバー) ※今後追加される可能性があります
     pub const EFFECT_ITEM_TYPE_NUMBER: i32 = 2;
     /// 設定項目種別：チェックボックス ※今後追加される可能性があります
     pub const EFFECT_ITEM_TYPE_CHECK: i32 = 3;
@@ -866,6 +867,12 @@ impl EDIT_HANDLE {
     pub const EFFECT_ITEM_TYPE_DATA: i32 = 15;
     /// 設定項目種別：フォルダ ※今後追加される可能性があります
     pub const EFFECT_ITEM_TYPE_FOLDER: i32 = 16;
+    /// 設定項目種別：数値(トラックバー)グループ ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_NUMBER_GROUP: i32 = 17;
+    /// 設定項目種別：設定グループ(明示的なグループのみ) ※設定値無し ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_GROUP: i32 = 18;
+    /// 設定項目種別：セパレーター ※設定値無し ※今後追加される可能性があります
+    pub const EFFECT_ITEM_TYPE_SEPARATOR: i32 = 19;
 }
 
 /// プロジェクトファイル構造体
