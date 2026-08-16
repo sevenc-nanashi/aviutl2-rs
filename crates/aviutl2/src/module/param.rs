@@ -123,10 +123,41 @@ pub struct ScriptModuleUserData<T: Send + Sync + 'static + AsScriptModuleUserDat
     data: std::sync::Arc<std::sync::Mutex<T>>,
 }
 
+struct MetaMethodFunctionTableEntry {
+    meta_method_functions: Box<[aviutl2_sys::module2::META_METHOD_FUNCTION]>,
+}
+unsafe impl Send for MetaMethodFunctionTableEntry {}
+unsafe impl Sync for MetaMethodFunctionTableEntry {}
+
+// META_METHOD_FUNCTIONSは型ごとに一度だけ作成される必要があるため、型ごとにヒープに乗せて
+// そのポインタを使うようにする。
+fn type_to_meta_method_functions<T: Send + Sync + 'static + AsScriptModuleUserData>()
+-> *const aviutl2_sys::module2::META_METHOD_FUNCTION {
+    static META_METHOD_FUNCTIONS: std::sync::LazyLock<
+        dashmap::DashMap<std::any::TypeId, MetaMethodFunctionTableEntry>,
+    > = std::sync::LazyLock::new(Default::default);
+
+    let type_id = std::any::TypeId::of::<T>();
+    META_METHOD_FUNCTIONS
+        .entry(type_id)
+        .or_insert_with(|| {
+            let last = T::META_METHOD_FUNCTIONS.last();
+            assert!(
+                last.is_some() && last.unwrap().method.is_null(),
+                "META_METHOD_FUNCTIONS must be null-terminated"
+            );
+            MetaMethodFunctionTableEntry {
+                meta_method_functions: T::META_METHOD_FUNCTIONS.to_vec().into_boxed_slice(),
+            }
+        })
+        .meta_method_functions
+        .as_ptr()
+}
+
 /// [ScriptModuleUserData]から型パラメータを消去した構造体。
 #[derive(Debug)]
 pub struct ErasedScriptModuleUserData {
-    pub meta_method_functions: &'static [aviutl2_sys::module2::META_METHOD_FUNCTION],
+    pub meta_method_functions: *const aviutl2_sys::module2::META_METHOD_FUNCTION,
     pub userdata: *mut std::ffi::c_void,
 }
 
@@ -134,8 +165,8 @@ impl<T: Send + Sync + 'static + AsScriptModuleUserData> From<ScriptModuleUserDat
     for ErasedScriptModuleUserData
 {
     fn from(meta_table: ScriptModuleUserData<T>) -> Self {
-        let data = std::sync::Arc::into_raw(meta_table.data) as *mut std::ffi::c_void;
-        let meta_method_functions = T::META_METHOD_FUNCTIONS;
+        let data = Box::into_raw(Box::new(meta_table.data)) as *mut std::ffi::c_void;
+        let meta_method_functions = type_to_meta_method_functions::<T>();
         ErasedScriptModuleUserData {
             meta_method_functions,
             userdata: data,
@@ -177,8 +208,8 @@ unsafe extern "C" fn script_module_user_data_gc<
     let userdata = unsafe { (*smp).userdata };
     if !userdata.is_null() {
         unsafe {
-            drop(std::sync::Arc::<std::sync::Mutex<T>>::from_raw(
-                userdata as *const std::sync::Mutex<T>,
+            drop(Box::<std::sync::Arc<std::sync::Mutex<T>>>::from_raw(
+                userdata as *mut std::sync::Arc<std::sync::Mutex<T>>,
             ));
         }
     }
@@ -394,6 +425,36 @@ impl ScriptModuleCallHandle {
         unsafe { Ok(((*self.internal).get_param_data)(index as i32) as *mut T) }
     }
 
+    /// 引数をメタテーブルを持つ型付きuserdataとして取得する。
+    ///
+    /// # Note
+    ///
+    /// `T::META_METHOD_FUNCTIONS`に一致するメタテーブルを持つuserdataのみを受け入れます。
+    /// 型が一致しない場合は[`GetParamError::ConversionError`]を返します。
+    pub fn get_param_userdata<T: AsScriptModuleUserData>(
+        &self,
+        index: usize,
+    ) -> GetParamResult<ScriptModuleUserData<T>, ParamConversionError> {
+        self.assert_param_type(index, ParamType::Userdata)
+            .map_err(GetParamError::into_conversion_error)?;
+        let ptr = unsafe {
+            ((*self.internal).get_param_meta_table)(
+                index as i32,
+                type_to_meta_method_functions::<T>() as _,
+            )
+        };
+        if ptr.is_null() {
+            return Err(GetParamError::ConversionError(ParamConversionError::new(
+                "userdata type mismatch",
+            )));
+        }
+        let arc_ref = unsafe {
+            let boxed = &*(ptr as *const std::sync::Arc<std::sync::Mutex<T>>);
+            boxed.clone()
+        };
+        Ok(ScriptModuleUserData { data: arc_ref })
+    }
+
     /// 引数をブール値として取得する。
     pub fn get_param_boolean(&self, index: usize) -> GetParamResult<bool> {
         self.assert_param_type(index, ParamType::Boolean)?;
@@ -582,7 +643,7 @@ impl ScriptModuleCallHandle {
         unsafe {
             let meta_table: ErasedScriptModuleUserData = meta_table.into();
             ((*self.internal).push_result_meta_table)(
-                meta_table.meta_method_functions.as_ptr(),
+                meta_table.meta_method_functions,
                 meta_table.userdata,
             );
         }
@@ -884,6 +945,18 @@ impl<'a, T> FromScriptModuleParam<'a> for NonNull<T> {
         NonNull::new(ptr).ok_or_else(|| {
             GetParamError::ConversionError(ParamConversionError::new("value is null"))
         })
+    }
+}
+impl<'a, T: Send + Sync + 'static + AsScriptModuleUserData> FromScriptModuleParam<'a>
+    for ScriptModuleUserData<T>
+{
+    type Error = ParamConversionError;
+
+    fn from_param(
+        param: &'a ScriptModuleCallHandle,
+        index: usize,
+    ) -> GetParamResult<Self, Self::Error> {
+        param.get_param_userdata(index)
     }
 }
 #[duplicate::duplicate_item(

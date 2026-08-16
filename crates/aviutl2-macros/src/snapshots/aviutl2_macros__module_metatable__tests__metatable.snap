@@ -39,8 +39,9 @@ impl UserData {
         if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
             let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
             {
-                let __userdata =
-                    unsafe { &*((*smp).userdata as *const ::std::sync::Mutex<UserData>) };
+                let __userdata = unsafe {
+                    &*((*smp).userdata as *const ::std::sync::Arc<::std::sync::Mutex<UserData>>)
+                };
                 let __userdata = __userdata
                     .lock()
                     .expect("script module meta table userdata mutex poisoned");
@@ -72,8 +73,9 @@ impl UserData {
         if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
             let mut __handle = unsafe { ::aviutl2::module::ScriptModuleCallHandle::from_raw(smp) };
             {
-                let __userdata =
-                    unsafe { &*((*smp).userdata as *const ::std::sync::Mutex<UserData>) };
+                let __userdata = unsafe {
+                    &*((*smp).userdata as *const ::std::sync::Arc<::std::sync::Mutex<UserData>>)
+                };
                 let mut __userdata = __userdata
                     .lock()
                     .expect("script module meta table userdata mutex poisoned");
@@ -119,8 +121,9 @@ impl UserData {
         smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
     ) {
         unsafe {
-            let _ =
-                ::std::sync::Arc::from_raw((*smp).userdata as *const ::std::sync::Mutex<UserData>);
+            let _ = ::std::boxed::Box::<::std::sync::Arc<::std::sync::Mutex<UserData>>>::from_raw(
+                (*smp).userdata as *mut ::std::sync::Arc<::std::sync::Mutex<UserData>>,
+            );
         }
     }
 }

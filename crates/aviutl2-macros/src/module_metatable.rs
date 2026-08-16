@@ -32,8 +32,10 @@ pub fn module_metatable(
             smp: *mut ::aviutl2::sys::module2::SCRIPT_MODULE_PARAM,
         ) {
             unsafe {
-                let _ = ::std::sync::Arc::from_raw(
-                    (*smp).userdata as *const ::std::sync::Mutex<#impl_token>,
+                let _ = ::std::boxed::Box::<
+                    ::std::sync::Arc<::std::sync::Mutex<#impl_token>>,
+                >::from_raw(
+                    (*smp).userdata as *mut ::std::sync::Arc<::std::sync::Mutex<#impl_token>>,
                 );
             }
         }
