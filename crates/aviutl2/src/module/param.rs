@@ -123,10 +123,41 @@ pub struct ScriptModuleUserData<T: Send + Sync + 'static + AsScriptModuleUserDat
     data: std::sync::Arc<std::sync::Mutex<T>>,
 }
 
+struct MetaMethodFunctionTableEntry {
+    meta_method_functions: Box<[aviutl2_sys::module2::META_METHOD_FUNCTION]>,
+}
+unsafe impl Send for MetaMethodFunctionTableEntry {}
+unsafe impl Sync for MetaMethodFunctionTableEntry {}
+
+// META_METHOD_FUNCTIONSは型ごとに一度だけ作成される必要があるため、型ごとにヒープに乗せて
+// そのポインタを使うようにする。
+fn type_to_meta_method_functions<T: Send + Sync + 'static + AsScriptModuleUserData>()
+-> *const aviutl2_sys::module2::META_METHOD_FUNCTION {
+    static META_METHOD_FUNCTIONS: std::sync::LazyLock<
+        dashmap::DashMap<std::any::TypeId, MetaMethodFunctionTableEntry>,
+    > = std::sync::LazyLock::new(Default::default);
+
+    let type_id = std::any::TypeId::of::<T>();
+    META_METHOD_FUNCTIONS
+        .entry(type_id)
+        .or_insert_with(|| {
+            let last = T::META_METHOD_FUNCTIONS.last();
+            assert!(
+                last.is_some() && last.unwrap().method.is_null(),
+                "META_METHOD_FUNCTIONS must be null-terminated"
+            );
+            MetaMethodFunctionTableEntry {
+                meta_method_functions: T::META_METHOD_FUNCTIONS.to_vec().into_boxed_slice(),
+            }
+        })
+        .meta_method_functions
+        .as_ptr()
+}
+
 /// [ScriptModuleUserData]から型パラメータを消去した構造体。
 #[derive(Debug)]
 pub struct ErasedScriptModuleUserData {
-    pub meta_method_functions: &'static [aviutl2_sys::module2::META_METHOD_FUNCTION],
+    pub meta_method_functions: *const aviutl2_sys::module2::META_METHOD_FUNCTION,
     pub userdata: *mut std::ffi::c_void,
 }
 
@@ -135,7 +166,7 @@ impl<T: Send + Sync + 'static + AsScriptModuleUserData> From<ScriptModuleUserDat
 {
     fn from(meta_table: ScriptModuleUserData<T>) -> Self {
         let data = Box::into_raw(Box::new(meta_table.data)) as *mut std::ffi::c_void;
-        let meta_method_functions = T::META_METHOD_FUNCTIONS;
+        let meta_method_functions = type_to_meta_method_functions::<T>();
         ErasedScriptModuleUserData {
             meta_method_functions,
             userdata: data,
@@ -409,7 +440,7 @@ impl ScriptModuleCallHandle {
         let ptr = unsafe {
             ((*self.internal).get_param_meta_table)(
                 index as i32,
-                T::META_METHOD_FUNCTIONS.as_ptr() as *mut _,
+                type_to_meta_method_functions::<T>() as _,
             )
         };
         if ptr.is_null() {
@@ -612,7 +643,7 @@ impl ScriptModuleCallHandle {
         unsafe {
             let meta_table: ErasedScriptModuleUserData = meta_table.into();
             ((*self.internal).push_result_meta_table)(
-                meta_table.meta_method_functions.as_ptr(),
+                meta_table.meta_method_functions,
                 meta_table.userdata,
             );
         }
