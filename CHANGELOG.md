@@ -8,6 +8,14 @@
 
 （なし）
 
+## [0.44.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.44.0)
+
+（なし）
+
+### デモプラグイン
+
+（なし）
+
 ## [0.43.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.43.0)
 
 - **Breaking**: 最小サポートを2.1.4に引き上げ
