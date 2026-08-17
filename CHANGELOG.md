@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-（なし）
+- eframe: レンダラーをwgpuに変更
+  - 今までglow（OpenGL）でしたが、ファイナライズの関係でwgpuに変更しました。
 
 ### デモプラグイン
 
