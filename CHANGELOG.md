@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.44.2](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.44.2)
+
 - eframe: レンダラーをwgpuに変更
   - 今までglow（OpenGL）でしたが、ファイナライズの関係でwgpuに変更しました。
 
