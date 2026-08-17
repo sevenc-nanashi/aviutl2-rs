@@ -100,7 +100,16 @@ impl eframe::App for WrappedApp {
                 let parent_window = match parent_window {
                     Ok(parent_window) => parent_window,
                     Err(e) => {
-                        tracing::warn!("Failed to get parent window for input handling: {:?}", e);
+                        if e.code() == windows::core::HRESULT(0) {
+                            tracing::debug!(
+                                "No parent window found for input handling, skipping forwarding keyboard events"
+                            );
+                        } else {
+                            tracing::warn!(
+                                "Failed to get parent window for input handling: {:?}",
+                                e
+                            );
+                        }
 
                         return;
                     }
