@@ -5,13 +5,13 @@ hooks {
   ["pre-push"] {
     steps {
       ["test"] {
-        check = "rake test"
+        check = "bundle exec rake test"
       }
       ["check-format"] {
-        check = "rake check_format"
+        check = "bundle exec rake check_format"
       }
       ["lint"] {
-        check = "rake lint"
+        check = "bundle exec rake lint"
       }
     }
   }
