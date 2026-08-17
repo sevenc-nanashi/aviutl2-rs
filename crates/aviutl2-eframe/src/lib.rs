@@ -394,6 +394,11 @@ impl EframeWindow {
                 }));
                 let default_persist_path = default_persist_path(&name);
                 let native_options = eframe::NativeOptions {
+                    // NOTE:
+                    // eframeのデフォルトではWinit+OpenGLが使われるが、OpenGLだと終了処理でpanicするので、wgpuを使うようにする。
+                    // ただし、eframeのglow featureがどこかの依存で有効化されることがあるので、
+                    // `glow` feature自体は有効化しておく（eframe::App::on_exitのシグネチャが変わるため）。
+                    renderer: eframe::Renderer::Wgpu,
                     viewport: egui::ViewportBuilder::default()
                         .with_visible(false)
                         .with_decorations(false)
