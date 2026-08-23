@@ -46,6 +46,78 @@ macro_rules! define_bitflag {
                     bits
                 }
             }
+
+            impl std::fmt::Display for $name {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    let mut parts = Vec::new();
+                    $(
+                        if self.$field {
+                            parts.push(stringify!($field));
+                        }
+                    )*
+                    write!(f, "{}({})", stringify!($name), parts.join(" | "))
+                }
+            }
+
+            impl std::ops::BitOr for $name {
+                type Output = Self;
+
+                fn bitor(self, rhs: Self) -> Self::Output {
+                    Self {
+                        $(
+                            $field: self.$field | rhs.$field,
+                        )*
+                    }
+                }
+            }
+
+            impl std::ops::BitAnd for $name {
+                type Output = Self;
+
+                fn bitand(self, rhs: Self) -> Self::Output {
+                    Self {
+                        $(
+                            $field: self.$field & rhs.$field,
+                        )*
+                    }
+                }
+            }
+
+            impl std::ops::Not for $name {
+                type Output = Self;
+
+                fn not(self) -> Self::Output {
+                    Self {
+                        $(
+                            $field: !self.$field,
+                        )*
+                    }
+                }
+            }
+
+            impl std::ops::BitXor for $name {
+                type Output = Self;
+
+                fn bitxor(self, rhs: Self) -> Self::Output {
+                    Self {
+                        $(
+                            $field: self.$field ^ rhs.$field,
+                        )*
+                    }
+                }
+            }
+
+            impl std::ops::Sub for $name {
+                type Output = Self;
+
+                fn sub(self, rhs: Self) -> Self::Output {
+                    Self {
+                        $(
+                            $field: self.$field & !rhs.$field,
+                        )*
+                    }
+                }
+            }
         };
     };
 }
