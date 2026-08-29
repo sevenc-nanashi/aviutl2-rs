@@ -51,7 +51,7 @@ pub enum FilterConfigItem {
     /// トラックバー。
     Track(FilterConfigTrack),
     /// チェックボックス。
-    Checkbox(FilterConfigCheckbox),
+    Check(FilterConfigCheck),
     /// セクションごとのチェックボックス。
     CheckSection(FilterConfigCheckSection),
     /// 色選択。
@@ -87,7 +87,7 @@ pub enum FilterConfigItem {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum FilterConfigItemValue {
     Track(f64),
-    Checkbox(bool),
+    Check(bool),
     CheckSection(bool),
     Color(FilterConfigColorValue),
     Select(i32),
@@ -115,7 +115,7 @@ impl FilterConfigItem {
     pub fn name(&self) -> &str {
         match self {
             FilterConfigItem::Track(item) => &item.name,
-            FilterConfigItem::Checkbox(item) => &item.name,
+            FilterConfigItem::Check(item) => &item.name,
             FilterConfigItem::Color(item) => &item.name,
             FilterConfigItem::Select(item) => &item.name,
             FilterConfigItem::File(item) => &item.name,
@@ -149,8 +149,8 @@ impl FilterConfigItem {
                     slider_ratio: item.slider_ratio,
                 },
             },
-            FilterConfigItem::Checkbox(item) => aviutl2_sys::filter2::FILTER_ITEM {
-                checkbox: aviutl2_sys::filter2::FILTER_ITEM_CHECKBOX {
+            FilterConfigItem::Check(item) => aviutl2_sys::filter2::FILTER_ITEM {
+                check: aviutl2_sys::filter2::FILTER_ITEM_CHECK {
                     r#type: leak_manager.leak_as_wide_string("check"),
                     name: leak_manager.leak_as_wide_string(&item.name),
                     value: item.value,
@@ -332,8 +332,8 @@ impl FilterConfigItem {
                 FilterConfigItemValue::Track(raw_track.value)
             }
             "check" => {
-                let raw_checkbox = unsafe { &(*raw).checkbox };
-                FilterConfigItemValue::Checkbox(raw_checkbox.value)
+                let raw_check = unsafe { &(*raw).check };
+                FilterConfigItemValue::Check(raw_check.value)
             }
             "color" => {
                 let raw_color = unsafe { &(*raw).color };
@@ -402,9 +402,7 @@ impl FilterConfigItem {
         let value = unsafe { Self::get_value(raw) };
         match (self, value) {
             (FilterConfigItem::Track(item), FilterConfigItemValue::Track(v)) => item.value != v,
-            (FilterConfigItem::Checkbox(item), FilterConfigItemValue::Checkbox(v)) => {
-                item.value != v
-            }
+            (FilterConfigItem::Check(item), FilterConfigItemValue::Check(v)) => item.value != v,
             (FilterConfigItem::Color(item), FilterConfigItemValue::Color(v)) => item.value != v,
             (FilterConfigItem::Select(item), FilterConfigItemValue::Select(v)) => item.value != v,
             (FilterConfigItem::File(item), FilterConfigItemValue::File(v)) => item.value != v,
@@ -456,7 +454,7 @@ impl FilterConfigItem {
             (FilterConfigItem::Track(item), FilterConfigItemValue::Track(v)) => {
                 item.value = v;
             }
-            (FilterConfigItem::Checkbox(item), FilterConfigItemValue::Checkbox(v)) => {
+            (FilterConfigItem::Check(item), FilterConfigItemValue::Check(v)) => {
                 item.value = v;
             }
             (FilterConfigItem::Color(item), FilterConfigItemValue::Color(v)) => {
@@ -538,7 +536,7 @@ pub struct FilterConfigTrack {
 
 /// チェックボックス。
 #[derive(Debug, Clone)]
-pub struct FilterConfigCheckbox {
+pub struct FilterConfigCheck {
     /// 設定名。
     pub name: String,
 
@@ -1543,7 +1541,7 @@ pub struct FilterConfigHideRule {
     /// # Note
     ///
     /// - 以下の設定タイプのみに対応しています：
-    ///   - [`FilterConfigItem::Checkbox`]
+    ///   - [`FilterConfigItem::Check`]
     ///   - [`FilterConfigItem::Select`]
     ///   - [`FilterConfigItem::File`]
     ///   - [`FilterConfigItem::Folder`]

@@ -10,12 +10,10 @@ struct Config {
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
         return vec![
-            ::aviutl2::filter::FilterConfigItem::Checkbox(
-                ::aviutl2::filter::FilterConfigCheckbox {
-                    name: "Enable".to_string(),
-                    value: true,
-                },
-            ),
+            ::aviutl2::filter::FilterConfigItem::Check(::aviutl2::filter::FilterConfigCheck {
+                name: "Enable".to_string(),
+                value: true,
+            }),
             ::aviutl2::filter::FilterConfigItem::Separator(
                 ::aviutl2::filter::FilterConfigSeparator {
                     name: "Advanced".to_string(),
@@ -34,8 +32,8 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
     fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
         Self {
             enable: match items[0usize] {
-                ::aviutl2::filter::FilterConfigItem::Checkbox(ref check) => check.value,
-                _ => panic!("expected Checkbox at index {}", 0usize),
+                ::aviutl2::filter::FilterConfigItem::Check(ref check) => check.value,
+                _ => panic!("expected Check at index {}", 0usize),
             },
             frequency: match items[2usize] {
                 ::aviutl2::filter::FilterConfigItem::Track(ref track) => (track.value as i32) as _,

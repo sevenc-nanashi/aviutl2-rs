@@ -14,7 +14,7 @@ pub type OBJECT_HANDLE = *mut c_void;
 pub union FILTER_ITEM {
     pub track: FILTER_ITEM_TRACK,
     pub track_group: FILTER_ITEM_TRACK_GROUP,
-    pub checkbox: FILTER_ITEM_CHECKBOX,
+    pub check: FILTER_ITEM_CHECK,
     pub check_section: FILTER_ITEM_CHECK_SECTION,
     pub color: FILTER_ITEM_COLOR,
     pub select: FILTER_ITEM_SELECT,
@@ -66,7 +66,7 @@ pub struct FILTER_ITEM_TRACK_GROUP {
 /// チェックボックス項目構造体
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct FILTER_ITEM_CHECKBOX {
+pub struct FILTER_ITEM_CHECK {
     /// 設定の種別（L"check"）
     pub r#type: LPCWSTR,
     /// 設定名
@@ -74,8 +74,6 @@ pub struct FILTER_ITEM_CHECKBOX {
     /// 設定値（フィルタ処理の呼び出し時に現在の値に更新されます）
     pub value: bool,
 }
-
-pub type FILTER_ITEM_CHECK = FILTER_ITEM_CHECKBOX;
 
 /// チェックボックス(セクション毎)項目構造体
 #[repr(C)]

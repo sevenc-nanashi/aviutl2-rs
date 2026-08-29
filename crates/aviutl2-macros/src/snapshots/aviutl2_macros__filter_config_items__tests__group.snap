@@ -21,12 +21,10 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
                 zero_display: ::std::option::Option::None,
                 slider_ratio: 1f64,
             }),
-            ::aviutl2::filter::FilterConfigItem::Checkbox(
-                ::aviutl2::filter::FilterConfigCheckbox {
-                    name: "Enable".to_string(),
-                    value: true,
-                },
-            ),
+            ::aviutl2::filter::FilterConfigItem::Check(::aviutl2::filter::FilterConfigCheck {
+                name: "Enable".to_string(),
+                value: true,
+            }),
         ];
     }
     fn from_config_items(items: &[::aviutl2::filter::FilterConfigItem]) -> Self {
@@ -36,8 +34,8 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
                 _ => panic!("expected Track at index {}", 1usize),
             },
             enable: match items[2usize] {
-                ::aviutl2::filter::FilterConfigItem::Checkbox(ref check) => check.value,
-                _ => panic!("expected Checkbox at index {}", 2usize),
+                ::aviutl2::filter::FilterConfigItem::Check(ref check) => check.value,
+                _ => panic!("expected Check at index {}", 2usize),
             },
         }
     }

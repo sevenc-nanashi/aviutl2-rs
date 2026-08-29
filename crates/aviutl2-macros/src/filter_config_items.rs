@@ -416,8 +416,8 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                 default,
             } => {
                 quote::quote! {
-                    ::aviutl2::filter::FilterConfigItem::Checkbox(
-                        ::aviutl2::filter::FilterConfigCheckbox {
+                    ::aviutl2::filter::FilterConfigItem::Check(
+                        ::aviutl2::filter::FilterConfigCheck {
                             name: #name.to_string(),
                             value: #default,
                         }
@@ -812,8 +812,8 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
                 Some(quote::quote! {
                     #id_ident: match items[#i] {
-                        ::aviutl2::filter::FilterConfigItem::Checkbox(ref check) => check.value,
-                        _ => panic!("expected Checkbox at index {}", #i),
+                        ::aviutl2::filter::FilterConfigItem::Check(ref check) => check.value,
+                        _ => panic!("expected Check at index {}", #i),
                     }
                 })
             }
@@ -1369,6 +1369,13 @@ fn resolve_hide_rule_conditions(
                 format!(
                     "Filter config field `{condition_field_id}` cannot be used as a hide condition"
                 ),
+            )
+            .to_compile_error());
+        }
+        if resolved_name == "filter" {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "Using field named `filter` as a hide condition is not allowed because it conflicts with the built-in condition",
             )
             .to_compile_error());
         }
@@ -2523,7 +2530,7 @@ mod tests {
         assert_eq!(items[1].name(), "Standalone 2");
         assert_eq!(items[2].name(), "Before Check 1");
         assert_eq!(items[3].name(), "Before Check 2");
-        assert!(matches!(items[4], FilterConfigItem::Checkbox(_)));
+        assert!(matches!(items[4], FilterConfigItem::Check(_)));
 
         let config = Config::from_config_items(&items);
         assert!(config.enable);
@@ -2564,7 +2571,7 @@ mod tests {
         assert!(matches!(items[3], FilterConfigItem::Button(_)));
         assert!(matches!(items[4], FilterConfigItem::Separator(_)));
         assert!(matches!(items[5], FilterConfigItem::Group(_)));
-        assert!(matches!(items[6], FilterConfigItem::Checkbox(_)));
+        assert!(matches!(items[6], FilterConfigItem::Check(_)));
 
         let config = Config::from_config_items(&items);
         assert_eq!(config.frequency, 440);
@@ -2603,7 +2610,7 @@ mod tests {
 
         let items = Config::to_config_items();
         assert_eq!(items.len(), 10);
-        assert!(matches!(items[0], FilterConfigItem::Checkbox(_)));
+        assert!(matches!(items[0], FilterConfigItem::Check(_)));
         assert!(matches!(items[1], FilterConfigItem::Select(_)));
         assert!(matches!(items[2], FilterConfigItem::Separator(_)));
         assert!(matches!(items[3], FilterConfigItem::Track(_)));
@@ -2686,7 +2693,7 @@ mod tests {
                 FilterConfigHideRuleOperator::Equal,
             ]
         );
-        assert!(matches!(items[7], FilterConfigItem::Checkbox(_)));
+        assert!(matches!(items[7], FilterConfigItem::Check(_)));
 
         let config = Config::from_config_items(&items);
         assert_eq!(config.target, "");

@@ -4,6 +4,7 @@
 
 - **Breaking**: 最小サポートを2.1.7に引き上げ
 - **Breaking**: 依存関係を更新
+- **Breaking**: filter: `FilterConfigItem::Checkbox`を`FilterConfigItem::Check`に改名（SDKに合わせる）
 - eframe: レンダラーをglowに変更
   - wgpuだと一部環境で動かなくなったのでglowに戻しました。クラッシュはまだ調査中...
 - bitflags系にビット演算のトレイトを実装
