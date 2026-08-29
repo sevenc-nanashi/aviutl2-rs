@@ -26,6 +26,7 @@ pub union FILTER_ITEM {
     pub text: FILTER_ITEM_TEXT,
     pub folder: FILTER_ITEM_FOLDER,
     pub separator: FILTER_ITEM_SEPARATOR,
+    pub hide_rule: FILTER_ITEM_HIDE_RULE,
 }
 
 /// トラックバー項目構造体
@@ -151,6 +152,7 @@ pub struct FILTER_ITEM_FILE {
 /// 汎用データ項目構造体
 /// `default_value` は最大16KiBまでの任意のデータを格納できます。
 /// フィルタ処理関数内で `value` の参照先データを更新できますが、Undoポイントの作成や編集済みフラグの設定はされません。
+/// 保存済みの汎用データが空の場合はデフォルト値に初期化されます。
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct FILTER_ITEM_DATA {
@@ -240,6 +242,41 @@ pub struct FILTER_ITEM_SEPARATOR {
     pub r#type: LPCWSTR,
     /// 設定名
     pub name: LPCWSTR,
+}
+
+/// 非表示条件項目構造体
+/// 非表示条件を満たした項目を非表示にすることが出来ます
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_HIDE_RULE {
+    /// 設定の種別（L"hiderule"）
+    pub r#type: LPCWSTR,
+    /// 非表示にする設定名 ※設定値を持つ項目のみ
+    pub name: LPCWSTR,
+    /// 非表示の条件の設定名
+    ///
+    /// チェックボックス項目(セクション毎を除く)、リスト選択項目、ファイル選択項目、フォルダ選択項目を指定できます。
+    /// ファイル、フォルダ選択項目は選択されているかを返却します(0/1)。
+    /// nullを指定した場合は常に非表示、`filter` を指定した場合はフィルタオブジェクトかを返却します(0/1)。
+    pub condition_name: LPCWSTR,
+    /// 非表示の条件の比較種別
+    pub condition_operator: FILTER_ITEM_HIDE_RULE_OPERATOR,
+    /// 非表示の条件の比較値
+    pub condition_value: i32,
+}
+
+/// 非表示条件の比較種別
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FILTER_ITEM_HIDE_RULE_OPERATOR {
+    /// 等しい
+    EQUAL = 0,
+    /// 等しくない
+    NOT_EQUAL = 1,
+    /// より大きい
+    GREATER = 2,
+    /// より小さい
+    LESS = 3,
 }
 
 /// 頂点データ構造体(描画色)

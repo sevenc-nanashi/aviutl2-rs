@@ -80,6 +80,8 @@ pub enum FilterConfigItem {
     Button(FilterConfigButton),
     /// トラックバーグループ。
     TrackGroup(FilterConfigTrackGroup),
+    /// 非表示条件。
+    HideRule(FilterConfigHideRule),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -124,6 +126,7 @@ impl FilterConfigItem {
             FilterConfigItem::Button(item) => &item.name,
             FilterConfigItem::CheckSection(item) => &item.name,
             FilterConfigItem::TrackGroup(item) => &item.name,
+            FilterConfigItem::HideRule(item) => &item.name,
         }
     }
 
@@ -286,6 +289,23 @@ impl FilterConfigItem {
                         r#type: leak_manager.leak_as_wide_string("trackgroup"),
                         name: leak_manager.leak_as_wide_string(&filter_config_track_group.name),
                         tracks: pointers as _,
+                    },
+                }
+            }
+            FilterConfigItem::HideRule(filter_config_hide_rule) => {
+                aviutl2_sys::filter2::FILTER_ITEM {
+                    hide_rule: aviutl2_sys::filter2::FILTER_ITEM_HIDE_RULE {
+                        r#type: leak_manager.leak_as_wide_string("hiderule"),
+                        name: leak_manager.leak_as_wide_string(&filter_config_hide_rule.name),
+                        condition_name: filter_config_hide_rule
+                            .condition_name
+                            .as_ref()
+                            .map_or(std::ptr::null(), |s| leak_manager.leak_as_wide_string(s)),
+                        condition_operator:
+                            aviutl2_sys::filter2::FILTER_ITEM_HIDE_RULE_OPERATOR::from(
+                                filter_config_hide_rule.condition_operator,
+                            ),
+                        condition_value: filter_config_hide_rule.condition_value,
                     },
                 }
             }
@@ -1462,6 +1482,67 @@ impl<T: Copy> std::ops::DerefMut for FilterConfigDataWriteGuard<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut()
     }
+}
+
+/// 非表示条件の演算子。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterConfigHideRuleOperator {
+    /// 等しい（`==`）。
+    Equal,
+    /// 等しくない（`!=`）。
+    NotEqual,
+    /// より大きい（`>`）。
+    Greater,
+    /// より小さい（`<`）。
+    Less,
+}
+
+impl From<FilterConfigHideRuleOperator> for aviutl2_sys::filter2::FILTER_ITEM_HIDE_RULE_OPERATOR {
+    fn from(value: FilterConfigHideRuleOperator) -> Self {
+        match value {
+            FilterConfigHideRuleOperator::Equal => {
+                aviutl2_sys::filter2::FILTER_ITEM_HIDE_RULE_OPERATOR::EQUAL
+            }
+            FilterConfigHideRuleOperator::NotEqual => {
+                aviutl2_sys::filter2::FILTER_ITEM_HIDE_RULE_OPERATOR::NOT_EQUAL
+            }
+            FilterConfigHideRuleOperator::Greater => {
+                aviutl2_sys::filter2::FILTER_ITEM_HIDE_RULE_OPERATOR::GREATER
+            }
+            FilterConfigHideRuleOperator::Less => {
+                aviutl2_sys::filter2::FILTER_ITEM_HIDE_RULE_OPERATOR::LESS
+            }
+        }
+    }
+}
+
+/// 非表示条件。
+#[derive(Debug, Clone)]
+pub struct FilterConfigHideRule {
+    /// 非表示にする設定名。
+    ///
+    /// # Note
+    ///
+    /// - 設定値を持たない設定（グループ、セパレーターなど）には対応していません。
+    pub name: String,
+    /// 非表示にする条件の設定名。
+    /// Noneの場合は常に非表示になります。
+    ///
+    /// # Note
+    ///
+    /// - 以下の設定タイプのみに対応しています：
+    ///   - [`FilterConfigItem::Checkbox`]
+    ///   - [`FilterConfigItem::Select`]
+    ///   - [`FilterConfigItem::File`]
+    ///   - [`FilterConfigItem::Folder`]
+    /// - [`FilterConfigItem::File`]、[`FilterConfigItem::Folder`]の場合、`value`は
+    ///   値が設定されているか否かを0・1で判定します。
+    /// - `"filter"`を指定した場合はフィルタオブジェクトかどうかを判定します。
+    pub condition_name: Option<String>,
+    /// 非表示にする条件の演算子。
+    pub condition_operator: FilterConfigHideRuleOperator,
+    /// 非表示にする条件の値。
+    pub condition_value: i32,
 }
 
 #[cfg(test)]
