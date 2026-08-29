@@ -12,14 +12,14 @@ name = "rusty_image_rs_input"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.103"
+anyhow = "1.0.104"
 aviutl2 = { workspace = true, features = ["input", "image"] }
 duplicate = "2.0.1"
 gif = "0.14.2"
 image = "0.25.10"
-jxl = { version = "0.4.3", features = ["avx", "sse42", "tracing"] }
+jxl = { version = "0.6.0", features = ["avx", "sse42", "tracing"] }
 jxl-oxide = "0.12.6"
-ordered-float = "5.3.0"
+ordered-float = "5.5.0"
 ouroboros = "0.18.5"
 png = "0.18.1"
 

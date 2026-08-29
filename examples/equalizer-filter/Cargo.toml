@@ -12,7 +12,7 @@ name = "rusty_equalizer_filter"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.103"
+anyhow = "1.0.104"
 aviutl2.workspace = true
 biquad = "0.6.0"
 itertools = "0.15.0"

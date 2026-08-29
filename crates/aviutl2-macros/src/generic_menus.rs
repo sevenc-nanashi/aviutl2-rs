@@ -96,14 +96,14 @@ fn analyze_receiver(sig: &syn::Signature) -> Result<(bool, bool), proc_macro2::T
     let mut self_is_mut = false;
     for p in sig.inputs.iter() {
         if let syn::FnArg::Receiver(r) = p {
-            if r.reference.is_none() {
+            let syn::ReceiverKind::Reference(_and, ref _lifetime, ref mutablity) = r.kind else {
                 return Err(
                     syn::Error::new_spanned(r, "method receiver must be a reference")
                         .to_compile_error(),
                 );
-            }
+            };
             has_self = true;
-            self_is_mut = r.mutability.is_some();
+            self_is_mut = mutablity.is_some();
         }
     }
     Ok((has_self, self_is_mut))

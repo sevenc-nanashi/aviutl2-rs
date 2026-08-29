@@ -183,13 +183,14 @@ fn create_converted_body(
     for param in params.iter() {
         match param {
             syn::FnArg::Receiver(r) => {
-                if r.reference.is_none() {
+                let syn::ReceiverKind::Reference(_and, ref _lifetime, ref mutablity) = r.kind
+                else {
                     return Err(
                         syn::Error::new_spanned(r, "method receiver must be a reference")
                             .to_compile_error(),
                     );
-                }
-                receiver = if r.mutability.is_some() {
+                };
+                receiver = if mutablity.is_some() {
                     MethodReceiver::Mutable
                 } else {
                     MethodReceiver::Shared
@@ -311,13 +312,13 @@ fn parse_receiver(method: &syn::ImplItemFn) -> Result<MethodReceiver, proc_macro
     let mut receiver = MethodReceiver::None;
     for param in method.sig.inputs.iter() {
         if let syn::FnArg::Receiver(r) = param {
-            if r.reference.is_none() {
+            let syn::ReceiverKind::Reference(_and, ref _lifetime, ref mutablity) = r.kind else {
                 return Err(
                     syn::Error::new_spanned(r, "method receiver must be a reference")
                         .to_compile_error(),
                 );
-            }
-            receiver = if r.mutability.is_some() {
+            };
+            receiver = if mutablity.is_some() {
                 MethodReceiver::Mutable
             } else {
                 MethodReceiver::Shared

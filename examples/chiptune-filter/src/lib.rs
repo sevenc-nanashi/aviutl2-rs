@@ -100,8 +100,7 @@ impl FilterPlugin for ChiptuneFilter {
         let mut samples = vec![0.0; sample_num];
         let samples_per_cycle = sample_rate / frequency;
 
-        let mut sample_index = audio.audio_object.sample_index;
-        for sample in &mut samples {
+        for (sample_index, sample) in (audio.audio_object.sample_index..).zip(samples.iter_mut()) {
             let phase = (sample_index as f64 / samples_per_cycle) % 1.0;
             let value = match config.wave_type {
                 WaveType::Square => {
@@ -123,7 +122,6 @@ impl FilterPlugin for ChiptuneFilter {
                 WaveType::Noise => rand::random::<f64>() * 2.0 - 1.0,
             };
             *sample = (value * config.volume) as f32;
-            sample_index += 1;
         }
 
         for channel in 0..audio.audio_object.channel_num {

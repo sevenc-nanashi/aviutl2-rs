@@ -2155,7 +2155,7 @@ fn filter_config_field_button(
     })?;
 
     let name = with_salt(name, salt, field.ident.as_ref().unwrap());
-    let callback = if let syn::Type::BareFn(_) = &field.ty {
+    let callback = if let syn::Type::FnPtr(_) = &field.ty {
         syn::parse2(field.ident.to_token_stream())?
     } else {
         syn::parse2(field.ty.to_token_stream())?

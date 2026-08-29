@@ -20,11 +20,11 @@ default_fonts = ["eframe/default_fonts"]
 transparent_keyboard_input = []
 
 [dependencies]
-anyhow = "1.0.103"
+anyhow = "1.0.104"
 aviutl2.workspace = true
-eframe = { version = "0.35.0", default-features = false, features = ["glow", "wgpu", "persistence"] }
+eframe = { version = "0.36.1", default-features = false, features = ["glow", "wgpu", "persistence"] }
 winit = "0.30.13"
 windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
-fontdb = "0.23.0"
+fontdb = "0.24.0"
 process_path = "0.1.4"
 

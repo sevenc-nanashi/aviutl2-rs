@@ -39,7 +39,7 @@ pub fn rgb_to_bgr(data: &mut [(u8, u8, u8)]) {
 /// `data.len()` が3の倍数でない場合にパニックします。
 pub fn bgr_to_rgb_bytes(data: &mut [u8]) {
     assert!(data.len().is_multiple_of(3));
-    for chunk in data.chunks_exact_mut(3) {
+    for chunk in data.as_chunks_mut::<3>().0 {
         chunk.swap(0, 2);
     }
 }
@@ -73,7 +73,7 @@ pub fn bgra_to_rgba(data: &mut [(u8, u8, u8, u8)]) {
 /// `data.len()` が4の倍数でない場合にパニックします。
 pub fn rgba_to_bgra_bytes(data: &mut [u8]) {
     assert!(data.len().is_multiple_of(4));
-    for chunk in data.chunks_exact_mut(4) {
+    for chunk in data.as_chunks_mut::<4>().0 {
         chunk.swap(0, 2);
     }
 }

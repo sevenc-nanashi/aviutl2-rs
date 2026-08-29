@@ -205,7 +205,7 @@ fn process_frame_into_buffer(
     let decoder = {
         let mut buffers = [JxlOutputBuffer::new(img, height, bytes_per_row)];
         loop {
-            match decoder.process(input, &mut buffers)? {
+            match decoder.process(input, &mut buffers, None)? {
                 ProcessingResult::Complete { result } => break result,
                 ProcessingResult::NeedsMoreInput { fallback, .. } => {
                     anyhow::ensure!(!input.is_empty(), "Unexpected end of JXL input");
@@ -223,7 +223,7 @@ fn advance_to_image_info(
     input: &mut &[u8],
 ) -> anyhow::Result<JxlDecoder<states::WithImageInfo>> {
     loop {
-        match decoder.process(input)? {
+        match decoder.process(input, None)? {
             ProcessingResult::Complete { result } => return Ok(result),
             ProcessingResult::NeedsMoreInput { fallback, .. } => {
                 anyhow::ensure!(!input.is_empty(), "Unexpected end of JXL input");
@@ -238,7 +238,7 @@ fn advance_to_frame_info(
     input: &mut &[u8],
 ) -> anyhow::Result<JxlDecoder<states::WithFrameInfo>> {
     loop {
-        match decoder.process(input)? {
+        match decoder.process(input, None)? {
             ProcessingResult::Complete { result } => return Ok(result),
             ProcessingResult::NeedsMoreInput { fallback, .. } => {
                 anyhow::ensure!(!input.is_empty(), "Unexpected end of JXL input");

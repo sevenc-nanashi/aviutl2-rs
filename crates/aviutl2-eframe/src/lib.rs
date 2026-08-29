@@ -407,7 +407,7 @@ impl EframeWindow {
                     // eframeのデフォルトではWinit+OpenGLが使われるが、OpenGLだと終了処理でpanicするので、wgpuを使うようにする。
                     // ただし、eframeのglow featureがどこかの依存で有効化されることがあるので、
                     // `glow` feature自体は有効化しておく（eframe::App::on_exitのシグネチャが変わるため）。
-                    renderer: eframe::Renderer::Wgpu,
+                    renderer: eframe::Renderer::Glow,
                     viewport: egui::ViewportBuilder::default()
                         .with_visible(false)
                         .with_decorations(false)
