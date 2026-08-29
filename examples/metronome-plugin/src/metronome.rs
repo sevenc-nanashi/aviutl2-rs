@@ -8,16 +8,19 @@ use aviutl2::{
 pub struct MetronomeFilterConfig {
     #[track(name = "音量", range = 0.0..=1.0, step = 0.01, default = 0.8)]
     volume: f64,
+    #[separator(name = "音源設定")]
+    #[file(name = "音源A", filters = { "WAVファイル" => ["wav"] })]
+    sample_a: Option<std::path::PathBuf>,
     #[track(name = "周波数A(Hz)", range = 200.0..=2000.0, step = 1.0, default = 1000.0)]
+    #[hide(sample_a)]
     frequency_a: f64,
+    #[file(name = "音源B", filters = { "WAVファイル" => ["wav"] })]
+    sample_b: Option<std::path::PathBuf>,
     #[track(name = "周波数B(Hz)", range = 200.0..=2000.0, step = 1.0, default = 800.0)]
+    #[hide(sample_b)]
     frequency_b: f64,
     #[track(name = "長さ(ms)", range = 5.0..=200.0, step = 1.0, default = 30.0)]
     click_ms: f64,
-    #[file(name = "音源A", filters = { "WAVファイル" => ["wav"] })]
-    sample_a: Option<std::path::PathBuf>,
-    #[file(name = "音源B", filters = { "WAVファイル" => ["wav"] })]
-    sample_b: Option<std::path::PathBuf>,
 }
 
 #[aviutl2::plugin(FilterPlugin)]
