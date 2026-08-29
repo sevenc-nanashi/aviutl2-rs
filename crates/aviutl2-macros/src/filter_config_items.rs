@@ -10,12 +10,16 @@ pub fn filter_config_items(
     item.fields = expand_groups_in_fields(&item.fields)?;
 
     let name = &item.ident;
-    let fields = item
+    let mut fields = item
         .fields
         .iter()
         .map(filter_config_field)
         .collect::<crate::utils::CombinedVecResults<_>>()
-        .into_result()?;
+        .into_result()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+    resolve_hide_rule_conditions(&mut fields)?;
     validate_filter_config(&item, &fields)?;
     item.fields = clean_fields(&item.fields);
     let to_config_items = impl_to_config_items(&fields);
@@ -97,7 +101,7 @@ fn expand_groups_in_fields(fields: &syn::Fields) -> Result<syn::Fields, proc_mac
                 ));
             }
             let field_ident = &f.ident;
-            let group_start = syn::parse2::<syn::FieldsNamed>(quote::quote!({
+            let mut group_start = syn::parse2::<syn::FieldsNamed>(quote::quote!({
                 #[__internal_group_start(#group_meta)]
                 #field_ident: (),
             }))?
@@ -105,6 +109,14 @@ fn expand_groups_in_fields(fields: &syn::Fields) -> Result<syn::Fields, proc_mac
             .into_iter()
             .next()
             .unwrap();
+            group_start.attrs.extend(
+                f.attrs
+                    .iter()
+                    .filter(|attr| {
+                        attr.path().is_ident("separator") || attr.path().is_ident("hide")
+                    })
+                    .cloned(),
+            );
             let group_end = syn::parse2::<syn::FieldsNamed>(quote::quote!({
                 #[__internal_group_end]
                 __internal_group_end: (),
@@ -248,6 +260,21 @@ enum FilterConfigField {
     Separator {
         name: String,
     },
+    HideRule {
+        name: String,
+        condition_name: Option<String>,
+        condition_field_id: Option<String>,
+        condition_operator: HideRuleOperator,
+        condition_value: syn::Expr,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HideRuleOperator {
+    Equal,
+    NotEqual,
+    Greater,
+    Less,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -606,6 +633,46 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     )
                 }
             }
+            FilterConfigField::HideRule {
+                name,
+                condition_name,
+                condition_field_id: _,
+                condition_operator,
+                condition_value,
+            } => {
+                let condition_name = condition_name.as_ref().map_or_else(
+                    || quote::quote! { ::std::option::Option::None },
+                    |condition_name| {
+                        quote::quote! {
+                            ::std::option::Option::Some(#condition_name.to_string())
+                        }
+                    },
+                );
+                let condition_operator = match condition_operator {
+                    HideRuleOperator::Equal => quote::quote! {
+                        ::aviutl2::filter::FilterConfigHideRuleOperator::Equal
+                    },
+                    HideRuleOperator::NotEqual => quote::quote! {
+                        ::aviutl2::filter::FilterConfigHideRuleOperator::NotEqual
+                    },
+                    HideRuleOperator::Greater => quote::quote! {
+                        ::aviutl2::filter::FilterConfigHideRuleOperator::Greater
+                    },
+                    HideRuleOperator::Less => quote::quote! {
+                        ::aviutl2::filter::FilterConfigHideRuleOperator::Less
+                    },
+                };
+                quote::quote! {
+                    ::aviutl2::filter::FilterConfigItem::HideRule(
+                        ::aviutl2::filter::FilterConfigHideRule {
+                            name: #name.to_string(),
+                            condition_name: #condition_name,
+                            condition_operator: #condition_operator,
+                            condition_value: (#condition_value) as i32,
+                        }
+                    )
+                }
+            }
             FilterConfigField::Button {
                 id,
                 name,
@@ -855,7 +922,8 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
             }
             FilterConfigField::GroupStart { .. }
             | FilterConfigField::GroupEnd
-            | FilterConfigField::Separator { .. } => {
+            | FilterConfigField::Separator { .. }
+            | FilterConfigField::HideRule { .. } => {
                 None
             }
             FilterConfigField::Button { .. } => {
@@ -977,6 +1045,7 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
         FilterConfigField::GroupStart { .. }
         | FilterConfigField::GroupEnd
         | FilterConfigField::Separator { .. }
+        | FilterConfigField::HideRule { .. }
         | FilterConfigField::Button { .. } => None,
     });
     quote::quote! {
@@ -990,41 +1059,24 @@ fn validate_filter_config(
     item: &syn::ItemStruct,
     fields: &[FilterConfigField],
 ) -> Result<(), proc_macro2::TokenStream> {
-    assert!(item.fields.len() == fields.len());
     let field_names = fields
         .iter()
-        .map(|f| match f {
-            FilterConfigField::Track { name, .. } => name,
-            FilterConfigField::Check { name, .. } => name,
-            FilterConfigField::CheckSection { name, .. } => name,
-            FilterConfigField::Color { name, .. } => name,
-            FilterConfigField::Select { name, .. } => name,
-            FilterConfigField::File { name, .. } => name,
-            FilterConfigField::String { name, .. } => name,
-            FilterConfigField::Text { name, .. } => name,
-            FilterConfigField::Folder { name, .. } => name,
-            FilterConfigField::Data { name, .. } => name,
-            FilterConfigField::GroupStart { name, .. } => name,
-            FilterConfigField::GroupEnd => "__internal_group_end",
-            FilterConfigField::Separator { name, .. } => name,
-            // NOTE:
-            // ボタンは他のフィールドと名前が重複しても問題ないが、ボタン同士では重複してはいけない
-            // 本来はformat!("button_{}", name)のようなキーで区別するべきだが、まぁ面倒なので...
-            FilterConfigField::Button { name, .. } => name,
+        .filter_map(|field| match field {
+            FilterConfigField::GroupEnd
+            | FilterConfigField::Separator { .. }
+            | FilterConfigField::HideRule { .. } => None,
+            field => filter_config_field_name(field),
         })
         .collect::<Vec<_>>();
 
-    let mut counts = field_names.iter().counts();
-    // 終了は重複しても問題ないので除外する
-    counts.remove(&"__internal_group_end");
-
-    let errors = counts
+    let errors = field_names
+        .iter()
+        .counts()
         .into_iter()
-        .zip(item.fields.iter())
-        .filter(|((_, count), _)| *count > 1)
-        .map(|((name, count), field)| {
+        .filter(|(_, count)| *count > 1)
+        .map(|(name, count)| {
             syn::Error::new_spanned(
-                field,
+                item,
                 format!(
                     "Duplicate filter config item name `{}` found {} times",
                     name, count
@@ -1039,6 +1091,21 @@ fn validate_filter_config(
     Ok(())
 }
 
+static PRIMARY_FIELDS: &[&str] = &[
+    "track",
+    "check",
+    "checksection",
+    "color",
+    "select",
+    "file",
+    "string",
+    "text",
+    "folder",
+    "data",
+    "__internal_group_start",
+    "__internal_group_end",
+    "button",
+];
 static RECOGNIZED_FIELDS: &[&str] = &[
     "track",
     "check",
@@ -1052,23 +1119,34 @@ static RECOGNIZED_FIELDS: &[&str] = &[
     "data",
     "__internal_group_start",
     "__internal_group_end",
-    "separator",
     "button",
+    "separator",
+    "hide",
 ];
-fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Error> {
-    let recognized_fields = field
+
+fn filter_config_field(field: &syn::Field) -> Result<Vec<FilterConfigField>, syn::Error> {
+    let primary_attrs = field
         .attrs
         .iter()
         .filter(|attr| {
-            if let Some(ident) = attr.path().get_ident() {
-                RECOGNIZED_FIELDS.contains(&ident.to_string().as_str())
-            } else {
-                true
-            }
+            attr.path()
+                .get_ident()
+                .is_some_and(|ident| PRIMARY_FIELDS.contains(&ident.to_string().as_str()))
         })
         .collect::<Vec<_>>();
-    if recognized_fields.len() != 1 {
-        let recognized_fields_list_for_users = RECOGNIZED_FIELDS
+    let separator_attrs = field
+        .attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("separator"))
+        .collect::<Vec<_>>();
+    let hide_attrs = field
+        .attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("hide"))
+        .collect::<Vec<_>>();
+
+    if primary_attrs.len() > 1 {
+        let primary_fields_list_for_users = PRIMARY_FIELDS
             .iter()
             .filter(|s| !s.starts_with("__internal_"))
             .chain(std::iter::once(&"group"))
@@ -1079,12 +1157,61 @@ fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Err
             field,
             format!(
                 "Exactly one of {} is required (found {})",
-                recognized_fields_list_for_users,
-                recognized_fields.len()
+                primary_fields_list_for_users,
+                primary_attrs.len()
             ),
         ));
     }
-    let recognized_attr = &recognized_fields[0];
+    let Some(primary_attr) = primary_attrs.first().copied() else {
+        if !separator_attrs.is_empty() && hide_attrs.is_empty() {
+            return separator_attrs
+                .into_iter()
+                .map(|separator_attr| filter_config_field_separator(field, separator_attr))
+                .collect();
+        }
+        return Err(syn::Error::new_spanned(
+            field,
+            "A primary filter config attribute or a standalone `#[separator]` is required",
+        ));
+    };
+
+    let primary = parse_primary_filter_config_field(field, primary_attr)?;
+    if !hide_attrs.is_empty() && !filter_config_field_can_be_hidden(&primary) {
+        return Err(syn::Error::new_spanned(
+            hide_attrs[0],
+            "`#[hide]` can only be used on filter config items that have a value",
+        ));
+    }
+
+    let mut result = Vec::new();
+    for separator_attr in separator_attrs {
+        result.push(filter_config_field_separator(field, separator_attr)?);
+    }
+    let target_name = if hide_attrs.is_empty() {
+        None
+    } else {
+        Some(
+            filter_config_field_name(&primary)
+                .expect("hideable filter config fields must have a name")
+                .to_string(),
+        )
+    };
+    result.push(primary);
+    for hide_attr in hide_attrs {
+        result.extend(filter_config_field_hide_rules(
+            target_name
+                .as_deref()
+                .expect("hide attributes must have a target name"),
+            hide_attr,
+        )?);
+    }
+    Ok(result)
+}
+
+fn parse_primary_filter_config_field(
+    field: &syn::Field,
+    recognized_attr: &syn::Attribute,
+) -> Result<FilterConfigField, syn::Error> {
     match recognized_attr
         .path()
         .get_ident()
@@ -1104,12 +1231,11 @@ fn filter_config_field(field: &syn::Field) -> Result<FilterConfigField, syn::Err
         "data" => filter_config_field_data(field, recognized_attr),
         "__internal_group_start" => filter_config_field_group_start(field, recognized_attr),
         "__internal_group_end" => filter_config_field_group_end(field, recognized_attr),
-        "separator" => filter_config_field_separator(field, recognized_attr),
         "button" => filter_config_field_button(field, recognized_attr),
-
         _ => unreachable!(),
     }
 }
+
 fn clean_fields(fields: &syn::Fields) -> syn::Fields {
     let new_fields = fields
         .iter()
@@ -1122,10 +1248,15 @@ fn clean_fields(fields: &syn::Fields) -> syn::Fields {
                         false
                     }
                 });
-            let attr_type = recognized_attrs[0].path().get_ident().unwrap().to_string();
-            let should_delete = attr_type.starts_with("__internal_")
-                || attr_type == "separator"
-                || attr_type == "button";
+            let primary_attr = recognized_attrs.iter().find(|attr| {
+                attr.path()
+                    .get_ident()
+                    .is_some_and(|ident| PRIMARY_FIELDS.contains(&ident.to_string().as_str()))
+            });
+            let should_delete = primary_attr.is_none_or(|attr| {
+                let attr_type = attr.path().get_ident().unwrap().to_string();
+                attr_type.starts_with("__internal_") || attr_type == "button"
+            });
             if should_delete {
                 None
             } else {
@@ -1149,6 +1280,211 @@ fn clean_fields(fields: &syn::Fields) -> syn::Fields {
         }),
         syn::Fields::Unit => syn::Fields::Unit,
     }
+}
+
+fn filter_config_field_name(field: &FilterConfigField) -> Option<&str> {
+    match field {
+        FilterConfigField::Track { name, .. }
+        | FilterConfigField::Check { name, .. }
+        | FilterConfigField::CheckSection { name, .. }
+        | FilterConfigField::Color { name, .. }
+        | FilterConfigField::Select { name, .. }
+        | FilterConfigField::File { name, .. }
+        | FilterConfigField::String { name, .. }
+        | FilterConfigField::Text { name, .. }
+        | FilterConfigField::Folder { name, .. }
+        | FilterConfigField::Data { name, .. }
+        | FilterConfigField::Button { name, .. }
+        | FilterConfigField::GroupStart { name, .. }
+        | FilterConfigField::Separator { name }
+        | FilterConfigField::HideRule { name, .. } => Some(name),
+        FilterConfigField::GroupEnd => None,
+    }
+}
+
+fn filter_config_field_can_be_hidden(field: &FilterConfigField) -> bool {
+    matches!(
+        field,
+        FilterConfigField::Track { .. }
+            | FilterConfigField::Check { .. }
+            | FilterConfigField::CheckSection { .. }
+            | FilterConfigField::Color { .. }
+            | FilterConfigField::Select { .. }
+            | FilterConfigField::File { .. }
+            | FilterConfigField::String { .. }
+            | FilterConfigField::Text { .. }
+            | FilterConfigField::Folder { .. }
+            | FilterConfigField::Data { .. }
+    )
+}
+
+fn filter_config_condition_source(field: &FilterConfigField) -> Option<(&str, &str, bool)> {
+    match field {
+        FilterConfigField::Track { id, name, .. }
+        | FilterConfigField::CheckSection { id, name, .. }
+        | FilterConfigField::Color { id, name, .. }
+        | FilterConfigField::String { id, name, .. }
+        | FilterConfigField::Text { id, name, .. }
+        | FilterConfigField::Data { id, name, .. }
+        | FilterConfigField::Button { id, name, .. } => Some((id, name, false)),
+        FilterConfigField::Check { id, name, .. }
+        | FilterConfigField::Select { id, name, .. }
+        | FilterConfigField::File { id, name, .. }
+        | FilterConfigField::Folder { id, name, .. } => Some((id, name, true)),
+        FilterConfigField::GroupStart { .. }
+        | FilterConfigField::GroupEnd
+        | FilterConfigField::Separator { .. }
+        | FilterConfigField::HideRule { .. } => None,
+    }
+}
+
+fn resolve_hide_rule_conditions(
+    fields: &mut [FilterConfigField],
+) -> Result<(), proc_macro2::TokenStream> {
+    let condition_sources = fields
+        .iter()
+        .filter_map(filter_config_condition_source)
+        .map(|(id, name, supported)| (id.to_string(), (name.to_string(), supported)))
+        .collect::<std::collections::HashMap<_, _>>();
+
+    for field in fields {
+        let FilterConfigField::HideRule {
+            condition_name,
+            condition_field_id: Some(condition_field_id),
+            ..
+        } = field
+        else {
+            continue;
+        };
+        let Some((resolved_name, supported)) = condition_sources.get(condition_field_id) else {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                format!("Unknown hide condition field `{condition_field_id}`"),
+            )
+            .to_compile_error());
+        };
+        if !supported {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                format!(
+                    "Filter config field `{condition_field_id}` cannot be used as a hide condition"
+                ),
+            )
+            .to_compile_error());
+        }
+        *condition_name = Some(resolved_name.clone());
+    }
+    Ok(())
+}
+
+enum HideRuleSource {
+    Field(syn::Ident),
+    Filter,
+}
+
+struct ParsedHideRule {
+    source: HideRuleSource,
+    operators: Vec<HideRuleOperator>,
+    value: syn::Expr,
+}
+
+impl Parse for ParsedHideRule {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let negated = if input.peek(syn::Token![!]) {
+            input.parse::<syn::Token![!]>()?;
+            true
+        } else {
+            false
+        };
+        let source = if input.peek(syn::Token![$]) {
+            input.parse::<syn::Token![$]>()?;
+            let ident = input.parse::<syn::Ident>()?;
+            if ident != "filter" {
+                return Err(syn::Error::new_spanned(ident, "Expected `$filter`"));
+            }
+            HideRuleSource::Filter
+        } else {
+            HideRuleSource::Field(input.parse::<syn::Ident>()?)
+        };
+
+        if input.is_empty() {
+            let value = if negated {
+                syn::parse_quote!(false)
+            } else {
+                syn::parse_quote!(true)
+            };
+            return Ok(Self {
+                source,
+                operators: vec![HideRuleOperator::Equal],
+                value,
+            });
+        }
+        if negated {
+            return Err(input.error("Negated hide conditions cannot have a comparison operator"));
+        }
+
+        let operators = if input.peek(syn::Token![>=]) {
+            input.parse::<syn::Token![>=]>()?;
+            vec![HideRuleOperator::Greater, HideRuleOperator::Equal]
+        } else if input.peek(syn::Token![<=]) {
+            input.parse::<syn::Token![<=]>()?;
+            vec![HideRuleOperator::Less, HideRuleOperator::Equal]
+        } else if input.peek(syn::Token![==]) {
+            input.parse::<syn::Token![==]>()?;
+            vec![HideRuleOperator::Equal]
+        } else if input.peek(syn::Token![!=]) {
+            input.parse::<syn::Token![!=]>()?;
+            vec![HideRuleOperator::NotEqual]
+        } else if input.peek(syn::Token![>]) {
+            input.parse::<syn::Token![>]>()?;
+            vec![HideRuleOperator::Greater]
+        } else if input.peek(syn::Token![<]) {
+            input.parse::<syn::Token![<]>()?;
+            vec![HideRuleOperator::Less]
+        } else {
+            return Err(input.error("Expected `==`, `!=`, `>`, `<`, `>=`, or `<=`"));
+        };
+        let value = input.parse::<syn::Expr>()?;
+        if !input.is_empty() {
+            return Err(input.error("Unexpected tokens after hide condition value"));
+        }
+        Ok(Self {
+            source,
+            operators,
+            value,
+        })
+    }
+}
+
+fn filter_config_field_hide_rules(
+    target_name: &str,
+    attr: &syn::Attribute,
+) -> Result<Vec<FilterConfigField>, syn::Error> {
+    if matches!(attr.meta, syn::Meta::Path(_)) {
+        return Ok(vec![FilterConfigField::HideRule {
+            name: target_name.to_string(),
+            condition_name: None,
+            condition_field_id: None,
+            condition_operator: HideRuleOperator::Equal,
+            condition_value: syn::parse_quote!(0),
+        }]);
+    }
+    let parsed = attr.parse_args::<ParsedHideRule>()?;
+    let (condition_name, condition_field_id) = match parsed.source {
+        HideRuleSource::Field(ident) => (None, Some(ident.to_string())),
+        HideRuleSource::Filter => (Some("filter".to_string()), None),
+    };
+    Ok(parsed
+        .operators
+        .into_iter()
+        .map(|condition_operator| FilterConfigField::HideRule {
+            name: target_name.to_string(),
+            condition_name: condition_name.clone(),
+            condition_field_id: condition_field_id.clone(),
+            condition_operator,
+            condition_value: parsed.value.clone(),
+        })
+        .collect())
 }
 
 fn filter_config_field_track(
@@ -2163,6 +2499,230 @@ mod tests {
         };
         let output = filter_config_items(input).unwrap();
         insta::assert_snapshot!(rustfmt_wrapper::rustfmt(output).unwrap());
+    }
+
+    #[test]
+    fn test_multiple_separators() {
+        use aviutl2::filter::{FilterConfigItem, FilterConfigItems};
+
+        #[aviutl2::filter::filter_config_items]
+        struct Config {
+            #[separator(name = "Standalone 1")]
+            #[separator(name = "Standalone 2")]
+            standalone_separators: (),
+
+            #[separator(name = "Before Check 1")]
+            #[separator(name = "Before Check 2")]
+            #[check(name = "Enable", default = true)]
+            enable: bool,
+        }
+
+        let items = Config::to_config_items();
+        assert_eq!(items.len(), 5);
+        assert_eq!(items[0].name(), "Standalone 1");
+        assert_eq!(items[1].name(), "Standalone 2");
+        assert_eq!(items[2].name(), "Before Check 1");
+        assert_eq!(items[3].name(), "Before Check 2");
+        assert!(matches!(items[4], FilterConfigItem::Checkbox(_)));
+
+        let config = Config::from_config_items(&items);
+        assert!(config.enable);
+    }
+
+    #[test]
+    fn test_separator_with_other_fields() {
+        use aviutl2::filter::{FilterConfigItem, FilterConfigItems};
+
+        fn on_button_pressed(
+            _handle: &mut aviutl2::generic::EditSection,
+        ) -> aviutl2::AnyResult<()> {
+            Ok(())
+        }
+
+        #[aviutl2::filter::filter_config_items]
+        struct Config {
+            #[separator(name = "Before Track")]
+            #[track(name = "Frequency", range = 20..=20_000, step = 1, default = 440)]
+            frequency: i32,
+
+            #[separator(name = "Before Button")]
+            #[button(name = "Apply")]
+            apply: on_button_pressed,
+
+            #[separator(name = "Before Group")]
+            #[group(name = "Advanced", opened = true)]
+            advanced: group! {
+                #[check(name = "Enable", default = true)]
+                enable: bool,
+            },
+        }
+
+        let items = Config::to_config_items();
+        assert!(matches!(items[0], FilterConfigItem::Separator(_)));
+        assert!(matches!(items[1], FilterConfigItem::Track(_)));
+        assert!(matches!(items[2], FilterConfigItem::Separator(_)));
+        assert!(matches!(items[3], FilterConfigItem::Button(_)));
+        assert!(matches!(items[4], FilterConfigItem::Separator(_)));
+        assert!(matches!(items[5], FilterConfigItem::Group(_)));
+        assert!(matches!(items[6], FilterConfigItem::Checkbox(_)));
+
+        let config = Config::from_config_items(&items);
+        assert_eq!(config.frequency, 440);
+        assert!(config.enable);
+    }
+
+    #[test]
+    fn test_hide_behavior() {
+        use aviutl2::filter::{FilterConfigHideRuleOperator, FilterConfigItem, FilterConfigItems};
+
+        #[derive(Debug, PartialEq, Eq, aviutl2::filter::FilterConfigSelectItems)]
+        enum Mode {
+            Basic,
+            Advanced = 4,
+        }
+
+        #[aviutl2::filter::filter_config_items]
+        struct Config {
+            #[check(name = "Enabled", salt = "General", default = true)]
+            enabled: bool,
+
+            #[select(name = "Mode", items = Mode, default = Mode::Basic)]
+            mode: Mode,
+
+            #[separator(name = "Advanced")]
+            #[hide(!enabled)]
+            #[hide(mode >= Mode::Advanced)]
+            #[hide($filter == false)]
+            #[track(name = "Gain", range = 0..=100, step = 1, default = 50)]
+            gain: i32,
+
+            #[hide]
+            #[string(name = "Always Hidden", default = "hidden")]
+            always_hidden: String,
+        }
+
+        let items = Config::to_config_items();
+        assert_eq!(items.len(), 10);
+        assert!(matches!(items[0], FilterConfigItem::Checkbox(_)));
+        assert!(matches!(items[1], FilterConfigItem::Select(_)));
+        assert!(matches!(items[2], FilterConfigItem::Separator(_)));
+        assert!(matches!(items[3], FilterConfigItem::Track(_)));
+
+        let hide_rules =
+            [&items[4], &items[5], &items[6], &items[7], &items[9]].map(|item| match item {
+                FilterConfigItem::HideRule(rule) => rule,
+                _ => panic!("expected HideRule"),
+            });
+        assert_eq!(hide_rules[0].name, "Gain");
+        assert_eq!(
+            hide_rules[0].condition_name.as_deref(),
+            Some("General::Enabled")
+        );
+        assert_eq!(
+            hide_rules[0].condition_operator,
+            FilterConfigHideRuleOperator::Equal
+        );
+        assert_eq!(hide_rules[0].condition_value, 0);
+        assert_eq!(hide_rules[1].condition_name.as_deref(), Some("Mode"));
+        assert_eq!(
+            hide_rules[1].condition_operator,
+            FilterConfigHideRuleOperator::Greater
+        );
+        assert_eq!(hide_rules[1].condition_value, Mode::Advanced as i32);
+        assert_eq!(
+            hide_rules[2].condition_operator,
+            FilterConfigHideRuleOperator::Equal
+        );
+        assert_eq!(hide_rules[2].condition_value, Mode::Advanced as i32);
+        assert_eq!(hide_rules[3].condition_name.as_deref(), Some("filter"));
+        assert_eq!(hide_rules[3].condition_value, 0);
+        assert_eq!(hide_rules[4].name, "Always Hidden");
+        assert_eq!(hide_rules[4].condition_name, None);
+
+        let config = Config::from_config_items(&items);
+        assert!(config.enabled);
+        assert_eq!(config.mode, Mode::Basic);
+        assert_eq!(config.gain, 50);
+        assert_eq!(config.always_hidden, "hidden");
+    }
+
+    #[test]
+    fn test_hide_operators_and_forward_reference() {
+        use aviutl2::filter::{FilterConfigHideRuleOperator, FilterConfigItem, FilterConfigItems};
+
+        #[aviutl2::filter::filter_config_items]
+        struct Config {
+            #[hide(condition == false)]
+            #[hide(condition != true)]
+            #[hide(condition > false)]
+            #[hide(condition < true)]
+            #[hide(condition <= true)]
+            #[string(name = "Target")]
+            target: String,
+
+            #[check(name = "Condition", default = true)]
+            condition: bool,
+        }
+
+        let items = Config::to_config_items();
+        let operators = items[1..=6]
+            .iter()
+            .map(|item| match item {
+                FilterConfigItem::HideRule(rule) => {
+                    assert_eq!(rule.condition_name.as_deref(), Some("Condition"));
+                    rule.condition_operator
+                }
+                _ => panic!("expected HideRule"),
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            operators,
+            vec![
+                FilterConfigHideRuleOperator::Equal,
+                FilterConfigHideRuleOperator::NotEqual,
+                FilterConfigHideRuleOperator::Greater,
+                FilterConfigHideRuleOperator::Less,
+                FilterConfigHideRuleOperator::Less,
+                FilterConfigHideRuleOperator::Equal,
+            ]
+        );
+        assert!(matches!(items[7], FilterConfigItem::Checkbox(_)));
+
+        let config = Config::from_config_items(&items);
+        assert_eq!(config.target, "");
+        assert!(config.condition);
+    }
+
+    #[test]
+    fn test_hide_validation() {
+        let unknown_source = quote::quote! {
+            struct Config {
+                #[hide(unknown)]
+                #[check(name = "Enable", default = true)]
+                enable: bool,
+            }
+        };
+        assert!(filter_config_items(unknown_source).is_err());
+
+        let unsupported_source = quote::quote! {
+            struct Config {
+                #[track(name = "Value", range = 0..=100, step = 1, default = 0)]
+                value: i32,
+                #[hide(value)]
+                #[check(name = "Enable", default = true)]
+                enable: bool,
+            }
+        };
+        assert!(filter_config_items(unsupported_source).is_err());
+
+        let invalid_target = quote::quote! {
+            struct Config {
+                #[hide($filter)]
+                #[button(name = "Apply")]
+                apply: on_button_pressed,
+            }
+        };
+        assert!(filter_config_items(invalid_target).is_err());
     }
 
     #[test]

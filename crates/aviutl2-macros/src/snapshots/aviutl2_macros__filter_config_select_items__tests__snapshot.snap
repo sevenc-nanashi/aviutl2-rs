@@ -8,28 +8,28 @@ impl ::aviutl2::filter::FilterConfigSelectItems for MySelectItem {
         vec![
             ::aviutl2::filter::FilterConfigSelectItem {
                 name: "Hoge".to_string(),
-                value: const { 0 },
+                value: Self::Hoge as i32,
             },
             ::aviutl2::filter::FilterConfigSelectItem {
                 name: "Fuga".to_string(),
-                value: const { 0 + 1 },
+                value: Self::Fuga as i32,
             },
             ::aviutl2::filter::FilterConfigSelectItem {
                 name: "Foo".to_string(),
-                value: const { 42 },
+                value: Self::Foo as i32,
             },
             ::aviutl2::filter::FilterConfigSelectItem {
                 name: "Bar".to_string(),
-                value: const { 42 + 1 },
+                value: Self::Bar as i32,
             },
         ]
     }
     fn from_select_item_value(value: i32) -> Self {
         match value {
-            _ if value == (const { 0 }) => Self::Hoge,
-            _ if value == (const { 0 + 1 }) => Self::Fuga,
-            _ if value == (const { 42 }) => Self::Foo,
-            _ if value == (const { 42 + 1 }) => Self::Bar,
+            _ if value == Self::Hoge as i32 => Self::Hoge,
+            _ if value == Self::Fuga as i32 => Self::Fuga,
+            _ if value == Self::Foo as i32 => Self::Foo,
+            _ if value == Self::Bar as i32 => Self::Bar,
             _ => {
                 panic!("Invalid value for {}", stringify!(MySelectItem))
             }
@@ -37,10 +37,10 @@ impl ::aviutl2::filter::FilterConfigSelectItems for MySelectItem {
     }
     fn to_select_item_value(&self) -> i32 {
         match self {
-            Self::Hoge => (const { 0 }),
-            Self::Fuga => (const { 0 + 1 }),
-            Self::Foo => (const { 42 }),
-            Self::Bar => (const { 42 + 1 }),
+            Self::Hoge => Self::Hoge as i32,
+            Self::Fuga => Self::Fuga as i32,
+            Self::Foo => Self::Foo as i32,
+            Self::Bar => Self::Bar as i32,
         }
     }
 }

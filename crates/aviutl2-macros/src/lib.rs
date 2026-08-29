@@ -261,9 +261,32 @@ mod utils;
 ///   - `group! { ... }`の中には他のフィールドを同様に記述します。
 /// - このフィールドは削除されます。
 ///
+/// ## `separator`
+///
+/// ```rust
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[separator(name = "サンプルセパレーター")]
+/// separator: (),
+/// #[separator(name = "サンプルセパレーター2")]
+/// #[track(name = "サンプル整数", range = 0..=100, default = 50, step = 1.0)]
+/// separator_with_field: i32,
+/// # }
+/// ```
+///
+/// セパレーターを挿入します。
+///
+/// - `name`: セパレーターの名前。省略した場合、フィールド名が使用されます。
+///
+/// - `separator`属性は複数指定することができます。
+/// - この属性のみが指定されているフィールドは削除されます。
+/// - この属性と他の属性が同時に指定されているフィールドは、このフィールドの上にセパレーターが挿入されます。
+///
 /// ## `button`
 ///
-/// ```rust,ignore
+/// ```rust
+/// # fn on_button_pressed(handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()>
+/// # { unimplemented!() }
 /// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
 /// #[button(name = "サンプルボタン")]
@@ -286,6 +309,42 @@ mod utils;
 /// ```
 ///
 /// - このフィールドは削除されます。
+///
+/// ## `hide`
+///
+/// ```rust
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[check(name = "サンプルチェックボックス", default = true)]
+/// sample_checkbox: bool,
+/// #[hide(sample_checkbox == false)]
+/// #[track(name = "サンプル整数", range = 0..=100, default = 50, step = 1.0)]
+/// hide_field: i32,
+///
+/// #[hide(!sample_checkbox)]
+/// #[hide($filter)]
+/// #[check(name = "サンプルチェックボックス2", default = true)]
+/// sample_checkbox2: bool,
+///
+/// #[hide]
+/// #[track(name = "サンプル整数2", range = 0..=100, default = 50, step = 1.0)]
+/// hide_field2: i32,
+/// # }
+/// ```
+///
+/// 非表示条件を指定します。
+///
+/// - `hide`属性は複数指定することができます。
+/// - `hide`属性は値を持つフィールドにのみ指定できます。
+/// - `hide`単体を指定した場合は常に非表示になります。
+/// - 複数指定された場合はいずれかの条件を満たすと非表示になります。
+/// - 非表示条件は対象フィールド・演算子・値の組み合わせで指定します。
+///   - 対象フィールドはフィールド名または`$filter`を使用して指定します。
+///     - `$filter`はフィルタオブジェクトかどうかを判定します。
+///   - 演算子は`==`、`!=`、`>`、`<`、`>=`、`<=`のいずれかを使用します。
+///     - `<=`、`>=`は内部的には`<`、`>`と`==`に展開されます。
+///   - 比較値は`as i32`で変換可能な型である必要があります。
+///   - 短縮記法として、`field`は`field == true`、`!field`は`field == false`に展開されます。
 ///
 /// # Example
 ///

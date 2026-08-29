@@ -100,8 +100,10 @@ pub(crate) enum FilterConfigItemValue {
         size: usize,
     },
     Group,
+    Separator,
     Button,
     TrackGroup,
+    HideRule,
 }
 
 impl FilterConfigItem {
@@ -378,12 +380,14 @@ impl FilterConfigItem {
                 }
             }
             "group" => FilterConfigItemValue::Group,
+            "separator" => FilterConfigItemValue::Separator,
             "button" => FilterConfigItemValue::Button,
             "checksection" | "checksection2" => {
                 let raw_check_section = unsafe { &(*raw).check_section };
                 FilterConfigItemValue::CheckSection(raw_check_section.value)
             }
             "trackgroup" => FilterConfigItemValue::TrackGroup,
+            "hiderule" => FilterConfigItemValue::HideRule,
             _ => panic!("Unknown filter config item type: {}", item_type),
         }
     }
@@ -430,11 +434,13 @@ impl FilterConfigItem {
                 size_changed || ptr_changed || binding_changed
             }
             (FilterConfigItem::Group(_), FilterConfigItemValue::Group) => false,
+            (FilterConfigItem::Separator(_), FilterConfigItemValue::Separator) => false,
             (FilterConfigItem::Button(_), FilterConfigItemValue::Button) => false,
             (FilterConfigItem::CheckSection(item), FilterConfigItemValue::CheckSection(v)) => {
                 item.value != v
             }
             (FilterConfigItem::TrackGroup(_), FilterConfigItemValue::TrackGroup) => false,
+            (FilterConfigItem::HideRule(_), FilterConfigItemValue::HideRule) => false,
             _ => {
                 panic!("Mismatched filter config item type");
             }
@@ -486,6 +492,9 @@ impl FilterConfigItem {
             (FilterConfigItem::Group(_), FilterConfigItemValue::Group) => {
                 // グループは値を持たないので何もしない
             }
+            (FilterConfigItem::Separator(_), FilterConfigItemValue::Separator) => {
+                // セパレーターは値を持たないので何もしない
+            }
             (FilterConfigItem::Button(_), FilterConfigItemValue::Button) => {
                 // ボタンは値を持たないので何もしない
             }
@@ -494,6 +503,9 @@ impl FilterConfigItem {
             }
             (FilterConfigItem::TrackGroup(_), FilterConfigItemValue::TrackGroup) => {
                 // トラックバーグループは値を持たないので何もしない
+            }
+            (FilterConfigItem::HideRule(_), FilterConfigItemValue::HideRule) => {
+                // 非表示条件は値を持たないので何もしない
             }
             _ => {
                 panic!("Mismatched filter config item type");
@@ -1548,6 +1560,28 @@ pub struct FilterConfigHideRule {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn value_less_filter_config_items_are_no_op_when_applying_raw_values() {
+        let leak_manager = LeakManager::new();
+        let mut items = [
+            FilterConfigItem::Separator(FilterConfigSeparator {
+                name: "Separator".to_string(),
+            }),
+            FilterConfigItem::HideRule(FilterConfigHideRule {
+                name: "Target".to_string(),
+                condition_name: None,
+                condition_operator: FilterConfigHideRuleOperator::Equal,
+                condition_value: 0,
+            }),
+        ];
+
+        for item in &mut items {
+            let raw = item.to_raw(&leak_manager);
+            assert!(!unsafe { item.should_apply_from_raw(&raw) });
+            unsafe { item.apply_from_raw(&raw) };
+        }
+    }
 
     #[test]
     fn filter_config_data_handle_reads_initial_value() {

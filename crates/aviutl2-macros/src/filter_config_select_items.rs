@@ -1,12 +1,6 @@
-struct BaseEnumVariant {
-    ident: syn::Ident,
-    name: Option<String>,
-    discriminant: Option<syn::Expr>,
-}
 struct EnumVariant {
     ident: syn::Ident,
     name: String,
-    discriminant: syn::Expr,
 }
 
 pub fn filter_config_select_items(
@@ -26,8 +20,6 @@ pub fn filter_config_select_items(
                 .into_compile_error(),
         );
     }
-    let variants = parse_enum_variants(&variants).map_err(|e| e.to_compile_error())?;
-
     let to_select_items = impl_to_select_items(&variants)?;
     let from_select_item_value = impl_from_select_item_value(&name, &variants)?;
     let to_select_item_value = impl_to_select_item_value(&variants)?;
@@ -44,7 +36,7 @@ pub fn filter_config_select_items(
     Ok(expanded)
 }
 
-fn parse_enum_variant(variant: &syn::Variant) -> Result<BaseEnumVariant, syn::Error> {
+fn parse_enum_variant(variant: &syn::Variant) -> Result<EnumVariant, syn::Error> {
     let ident = variant.ident.clone();
     let name = variant
         .attrs
@@ -68,7 +60,6 @@ fn parse_enum_variant(variant: &syn::Variant) -> Result<BaseEnumVariant, syn::Er
             .ok()
         });
 
-    let discriminant = variant.discriminant.as_ref().map(|(_, expr)| expr.clone());
     if !variant.fields.is_empty() {
         return Err(syn::Error::new_spanned(
             variant,
@@ -76,39 +67,10 @@ fn parse_enum_variant(variant: &syn::Variant) -> Result<BaseEnumVariant, syn::Er
         ));
     }
 
-    Ok(BaseEnumVariant {
+    Ok(EnumVariant {
         ident,
-        name,
-        discriminant,
+        name: name.unwrap_or_else(|| variant.ident.to_string()),
     })
-}
-
-fn parse_enum_variants(variants: &[BaseEnumVariant]) -> Result<Vec<EnumVariant>, syn::Error> {
-    let mut result = Vec::new();
-    let mut last_value = None;
-
-    for variant in variants {
-        let name = if let Some(name) = &variant.name {
-            name.clone()
-        } else {
-            variant.ident.to_string()
-        };
-        let discriminant = if let Some(discriminant) = &variant.discriminant {
-            discriminant.clone()
-        } else if let Some(last) = &last_value {
-            syn::parse_quote! { #last + 1 }
-        } else {
-            syn::parse_quote! { 0 }
-        };
-        last_value = Some(discriminant.clone());
-        result.push(EnumVariant {
-            ident: variant.ident.clone(),
-            name,
-            discriminant,
-        });
-    }
-
-    Ok(result)
 }
 
 fn impl_to_select_items(
@@ -118,11 +80,11 @@ fn impl_to_select_items(
 
     for variant in variants {
         let name = &variant.name;
-        let discriminant = &variant.discriminant;
+        let ident = &variant.ident;
         items.push(quote::quote! {
             ::aviutl2::filter::FilterConfigSelectItem {
                 name: #name.to_string(),
-                value: const { #discriminant },
+                value: Self::#ident as i32,
             }
         });
     }
@@ -146,9 +108,8 @@ fn impl_from_select_item_value(
 
     for variant in variants {
         let ident = &variant.ident;
-        let discriminant = &variant.discriminant;
         match_arms.push(quote::quote! {
-            _ if value == (const { #discriminant }) => {
+            _ if value == Self::#ident as i32 => {
                 Self::#ident
             }
         });
@@ -175,9 +136,8 @@ fn impl_to_select_item_value(
 
     for variant in variants {
         let ident = &variant.ident;
-        let discriminant = &variant.discriminant;
         match_arms.push(quote::quote! {
-            Self::#ident => (const { #discriminant }),
+            Self::#ident => Self::#ident as i32,
         });
     }
 

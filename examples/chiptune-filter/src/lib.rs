@@ -39,6 +39,7 @@ struct FilterConfig {
         default = WaveType::Square
     )]
     wave_type: WaveType,
+    #[hide(wave_type == WaveType::Noise)]
     #[select(
         name = "周波数モード",
         items = FrequencyMode,
@@ -46,31 +47,20 @@ struct FilterConfig {
     )]
     freq_mode: FrequencyMode,
     #[track(name = "MIDIノート", range = 0..=127, step = 1.0, default = 60)]
+    #[hide(freq_mode != FrequencyMode::MidiNote)]
+    #[hide(wave_type == WaveType::Noise)]
     midi_note: f64,
     #[track(name = "周波数（Hz）", range = 20.0..=20000.0, step = 1.0, default = 440.0)]
+    #[hide(freq_mode != FrequencyMode::FrequencyHz)]
+    #[hide(wave_type == WaveType::Noise)]
     frequency: f64,
-}
-
-struct Synthesizer {
-    phase: f64,
-}
-impl Synthesizer {
-    fn new() -> Self {
-        Self { phase: 0.0 }
-    }
-}
-
-impl aviutl2::filter::FilterUserdata for Synthesizer {
-    fn new(_effect_id: i64) -> Self {
-        Self::new()
-    }
 }
 
 #[aviutl2::plugin(FilterPlugin)]
 struct ChiptuneFilter;
 
 impl FilterPlugin for ChiptuneFilter {
-    type Userdata = Synthesizer;
+    type Userdata = ();
 
     fn new(_info: aviutl2::AviUtl2Info) -> AnyResult<Self> {
         Ok(Self)
@@ -98,7 +88,6 @@ impl FilterPlugin for ChiptuneFilter {
         audio: &mut FilterProcAudio<Self::Userdata>,
     ) -> AnyResult<()> {
         let config: FilterConfig = config.to_struct();
-        let mut synthesizer = audio.userdata.write();
 
         let sample_rate = audio.scene.sample_rate as f64;
         let sample_num = audio.audio_object.sample_num as usize;
@@ -108,11 +97,12 @@ impl FilterPlugin for ChiptuneFilter {
             config.frequency
         };
 
-        let mut left = vec![0.0; sample_num];
-        let mut right = vec![0.0; sample_num];
+        let mut samples = vec![0.0; sample_num];
+        let samples_per_cycle = sample_rate / frequency;
 
-        let mut phase = synthesizer.phase;
-        for i in 0..sample_num {
+        let mut sample_index = audio.audio_object.sample_index;
+        for sample in &mut samples {
+            let phase = (sample_index as f64 / samples_per_cycle) % 1.0;
             let value = match config.wave_type {
                 WaveType::Square => {
                     if phase < 0.5 {
@@ -132,19 +122,13 @@ impl FilterPlugin for ChiptuneFilter {
                 WaveType::Sine => (phase * 2.0 * std::f64::consts::PI).sin(),
                 WaveType::Noise => rand::random::<f64>() * 2.0 - 1.0,
             };
-            left[i] = (value * config.volume) as f32;
-            right[i] = (value * config.volume) as f32;
-
-            phase += frequency / sample_rate;
-            if phase >= 1.0 {
-                phase -= 1.0;
-            }
+            *sample = (value * config.volume) as f32;
+            sample_index += 1;
         }
 
-        synthesizer.phase = phase;
-
-        audio.set_sample_data(aviutl2::filter::AudioChannel::Left, &left);
-        audio.set_sample_data(aviutl2::filter::AudioChannel::Right, &right);
+        for channel in 0..audio.audio_object.channel_num {
+            audio.set_sample_data(aviutl2::filter::AudioChannel::Any(channel as i32), &samples);
+        }
 
         Ok(())
     }
