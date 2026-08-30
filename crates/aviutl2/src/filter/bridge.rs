@@ -274,20 +274,6 @@ fn create_table_impl<T: FilterSingleton>(
     let name = plugin_info.name.clone();
     let information = plugin_info.information.clone();
 
-    // 2.1.7時点ではHideRuleを末尾に置かないとAviUtl2がバグる
-    let first_hide_rule_index = plugin_info
-        .config_items
-        .iter()
-        .position(|item| matches!(item, crate::filter::FilterConfigItem::HideRule(_)));
-    if let Some(index) = first_hide_rule_index {
-        assert!(
-            plugin_info.config_items[index..]
-                .iter()
-                .all(|item| matches!(item, crate::filter::FilterConfigItem::HideRule(_))),
-            "HideRule must be at the end of config_items (AviUtl2 2.1.7 bug)"
-        );
-    }
-
     let config_items = plugin_info
         .config_items
         .iter()
@@ -302,7 +288,6 @@ fn create_table_impl<T: FilterSingleton>(
     plugin_state
         .config_pointers
         .push(std::ptr::null::<aviutl2_sys::filter2::FILTER_ITEM>());
-
     let config_items = plugin_state.global_leak_manager.leak_value_vec(
         plugin_state
             .config_pointers

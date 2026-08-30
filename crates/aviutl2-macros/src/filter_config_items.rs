@@ -20,9 +20,6 @@ pub fn filter_config_items(
         .flatten()
         .collect::<Vec<_>>();
     resolve_hide_rule_conditions(&mut fields)?;
-    // NOTE: HideRuleはAviUtl2 2.1.7だと末尾以外に置いたときに正しく動作しないため、末尾に移動する
-    // TODO: 2.1.7aや2.1.8が出たらこのワークアラウンドを消す（git blameでrevertしてあげればいいはず）
-    fields.sort_by_key(|field| matches!(field, FilterConfigField::HideRule { .. }));
     validate_filter_config(&item, &fields)?;
     item.fields = clean_fields(&item.fields);
     let to_config_items = impl_to_config_items(&fields);
@@ -736,11 +733,6 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
             }
         })
         .collect::<Vec<_>>();
-    let hide_rule_start = fields
-        .iter()
-        .position(|field| matches!(field, FilterConfigField::HideRule { .. }))
-        .unwrap_or(fields.len());
-    let (to_filter_config_fields, hide_rules) = to_filter_config_fields.split_at(hide_rule_start);
     let track_groups = track_groups
         .into_iter()
         .map(|(name, tracks)| {
@@ -759,8 +751,7 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
         fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
             return vec![
                 #(#to_filter_config_fields,)*
-                #(#track_groups,)*
-                #(#hide_rules),*
+                #(#track_groups),*
             ];
 
             #(#button_callbacks)*
@@ -2609,7 +2600,7 @@ mod tests {
             #[hide(!enabled)]
             #[hide(mode >= Mode::Advanced)]
             #[hide($filter == false)]
-            #[track(name = "Gain", group = "Advanced", range = 0..=100, step = 1, default = 50)]
+            #[track(name = "Gain", range = 0..=100, step = 1, default = 50)]
             gain: i32,
 
             #[hide]
@@ -2618,21 +2609,17 @@ mod tests {
         }
 
         let items = Config::to_config_items();
-        assert_eq!(items.len(), 11);
+        assert_eq!(items.len(), 10);
         assert!(matches!(items[0], FilterConfigItem::Check(_)));
         assert!(matches!(items[1], FilterConfigItem::Select(_)));
         assert!(matches!(items[2], FilterConfigItem::Separator(_)));
         assert!(matches!(items[3], FilterConfigItem::Track(_)));
-        assert!(matches!(items[4], FilterConfigItem::String(_)));
-        assert!(matches!(items[5], FilterConfigItem::TrackGroup(_)));
 
-        let hide_rules = items[6..]
-            .iter()
-            .map(|item| match item {
+        let hide_rules =
+            [&items[4], &items[5], &items[6], &items[7], &items[9]].map(|item| match item {
                 FilterConfigItem::HideRule(rule) => rule,
                 _ => panic!("expected HideRule"),
-            })
-            .collect::<Vec<_>>();
+            });
         assert_eq!(hide_rules[0].name, "Gain");
         assert_eq!(
             hide_rules[0].condition_name.as_deref(),
@@ -2685,9 +2672,7 @@ mod tests {
         }
 
         let items = Config::to_config_items();
-        assert!(matches!(items[0], FilterConfigItem::String(_)));
-        assert!(matches!(items[1], FilterConfigItem::Check(_)));
-        let operators = items[2..]
+        let operators = items[1..=6]
             .iter()
             .map(|item| match item {
                 FilterConfigItem::HideRule(rule) => {
@@ -2708,6 +2693,8 @@ mod tests {
                 FilterConfigHideRuleOperator::Equal,
             ]
         );
+        assert!(matches!(items[7], FilterConfigItem::Check(_)));
+
         let config = Config::from_config_items(&items);
         assert_eq!(config.target, "");
         assert!(config.condition);
