@@ -61,6 +61,7 @@ where
         mut writer: tracing_subscriber::fmt::format::Writer<'_>,
         event: &tracing::Event<'_>,
     ) -> std::fmt::Result {
+        let mut writer = tracing_subscriber::fmt::format::Writer::new(&mut writer);
         let meta = event.normalized_metadata();
         let meta = meta.as_ref().unwrap_or_else(|| event.metadata());
         let target = meta.target();
@@ -405,6 +406,39 @@ where
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn aviutl2_formatter_does_not_emit_ansi_escape_codes() {
+        struct TestWriter(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+
+        impl std::io::Write for TestWriter {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                std::io::Write::write(&mut *self.0.lock().unwrap(), buf)
+            }
+
+            fn flush(&mut self) -> std::io::Result<()> {
+                std::io::Write::flush(&mut *self.0.lock().unwrap())
+            }
+        }
+
+        let output = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let test_output = output.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_ansi(true)
+            .event_format(super::AviUtl2Formatter)
+            .with_writer(move || TestWriter(test_output.clone()))
+            .finish();
+
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::info!(answer = 42, "test message");
+        });
+
+        let output = output.lock().unwrap();
+        assert!(!output.contains(&b'\x1b'));
+        let output = std::str::from_utf8(&output).unwrap();
+        assert!(output.contains("test message"));
+        assert!(output.contains("answer=42"));
+    }
+
     #[test]
     fn test_can_compile_ldbg() {
         let x = 42;
