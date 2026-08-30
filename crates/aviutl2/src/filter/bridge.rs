@@ -635,6 +635,16 @@ mod tests {
         }
     }
 
+    struct LockTestUserdata {
+        value: i32,
+    }
+
+    impl FilterUserdata for LockTestUserdata {
+        fn new(_effect_id: i64) -> Self {
+            Self { value: 1 }
+        }
+    }
+
     struct TestPlugin;
 
     impl FilterPlugin for TestPlugin {
@@ -715,7 +725,7 @@ mod tests {
     #[test]
     fn userdata_handle_locks_on_demand() {
         let handle = FilterUserdataHandle::new(std::sync::Arc::new(parking_lot::RwLock::new(
-            TestUserdata { value: 1 },
+            LockTestUserdata { value: 1 },
         )));
 
         let read = handle.read();
