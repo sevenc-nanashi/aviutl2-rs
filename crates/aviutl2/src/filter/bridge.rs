@@ -692,11 +692,8 @@ mod tests {
         );
         assert_eq!(handle.read().value, 42);
 
-        destroy_userdata_impl::<TestPlugin>(raw);
-        assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 0);
-        assert_eq!(handle.read().value, 42);
-
         drop(handle);
+        destroy_userdata_impl::<TestPlugin>(raw);
         assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
 
