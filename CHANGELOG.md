@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.45.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.45.0)
+
 - **Breaking**: 最小サポートを2.1.7aに引き上げ
 - **Breaking**: 依存関係を更新
 - **Breaking**: filter: `FilterConfigItem::Checkbox`を`FilterConfigItem::Check`に改名（SDKに合わせる）
