@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: `get_object_track_info`、`get_effect_track_info`の移動無し時の挙動を変更
+  - `TrackInfo`の`mode`は`String`から`Option<String>`に変更しました。
+  - `get_object_track_info`、`get_effect_track_info`は`Option<TrackInfo>`を返していましたが、
+    常に`TrackInfo`を返すように変更しました。
+  - 移動無しの場合は`TrackInfo.mode`が`None`になります。
 
 ### デモプラグイン
 

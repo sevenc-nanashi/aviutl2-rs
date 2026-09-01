@@ -169,10 +169,12 @@ pub struct MediaInfo {
     pub height: usize,
 }
 
+/// トラックバー情報。
 #[derive(Debug, Clone)]
 pub struct TrackInfo {
     /// トラックバーの移動モードの名称。
-    pub mode: String,
+    ///  Noneの場合は移動なしです。
+    pub mode: Option<String>,
     /// トラックバーの設定値。
     pub params: Vec<f64>,
     /// トラックバーの加速度が有効かどうか。
@@ -714,18 +716,14 @@ impl ReadSection {
     }
 
     /// オブジェクトのトラックバー項目の情報を取得する。
-    ///
-    /// # Note
-    ///
-    /// 移動なしのときは`None`を返します。
-    /// そもそもトラックバーではない項目の場合はエラーになります。
+    /// トラックバーではない項目の場合はエラーになります。
     pub fn get_object_track_info(
         &self,
         object: ObjectHandle,
         effect_name: &str,
         effect_index: usize,
         item: &str,
-    ) -> EditSectionResult<Option<TrackInfo>> {
+    ) -> EditSectionResult<TrackInfo> {
         self.ensure_object_exists(object)?;
         let c_effect_name = crate::common::CWString::new(&effect_key(effect_name, effect_index))?;
         let c_item = crate::common::CWString::new(item)?;
@@ -745,9 +743,9 @@ impl ReadSection {
 
         let info = unsafe { info.assume_init() };
         let mode = if info.mode.is_null() {
-            return Ok(None);
+            None
         } else {
-            unsafe { crate::common::load_wide_string(info.mode) }
+            Some(unsafe { crate::common::load_wide_string(info.mode) })
         };
         let param_num: usize = info.param_num.try_into()?;
         let params = if param_num == 0 {
@@ -759,7 +757,7 @@ impl ReadSection {
             unsafe { std::slice::from_raw_parts(info.param, param_num) }.to_vec()
         };
 
-        Ok(Some(TrackInfo {
+        Ok(TrackInfo {
             mode,
             params,
             accelerate: info.accelerate,
@@ -773,7 +771,7 @@ impl ReadSection {
             } else {
                 Some(unsafe { crate::common::load_wide_string(info.group_name) })
             },
-        }))
+        })
     }
 
     /// 現在のパレット名を取得する。
@@ -1150,7 +1148,7 @@ impl ReadSection {
         &self,
         effect: EffectHandle,
         item: &str,
-    ) -> EditSectionResult<Option<TrackInfo>> {
+    ) -> EditSectionResult<TrackInfo> {
         self.ensure_effect_exists(effect)?;
         let c_item = crate::common::CWString::new(item)?;
         let mut info = std::mem::MaybeUninit::<aviutl2_sys::plugin2::TRACK_INFO>::uninit();
@@ -1168,9 +1166,9 @@ impl ReadSection {
 
         let info = unsafe { info.assume_init() };
         let mode = if info.mode.is_null() {
-            return Ok(None);
+            None
         } else {
-            unsafe { crate::common::load_wide_string(info.mode) }
+            Some(unsafe { crate::common::load_wide_string(info.mode) })
         };
         let param_num: usize = info.param_num.try_into()?;
         let params = if param_num == 0 {
@@ -1182,7 +1180,7 @@ impl ReadSection {
             unsafe { std::slice::from_raw_parts(info.param, param_num) }.to_vec()
         };
 
-        Ok(Some(TrackInfo {
+        Ok(TrackInfo {
             mode,
             params,
             accelerate: info.accelerate,
@@ -1196,7 +1194,7 @@ impl ReadSection {
             } else {
                 Some(unsafe { crate::common::load_wide_string(info.group_name) })
             },
-        }))
+        })
     }
 
     /// エフェクト名を取得する。
@@ -2205,7 +2203,7 @@ where
         effect_name: &str,
         effect_index: usize,
         item: &str,
-    ) -> EditSectionResult<Option<TrackInfo>> {
+    ) -> EditSectionResult<TrackInfo> {
         self.read_section()
             .get_object_track_info(self.handle, effect_name, effect_index, item)
     }
@@ -2422,7 +2420,7 @@ where
     }
 
     /// トラックバー項目の情報を取得する。
-    pub fn get_track_info(&self, item: &str) -> EditSectionResult<Option<TrackInfo>> {
+    pub fn get_track_info(&self, item: &str) -> EditSectionResult<TrackInfo> {
         self.read_section().get_effect_track_info(self.handle, item)
     }
 }
