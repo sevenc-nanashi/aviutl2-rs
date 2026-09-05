@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.46.1](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.46.1)
+
 - **Breaking**: 最小サポートを2.1.8に引き上げ
 - **Breaking**: `get_object_track_info`、`get_effect_track_info`の移動無し時の挙動を変更
   - `TrackInfo`の`mode`は`String`から`Option<String>`に変更しました。
