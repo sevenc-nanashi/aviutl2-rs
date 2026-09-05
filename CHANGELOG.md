@@ -14,6 +14,10 @@
 
 （なし）
 
+## 0.46.0
+
+（公開が失敗したためスキップ）
+
 ## [0.45.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.45.0)
 
 - **Breaking**: 最小サポートを2.1.7aに引き上げ
