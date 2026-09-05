@@ -59,12 +59,14 @@ pub struct VideoInputInfo {
 /// 画像のフォーマット。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InputPixelFormat {
-    /// RGB形式。
+    /// BGR24形式。
     /// `(u8, u8, u8)`相当。
     ///
     /// <div class="warning">
     ///
     /// この形式では、左下から右上に向かって色が並びます。
+    /// 各行は4バイト境界に揃える必要があります。
+    /// 行末のパディングを含むバイト数は [`crate::utils::bgr_stride`] で取得できます。
     ///
     /// </div>
     ///
@@ -176,6 +178,11 @@ impl<T: AsImage> IntoImage for T {
 }
 
 /// 画像データを `Cow<[u8]>` に変換するトレイト。
+///
+/// # Note
+///
+/// バイト列やタプル列には行末のパディングを自動追加しません。
+/// [`InputPixelFormat::Bgr`] では、呼び出し側で各行を4バイト境界に揃えてください。
 pub trait AsImage {
     fn as_image(&'_ self) -> Cow<'_, [u8]>;
 }
@@ -328,9 +335,16 @@ impl AsImage for T {
 #[cfg(feature = "image")]
 impl AsImage for image::RgbImage {
     fn as_image(&'_ self) -> Cow<'_, [u8]> {
-        let mut data = self.as_raw().to_owned();
-        crate::utils::bgr_to_rgb_bytes(&mut data);
-        crate::utils::flip_vertical(&mut data, self.width() as usize * 3, self.height() as usize);
+        let row_bytes = self.width() as usize * 3;
+        let stride = crate::utils::bgr_stride(self.width() as usize);
+        let height = self.height() as usize;
+        let mut data = vec![0; stride * height];
+        for y in 0..height {
+            let source_start = (height - 1 - y) * row_bytes;
+            let row = &mut data[y * stride..y * stride + row_bytes];
+            row.copy_from_slice(&self.as_raw()[source_start..source_start + row_bytes]);
+            crate::utils::rgb_to_bgr_bytes(row);
+        }
         Cow::Owned(data)
     }
 }

@@ -1,3 +1,9 @@
+/// BGR24形式のDIBの1行のバイト数を返します。
+/// 行末のパディングを含め、4バイト境界に揃えます。
+pub fn bgr_stride(width: usize) -> usize {
+    (width * 3).next_multiple_of(4)
+}
+
 /// `Vec<T>`を2次元配列として捉え、上下に反転させる関数。
 ///
 /// # Panics

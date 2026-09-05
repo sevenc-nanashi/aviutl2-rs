@@ -237,7 +237,9 @@ impl OutputPlugin for FfmpegOutputPlugin {
                     }
                     config::PixelFormat::Bgr24 => {
                         for (_, frame) in info.get_video_frames_iter::<BorrowedRawBgrVideoFrame>() {
-                            writer.write_all(frame.as_slice())?;
+                            for row in frame.rows() {
+                                writer.write_all(row)?;
+                            }
                         }
                     }
                     config::PixelFormat::Pa64 => {

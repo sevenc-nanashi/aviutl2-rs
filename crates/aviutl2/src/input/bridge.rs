@@ -41,6 +41,19 @@ fn audio_sample_count(written: usize, block_align: usize) -> i32 {
 }
 
 impl VideoInputInfo {
+    fn buffer_size(&self) -> usize {
+        let stride = if self.format == InputPixelFormat::Bgr {
+            crate::utils::bgr_stride(self.width as usize)
+        } else {
+            (self.width as usize)
+                .checked_mul(self.format.bytes_count_per_pixel())
+                .expect("Video row size overflow")
+        };
+        stride
+            .checked_mul(self.height as usize)
+            .expect("Video output buffer size overflow")
+    }
+
     fn into_raw(self) -> aviutl2_sys::input2::BITMAPINFOHEADER {
         let bi_compression = match self.format {
             InputPixelFormat::Bgr | InputPixelFormat::Bgra => aviutl2_sys::common::BI_RGB,
@@ -59,7 +72,7 @@ impl VideoInputInfo {
             biPlanes: 1,
             biBitCount: (self.format.bytes_count_per_pixel() * 8) as u16, // Bits per pixel
             biCompression: bi_compression,
-            biSizeImage: (self.width * self.height * self.format.bytes_count_per_pixel() as u32),
+            biSizeImage: u32::try_from(self.buffer_size()).expect("Video image size overflow"),
             biXPelsPerMeter: 0, // Not used
             biYPelsPerMeter: 0, // Not used
             biClrUsed: 0,       // Not used
@@ -444,10 +457,7 @@ extern "C" fn func_read_video<T: InputSingleton>(
             .video
             .as_ref()
             .expect("Unreachable: Video format not set");
-        (video_format.width as usize)
-            .checked_mul(video_format.height as usize)
-            .and_then(|size| size.checked_mul(video_format.format.bytes_count_per_pixel()))
-            .expect("Video output buffer size overflow")
+        video_format.buffer_size()
     };
     let mut returner = unsafe { ImageReturner::new(buf as *mut u8, output_size) };
     let read_result = if plugin_state.plugin_info.concurrent {
@@ -875,7 +885,59 @@ macro_rules! register_input_plugin {
 
 #[cfg(test)]
 mod tests {
-    use super::audio_sample_count;
+    use super::{InputPixelFormat, VideoInputInfo, audio_sample_count};
+    use crate::common::Rational32;
+
+    #[test]
+    fn bgr_buffer_size_and_header_include_dib_padding() {
+        for (width, height, stride) in [
+            (1, 3, 4),
+            (2, 3, 8),
+            (3, 3, 12),
+            (4, 3, 12),
+            (502, 502, 1508),
+        ] {
+            let video = VideoInputInfo {
+                fps: Rational32::new(30, 1),
+                num_frames: 1,
+                manual_frame_index: false,
+                width,
+                height,
+                format: InputPixelFormat::Bgr,
+            };
+            assert_eq!(video.buffer_size(), (stride * height) as usize);
+            let header = video.into_raw();
+            assert_eq!(header.biSizeImage, stride * height);
+            assert_eq!(header.biBitCount, 24);
+            assert_eq!(header.biCompression, aviutl2_sys::common::BI_RGB);
+            assert_eq!(header.biHeight, height as i32);
+        }
+    }
+
+    #[test]
+    fn other_input_formats_keep_their_buffer_sizes() {
+        for (format, bytes_per_pixel) in [
+            (InputPixelFormat::Bgra, 4),
+            (InputPixelFormat::Yuy2, 2),
+            (InputPixelFormat::Pa64, 8),
+            (InputPixelFormat::Hf64, 8),
+            (InputPixelFormat::Yc48, 6),
+        ] {
+            let video = VideoInputInfo {
+                fps: Rational32::new(30, 1),
+                num_frames: 1,
+                manual_frame_index: false,
+                width: 2,
+                height: 3,
+                format,
+            };
+            assert_eq!(video.buffer_size(), 2 * 3 * bytes_per_pixel);
+            assert_eq!(
+                video.into_raw().biSizeImage as usize,
+                2 * 3 * bytes_per_pixel
+            );
+        }
+    }
 
     #[test]
     fn audio_sample_count_converts_bytes_to_sample_frames() {

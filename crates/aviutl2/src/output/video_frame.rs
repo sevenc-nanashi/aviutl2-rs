@@ -41,7 +41,7 @@ duplicate::duplicate! {
         [Yc48VideoFrame]    [Yc48]                 ["YC48形式の動画フレーム。"];
         [Pa64VideoFrame]    [(u16, u16, u16, u16)] ["(u16, u16, u16, u16) で表されるRGBAの動画フレーム。"];
 
-        [RawBgrVideoFrame]  [u8]                   ["生のBGR24形式の動画フレームデータ。"];
+        [RawBgrVideoFrame]  [u8]                   ["生のBGR24形式の動画フレームデータ。下の行から順に並び、各行は4バイト境界に揃えるパディングを含みます。行のバイト数は [`crate::utils::bgr_stride`] で取得できます。"];
         [RawYuy2VideoFrame] [u8]                   ["生のYUV 4:2:2形式の動画フレームデータ。"];
         [RawHf64VideoFrame] [f16]                  ["生のDXGI_FORMAT_R16G16B16A16_FLOAT（乗算済みα）形式の動画フレームデータ。"];
         [RawYc48VideoFrame] [i16]                  ["生のYC48形式の動画フレームデータ。"];
@@ -64,7 +64,7 @@ duplicate::duplicate! {
 duplicate::duplicate! {
     [
         Name                        OwnedName           ParsedName       Type                   Doc;
-        [BorrowedRawBgrVideoFrame]  [RawBgrVideoFrame]  [RgbVideoFrame]  [u8]                   ["生のBGR24形式の動画フレームデータ。"];
+        [BorrowedRawBgrVideoFrame]  [RawBgrVideoFrame]  [RgbVideoFrame]  [u8]                   ["生のBGR24形式の動画フレームデータ。下の行から順に並び、各行は4バイト境界に揃えるパディングを含みます。パディングを除いた各行は [`Self::rows`] で取得できます。"];
         [BorrowedRawYuy2VideoFrame] [RawYuy2VideoFrame] [Yuy2VideoFrame] [u8]                   ["生のYUV 4:2:2形式の動画フレームデータ。"];
         [BorrowedRawHf64VideoFrame] [RawHf64VideoFrame] [Hf64VideoFrame] [f16]                  ["生のDXGI_FORMAT_R16G16B16A16_FLOAT（乗算済みα）形式の動画フレームデータ。"];
         [BorrowedRawYc48VideoFrame] [RawYc48VideoFrame] [Yc48VideoFrame] [i16]                  ["生のYC48形式の動画フレームデータ。"];
@@ -178,6 +178,26 @@ duplicate::duplicate! {
     }
 }
 
+impl BorrowedRawBgrVideoFrame {
+    /// パディングを除いた各行のBGR画素を、下の行から順に返します。
+    ///
+    /// # Panics
+    ///
+    /// フレームが無効になった後に呼び出すとパニックになります。
+    pub fn rows(&self) -> impl DoubleEndedIterator<Item = &[u8]> + ExactSizeIterator {
+        let data = self.as_slice();
+        let row_bytes = self.info.width as usize * 3;
+        let stride = crate::utils::bgr_stride(self.info.width as usize);
+        (0..self.info.height as usize).map(move |y| {
+            assert!(
+                self.is_valid(),
+                "The frame data has been invalidated. This can happen if a new frame is fetched"
+            );
+            &data[y * stride..y * stride + row_bytes]
+        })
+    }
+}
+
 impl FromRawVideoFrame for RgbVideoFrame {
     const FORMAT: u32 = aviutl2_sys::common::BI_RGB;
 
@@ -194,13 +214,14 @@ impl FromRawVideoFrame for RgbVideoFrame {
         let _ = (last_frame_id, frame_id);
         let mut frame_buffer = Vec::with_capacity((video.width * video.height) as usize);
         let frame_data_writer = frame_buffer.spare_capacity_mut();
+        let stride = crate::utils::bgr_stride(video.width as usize);
         for y in 0..video.height as usize {
             for x in 0..video.width as usize {
-                let i = y * video.width as usize + x;
+                let i = y * stride + x * 3;
                 // Each pixel is represented by 3 bytes (BGR)
-                let pixel_r = unsafe { *frame_data_ptr.add(i * 3 + 2) };
-                let pixel_g = unsafe { *frame_data_ptr.add(i * 3 + 1) };
-                let pixel_b = unsafe { *frame_data_ptr.add(i * 3) };
+                let pixel_r = unsafe { *frame_data_ptr.add(i + 2) };
+                let pixel_g = unsafe { *frame_data_ptr.add(i + 1) };
+                let pixel_b = unsafe { *frame_data_ptr.add(i) };
                 frame_data_writer[(video.height as usize - 1 - y) * video.width as usize + x]
                     .write((pixel_r, pixel_g, pixel_b));
             }
@@ -366,12 +387,12 @@ impl FromRawVideoFrame for Pa64VideoFrame {
 }
 
 #[duplicate::duplicate_item(
-    Name                Type  elms FMT;
-    [RawBgrVideoFrame]  [u8]  [3]  [aviutl2_sys::common::BI_RGB];
-    [RawYuy2VideoFrame] [u8]  [2]  [aviutl2_sys::common::BI_YUY2];
-    [RawHf64VideoFrame] [f16] [4]  [aviutl2_sys::common::BI_HF64];
-    [RawYc48VideoFrame] [i16] [3]  [aviutl2_sys::common::BI_YC48];
-    [RawPa64VideoFrame] [u16] [4]  [aviutl2_sys::common::BI_PA64];
+    Name                Type  row_len(width)                    FMT;
+    [RawBgrVideoFrame]  [u8]  [crate::utils::bgr_stride(width)] [aviutl2_sys::common::BI_RGB];
+    [RawYuy2VideoFrame] [u8]  [width * 2]                       [aviutl2_sys::common::BI_YUY2];
+    [RawHf64VideoFrame] [f16] [width * 4]                       [aviutl2_sys::common::BI_HF64];
+    [RawYc48VideoFrame] [i16] [width * 3]                       [aviutl2_sys::common::BI_YC48];
+    [RawPa64VideoFrame] [u16] [width * 4]                       [aviutl2_sys::common::BI_PA64];
 )]
 impl FromRawVideoFrame for Name {
     const FORMAT: u32 = FMT;
@@ -391,7 +412,7 @@ impl FromRawVideoFrame for Name {
             #[allow(clippy::unnecessary_cast)]
             std::slice::from_raw_parts(
                 frame_data_ptr as *const Type,
-                (video.width * video.height * elms) as usize,
+                row_len([video.width as usize]) * video.height as usize,
             )
             .to_owned()
         };
@@ -401,12 +422,12 @@ impl FromRawVideoFrame for Name {
 }
 
 #[duplicate::duplicate_item(
-    Name                        Type  elms FMT;
-    [BorrowedRawBgrVideoFrame]  [u8]  [3]  [aviutl2_sys::common::BI_RGB];
-    [BorrowedRawYuy2VideoFrame] [u8]  [2]  [aviutl2_sys::common::BI_YUY2];
-    [BorrowedRawHf64VideoFrame] [f16] [4]  [aviutl2_sys::common::BI_HF64];
-    [BorrowedRawYc48VideoFrame] [i16] [3]  [aviutl2_sys::common::BI_YC48];
-    [BorrowedRawPa64VideoFrame] [u16] [4]  [aviutl2_sys::common::BI_PA64];
+    Name                        Type  row_len(width) FMT;
+    [BorrowedRawBgrVideoFrame]  [u8]  [crate::utils::bgr_stride(width)]  [aviutl2_sys::common::BI_RGB];
+    [BorrowedRawYuy2VideoFrame] [u8]  [width * 2]  [aviutl2_sys::common::BI_YUY2];
+    [BorrowedRawHf64VideoFrame] [f16] [width * 4]  [aviutl2_sys::common::BI_HF64];
+    [BorrowedRawYc48VideoFrame] [i16] [width * 3]  [aviutl2_sys::common::BI_YC48];
+    [BorrowedRawPa64VideoFrame] [u16] [width * 4]  [aviutl2_sys::common::BI_PA64];
 )]
 impl FromRawVideoFrame for Name {
     const FORMAT: u32 = FMT;
@@ -421,7 +442,7 @@ impl FromRawVideoFrame for Name {
         last_frame_id: Arc<AtomicUsize>,
         frame_id: usize,
     ) -> Self {
-        let length = (video.width * video.height * elms) as usize;
+        let length = row_len([video.width as usize]) * video.height as usize;
 
         Self {
             data: frame_data_ptr as _,
@@ -447,13 +468,14 @@ impl FromRawVideoFrame for image::RgbImage {
         last_frame_id: Arc<AtomicUsize>,
         frame_id: usize,
     ) -> Self {
-        let _ = (last_frame_id, frame_id);
-        let mut buffer = unsafe {
-            std::slice::from_raw_parts(frame_data_ptr, (video.width * video.height * 3) as usize)
-                .to_owned()
+        let frame = unsafe {
+            BorrowedRawBgrVideoFrame::from_raw(video, frame_data_ptr, last_frame_id, frame_id)
         };
+        let mut buffer = Vec::with_capacity(video.width as usize * video.height as usize * 3);
+        for row in frame.rows().rev() {
+            buffer.extend_from_slice(row);
+        }
         crate::utils::bgr_to_rgb_bytes(&mut buffer);
-        crate::utils::flip_vertical(&mut buffer, video.width as usize * 3, video.height as usize);
         image::RgbImage::from_raw(video.width, video.height, buffer).unwrap()
     }
 }

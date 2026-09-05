@@ -7,6 +7,7 @@
   - `get_object_track_info`、`get_effect_track_info`は`Option<TrackInfo>`を返していましたが、
     常に`TrackInfo`を返すように変更しました。
   - 移動無しの場合は`TrackInfo.mode`が`None`になります。
+- BI_RGBの画像のストライドを正しく計算するように修正
 
 ### デモプラグイン
 

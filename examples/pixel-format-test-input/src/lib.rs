@@ -56,8 +56,8 @@ impl InputPlugin for PixelFormatTestPlugin {
         };
         Ok(Handle {
             format,
-            width: 256,
-            height: 256,
+            width: 255,
+            height: 255,
         })
     }
 
@@ -104,15 +104,17 @@ impl InputPlugin for PixelFormatTestPlugin {
                 returner.write(&buffer);
             }
             InputPixelFormat::Bgr => {
-                let mut buffer = Vec::with_capacity((width * height * 3) as usize);
+                let stride = aviutl2::utils::bgr_stride(width as usize);
+                let mut buffer = Vec::with_capacity(stride * height as usize);
                 for y in 0..height {
                     for x in 0..width {
-                        buffer.push((
+                        buffer.extend_from_slice(&[
                             x as u8,                                                  // B
                             y as u8,                                                  // G
                             ((x + y) as f64 / (width + height) as f64 * 255.0) as u8, // R
-                        ));
+                        ]);
                     }
+                    buffer.resize((y as usize + 1) * stride, 0);
                 }
                 returner.write(&buffer);
             }
