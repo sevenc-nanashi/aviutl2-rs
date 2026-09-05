@@ -473,12 +473,16 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                         quote::quote! { vec![#(#items),*] }
                     }
                     either::Either::Right(ty) => {
-                        quote::quote! { <#ty as ::aviutl2::filter::FilterConfigSelectItems>::to_select_items() }
+                        quote::quote! {
+                          <#ty as ::aviutl2::filter::FilterConfigSelectItems>::to_select_items()
+                        }
                     }
                 };
                 let default = match default {
                     either::Either::Left(v) => quote::quote! { #v },
-                    either::Either::Right(v) => quote::quote! { ::aviutl2::filter::FilterConfigSelectItems::to_select_item_value(&#v) },
+                    either::Either::Right(v) => quote::quote! {
+                        ::aviutl2::filter::FilterConfigSelectItems::to_select_item_value(&#v)
+                    },
                 };
                 quote::quote! {
                     ::aviutl2::filter::FilterConfigItem::Select(
@@ -531,7 +535,8 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     quote::quote! { #expr.into() }
                 } else {
                     quote::quote! {
-                        <#value_type as ::aviutl2::filter::FilterConfigDataHandleType>::__default_value()
+                        <#value_type as ::aviutl2::filter::FilterConfigDataHandleType>
+                            ::__default_value()
                     }
                 };
                 quote::quote! {
@@ -597,7 +602,7 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     )
                 }
             }
-            FilterConfigField::GroupStart { name, opened} => {
+            FilterConfigField::GroupStart { name, opened } => {
                 if let Some(opened) = opened {
                     quote::quote! {
                         ::aviutl2::filter::FilterConfigItem::Group(
@@ -662,13 +667,27 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                         ::aviutl2::filter::FilterConfigHideRuleOperator::Less
                     },
                 };
+                let condition_value = if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Str(lit_str),
+                    ..
+                }) = condition_value
+                    && lit_str.value() == "indeterminate"
+                {
+                    quote::quote! {
+                        2i32
+                    }
+                } else {
+                    quote::quote! {
+                        (#condition_value) as i32
+                    }
+                };
                 quote::quote! {
                     ::aviutl2::filter::FilterConfigItem::HideRule(
                         ::aviutl2::filter::FilterConfigHideRule {
                             name: #name.to_string(),
                             condition_name: #condition_name,
                             condition_operator: #condition_operator,
-                            condition_value: (#condition_value) as i32,
+                            condition_value: #condition_value,
                         }
                     )
                 }
@@ -680,10 +699,8 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                 error_mode,
                 unwind,
             } => {
-                let callback_id = syn::Ident::new(
-                    &format!("__filter_button_callback_{}", id),
-                    callback.span(),
-                );
+                let callback_id =
+                    syn::Ident::new(&format!("__filter_button_callback_{}", id), callback.span());
                 let call_on_error = match error_mode {
                     ButtonErrorMode::Ignore => {
                         quote::quote! { let _ = ret; }
@@ -696,13 +713,17 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     }
                 };
                 let call_body = quote::quote! {
-                    let mut edit_section = unsafe { ::aviutl2::generic::EditSection::from_raw(edit_section) };
+                    let mut edit_section = unsafe {
+                        ::aviutl2::generic::EditSection::from_raw(edit_section)
+                    };
                     let ret = #callback(&mut edit_section);
                     #call_on_error
                 };
                 if *unwind {
                     button_callbacks.push(quote::quote! {
-                        extern "C" fn #callback_id(edit_section: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
+                        extern "C" fn #callback_id(
+                            edit_section: *mut ::aviutl2::sys::plugin2::EDIT_SECTION
+                        ) {
                             if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
                                 #call_body
                             }) {
@@ -717,7 +738,9 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     });
                 } else {
                     button_callbacks.push(quote::quote! {
-                        extern "C" fn #callback_id(edit_section: *mut ::aviutl2::sys::plugin2::EDIT_SECTION) {
+                        extern "C" fn #callback_id(
+                            edit_section: *mut ::aviutl2::sys::plugin2::EDIT_SECTION
+                        ) {
                             #call_body
                         }
                     });
@@ -821,7 +844,8 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                 let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
                 Some(quote::quote! {
                     #id_ident: match items[#i] {
-                        ::aviutl2::filter::FilterConfigItem::CheckSection(ref check_section) => check_section.value,
+                        ::aviutl2::filter::FilterConfigItem::CheckSection(ref check_section)
+                            => check_section.value,
                         _ => panic!("expected CheckSection at index {}", #i),
                     }
                 })
@@ -847,7 +871,7 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                         quote::quote! {
                             (select.value as usize) as _
                         }
-                    }
+                     }
                     either::Either::Right(_) => match items {
                         either::Either::Left(items) => {
                             quote::quote! {
@@ -857,7 +881,8 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                         either::Either::Right(type_path) => {
                             let type_path = type_path.to_token_stream();
                             quote::quote! {
-                                <#type_path as ::aviutl2::filter::FilterConfigSelectItems>::from_select_item_value(select.value)
+                                <#type_path as ::aviutl2::filter::FilterConfigSelectItems>
+                                    ::from_select_item_value(select.value)
                             }
                         }
                     },
@@ -1320,17 +1345,20 @@ fn filter_config_field_can_be_hidden(field: &FilterConfigField) -> bool {
 
 fn filter_config_condition_source(field: &FilterConfigField) -> Option<(&str, &str, bool)> {
     match field {
+        // 非表示の対象のみになれるもの
         FilterConfigField::Track { id, name, .. }
-        | FilterConfigField::CheckSection { id, name, .. }
         | FilterConfigField::Color { id, name, .. }
         | FilterConfigField::String { id, name, .. }
         | FilterConfigField::Text { id, name, .. }
         | FilterConfigField::Data { id, name, .. }
         | FilterConfigField::Button { id, name, .. } => Some((id, name, false)),
+        // 非表示の対象・条件の両方になれるもの
         FilterConfigField::Check { id, name, .. }
+        | FilterConfigField::CheckSection { id, name, .. }
         | FilterConfigField::Select { id, name, .. }
         | FilterConfigField::File { id, name, .. }
         | FilterConfigField::Folder { id, name, .. } => Some((id, name, true)),
+        // 設定値を持たないもの
         FilterConfigField::GroupStart { .. }
         | FilterConfigField::GroupEnd
         | FilterConfigField::Separator { .. }
@@ -2664,6 +2692,7 @@ mod tests {
             #[hide(condition > false)]
             #[hide(condition < true)]
             #[hide(condition <= true)]
+            #[hide(condition != "indeterminate")]
             #[string(name = "Target")]
             target: String,
 
@@ -2672,16 +2701,16 @@ mod tests {
         }
 
         let items = Config::to_config_items();
-        let operators = items[1..=6]
+        let (operators, values) = items[1..=7]
             .iter()
             .map(|item| match item {
                 FilterConfigItem::HideRule(rule) => {
                     assert_eq!(rule.condition_name.as_deref(), Some("Condition"));
-                    rule.condition_operator
+                    (rule.condition_operator, rule.condition_value)
                 }
                 _ => panic!("expected HideRule"),
             })
-            .collect::<Vec<_>>();
+            .unzip::<_, _, Vec<_>, Vec<_>>();
         assert_eq!(
             operators,
             vec![
@@ -2691,9 +2720,11 @@ mod tests {
                 FilterConfigHideRuleOperator::Less,
                 FilterConfigHideRuleOperator::Less,
                 FilterConfigHideRuleOperator::Equal,
+                FilterConfigHideRuleOperator::NotEqual,
             ]
         );
-        assert!(matches!(items[7], FilterConfigItem::Check(_)));
+        assert_eq!(values, vec![0, 1, 0, 1, 1, 1, 2]);
+        assert!(matches!(items[8], FilterConfigItem::Check(_)));
 
         let config = Config::from_config_items(&items);
         assert_eq!(config.target, "");

@@ -1541,12 +1541,10 @@ pub struct FilterConfigHideRule {
     /// # Note
     ///
     /// - 以下の設定タイプのみに対応しています：
-    ///   - [`FilterConfigItem::Check`]
-    ///   - [`FilterConfigItem::Select`]
-    ///   - [`FilterConfigItem::File`]
-    ///   - [`FilterConfigItem::Folder`]
-    /// - [`FilterConfigItem::File`]、[`FilterConfigItem::Folder`]の場合、`value`は
-    ///   値が設定されているか否かを0・1で判定します。
+    ///   - [`FilterConfigItem::Check`]：オンの場合は`1`、オフの場合は`0`として扱われます。
+    ///   - [`FilterConfigItem::CheckSection`]：セクションごとに変化する場合は`2`、セクションが変化しない場合は[`FilterConfigItem::Check`]と同じ扱いになります。
+    ///   - [`FilterConfigItem::Select`]：設定値がそのまま扱われます。
+    ///   - [`FilterConfigItem::File`]、[`FilterConfigItem::Folder`]：設定されている場合は`1`、設定されていない場合は`0`として扱われます。
     /// - `"filter"`を指定した場合はフィルタオブジェクトかどうかを判定します。
     pub condition_name: Option<String>,
     /// 非表示にする条件の演算子。

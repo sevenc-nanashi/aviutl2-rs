@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking**: 最小サポートを2.1.8に引き上げ
 - **Breaking**: `get_object_track_info`、`get_effect_track_info`の移動無し時の挙動を変更
   - `TrackInfo`の`mode`は`String`から`Option<String>`に変更しました。
   - `get_object_track_info`、`get_effect_track_info`は`Option<TrackInfo>`を返していましたが、
