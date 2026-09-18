@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: macros: `"indeterminate"`を`$indeterminate`に変更
 
 ### デモプラグイン
 

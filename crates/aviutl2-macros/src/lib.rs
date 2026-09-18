@@ -328,7 +328,7 @@ mod utils;
 ///
 /// #[checksection(name = "サンプルチェックボックス3", default = true)]
 /// sample_checkbox3: bool,
-/// #[hide(sample_checkbox3 == "indeterminate")]
+/// #[hide(sample_checkbox3 == $indeterminate)]
 /// #[track(name = "サンプル整数2", range = 0..=100, default = 50, step = 1.0)]
 /// hide_field2: i32,
 ///
@@ -356,7 +356,7 @@ mod utils;
 ///     - `<=`、`>=`は内部的には`<`、`>`と`==`に展開されます。
 ///   - 比較値は以下のいずれかのうち一つである必要があります：
 ///     - `as i32`で変換可能な型。主に`bool`と`FilterConfigSelectItems`を実装したenumのVariant。
-///     - `"indeterminate"`。これは`2`に変換されます。
+///     - `$indeterminate`。これは`2`に変換されます。
 ///   - 短縮記法として、`field`は`field == true`、`!field`は`field == false`に展開されます。
 ///
 /// # Example

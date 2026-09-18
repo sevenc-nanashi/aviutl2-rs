@@ -667,27 +667,13 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                         ::aviutl2::filter::FilterConfigHideRuleOperator::Less
                     },
                 };
-                let condition_value = if let syn::Expr::Lit(syn::ExprLit {
-                    lit: syn::Lit::Str(lit_str),
-                    ..
-                }) = condition_value
-                    && lit_str.value() == "indeterminate"
-                {
-                    quote::quote! {
-                        2i32
-                    }
-                } else {
-                    quote::quote! {
-                        (#condition_value) as i32
-                    }
-                };
                 quote::quote! {
                     ::aviutl2::filter::FilterConfigItem::HideRule(
                         ::aviutl2::filter::FilterConfigHideRule {
                             name: #name.to_string(),
                             condition_name: #condition_name,
                             condition_operator: #condition_operator,
-                            condition_value: #condition_value,
+                            condition_value: (#condition_value) as i32,
                         }
                     )
                 }
@@ -1479,7 +1465,16 @@ impl Parse for ParsedHideRule {
         } else {
             return Err(input.error("Expected `==`, `!=`, `>`, `<`, `>=`, or `<=`"));
         };
-        let value = input.parse::<syn::Expr>()?;
+        let value = if input.peek(syn::Token![$]) {
+            input.parse::<syn::Token![$]>()?;
+            let ident = input.parse::<syn::Ident>()?;
+            if ident != "indeterminate" {
+                return Err(syn::Error::new_spanned(ident, "Expected `$indeterminate`"));
+            }
+            syn::parse_quote!(2)
+        } else {
+            input.parse::<syn::Expr>()?
+        };
         if !input.is_empty() {
             return Err(input.error("Unexpected tokens after hide condition value"));
         }
@@ -2692,7 +2687,7 @@ mod tests {
             #[hide(condition > false)]
             #[hide(condition < true)]
             #[hide(condition <= true)]
-            #[hide(condition != "indeterminate")]
+            #[hide(condition != $indeterminate)]
             #[string(name = "Target")]
             target: String,
 
@@ -2733,6 +2728,14 @@ mod tests {
 
     #[test]
     fn test_hide_validation() {
+        for condition in [
+            quote::quote!(condition == $unknown),
+            quote::quote!(condition == $),
+            quote::quote!(condition == $indeterminate extra),
+        ] {
+            assert!(syn::parse2::<ParsedHideRule>(condition).is_err());
+        }
+
         let unknown_source = quote::quote! {
             struct Config {
                 #[hide(unknown)]
