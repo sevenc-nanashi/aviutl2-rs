@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.47.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.47.0)
+
 - **Breaking**: 最小サポートを2.1.10に引き上げ
 - **Breaking**: macros(`filter_config_items`): `"indeterminate"`を`$indeterminate`に変更
 - **Breaking**: filter: `FilterConfigItem::Button`のコールバックの引数を変更
