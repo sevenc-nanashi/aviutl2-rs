@@ -896,6 +896,16 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
         }
     }
 
+    /// 描画時の合成モードを強制的に設定する。
+    ///
+    /// [`Self::set_blend_mode`] とは違い、フレームバッファへの合成モードも常に反映されます。
+    pub fn set_blend_mode_force(&mut self, mode: BlendMode) {
+        let inner = unsafe { &*self.inner };
+        unsafe {
+            (inner.set_blend_mode_force)(mode.into());
+        }
+    }
+
     /// 描画時の光沢度を設定する。
     /// カメラ制御の光源設定が有効の時に利用されます。
     pub fn set_material_shine(&mut self, shininess: f32) {
@@ -1537,6 +1547,37 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
         } else {
             Err(FilterProcError::ApiCallFailed)
         }
+    }
+
+    /// 現在のオブジェクトに影響しているグループ制御オブジェクトの一覧を取得する。
+    ///
+    /// 子グループから親グループに向かって順に返されます。
+    pub fn get_group_control_objects(&mut self) -> Vec<crate::generic::ObjectHandle> {
+        let inner = unsafe { &*self.inner };
+        let mut handles = vec![];
+        loop {
+            let handle = unsafe { (inner.get_group_control_object)(handles.len() as _) };
+            if handle.is_null() {
+                break;
+            }
+            handles.push(crate::generic::ObjectHandle::from(handle));
+        }
+        handles
+    }
+
+    /// 現在のオブジェクトに適用されるグループ制御の座標変換行列を取得する。
+    pub fn get_group_control_matrix(&mut self) -> FilterProcResult<[[f32; 4]; 4]> {
+        let inner = unsafe { &*self.inner };
+        let matrix = unsafe {
+            let mut m = std::mem::MaybeUninit::uninit();
+            let success = (inner.get_group_matrix)(m.as_mut_ptr());
+            if success {
+                m.assume_init()
+            } else {
+                return Err(FilterProcError::ApiCallFailed);
+            }
+        };
+        Ok(matrix.m)
     }
 
     /// 定義済みのD3Dの出力ブレンドのリソースのポインタを取得する。

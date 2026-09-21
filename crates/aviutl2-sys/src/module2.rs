@@ -1,6 +1,3 @@
-//! スクリプトモジュール ヘッダーファイル for AviUtl ExEdit2
-//! By ＫＥＮくん
-
 #![allow(non_snake_case, non_camel_case_types, non_upper_case_globals)]
 
 use std::ffi::c_void;
@@ -29,282 +26,162 @@ pub enum PARAM_TYPE {
 #[derive(Debug, Clone, Copy)]
 pub struct SCRIPT_MODULE_PARAM {
     /// 引数の数を取得する
-    ///
-    /// # Returns
-    ///
-    /// 引数の数
+    /// 戻り値 : 引数の数
     pub get_param_num: unsafe extern "C" fn() -> c_int,
 
     /// 引数を整数で取得する
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - 引数の位置(0〜)
-    ///
-    /// # Returns
-    ///
-    /// 引数の値 (取得出来ない場合は0)
+    /// index : 引数の位置(0〜)
+    /// 戻り値 : 引数の値 (取得出来ない場合は0)
     pub get_param_int: unsafe extern "C" fn(index: c_int) -> c_int,
 
     /// 引数を浮動小数点で取得する
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - 引数の位置(0〜)
-    ///
-    /// # Returns
-    ///
-    /// 引数の値 (取得出来ない場合は0)
+    /// index : 引数の位置(0〜)
+    /// 戻り値 : 引数の値 (取得出来ない場合は0)
     pub get_param_double: unsafe extern "C" fn(index: c_int) -> c_double,
 
     /// 引数を文字列(UTF-8)で取得する
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - 引数の位置(0〜)
-    ///
-    /// # Returns
-    ///
-    /// 引数の値 (取得出来ない場合はnullptr)
+    /// index : 引数の位置(0〜)
+    /// 戻り値 : 引数の値 (取得出来ない場合はnullptr)
     pub get_param_string: unsafe extern "C" fn(index: c_int) -> *const c_char,
 
-    /// 引数をデータのポインタで取得する
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - 引数の位置(0〜)
-    ///
-    /// # Returns
-    ///
-    /// 引数の値 (取得出来ない場合はnullptr)
+    /// 引数をデータのポインタで取得する ※LightUserData等から取得
+    /// index : 引数の位置(0〜)
+    /// 戻り値 : 引数の値 (取得出来ない場合はnullptr)
     pub get_param_data: unsafe extern "C" fn(index: c_int) -> *mut c_void,
 
     /// 引数の連想配列要素を整数で取得する
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - 引数の位置(0〜)
-    /// * `key` - キー名(UTF-8)
-    ///
-    /// # Returns
-    ///
-    /// 引数の値 (取得出来ない場合は0)
+    /// index : 引数の位置(0〜)
+    /// key : キー名(UTF-8)
+    /// 戻り値 : 引数の値 (取得出来ない場合は0)
     pub get_param_table_int: unsafe extern "C" fn(index: c_int, key: *const c_char) -> c_int,
 
     /// 引数の連想配列要素を浮動小数点で取得する
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - 引数の位置(0〜)
-    /// * `key` - キー名(UTF-8)
-    ///
-    /// # Returns
-    ///
-    /// 引数の値 (取得出来ない場合は0)
+    /// index : 引数の位置(0〜)
+    /// key : キー名(UTF-8)
+    /// 戻り値 : 引数の値 (取得出来ない場合は0)
     pub get_param_table_double: unsafe extern "C" fn(index: c_int, key: *const c_char) -> c_double,
 
     /// 引数の連想配列要素を文字列(UTF-8)で取得する
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - 引数の位置(0〜)
-    /// * `key` - キー名(UTF-8)
-    ///
-    /// # Returns
-    ///
-    /// 引数の値 (取得出来ない場合はnullptr)
+    /// index : 引数の位置(0〜)
+    /// key : キー名(UTF-8)
+    /// 戻り値 : 引数の値 (取得出来ない場合はnullptr)
     pub get_param_table_string:
         unsafe extern "C" fn(index: c_int, key: *const c_char) -> *const c_char,
 
     /// 引数の配列要素の数を取得する
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - 引数の位置(0〜)
-    ///
-    /// # Returns
-    ///
-    /// 配列要素の数
+    /// index : 引数の位置(0〜)
+    /// 戻り値 : 配列要素の数
     pub get_param_array_num: unsafe extern "C" fn(index: c_int) -> c_int,
 
     /// 引数の配列要素を整数で取得する
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - 引数の位置(0〜)
-    /// * `key` - 配列のインデックス(0〜)
-    ///
-    /// # Returns
-    ///
-    /// 引数の値 (取得出来ない場合は0)
+    /// index : 引数の位置(0〜)
+    /// key : 配列のインデックス(0〜)
+    /// 戻り値 : 引数の値 (取得出来ない場合は0)
     pub get_param_array_int: unsafe extern "C" fn(index: c_int, key: c_int) -> c_int,
 
     /// 引数の配列要素を浮動小数点で取得する
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - 引数の位置(0〜)
-    /// * `key` - 配列のインデックス(0〜)
-    ///
-    /// # Returns
-    ///
-    /// 引数の値 (取得出来ない場合は0)
+    /// index : 引数の位置(0〜)
+    /// key : 配列のインデックス(0〜)
+    /// 戻り値 : 引数の値 (取得出来ない場合は0)
     pub get_param_array_double: unsafe extern "C" fn(index: c_int, key: c_int) -> c_double,
 
     /// 引数の配列要素を文字列(UTF-8)で取得する
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - 引数の位置(0〜)
-    /// * `key` - 配列のインデックス(0〜)
-    ///
-    /// # Returns
-    ///
-    /// 引数の値 (取得出来ない場合はnullptr)
+    /// index : 引数の位置(0〜)
+    /// key : 配列のインデックス(0〜)
+    /// 戻り値 : 引数の値 (取得出来ない場合はnullptr)
     pub get_param_array_string: unsafe extern "C" fn(index: c_int, key: c_int) -> *const c_char,
 
     /// 整数の戻り値を追加する
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - 戻り値
+    /// value : 戻り値
     pub push_result_int: unsafe extern "C" fn(value: c_int),
 
     /// 浮動小数点の戻り値を追加する
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - 戻り値
+    /// value : 戻り値
     pub push_result_double: unsafe extern "C" fn(value: c_double),
 
     /// 文字列(UTF-8)の戻り値を追加する
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - 戻り値
+    /// value : 戻り値
     pub push_result_string: unsafe extern "C" fn(value: *const c_char),
 
-    /// データのポインタの戻り値を追加する
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - 戻り値
+    /// データのポインタの戻り値を追加する ※LightUserDataを返却
+    /// value : 戻り値
     pub push_result_data: unsafe extern "C" fn(value: *const c_void),
 
     /// 整数連想配列の戻り値を追加する
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - キー名(UTF-8)の配列
-    /// * `value` - 戻り値の配列
-    /// * `num` - 配列の要素数
+    /// key : キー名(UTF-8)の配列
+    /// value : 戻り値の配列
+    /// num : 配列の要素数
     pub push_result_table_int:
         unsafe extern "C" fn(key: *const *const c_char, value: *const c_int, num: c_int),
 
     /// 浮動小数点連想配列の戻り値を追加する
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - キー名(UTF-8)の配列
-    /// * `value` - 戻り値の配列
-    /// * `num` - 配列の要素数
+    /// key : キー名(UTF-8)の配列
+    /// value : 戻り値の配列
+    /// num : 配列の要素数
     pub push_result_table_double:
         unsafe extern "C" fn(key: *const *const c_char, value: *const c_double, num: c_int),
 
     /// 文字列(UTF-8)連想配列の戻り値を追加する
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - キー名(UTF-8)の配列
-    /// * `value` - 戻り値の配列
-    /// * `num` - 配列の要素数
+    /// key : キー名(UTF-8)の配列
+    /// value : 戻り値の配列
+    /// num : 配列の要素数
     pub push_result_table_string:
         unsafe extern "C" fn(key: *const *const c_char, value: *const *const c_char, num: c_int),
 
     /// 整数配列の戻り値を追加する
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - 戻り値の配列
-    /// * `num` - 配列の要素数
+    /// value : 戻り値の配列
+    /// num : 配列の要素数
     pub push_result_array_int: unsafe extern "C" fn(value: *const c_int, num: c_int),
 
     /// 浮動小数点配列の戻り値を追加する
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - 戻り値の配列
-    /// * `num` - 配列の要素数
+    /// value : 戻り値の配列
+    /// num : 配列の要素数
     pub push_result_array_double: unsafe extern "C" fn(value: *const c_double, num: c_int),
 
     /// 文字列(UTF-8)配列の戻り値を追加する
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - 戻り値の配列
-    /// * `num` - 配列の要素数
+    /// value : 戻り値の配列
+    /// num : 配列の要素数
     pub push_result_array_string: unsafe extern "C" fn(value: *const *const c_char, num: c_int),
 
     /// エラーメッセージを設定する
     /// 呼び出された関数をエラー終了する場合に設定します
-    ///
-    /// # Arguments
-    ///
-    /// * `message` - エラーメッセージ(UTF-8)
+    /// message : エラーメッセージ(UTF-8)
     pub set_error: unsafe extern "C" fn(message: *const c_char),
 
     /// 引数をブール値で取得する
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - 引数の位置(0〜)
-    ///
-    /// # Returns
-    ///
-    /// 引数の値 (取得出来ない場合はfalse)
+    /// index : 引数の位置(0〜)
+    /// 戻り値 : 引数の値 (取得出来ない場合はfalse)
     pub get_param_boolean: unsafe extern "C" fn(index: c_int) -> bool,
 
     /// ブール値の戻り値を追加する
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - 戻り値
+    /// value : 戻り値
     pub push_result_boolean: unsafe extern "C" fn(value: bool),
 
     /// 引数の連想配列要素をブール値で取得する
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - 引数の位置(0〜)
-    /// * `key` - キー名(UTF-8)
-    ///
-    /// # Returns
-    ///
-    /// 引数の値 (取得出来ない場合はfalse)
+    /// index : 引数の位置(0〜)
+    /// key : キー名(UTF-8)
+    /// 戻り値 : 引数の値 (取得出来ない場合はfalse)
     pub get_param_table_boolean: unsafe extern "C" fn(index: c_int, key: *const c_char) -> bool,
 
     /// ブール値配列の戻り値を追加する
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - 戻り値の配列
-    /// * `num` - 配列の要素数
+    /// value : 戻り値の配列
+    /// num : 配列の要素数
     pub push_result_array_boolean: unsafe extern "C" fn(value: *const bool, num: c_int),
 
     /// ブール値連想配列の戻り値を追加する
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - キー名(UTF-8)の配列
-    /// * `value` - 戻り値の配列
-    /// * `num` - 配列の要素数
+    /// key : キー名(UTF-8)の配列
+    /// value : 戻り値の配列
+    /// num : 配列の要素数
     pub push_result_table_boolean:
         unsafe extern "C" fn(key: *const *const c_char, value: *const bool, num: c_int),
 
     /// 編集セクション関数
+    /// スクリプト処理中は参照系の関数が利用出来ます
     pub edit: *mut EDIT_SECTION,
 
     /// 関数を戻り値として追加する
+    /// func : 返却した関数の実行時に呼ばれるコールバック関数
+    /// userdata : 任意のユーザーデータのポインタ
     pub push_result_function: unsafe extern "C" fn(
         func: unsafe extern "C" fn(smp: *mut SCRIPT_MODULE_PARAM),
         userdata: *mut c_void,
@@ -318,21 +195,30 @@ pub struct SCRIPT_MODULE_PARAM {
     ),
 
     /// 任意のユーザーデータのポインタ
+    /// push_result_function(),push_result_meta_table()の引数の値が格納されます
     pub userdata: *mut c_void,
 
     /// メタテーブルの戻り値を追加する
+    /// 任意のメタメソッドのコールバック関数を設定したメタテーブルを返却します
+    /// meta_method_functions : 登録するメタメソッドの一覧 (META_METHOD_FUNCTIONを列挙してメタメソッド名がnullの要素で終端したリストへのポインタ)
+    /// userdata : 任意のユーザーデータのポインタ
     pub push_result_meta_table: unsafe extern "C" fn(
         meta_method_functions: *const META_METHOD_FUNCTION,
         userdata: *mut c_void,
     ),
 
     /// 引数のメタテーブルのuserdataのポインタを取得する
+    /// index : 引数の位置(0〜)
+    /// meta_method_functions : 対象のメタテーブルを識別する為のメタメソッドの一覧 ※同一アドレスの場合のみ取得出来ます
+    /// 戻り値 : userdataのポインタ (取得出来ない場合はnullptr)
     pub get_param_meta_table: unsafe extern "C" fn(
         index: c_int,
         meta_method_functions: *mut META_METHOD_FUNCTION,
     ) -> *mut c_void,
 
     /// 引数の型を取得します
+    /// index : 引数の位置(0〜)
+    /// 戻り値 : 引数の型
     pub get_param_type: unsafe extern "C" fn(index: c_int) -> PARAM_TYPE,
 }
 
@@ -340,7 +226,7 @@ pub struct SCRIPT_MODULE_PARAM {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct META_METHOD_FUNCTION {
-    /// メタメソッド名
+    /// メタメソッド名 ※luaのメタメソッドを指定出来ます
     pub method: *const c_char,
     /// コールバック関数
     pub func: unsafe extern "C" fn(smp: *mut SCRIPT_MODULE_PARAM),

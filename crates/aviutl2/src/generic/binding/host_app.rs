@@ -1,4 +1,4 @@
-use crate::AviUtl2Info;
+use crate::{AviUtl2Info, common::parse_name_and_index};
 use pastey::paste;
 use std::num::NonZeroIsize;
 
@@ -571,6 +571,9 @@ pub enum EventType {
     ChangeEditScene,
     /// 選択されているオブジェクトの変更。
     ChangeFocusObject,
+    /// 編集状態の変更。
+    /// （プレビュー再生やファイル出力の開始・終了時）
+    ChangeEditState,
 }
 
 impl From<EventType> for aviutl2_sys::plugin2::EVENT_TYPE {
@@ -580,20 +583,8 @@ impl From<EventType> for aviutl2_sys::plugin2::EVENT_TYPE {
             EventType::ChangeEditFrame => aviutl2_sys::plugin2::EVENT_TYPE::CHANGE_EDIT_FRAME,
             EventType::ChangeEditScene => aviutl2_sys::plugin2::EVENT_TYPE::CHANGE_EDIT_SCENE,
             EventType::ChangeFocusObject => aviutl2_sys::plugin2::EVENT_TYPE::CHANGE_FOCUS_OBJECT,
+            EventType::ChangeEditState => aviutl2_sys::plugin2::EVENT_TYPE::CHANGE_EDIT_STATE,
         }
-    }
-}
-
-fn parse_name_and_index(name_and_index: &str) -> (&str, usize) {
-    let Some(pos) = name_and_index.rfind(':') else {
-        return (name_and_index, 0);
-    };
-    let index_str = &name_and_index[pos + 1..];
-    if let Ok(index) = index_str.parse::<usize>() {
-        let name = &name_and_index[..pos];
-        (name, index)
-    } else {
-        (name_and_index, 0)
     }
 }
 

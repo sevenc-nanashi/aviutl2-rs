@@ -13,7 +13,7 @@ pub struct AviUtl2Info {
 }
 
 /// 対応する最小のAviUtl2バージョン。
-pub const MINIMUM_AVIUTL2_VERSION: AviUtl2Version = AviUtl2Version(2010800);
+pub const MINIMUM_AVIUTL2_VERSION: AviUtl2Version = AviUtl2Version(2011000);
 
 /// AviUtl2のバージョンがサポート範囲かを確認します。
 pub fn ensure_minimum_aviutl2_version(version: AviUtl2Version) -> AnyResult<()> {
@@ -250,6 +250,19 @@ impl Yc48 {
         let g = g.min(255) as u8;
         let b = b.min(255) as u8;
         (r, g, b)
+    }
+}
+
+pub(crate) fn parse_name_and_index(name_and_index: &str) -> (&str, usize) {
+    let Some(pos) = name_and_index.rfind(':') else {
+        return (name_and_index, 0);
+    };
+    let index_str = &name_and_index[pos + 1..];
+    if let Ok(index) = index_str.parse::<usize>() {
+        let name = &name_and_index[..pos];
+        (name, index)
+    } else {
+        (name_and_index, 0)
     }
 }
 
@@ -527,6 +540,11 @@ pub(crate) unsafe fn load_wide_string(ptr: *const u16) -> String {
     }
 
     unsafe { String::from_utf16_lossy(std::slice::from_raw_parts(ptr, len)) }
+}
+
+#[doc(hidden)]
+pub unsafe fn __load_wide_string(ptr: *const u16) -> String {
+    unsafe { load_wide_string(ptr) }
 }
 
 #[doc(hidden)]

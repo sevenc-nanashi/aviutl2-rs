@@ -103,6 +103,8 @@ impl EditHandle {
 
     /// プロジェクトデータの編集を開始する。
     ///
+    /// プロジェクトを編集ロックします。
+    ///
     /// # Note
     ///
     /// 内部では call_edit_section_param を使用しています。
@@ -162,6 +164,8 @@ impl EditHandle {
     }
 
     /// プロジェクトデータの参照を開始する。
+    ///
+    /// プロジェクトを参照ロックします。
     ///
     /// # Note
     ///
@@ -482,6 +486,298 @@ impl EditHandle {
             .collect();
 
         Ok(Some(names))
+    }
+
+    /// シーン名とIDの一覧をコールバック関数で取得する。
+    ///
+    /// プロジェクトを参照ロックします。
+    /// コールバックはシーン名とシーンIDで呼ばれます。
+    pub fn enumerate_scene_names<F>(&self, callback: F)
+    where
+        F: FnMut(String, i32),
+    {
+        assert!(
+            self.is_ready(),
+            "enumerate_scene_names cannot be called before register_plugin is done"
+        );
+        type CallbackParam<F> = ChildKillablePointer<F>;
+
+        extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            name: aviutl2_sys::common::LPCWSTR,
+            scene_id: i32,
+        ) where
+            F: FnMut(String, i32),
+        {
+            let callback = unsafe { &mut *(param as *mut CallbackParam<F>) };
+            let callback = unsafe { callback.as_mut() };
+            let name_str = unsafe { crate::common::load_wide_string(name) };
+            callback(name_str, scene_id);
+        }
+        let trampoline_static = trampoline::<F>
+            as extern "C" fn(*mut std::ffi::c_void, aviutl2_sys::common::LPCWSTR, i32);
+        let callback_guard = KillablePointer::new(callback);
+        let child_param = callback_guard.create_child();
+        let param = Box::new(child_param);
+        let param_ptr = Box::into_raw(param);
+        unsafe {
+            ((*self.internal).enum_scene_name)(
+                param_ptr as *mut std::ffi::c_void,
+                trampoline_static,
+            );
+        }
+        drop(unsafe { Box::from_raw(param_ptr) });
+    }
+
+    /// シーン名とIDの一覧を取得する。
+    pub fn get_scene_names(&self) -> Vec<(String, i32)> {
+        assert!(
+            self.is_ready(),
+            "get_scene_names cannot be called before register_plugin is done"
+        );
+        let mut scenes = Vec::new();
+        self.enumerate_scene_names(|name, scene_id| {
+            scenes.push((name, scene_id));
+        });
+        scenes
+    }
+
+    /// 指定のシーンに切り替える。
+    ///
+    /// プロジェクトが編集ロック・参照ロックされている場合は使用できません。
+    ///
+    /// # Errors
+    ///
+    /// シーンが存在しない場合や出力中などは [`EditHandleError::ApiCallFailed`] が返ります。
+    pub fn switch_scene(&self, scene_id: i32) -> Result<(), EditHandleError> {
+        assert!(
+            self.is_ready(),
+            "switch_scene cannot be called before register_plugin is done"
+        );
+        let success = unsafe { ((*self.internal).select_scene)(scene_id) };
+        if success {
+            Ok(())
+        } else {
+            Err(EditHandleError::ApiCallFailed)
+        }
+    }
+
+    /// シーンを作成し、そのシーンに切り替える。
+    ///
+    /// プロジェクトが編集ロック・参照ロックされている場合は使用できません。
+    #[expect(clippy::too_many_arguments)]
+    pub fn create_scene(
+        &self,
+        name: &str,
+        label: Option<&str>,
+        width: u32,
+        height: u32,
+        frame_rate: crate::common::Rational32,
+        sample_rate: u32,
+        background: Option<(u8, u8, u8)>,
+    ) -> Result<(), EditHandleError> {
+        assert!(
+            self.is_ready(),
+            "create_scene cannot be called before register_plugin is done"
+        );
+        let name = crate::common::CWString::new(name)?;
+        let label = label.map(crate::common::CWString::new).transpose()?;
+        let (bg_r, bg_g, bg_b) = background.unwrap_or((0, 0, 0));
+        let success = unsafe {
+            ((*self.internal).create_scene)(
+                name.as_ptr(),
+                label.as_ref().map_or(std::ptr::null(), |s| s.as_ptr()),
+                width as i32,
+                height as i32,
+                *frame_rate.numer(),
+                *frame_rate.denom(),
+                sample_rate as i32,
+                aviutl2_sys::plugin2::EDIT_INFO_COLOR {
+                    r: bg_r,
+                    g: bg_g,
+                    b: bg_b,
+                    a: background.map_or(0, |_| 255),
+                },
+            )
+        };
+        if success {
+            Ok(())
+        } else {
+            Err(EditHandleError::ApiCallFailed)
+        }
+    }
+
+    /// プロジェクトを新規作成する。
+    ///
+    /// プロジェクトが編集ロック・参照ロックされている場合は使用できません。
+    ///
+    /// # Arguments
+    ///
+    /// - `show_confirm`：`true`の場合、現在のプロジェクトを保存するか確認するダイアログを表示します。
+    pub fn create_project(
+        &self,
+        width: u32,
+        height: u32,
+        frame_rate: crate::common::Rational32,
+        sample_rate: u32,
+        background: Option<(u8, u8, u8)>,
+        show_confirm: bool,
+    ) -> Result<(), EditHandleError> {
+        assert!(
+            self.is_ready(),
+            "create_project cannot be called before register_plugin is done"
+        );
+        let (bg_r, bg_g, bg_b) = background.unwrap_or((0, 0, 0));
+        let success = unsafe {
+            ((*self.internal).create_project)(
+                width as i32,
+                height as i32,
+                *frame_rate.numer(),
+                *frame_rate.denom(),
+                sample_rate as i32,
+                aviutl2_sys::plugin2::EDIT_INFO_COLOR {
+                    r: bg_r,
+                    g: bg_g,
+                    b: bg_b,
+                    a: background.map_or(0, |_| 255),
+                },
+                show_confirm,
+            )
+        };
+        if success {
+            Ok(())
+        } else {
+            Err(EditHandleError::ApiCallFailed)
+        }
+    }
+
+    /// 指定のプロジェクトファイルを開く。
+    ///
+    /// プロジェクトが編集ロック・参照ロックされている場合は使用できません。
+    ///
+    /// # Arguments
+    ///
+    /// - `path`：開くプロジェクトファイルのパス。
+    /// - `show_confirm`：`true`の場合、現在のプロジェクトを保存するか確認するダイアログを表示します。
+    pub fn open_project_file(
+        &self,
+        path: &std::path::Path,
+        show_confirm: bool,
+    ) -> Result<(), EditHandleError> {
+        assert!(
+            self.is_ready(),
+            "open_project cannot be called before register_plugin is done"
+        );
+
+        let path_str = path.to_str().ok_or(EditHandleError::ValueOutOfRange)?;
+        let path_cwstr = crate::common::CWString::new(path_str)?;
+
+        let success =
+            unsafe { ((*self.internal).open_project_file)(path_cwstr.as_ptr(), show_confirm) };
+
+        if success {
+            Ok(())
+        } else {
+            Err(EditHandleError::ApiCallFailed)
+        }
+    }
+
+    /// プロジェクトを保存する。
+    /// 自動バックアップと同様の処理で保存されます。
+    ///
+    /// プロジェクトが編集ロック・参照ロックされている場合は使用できません。
+    pub fn save_project_file(&self, path: &std::path::Path) -> Result<(), EditHandleError> {
+        assert!(
+            self.is_ready(),
+            "save_project cannot be called before register_plugin is done"
+        );
+
+        let path_str = path.to_str().ok_or(EditHandleError::ValueOutOfRange)?;
+        let path_cwstr = crate::common::CWString::new(path_str)?;
+
+        let success = unsafe { ((*self.internal).save_project_file)(path_cwstr.as_ptr()) };
+
+        if success {
+            Ok(())
+        } else {
+            Err(EditHandleError::ApiCallFailed)
+        }
+    }
+
+    /// 現在のシーンを出力する。
+    /// この関数はファイル出力の開始のみで終了します。
+    ///
+    /// プロジェクトが編集ロック・参照ロックされている場合は使用できません。
+    ///
+    /// # Arguments
+    ///
+    /// - `path`：出力するファイルのパス。
+    /// - `output_plugin`：出力プラグインの名前。
+    /// - `configure`：出力プラグインの設定を行うコールバック関数。
+    ///   `FLAG_PROJECT_CONFIG`が設定されている出力プラグインに、[`crate::output::OutputPlugin::save_project_config`]と
+    ///   同様の処理を行うことで、出力プラグインの設定を変更できます。
+    pub fn output_file<F>(
+        &self,
+        path: &std::path::Path,
+        output_plugin: &str,
+        configure: Option<F>,
+    ) -> Result<(), EditHandleError>
+    where
+        F: FnOnce(&mut crate::generic::ProjectFile) + Send + 'static,
+    {
+        assert!(
+            self.is_ready(),
+            "output_scene cannot be called before register_plugin is done"
+        );
+
+        let path_str = path.to_str().ok_or(EditHandleError::ValueOutOfRange)?;
+        let path_cwstr = crate::common::CWString::new(path_str)?;
+        let output_plugin_cwstr = crate::common::CWString::new(output_plugin)?;
+
+        let configure_param = configure.map(|f| KillablePointer::new(Some(f)));
+        let child_param = configure_param.as_ref().map(|p| p.create_child());
+        let param_ptr = child_param
+            .map(|p| Box::into_raw(Box::new(p)) as *mut std::ffi::c_void)
+            .unwrap_or(std::ptr::null_mut());
+
+        extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            project_file: *mut aviutl2_sys::plugin2::PROJECT_FILE,
+        ) where
+            F: FnOnce(&mut crate::generic::ProjectFile) + Send + 'static,
+        {
+            if !param.is_null() {
+                unsafe {
+                    let child_param = &mut *(param as *mut ChildKillablePointer<Option<F>>);
+                    if let Some(callback) = child_param.as_mut().take() {
+                        let mut project_file = crate::generic::ProjectFile::from_raw(project_file);
+                        callback(&mut project_file);
+                    }
+                }
+            }
+        }
+
+        let trampoline_static = trampoline::<F>
+            as extern "C" fn(*mut std::ffi::c_void, *mut aviutl2_sys::plugin2::PROJECT_FILE);
+
+        let success = unsafe {
+            ((*self.internal).output_file)(
+                path_cwstr.as_ptr(),
+                output_plugin_cwstr.as_ptr(),
+                param_ptr,
+                Some(trampoline_static),
+            )
+        };
+
+        if !param_ptr.is_null() {
+            drop(unsafe { Box::from_raw(param_ptr as *mut ChildKillablePointer<Option<F>>) });
+        }
+
+        if success {
+            Ok(())
+        } else {
+            Err(EditHandleError::ApiCallFailed)
+        }
     }
 
     /// モジュールの一覧をコールバック関数で取得する。

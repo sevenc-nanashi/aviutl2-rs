@@ -93,8 +93,10 @@ pub struct EditInfo {
     /// フレーム範囲選択の開始フレーム番号・終了フレーム番号。
     /// 未選択の場合は`None`になります。
     pub select_range: Option<std::ops::RangeInclusive<usize>>,
-    /// シーンのID
+    /// シーンのID。
     pub scene_id: i32,
+    /// シーンの背景色。
+    pub background: Option<(u8, u8, u8)>,
 }
 
 impl EditInfo {
@@ -124,6 +126,11 @@ impl EditInfo {
             },
 
             scene_id: raw.scene_id,
+            background: if raw.background.a == 255 {
+                Some((raw.background.r, raw.background.g, raw.background.b))
+            } else {
+                None
+            },
         }
     }
 }
@@ -293,6 +300,34 @@ impl From<BpmInfo> for aviutl2_sys::plugin2::BPM_INFO {
             beat: value.beat,
             start: value.start,
             offset: value.offset,
+        }
+    }
+}
+
+/// オブジェクトフラグの種別。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectFlagType {
+    /// グループ制御の対象かどうか。
+    EnableGroup,
+    /// カメラ制御の対象かどうか。
+    EnableCamera,
+    /// クリッピングオブジェクトかどうか。
+    ClippingObject,
+    /// 「上のオブジェクトでクリッピング」の対象かどうか。
+    ClippingUpperObject,
+}
+
+impl From<ObjectFlagType> for aviutl2_sys::plugin2::OBJECT_FLAG_TYPE {
+    fn from(value: ObjectFlagType) -> Self {
+        match value {
+            ObjectFlagType::EnableGroup => aviutl2_sys::plugin2::OBJECT_FLAG_TYPE::ENABLE_GROUP,
+            ObjectFlagType::EnableCamera => aviutl2_sys::plugin2::OBJECT_FLAG_TYPE::ENABLE_CAMERA,
+            ObjectFlagType::ClippingObject => {
+                aviutl2_sys::plugin2::OBJECT_FLAG_TYPE::CLIPPING_OBJECT
+            }
+            ObjectFlagType::ClippingUpperObject => {
+                aviutl2_sys::plugin2::OBJECT_FLAG_TYPE::CLIPPING_UPPER_OBJECT
+            }
         }
     }
 }
@@ -880,6 +915,25 @@ impl ReadSection {
         }
     }
 
+    /// オブジェクトフラグを取得する。
+    pub fn get_object_flag(
+        &self,
+        object: ObjectHandle,
+        flag: ObjectFlagType,
+    ) -> EditSectionResult<bool> {
+        self.ensure_object_exists(object)?;
+        let flag_value =
+            unsafe { ((*self.internal).get_object_flag)(object.internal, flag.into()) };
+        Ok(flag_value)
+    }
+
+    /// オブジェクトIDを取得する。
+    pub fn get_object_id(&self, object: ObjectHandle) -> EditSectionResult<i64> {
+        self.ensure_object_exists(object)?;
+        let id = unsafe { ((*self.internal).get_object_id)(object.internal) };
+        Ok(id)
+    }
+
     /// BPMグリッドのBPM情報の一覧を取得する。
     pub fn get_grid_bpm_list(&self) -> EditSectionResult<Vec<BpmInfo>> {
         let mut bpm_info_list = Vec::<aviutl2_sys::plugin2::BPM_INFO>::new();
@@ -1204,6 +1258,12 @@ impl ReadSection {
             return Err(EditSectionError::ApiCallFailed);
         }
         Ok(unsafe { crate::common::load_wide_string(name_ptr) })
+    }
+
+    /// エフェクトIDを取得する。
+    pub fn get_effect_id(&self, effect: EffectHandle) -> EditSectionResult<i64> {
+        let id = unsafe { ((*self.internal).get_effect_id)(effect.internal) };
+        Ok(id)
     }
 
     /// マークされているフレームの一覧を取得する。
@@ -1954,6 +2014,18 @@ impl EditSection {
         Ok(())
     }
 
+    /// オブジェクトフラグを設定する。
+    pub fn set_object_flag(
+        &self,
+        object: ObjectHandle,
+        flag: ObjectFlagType,
+        value: bool,
+    ) -> EditSectionResult<()> {
+        self.read_section.ensure_object_exists(object)?;
+        unsafe { ((*self.internal).set_object_flag)(object.internal, flag.into(), value) };
+        Ok(())
+    }
+
     /// 編集データを編集済み状態に設定する。
     ///
     /// # Note
@@ -2222,6 +2294,16 @@ where
             group_name,
         )
     }
+
+    /// オブジェクトフラグを取得する。
+    pub fn get_object_flag(&self, flag: ObjectFlagType) -> EditSectionResult<bool> {
+        self.read_section().get_object_flag(self.handle, flag)
+    }
+
+    /// オブジェクトIDを取得する。
+    pub fn get_object_id(&self) -> EditSectionResult<i64> {
+        self.read_section().get_object_id(self.handle)
+    }
 }
 
 impl EditSectionObjectCaller<'_, EditSection> {
@@ -2312,6 +2394,11 @@ impl EditSectionObjectCaller<'_, EditSection> {
     /// `name`に`None`や空文字を指定すると、標準の名前になります。
     pub fn set_name(&self, name: Option<&str>) -> EditSectionResult<()> {
         self.edit_section.set_object_name(self.handle, name)
+    }
+
+    /// オブジェクトフラグを設定する。
+    pub fn set_object_flag(&self, flag: ObjectFlagType, value: bool) -> EditSectionResult<()> {
+        self.edit_section.set_object_flag(self.handle, flag, value)
     }
 }
 
@@ -2422,6 +2509,11 @@ where
     /// トラックバー項目の情報を取得する。
     pub fn get_track_info(&self, item: &str) -> EditSectionResult<TrackInfo> {
         self.read_section().get_effect_track_info(self.handle, item)
+    }
+
+    /// エフェクトIDを取得する。
+    pub fn get_effect_id(&self) -> EditSectionResult<i64> {
+        self.read_section().get_effect_id(self.handle)
     }
 }
 

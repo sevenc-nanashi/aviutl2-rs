@@ -49,6 +49,10 @@ define_bitflag! {
         /// フィルタオブジェクトをサポートするかどうか。
         /// `true` の場合、フィルタオブジェクトとして使えるようになります。
         filter: aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_FILTER,
+
+        /// オブジェクト・フィルタ効果の追加メニューから非表示にするかどうか。
+        /// `true` の場合、デフォルトでは追加メニューに表示されません。
+        hidemenu: aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_HIDEMENU,
     }
 }
 

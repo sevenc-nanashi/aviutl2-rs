@@ -702,13 +702,25 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     let mut edit_section = unsafe {
                         ::aviutl2::generic::EditSection::from_raw(edit_section)
                     };
-                    let ret = #callback(&mut edit_section);
+                    let mut object_handle = unsafe {
+                        ::aviutl2::generic::ObjectHandle::from(object_handle)
+                    };
+                    let (effect_name, effect_index) = unsafe {
+                        ::aviutl2::filter::__bridge::parse_effect_name_and_index(effect_name)
+                    };
+                    let item_name = unsafe {
+                        ::aviutl2::common::__load_wide_string(item)
+                    };
+                    let ret = #callback(&mut edit_section, object_handle, effect_name, effect_index, item_name);
                     #call_on_error
                 };
                 if *unwind {
                     button_callbacks.push(quote::quote! {
                         extern "C" fn #callback_id(
-                            edit_section: *mut ::aviutl2::sys::plugin2::EDIT_SECTION
+                            edit_section: *mut ::aviutl2::sys::plugin2::EDIT_SECTION,
+                            object_handle: ::aviutl2::sys::plugin2::OBJECT_HANDLE,
+                            effect_name: ::aviutl2::sys::common::LPCWSTR,
+                            item: ::aviutl2::sys::common::LPCWSTR
                         ) {
                             if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
                                 #call_body
@@ -2565,6 +2577,10 @@ mod tests {
 
         fn on_button_pressed(
             _handle: &mut aviutl2::generic::EditSection,
+            _object: aviutl2::generic::ObjectHandle,
+            _effect: String,
+            _index: usize,
+            _item: String,
         ) -> aviutl2::AnyResult<()> {
             Ok(())
         }

@@ -259,7 +259,7 @@ mod utils;
 ///
 /// - 型には`group! { ... }`と記述する必要があります。
 ///   - `group! { ... }`の中には他のフィールドを同様に記述します。
-/// - このフィールドは削除されます。
+/// - このフィールドは構造体としては削除されます。
 ///
 /// ## `separator`
 ///
@@ -279,13 +279,19 @@ mod utils;
 /// - `name`: セパレーターの名前。省略した場合、フィールド名が使用されます。
 ///
 /// - `separator`属性は複数指定することができます。
-/// - この属性のみが指定されているフィールドは削除されます。
+/// - この属性のみが指定されているフィールドは構造体としては削除されます。
 /// - この属性と他の属性が同時に指定されているフィールドは、このフィールドの上にセパレーターが挿入されます。
 ///
 /// ## `button`
 ///
 /// ```rust
-/// # fn on_button_pressed(handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()>
+/// # fn on_button_pressed(
+/// #     _edit_section: &mut aviutl2::generic::EditSection,
+/// #     _object: aviutl2::generic::ObjectHandle,
+/// #     _effect: String,
+/// #     _index: usize,
+/// #     _item: String,
+/// # ) -> aviutl2::AnyResult<()>
 /// # { unimplemented!() }
 /// # #[aviutl2_macros::filter_config_items]
 /// # struct S {
@@ -304,11 +310,17 @@ mod utils;
 /// - 関数のシグネチャは以下のようになります。
 ///
 /// ```rust
-/// fn on_button_pressed(handle: &mut aviutl2::generic::EditSection) -> aviutl2::AnyResult<()>
+/// fn on_button_pressed(
+///     edit_section: &mut aviutl2::generic::EditSection,
+///     object: aviutl2::generic::ObjectHandle,
+///     effect: String,
+///     index: usize,
+///     item: String,
+/// ) -> aviutl2::AnyResult<()>
 /// # { unimplemented!() }
 /// ```
 ///
-/// - このフィールドは削除されます。
+/// - このフィールドは構造体としては削除されます。
 ///
 /// ## `hide`
 ///
@@ -369,8 +381,15 @@ mod utils;
 ///    value: i32,
 /// }
 ///
-/// fn my_button_handler(handle: &mut aviutl2::generic::EditSection) {
+/// fn my_button_handler(
+///     edit_section: &mut aviutl2::generic::EditSection,
+///     object: aviutl2::generic::ObjectHandle,
+///     effect: String,
+///     index: usize,
+///     item: String,
+/// ) -> aviutl2::AnyResult<()> {
 ///     // ボタンが押されたときの処理
+/// #   unimplemented!()
 /// }
 ///
 /// #[aviutl2_macros::filter_config_items]

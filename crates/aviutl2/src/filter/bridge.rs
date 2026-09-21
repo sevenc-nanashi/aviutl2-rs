@@ -498,6 +498,14 @@ extern "C" fn func_proc_audio_unwind<T: FilterSingleton>(
     }
 }
 
+pub unsafe fn parse_effect_name_and_index(
+    lpcwstr: aviutl2_sys::common::LPCWSTR,
+) -> (String, usize) {
+    let name_and_index = unsafe { crate::common::load_wide_string(lpcwstr) };
+    let (name, index) = crate::common::parse_name_and_index(&name_and_index);
+    (name.to_string(), index)
+}
+
 /// フィルタプラグインを登録するマクロ。
 ///
 /// # Arguments

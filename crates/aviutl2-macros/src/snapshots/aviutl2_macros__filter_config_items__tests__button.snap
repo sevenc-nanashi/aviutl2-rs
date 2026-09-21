@@ -18,11 +18,26 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
         ];
         extern "C" fn __filter_button_callback_reset(
             edit_section: *mut ::aviutl2::sys::plugin2::EDIT_SECTION,
+            object_handle: ::aviutl2::sys::plugin2::OBJECT_HANDLE,
+            effect_name: ::aviutl2::sys::common::LPCWSTR,
+            item: ::aviutl2::sys::common::LPCWSTR,
         ) {
             if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
                 let mut edit_section =
                     unsafe { ::aviutl2::generic::EditSection::from_raw(edit_section) };
-                let ret = reset(&mut edit_section);
+                let mut object_handle =
+                    unsafe { ::aviutl2::generic::ObjectHandle::from(object_handle) };
+                let (effect_name, effect_index) = unsafe {
+                    ::aviutl2::filter::__bridge::parse_effect_name_and_index(effect_name)
+                };
+                let item_name = unsafe { ::aviutl2::common::__load_wide_string(item) };
+                let ret = reset(
+                    &mut edit_section,
+                    object_handle,
+                    effect_name,
+                    effect_index,
+                    item_name,
+                );
                 ::aviutl2::common::__log_and_beep_if_error(ret);
             }) {
                 ::aviutl2::tracing::error!("Panic occurred during {}: {}", "Reset", panic_info);
@@ -31,11 +46,26 @@ impl ::aviutl2::filter::FilterConfigItems for Config {
         }
         extern "C" fn __filter_button_callback_apply(
             edit_section: *mut ::aviutl2::sys::plugin2::EDIT_SECTION,
+            object_handle: ::aviutl2::sys::plugin2::OBJECT_HANDLE,
+            effect_name: ::aviutl2::sys::common::LPCWSTR,
+            item: ::aviutl2::sys::common::LPCWSTR,
         ) {
             if let Err(panic_info) = ::aviutl2::__catch_unwind_with_panic_info(|| {
                 let mut edit_section =
                     unsafe { ::aviutl2::generic::EditSection::from_raw(edit_section) };
-                let ret = on_apply_clicked(&mut edit_section);
+                let mut object_handle =
+                    unsafe { ::aviutl2::generic::ObjectHandle::from(object_handle) };
+                let (effect_name, effect_index) = unsafe {
+                    ::aviutl2::filter::__bridge::parse_effect_name_and_index(effect_name)
+                };
+                let item_name = unsafe { ::aviutl2::common::__load_wide_string(item) };
+                let ret = on_apply_clicked(
+                    &mut edit_section,
+                    object_handle,
+                    effect_name,
+                    effect_index,
+                    item_name,
+                );
                 ::aviutl2::common::__log_and_beep_if_error(ret);
             }) {
                 ::aviutl2::tracing::error!("Panic occurred during {}: {}", "Apply", panic_info);

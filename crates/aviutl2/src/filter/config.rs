@@ -1,5 +1,6 @@
 use crate::common::LeakManager;
-use aviutl2_sys::plugin2::EDIT_SECTION;
+use aviutl2_sys::common::LPCWSTR;
+use aviutl2_sys::plugin2::{EDIT_SECTION, OBJECT_HANDLE};
 use parking_lot::lock_api::RawRwLock;
 use std::mem::MaybeUninit;
 use std::{ffi::c_void, ptr::NonNull};
@@ -260,7 +261,8 @@ impl FilterConfigItem {
                 button: aviutl2_sys::filter2::FILTER_ITEM_BUTTON {
                     r#type: leak_manager.leak_as_wide_string("button"),
                     name: leak_manager.leak_as_wide_string(&item.name),
-                    callback: item.callback,
+                    callback: None,
+                    callback2: Some(item.callback),
                 },
             },
             FilterConfigItem::CheckSection(filter_config_check_section) => {
@@ -691,7 +693,7 @@ pub struct FilterConfigButton {
     /// 設定名。
     pub name: String,
     /// コールバック関数。
-    pub callback: extern "C" fn(*mut EDIT_SECTION),
+    pub callback: extern "C" fn(*mut EDIT_SECTION, OBJECT_HANDLE, LPCWSTR, LPCWSTR),
 }
 
 /// 文字列。

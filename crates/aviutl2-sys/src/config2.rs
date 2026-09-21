@@ -22,14 +22,14 @@ pub struct CONFIG_HANDLE {
     /// 参照する言語設定のセクションはInitializeConfig()を定義したプラグインのファイル名になります
     /// text : 元のテキスト(.aul2ファイルのキー名)
     /// 戻り値 : 定義されているテキストへのポインタ (未定義の場合は引数のテキストのポインタが返却されます)
-    ///         ※言語設定が更新されるまで有効
+    /// ※言語設定が更新されるまで有効
     pub translate: unsafe extern "C" fn(handle: *mut CONFIG_HANDLE, text: LPCWSTR) -> LPCWSTR,
 
     /// 現在の言語設定で定義されているテキストを取得します ※任意のセクションから取得出来ます
     /// section : 言語設定のセクション(.aul2ファイルのセクション名)
     /// text : 元のテキスト(.aul2ファイルのキー名)
     /// 戻り値 : 定義されているテキストへのポインタ (未定義の場合は引数のテキストのポインタが返却されます)
-    ///         ※言語設定が更新されるまで有効
+    /// ※言語設定が更新されるまで有効
     pub get_language_text: unsafe extern "C" fn(
         handle: *mut CONFIG_HANDLE,
         section: LPCWSTR,
@@ -39,7 +39,7 @@ pub struct CONFIG_HANDLE {
     /// 設定ファイルで定義されているフォント情報を取得します
     /// key : 設定ファイル(style.conf)の\[Font]のキー名
     /// 戻り値 : フォント情報構造体へのポインタ (取得出来ない場合はデフォルトのフォントが返却されます)
-    ///         ※次にこの関数を呼び出すまで有効
+    /// ※次にこの関数を呼び出すまで有効
     pub get_font_info:
         unsafe extern "C" fn(handle: *mut CONFIG_HANDLE, key: LPCSTR) -> *mut FONT_INFO,
 
