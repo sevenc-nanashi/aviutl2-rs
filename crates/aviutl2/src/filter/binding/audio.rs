@@ -2,6 +2,7 @@ use super::{FilterProcError, FilterProcResult, ObjectInfo, SceneInfo};
 
 /// オブジェクトの音声パラメータ構造体。
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct ObjectAudioParam {
     /// 左チャンネルの音量倍率。（1.0=等倍）
     pub vol_l: f32,
@@ -27,6 +28,7 @@ impl From<aviutl2_sys::filter2::OBJECT_AUDIO_PARAM> for ObjectAudioParam {
 
 /// 音声フィルタのオブジェクト情報。
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct AudioObjectInfo {
     /// オブジェクトの現在の音声サンプル位置。
     pub sample_index: u64,
@@ -41,6 +43,7 @@ pub struct AudioObjectInfo {
 
 /// 音声フィルタ処理のための構造体。
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct FilterProcAudio<U: super::FilterUserdata> {
     /// シーン情報。
     pub scene: SceneInfo,

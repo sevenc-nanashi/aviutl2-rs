@@ -157,12 +157,14 @@ impl ObjectLayerFrame {
 
 /// レイヤーとフレーム情報。
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct LayerFrameData {
     pub layer: usize,
     pub frame: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct MediaInfo {
     /// Videoトラック数。
     pub video_track_num: Option<NonZero<usize>>,
@@ -178,9 +180,10 @@ pub struct MediaInfo {
 
 /// トラックバー情報。
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct TrackInfo {
     /// トラックバーの移動モードの名称。
-    ///  Noneの場合は移動なしです。
+    /// Noneの場合は移動なしです。
     pub mode: Option<String>,
     /// トラックバーの設定値。
     pub params: Vec<f64>,
@@ -201,8 +204,25 @@ pub struct TrackInfo {
     pub group_name: Option<String>,
 }
 
+impl Default for TrackInfo {
+    fn default() -> Self {
+        Self {
+            mode: None,
+            params: Vec::new(),
+            accelerate: false,
+            decelerate: false,
+            twopoint: false,
+            timecontrol: false,
+            group_num: 1,
+            group_index: 0,
+            group_name: None,
+        }
+    }
+}
+
 /// パレット情報。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct PaletteInfo {
     /// パレット色。
     pub colors: [PaletteColor; Self::PALETTE_NUM],

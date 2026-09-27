@@ -40,6 +40,7 @@ pub enum EditHandleError {
 
 /// シーンの映像レンダリング結果。
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct RenderingSceneVideo<'a> {
     /// レンダリング対象のフレーム。
     pub frame: u32,
@@ -75,6 +76,7 @@ impl RenderingSceneVideo<'_> {
 
 /// シーンの音声レンダリング結果。
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct RenderingSceneAudio<'a> {
     /// レンダリング対象のフレーム。
     pub frame: u32,
@@ -1294,6 +1296,7 @@ impl EditHandle {
 
 /// エフェクト情報。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Effect {
     /// エフェクト名。
     pub name: String,
@@ -1305,6 +1308,7 @@ pub struct Effect {
 
 /// エフェクトの設定項目情報。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct EffectItemInfo {
     /// 設定項目名。
     pub name: String,
@@ -1471,6 +1475,7 @@ impl From<EffectItemType> for i32 {
 
 /// モジュール情報。
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ModuleInfo {
     /// モジュール種別。
     pub module_type: ModuleType,

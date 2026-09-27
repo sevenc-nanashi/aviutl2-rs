@@ -4,6 +4,7 @@ use crate::{CWString, NullByteError, load_wide_string};
 
 /// フォント情報
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct FontInfo {
     /// フォント名
     pub name: String,

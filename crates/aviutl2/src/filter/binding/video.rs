@@ -7,6 +7,7 @@ use super::{FilterProcError, FilterProcResult, ObjectInfo, SceneInfo};
 
 /// 画像フィルタのオブジェクト情報。
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct VideoObjectInfo {
     /// オブジェクトの現在の画像サイズの幅。
     pub width: u32,
@@ -164,6 +165,7 @@ impl From<OutputImageResourcePixelFormat> for aviutl2_sys::filter2::OUTPUT_PIXEL
 
 /// 画像フィルタ処理のための構造体。
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct FilterProcVideo<U: super::FilterUserdata> {
     /// シーン情報。
     pub scene: SceneInfo,

@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Breaking**: 最小サポートを2.1.11に引き上げ
+- **Breaking**: SDKから受け取る情報用structに`#[non_exhaustive]`を追加
 
 ### デモプラグイン
 

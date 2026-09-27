@@ -201,6 +201,7 @@ pub trait FilterPlugin: Send + Sync + Sized {
 
 /// シーン情報。
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct SceneInfo {
     /// 解像度（幅）。
     pub width: u32,
@@ -220,6 +221,7 @@ pub struct SceneInfo {
 ///
 /// フレームは0-indexedです。
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct ObjectInfo {
     /// 描画対象のオブジェクトの固有ID。
     /// アプリ起動ごとの固有IDです。

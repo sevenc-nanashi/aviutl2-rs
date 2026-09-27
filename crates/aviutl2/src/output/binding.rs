@@ -57,6 +57,7 @@ impl OutputType {
 
 /// 出力情報を表す構造体。
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct OutputInfo {
     /// 動画出力情報。動画出力がない場合は`None`。
     pub video: Option<VideoOutputInfo>,
@@ -74,6 +75,7 @@ unsafe impl Sync for OutputInfo {}
 
 /// 動画の出力情報を表す構造体。
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct VideoOutputInfo {
     /// 動画の幅（ピクセル単位）。
     pub width: u32,
@@ -87,6 +89,7 @@ pub struct VideoOutputInfo {
 
 /// 音声の出力情報を表す構造体。
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct AudioOutputInfo {
     /// 音声のサンプルレート（Hz単位）。
     pub sample_rate: u32,

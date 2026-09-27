@@ -7,6 +7,7 @@ pub use raw_window_handle::{self, Win32WindowHandle};
 
 /// AviUtl2の情報。
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct AviUtl2Info {
     /// AviUtl2のバージョン。
     pub version: AviUtl2Version,

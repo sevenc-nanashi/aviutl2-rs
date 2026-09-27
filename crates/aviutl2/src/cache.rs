@@ -207,6 +207,7 @@ impl From<aviutl2_sys::filter2::INPUT_PIXEL_FORMAT> for CacheImagePixelFormat {
 
 /// メディアファイルのビデオ情報。
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
 pub struct VideoFileInfo {
     /// 総時間。
     pub total_time: f64,
@@ -224,6 +225,7 @@ pub struct VideoFileInfo {
 
 /// メディアファイルのオーディオ情報。
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
 pub struct AudioFileInfo {
     /// 総時間。
     pub total_time: f64,
