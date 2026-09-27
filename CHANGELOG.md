@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.48.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.48.0)
+
 - **Breaking**: 最小サポートを2.1.11に引き上げ
 - **Breaking**: SDKから受け取る情報用structに`#[non_exhaustive]`を追加
 
