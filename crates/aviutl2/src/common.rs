@@ -13,7 +13,7 @@ pub struct AviUtl2Info {
 }
 
 /// 対応する最小のAviUtl2バージョン。
-pub const MINIMUM_AVIUTL2_VERSION: AviUtl2Version = AviUtl2Version(2011000);
+pub const MINIMUM_AVIUTL2_VERSION: AviUtl2Version = AviUtl2Version::new(2, 1, 11, 0);
 
 /// AviUtl2のバージョンがサポート範囲かを確認します。
 pub fn ensure_minimum_aviutl2_version(version: AviUtl2Version) -> AnyResult<()> {
@@ -55,7 +55,7 @@ impl AviUtl2Version {
     /// # Panics
     ///
     /// `minor`、`patch`、`build`がそれぞれ100以上の場合にパニックします。
-    pub fn new(major: u8, minor: u8, patch: u8, build: u8) -> Self {
+    pub const fn new(major: u8, minor: u8, patch: u8, build: u8) -> Self {
         assert!(minor < 100, "minor version must be less than 100");
         assert!(patch < 100, "patch version must be less than 100");
         assert!(build < 100, "build version must be less than 100");
@@ -68,22 +68,22 @@ impl AviUtl2Version {
     }
 
     /// メジャーバージョンを取得します。
-    pub fn major(self) -> u32 {
+    pub const fn major(self) -> u32 {
         self.0 / 1000000
     }
 
     /// マイナーバージョンを取得します。
-    pub fn minor(self) -> u32 {
+    pub const fn minor(self) -> u32 {
         (self.0 / 10000) % 100
     }
 
     /// ベータバージョンを取得します。
-    pub fn patch(self) -> u32 {
+    pub const fn patch(self) -> u32 {
         (self.0 / 100) % 100
     }
 
     /// ビルドバージョンを取得します。
-    pub fn build(self) -> u32 {
+    pub const fn build(self) -> u32 {
         self.0 % 100
     }
 }

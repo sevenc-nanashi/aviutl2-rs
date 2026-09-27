@@ -1500,6 +1500,10 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     /// - `param`：エフェクトのパラメーター。Key・Valueはどちらもエイリアスと同様のフォーマットで指定します。
     /// - `resource`：処理対象の画像リソース。利用できる種類は
     ///   [`ImageResource::Object`]、[`ImageResource::Resource`]。
+    ///
+    /// # Note
+    ///
+    /// 標準リソースが対象の場合も現在のオブジェクトの画像パラメータが参照・更新されます。
     pub fn exec_effect<'a, C, K, V>(
         &mut self,
         effect_name: &str,
@@ -1540,6 +1544,24 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
                 },
                 params.len() as i32,
                 resource.as_ptr(),
+            )
+        };
+        if success {
+            Ok(())
+        } else {
+            Err(FilterProcError::ApiCallFailed)
+        }
+    }
+
+    /// 現在のオブジェクトで自身以降のフィルタ効果を実行する。
+    pub fn exec_post_effect(&mut self) -> FilterProcResult<()> {
+        let inner = unsafe { &*self.inner };
+        let success = unsafe {
+            (inner.exec_effect)(
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                0,
+                std::ptr::null_mut(),
             )
         };
         if success {

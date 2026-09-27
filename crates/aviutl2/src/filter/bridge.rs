@@ -72,6 +72,7 @@ impl SceneInfo {
             height: raw.height as u32,
             frame_rate: num_rational::Rational32::new(raw.rate, raw.scale),
             sample_rate: raw.sample_rate as u32,
+            id: raw.id,
         }
     }
 }
@@ -92,6 +93,8 @@ impl ObjectInfo {
             frame_e: raw.frame_e as u32,
             effect_layer: raw.effect_layer as u32,
             origin_frame: raw.origin_frame as u32,
+            handle: crate::generic::ObjectHandle::from(raw.handle),
+            effect_handle: crate::generic::EffectHandle::from(raw.effect_handle),
         }
     }
 }

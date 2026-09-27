@@ -210,6 +210,8 @@ pub struct SceneInfo {
     pub frame_rate: Rational32,
     /// サンプリングレート。
     pub sample_rate: u32,
+    /// シーンID。
+    pub id: i32,
 }
 
 /// オブジェクト情報。
@@ -245,6 +247,10 @@ pub struct ObjectInfo {
     pub effect_layer: u32,
     /// シーン基準のレンダリングの起点フレーム。
     pub origin_frame: u32,
+    /// オブジェクトのハンドル。
+    pub handle: crate::generic::ObjectHandle,
+    /// エフェクトのハンドル。
+    pub effect_handle: crate::generic::EffectHandle,
 }
 
 impl ObjectInfo {
