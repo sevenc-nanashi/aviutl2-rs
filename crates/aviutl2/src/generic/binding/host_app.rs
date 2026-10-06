@@ -1,6 +1,7 @@
 use crate::{AviUtl2Info, common::parse_name_and_index};
 use pastey::paste;
 use std::num::NonZeroIsize;
+use windows::core::Interface;
 
 /// ホストアプリケーションのハンドル。
 /// プラグインの初期化処理で使用します。
@@ -333,6 +334,19 @@ impl<'plugin> HostAppHandle<'plugin> {
             );
         }
         Ok(())
+    }
+
+    /// フォントコレクションを登録します。
+    ///
+    /// `DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED)`から作成したものを渡す必要があります。
+    pub fn register_font_collection(
+        &mut self,
+        collection: &windows::Win32::Graphics::DirectWrite::IDWriteFontCollection,
+    ) {
+        self.assert_not_killed();
+        unsafe {
+            ((*self.internal).register_font_collection)(collection.as_raw());
+        }
     }
 
     /// メニューを一括登録します。
