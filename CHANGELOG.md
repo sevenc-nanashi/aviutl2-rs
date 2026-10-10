@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.49.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.49.0)
+
 - **Breaking**: 最小サポートを2.1.13に引き上げ
 - **Breaking**: 依存関係を更新
 - chore: DPI関連を改善
