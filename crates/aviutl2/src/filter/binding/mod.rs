@@ -213,6 +213,8 @@ pub struct SceneInfo {
     pub sample_rate: u32,
     /// シーンID。
     pub id: i32,
+    /// 描画処理の起点のシーンのID。
+    pub origin_id: i32,
 }
 
 /// オブジェクト情報。

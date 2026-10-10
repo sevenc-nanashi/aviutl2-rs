@@ -2,7 +2,9 @@
 
 use crate::common::LPCWSTR;
 use crate::{
-    filter2::FILTER_PLUGIN_TABLE, input2::INPUT_PLUGIN_TABLE, module2::SCRIPT_MODULE_TABLE,
+    filter2::{FILTER_PLUGIN_TABLE, PIXEL_RGBA},
+    input2::INPUT_PLUGIN_TABLE,
+    module2::SCRIPT_MODULE_TABLE,
     output2::OUTPUT_PLUGIN_TABLE,
 };
 use std::ffi::c_void;
@@ -850,6 +852,16 @@ pub struct EDIT_SECTION {
     /// effect : IDを取得するエフェクトのハンドル
     /// 戻り値 : エフェクトID (取得出来ない場合は0を返却)
     pub get_effect_id: unsafe extern "C" fn(effect: EFFECT_HANDLE) -> i64,
+
+    /// レイヤーの背景色を取得します
+    /// layer : レイヤー番号
+    /// 戻り値 : レイヤーの背景色 ※デフォルト色の場合は透明色(0,0,0,0)を返却
+    pub get_layer_color: unsafe extern "C" fn(layer: i32) -> PIXEL_RGBA,
+
+    /// レイヤーの背景色を設定します (call_read_section利用不可)
+    /// layer : レイヤー番号
+    /// color : レイヤーの背景色 ※aが255以外の場合はデフォルト色になります
+    pub set_layer_color: unsafe extern "C" fn(layer: i32, color: PIXEL_RGBA),
 }
 
 /// 編集ハンドル構造体
@@ -862,7 +874,7 @@ pub struct EDIT_HANDLE {
     /// コールバック関数はメインスレッドから呼ばれます
     /// func_proc_edit : 編集処理のコールバック関数
     /// 戻り値 : trueなら成功
-    /// 編集が出来ない場合(出力中等)に失敗します
+    /// 編集が出来ない場合(出力中やドラッグ編集中等)に失敗します
     pub call_edit_section:
         unsafe extern "C" fn(func_proc_edit: unsafe extern "C" fn(edit: *mut EDIT_SECTION)) -> bool,
 

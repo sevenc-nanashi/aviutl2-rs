@@ -107,9 +107,9 @@ impl EditHandle {
     ///
     /// プロジェクトを編集ロックします。
     ///
-    /// # Note
+    /// # Errors
     ///
-    /// 内部では call_edit_section_param を使用しています。
+    /// 編集ができない場合（出力中、ドラッグ中など）に失敗します。
     pub fn call_edit_section<'a, T, F>(&self, callback: F) -> Result<T, EditHandleError>
     where
         T: Send + 'static,
@@ -168,10 +168,6 @@ impl EditHandle {
     /// プロジェクトデータの参照を開始する。
     ///
     /// プロジェクトを参照ロックします。
-    ///
-    /// # Note
-    ///
-    /// 内部では call_read_section_param を使用しています。
     pub fn call_read_section<'a, T, F>(&self, callback: F) -> Result<T, EditHandleError>
     where
         T: Send + 'static,

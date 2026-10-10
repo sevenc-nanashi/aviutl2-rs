@@ -524,6 +524,8 @@ pub struct SCENE_INFO {
     pub sample_rate: i32,
     /// シーンのID
     pub id: i32,
+    /// 描画処理の起点のシーンのID
+    pub origin_id: i32,
 }
 
 /// オブジェクト情報構造体
@@ -571,9 +573,9 @@ pub struct OBJECT_INFO {
     pub effect_layer: i32,
     /// 全体(シーン)基準のレンダリングの起点フレーム(0からの整数)
     pub origin_frame: i32,
-    /// オブジェクトのハンドル
+    /// 自身のオブジェクトのハンドル
     pub handle: OBJECT_HANDLE,
-    /// エフェクトのハンドル
+    /// 自身のエフェクトのハンドル
     pub effect_handle: EFFECT_HANDLE,
 }
 

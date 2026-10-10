@@ -73,6 +73,7 @@ impl SceneInfo {
             frame_rate: num_rational::Rational32::new(raw.rate, raw.scale),
             sample_rate: raw.sample_rate as u32,
             id: raw.id,
+            origin_id: raw.origin_id,
         }
     }
 }
