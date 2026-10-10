@@ -39,8 +39,8 @@ pub use eframe::egui;
 ///
 /// eframeのデフォルトからいくつか変更が加えられています：
 /// - デフォルトのアプリデータの保存先は`DLLのあるディレクトリ/DLL名.data`になります。
-///   -
 /// - ウィンドウの装飾は無効化されています。
+/// - DPI関連はAviUtl2の設定に従います。
 ///
 /// [`eframe::NativeOptions`]をカスタマイズしたい場合は、[`EframeWindow::new_with_options`]を使用してください。
 pub struct EframeWindow {
@@ -83,6 +83,7 @@ impl raw_window_handle::HasWindowHandle for EframeWindowHandle {
 
 struct WrappedApp {
     hwnd: NonZeroIsize,
+    high_dpi: bool,
     internal_app: Box<dyn eframe::App>,
 }
 
@@ -203,6 +204,13 @@ impl eframe::App for WrappedApp {
     }
 
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        if !self.high_dpi {
+            let native_pixels_per_point = raw_input
+                .viewport()
+                .native_pixels_per_point
+                .expect("eframe should provide the native scale factor");
+            ctx.set_zoom_factor(1.0 / native_pixels_per_point);
+        }
         // なぜかフォーカスがされないので、クリックされたら強制的にフォーカスを当てる
         // （こうしないとキーボードが使えない）
         if !raw_input.focused {
@@ -375,6 +383,7 @@ impl EframeWindow {
             Result<(isize, egui::Context), Box<dyn std::error::Error + Send + Sync>>,
         >();
         let name = name.to_string();
+        let high_dpi = high_dpi_mode(&aviutl2::config::app_data_path().join("aviutl2.ini"));
         let thread_terminator = std::sync::Arc::new(std::sync::OnceLock::new());
         let event_loop_proxy = std::sync::Arc::new(std::sync::OnceLock::new());
         let panic_message = std::sync::Arc::new(std::sync::OnceLock::<String>::new());
@@ -403,10 +412,6 @@ impl EframeWindow {
                 }));
                 let default_persist_path = default_persist_path(&name);
                 let native_options = eframe::NativeOptions {
-                    // NOTE:
-                    // eframeのデフォルトではWinit+OpenGLが使われるが、OpenGLだと終了処理でpanicするので、wgpuを使うようにする。
-                    // ただし、eframeのglow featureがどこかの依存で有効化されることがあるので、
-                    // `glow` feature自体は有効化しておく（eframe::App::on_exitのシグネチャが変わるため）。
                     renderer: eframe::Renderer::Glow,
                     viewport: egui::ViewportBuilder::default()
                         .with_visible(false)
@@ -470,6 +475,8 @@ impl EframeWindow {
                 let event_loop =
                     winit::event_loop::EventLoop::<eframe::UserEvent>::with_user_event()
                         .with_any_thread(true)
+                        // 親子でDPI awarenessが異なるとSetParentが失敗するため、ホストの設定を維持する。
+                        .with_dpi_aware(false)
                         .build()
                         .unwrap();
                 event_loop_proxy
@@ -482,6 +489,10 @@ impl EframeWindow {
                     Box::new(|cc| {
                         use winit::platform::windows::WindowExtWindows as _;
                         let window = cc.winit_window().expect("should not be headless");
+                        if !high_dpi {
+                            cc.egui_ctx
+                                .set_zoom_factor(1.0 / window.scale_factor() as f32);
+                        }
                         // NOTE: これがないと上に1pxの影ができる
                         window.set_undecorated_shadow(false);
 
@@ -540,6 +551,7 @@ impl EframeWindow {
                         tracing::debug!("Egui app created, with HWND: 0x{:016x}", hwnd.hwnd);
                         Ok(Box::new(WrappedApp {
                             hwnd: NonZeroIsize::new(hwnd.hwnd.get()).context("HWND is null")?,
+                            high_dpi,
                             internal_app: app,
                         }) as Box<dyn eframe::App>)
                     }),
@@ -912,6 +924,18 @@ pub fn aviutl2_fonts() -> eframe::egui::FontDefinitions {
     }
 
     fonts
+}
+
+fn high_dpi_mode(ini_path: &std::path::Path) -> bool {
+    let ini_path = windows::core::HSTRING::from(ini_path.as_os_str());
+    unsafe {
+        windows::Win32::System::WindowsProgramming::GetPrivateProfileIntW(
+            windows::core::w!("Direct3D"),
+            windows::core::w!("HighDpiMode"),
+            0,
+            &ini_path,
+        ) != 0
+    }
 }
 
 fn load_color(key: &str) -> egui::Color32 {
