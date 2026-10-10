@@ -14,4 +14,4 @@ crate-type = ["cdylib"]
 [dependencies]
 anyhow = "1.0.104"
 aviutl2.workspace = true
-rand = "0.10.2"
+rand = "0.10.3"

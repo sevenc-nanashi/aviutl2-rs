@@ -17,13 +17,13 @@ aviutl2 = { workspace = true, features = ["serde"] }
 aviutl2-eframe.workspace = true
 chrono = "0.4.45"
 dedent = "0.1.1"
-eframe = { version = "0.36.1", default-features = false, features = ["wgpu"] }
+eframe = { version = "0.36.2", default-features = false, features = ["wgpu"] }
 egui_commonmark = { version = "0.25.0", features = ["macros"] }
 process_path = "0.1.4"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
-ureq = "3.4.0"
-uuid = { version = "1.26.0", features = ["v4"] }
+ureq = "3.4.2"
+uuid = { version = "1.28.0", features = ["v4"] }
 windows = { version = "0.62.2", features = ["Win32_Security", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Pipes"] }
-zerocopy = "0.8.56"
-zip = "8.6.0"
+zerocopy = "0.8.62"
+zip = "9.0.0"

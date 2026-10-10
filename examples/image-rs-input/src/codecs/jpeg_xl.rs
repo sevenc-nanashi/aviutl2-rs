@@ -77,7 +77,7 @@ pub fn decode_frame(reader: &Reader, target_frame: usize) -> anyhow::Result<Imag
     decoder.set_pixel_format(pixel_format(
         reader.output_format,
         basic_info.extra_channels.len(),
-    ));
+    ))?;
 
     for frame in 0..=target_frame {
         anyhow::ensure!(

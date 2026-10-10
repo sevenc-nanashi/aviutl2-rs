@@ -14,9 +14,9 @@ default = []
 
 [dependencies]
 duplicate = "2.0.1"
-indexmap = "2.14.1"
-thiserror = "2.0.20"
+indexmap = "2.14.2"
+thiserror = "2.0.21"
 
 [dev-dependencies]
-insta = "1.48.0"
-rstest = "0.26.1"
+insta = "1.49.0"
+rstest = "0.27.0"

@@ -15,5 +15,5 @@ crate-type = ["cdylib"]
 anyhow = "1.0.104"
 aviutl2.workspace = true
 image = "0.25.10"
-lazy-regex = "3.6.1"
+lazy-regex = "3.6.2"
 regex = "1.13.1"

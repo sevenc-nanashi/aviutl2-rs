@@ -19,7 +19,7 @@ serde = { version = "1.0.229", features = ["derive"] }
 nucleo-matcher = "0.3.1"
 # lindera = { version = "2.0.1", features = ["embed-ipadic"] }
 itertools = "0.15.0"
-egui_extras = { version = "0.36.1", features = ["svg"] }
+egui_extras = { version = "0.36.2", features = ["svg"] }
 iconify = "0.3.1"
 formatx = "0.4.2"
 windows = { version = "0.62.2", features = ["Win32_System_Diagnostics_Debug", "Win32_UI_WindowsAndMessaging"] }

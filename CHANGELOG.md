@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Breaking**: 最小サポートを2.1.13に引き上げ
+- **Breaking**: 依存関係を更新
 - chore: DPI関連を改善
 
 ### デモプラグイン
