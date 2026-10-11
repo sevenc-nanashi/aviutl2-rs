@@ -141,7 +141,7 @@ fn download_ffmpeg_if_missing() -> anyhow::Result<std::path::PathBuf> {
     let ffmpeg_tmp_dir = data_dir.join("ffmpeg.tmp");
 
     if !ffmpeg_zip_path.exists() {
-        let url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-shared-7.1.zip";
+        let url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared-7.1.zip";
         let response = ureq::get(url)
             .config()
             .max_redirects(8)
