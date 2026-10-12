@@ -419,6 +419,7 @@ impl std::str::FromStr for Table {
         let mut section_line: Option<String> = None;
 
         for (line, line_ending) in SourceLines::new(s) {
+            let line = line.split_once(";").map_or(line, |(l, _)| l);
             if let Some(mut section) = section_line.take() {
                 section.push_str(line);
                 if section.ends_with(']') {
