@@ -71,6 +71,9 @@ impl MetronomeApp {
 
 impl eframe::App for MetronomeApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if crate::EDIT_HANDLE.is_ready() {
+            aviutl2_eframe::apply_dpi(ui.ctx(), &crate::EDIT_HANDLE);
+        }
         if ui.input(|i| i.key_pressed(egui::Key::Space)) {
             self.register_tap();
         }

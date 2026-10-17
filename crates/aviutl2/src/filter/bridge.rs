@@ -3,7 +3,7 @@ use crate::{
     filter::{
         AudioObjectInfo, FilterConfigItem, FilterPlugin, FilterPluginTable, FilterProcAudio,
         FilterProcVideo, FilterUserdata, FilterUserdataHandle, ObjectInfo, SceneInfo,
-        VideoObjectInfo,
+        SceneInfoFlags, VideoObjectInfo,
     },
     utils::catch_unwind_with_panic_info,
 };
@@ -74,6 +74,8 @@ impl SceneInfo {
             sample_rate: raw.sample_rate as u32,
             id: raw.id,
             origin_id: raw.origin_id,
+            rendering_id: raw.rendering_id,
+            flags: SceneInfoFlags::from_bits(raw.flag),
         }
     }
 }

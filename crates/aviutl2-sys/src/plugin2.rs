@@ -1172,6 +1172,10 @@ pub struct EDIT_HANDLE {
             unsafe extern "C" fn(param: *mut c_void, project: *mut PROJECT_FILE),
         >,
     ) -> bool,
+
+    /// 高DPIの拡大比率を取得します
+    /// 戻り値 : 高DPIの拡大比率
+    pub get_high_dpi_ratio: unsafe extern "C" fn() -> f32,
 }
 
 impl EDIT_HANDLE {

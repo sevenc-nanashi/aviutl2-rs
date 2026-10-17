@@ -848,6 +848,15 @@ impl EditHandle {
         })
     }
 
+    /// ホストアプリケーションのDPIの拡大比率を取得する。
+    pub fn get_high_dpi_ratio(&self) -> f32 {
+        assert!(
+            self.is_ready(),
+            "get_high_dpi_ratio cannot be called before register_plugin is done"
+        );
+        unsafe { ((*self.internal).get_high_dpi_ratio)() }
+    }
+
     /// 編集状態を取得する。
     pub fn get_edit_state(&self) -> Result<EditState, EditHandleError> {
         assert!(

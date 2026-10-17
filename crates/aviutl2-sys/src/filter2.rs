@@ -526,6 +526,15 @@ pub struct SCENE_INFO {
     pub id: i32,
     /// 描画処理の起点のシーンのID
     pub origin_id: i32,
+    /// フラグ
+    pub flag: i32,
+    /// シーンの描画処理毎のID (画像・音声でID系統が異なります)
+    pub rendering_id: i64,
+}
+
+impl SCENE_INFO {
+    /// シーンチェンジ、モーションブラーの参照フレームの描画処理か？
+    pub const FLAG_REFERENCE_FRAME: i32 = 1;
 }
 
 /// オブジェクト情報構造体

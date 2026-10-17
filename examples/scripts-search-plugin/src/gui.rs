@@ -140,6 +140,9 @@ impl ScriptsSearchApp {
 
 impl eframe::App for ScriptsSearchApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if crate::EDIT_HANDLE.is_ready() {
+            aviutl2_eframe::apply_dpi(ui.ctx(), &crate::EDIT_HANDLE);
+        }
         if self.header_collapsed {
             self.render_collapsed_header(ui);
         } else {

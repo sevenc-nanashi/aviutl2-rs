@@ -215,6 +215,29 @@ pub struct SceneInfo {
     pub id: i32,
     /// 描画処理の起点のシーンのID。
     pub origin_id: i32,
+    /// シーンの描画処理毎のID。
+    ///
+    /// # Note
+    ///
+    /// 画像・音声でID系統が異なります。
+    pub rendering_id: i64,
+
+    /// シーンの描画処理毎のフラグ。
+    pub flags: SceneInfoFlags,
+}
+
+define_bitflag! {
+    /// シーン情報のフラグ。
+    ///
+    /// # See Also
+    ///
+    /// - [`crate::bitflag!`]
+    #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[non_exhaustive]
+    pub struct SceneInfoFlags: i32 {
+        /// シーンチェンジ、モーションブラーの参照フレームの描画処理かどうか。
+        reference_frame: aviutl2_sys::filter2::SCENE_INFO::FLAG_REFERENCE_FRAME,
+    }
 }
 
 /// オブジェクト情報。
