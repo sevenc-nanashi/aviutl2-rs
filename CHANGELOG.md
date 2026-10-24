@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: 最小サポートを2.1.15に引き上げ
+- **Breaking**: COMオブジェクトを返す関数の戻り値をwindows-rsのCOMオブジェクトから`*mut IObject`に変更
 
 ### デモプラグイン
 

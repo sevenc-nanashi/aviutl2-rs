@@ -188,6 +188,39 @@ impl<U: super::FilterUserdata> FilterProcAudio<U> {
         }
     }
 
+    /// 現在のオーディオバッファのデータを取得する。
+    ///
+    /// # Panics
+    ///
+    /// `buffer` の長さが `sample_num` と一致しない場合、パニックします。
+    pub fn get_audio_buffer(&self, channel: AudioChannel, buffer: &mut [f32]) -> usize {
+        let sample_num = self.audio_object.sample_num as usize;
+        assert_eq!(
+            buffer.len(),
+            sample_num,
+            "buffer length does not match sample_num"
+        );
+        let inner = unsafe { &*self.inner };
+        unsafe { (inner.get_audiobuffer_data)(buffer.as_mut_ptr(), channel.into()) };
+        sample_num
+    }
+
+    /// 現在のオーディオバッファのデータを設定する。
+    ///
+    /// # Panics
+    ///
+    /// `data` の長さが `sample_num` と一致しない場合、パニックします。
+    pub fn set_audio_buffer(&self, channel: AudioChannel, data: &[f32]) {
+        let sample_num = self.audio_object.sample_num as usize;
+        assert_eq!(
+            data.len(),
+            sample_num,
+            "data length does not match sample_num"
+        );
+        let inner = unsafe { &*self.inner };
+        unsafe { (inner.set_audiobuffer_data)(data.as_ptr(), channel.into()) };
+    }
+
     pub(crate) fn apply_param(&self) {
         let inner = unsafe { &mut *(*self.inner).param };
         inner.vol_l = self.param.vol_l;

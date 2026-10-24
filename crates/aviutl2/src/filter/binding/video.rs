@@ -1,5 +1,4 @@
 use std::ffi::c_void;
-use windows::core::Interface;
 
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
@@ -740,12 +739,10 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     /// [`Self::set_image_data`] によって現在の画像が変更されるかフィルタ処理の終了まで有効です。
     pub fn get_image_texture2d(
         &mut self,
-    ) -> Option<windows::Win32::Graphics::Direct3D11::ID3D11Texture2D> {
+    ) -> *mut windows::Win32::Graphics::Direct3D11::ID3D11Texture2D {
         let inner = unsafe { &*self.inner };
         let ptr = unsafe { (inner.get_image_texture2d)() };
-        (!ptr.is_null()).then(|| unsafe {
-            windows::Win32::Graphics::Direct3D11::ID3D11Texture2D::from_raw(ptr)
-        })
+        ptr as *mut windows::Win32::Graphics::Direct3D11::ID3D11Texture2D
     }
 
     /// 現在のフレームバッファの画像データのポインタをID3D11Texture2Dのポインタとして取得する。
@@ -755,12 +752,10 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     /// フィルタ処理の終了まで有効です。
     pub fn get_framebuffer_texture2d(
         &mut self,
-    ) -> Option<windows::Win32::Graphics::Direct3D11::ID3D11Texture2D> {
+    ) -> *mut windows::Win32::Graphics::Direct3D11::ID3D11Texture2D {
         let inner = unsafe { &*self.inner };
         let ptr = unsafe { (inner.get_framebuffer_texture2d)() };
-        (!ptr.is_null()).then(|| unsafe {
-            windows::Win32::Graphics::Direct3D11::ID3D11Texture2D::from_raw(ptr)
-        })
+        ptr as *mut windows::Win32::Graphics::Direct3D11::ID3D11Texture2D
     }
 
     /// 読み取り専用の編集セクション。
@@ -1272,8 +1267,8 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
         target: &ImageResource,
         resources: &[ImageResource],
         constant: T,
-        blend_state: &windows::Win32::Graphics::Direct3D11::ID3D11BlendState,
-        sampler_state: &windows::Win32::Graphics::Direct3D11::ID3D11SamplerState,
+        blend_state: *const windows::Win32::Graphics::Direct3D11::ID3D11BlendState,
+        sampler_state: *const windows::Win32::Graphics::Direct3D11::ID3D11SamplerState,
     ) -> FilterProcResult<()> {
         self.apply_param();
         let inner = unsafe { &*self.inner };
@@ -1293,8 +1288,8 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
                 resource_ptrs.len() as i32,
                 constant_ptr.as_ref() as *const T as *mut c_void,
                 std::mem::size_of::<T>() as i32,
-                blend_state.as_raw(),
-                sampler_state.as_raw(),
+                blend_state as _,
+                sampler_state as _,
             )
         };
         if success {
@@ -1324,8 +1319,8 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
         target: &ImageResource,
         resources: &[ImageResource],
         constant: T,
-        blend_state: &windows::Win32::Graphics::Direct3D11::ID3D11BlendState,
-        sampler_state: &windows::Win32::Graphics::Direct3D11::ID3D11SamplerState,
+        blend_state: *const windows::Win32::Graphics::Direct3D11::ID3D11BlendState,
+        sampler_state: *const windows::Win32::Graphics::Direct3D11::ID3D11SamplerState,
     ) -> FilterProcResult<()> {
         self.apply_param();
         let inner = unsafe { &*self.inner };
@@ -1346,8 +1341,8 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
                 resource_ptrs.len() as i32,
                 constant_ptr.as_ref() as *const T as *mut c_void,
                 std::mem::size_of::<T>() as i32,
-                blend_state.as_raw(),
-                sampler_state.as_raw(),
+                blend_state as _,
+                sampler_state as _,
             )
         };
         if success {
@@ -1378,7 +1373,7 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
         resources: &[ImageResource],
         constant: T,
         count: [u32; 3],
-        sampler_state: &windows::Win32::Graphics::Direct3D11::ID3D11SamplerState,
+        sampler_state: *const windows::Win32::Graphics::Direct3D11::ID3D11SamplerState,
     ) -> FilterProcResult<()> {
         self.apply_param();
         let inner = unsafe { &*self.inner };
@@ -1406,7 +1401,7 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
                 count[0] as i32,
                 count[1] as i32,
                 count[2] as i32,
-                sampler_state.as_raw(),
+                sampler_state as _,
             )
         };
         if success {
@@ -1437,7 +1432,7 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
         resources: &[ImageResource],
         constant: T,
         count: [u32; 3],
-        sampler_state: &windows::Win32::Graphics::Direct3D11::ID3D11SamplerState,
+        sampler_state: *const windows::Win32::Graphics::Direct3D11::ID3D11SamplerState,
     ) -> FilterProcResult<()> {
         self.apply_param();
         let inner = unsafe { &*self.inner };
@@ -1466,7 +1461,7 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
                 count[0] as i32,
                 count[1] as i32,
                 count[2] as i32,
-                sampler_state.as_raw(),
+                sampler_state as _,
             )
         };
         if success {
@@ -1608,24 +1603,21 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
     pub fn get_blend_state(
         &mut self,
         mode: BlendStateMode,
-    ) -> Option<windows::Win32::Graphics::Direct3D11::ID3D11BlendState> {
+    ) -> *mut windows::Win32::Graphics::Direct3D11::ID3D11BlendState {
         let inner = unsafe { &*self.inner };
         let ptr = unsafe { (inner.get_blend_state)(mode.into()) };
-        (!ptr.is_null()).then_some(unsafe {
-            windows::Win32::Graphics::Direct3D11::ID3D11BlendState::from_raw(ptr)
-        })
+
+        ptr as *mut windows::Win32::Graphics::Direct3D11::ID3D11BlendState
     }
 
     /// 定義済みのD3Dのサンプラーのリソースのポインタを取得する。
     pub fn get_sampler_state(
         &mut self,
         mode: SamplerMode,
-    ) -> Option<windows::Win32::Graphics::Direct3D11::ID3D11SamplerState> {
+    ) -> *mut windows::Win32::Graphics::Direct3D11::ID3D11SamplerState {
         let inner = unsafe { &*self.inner };
         let ptr = unsafe { (inner.get_sampler_state)(mode.into()) };
-        (!ptr.is_null()).then_some(unsafe {
-            windows::Win32::Graphics::Direct3D11::ID3D11SamplerState::from_raw(ptr)
-        })
+        ptr as *mut windows::Win32::Graphics::Direct3D11::ID3D11SamplerState
     }
 
     /// フィルタ処理後の処理を中断する。
@@ -1737,15 +1729,15 @@ mod tests {
         video.clear_image_resource(&writable, RgbaPixel::default())?;
         video.draw_image_to_resource(&drawable, &writable, DrawImageParam::default())?;
         video.draw_poly_to_resource(&writable, &vertices, Some(&drawable))?;
-        let blend_state = video.get_blend_state(BlendStateMode::Draw).unwrap();
-        let sampler_state = video.get_sampler_state(SamplerMode::Clamp).unwrap();
+        let blend_state = video.get_blend_state(BlendStateMode::Draw);
+        let sampler_state = video.get_sampler_state(SamplerMode::Clamp);
         video.exec_pixelshader(
             "shader.cso",
             &target,
             std::slice::from_ref(&readable),
             Some(&constant),
-            &blend_state,
-            &sampler_state,
+            blend_state,
+            sampler_state,
         )?;
         video.exec_computeshader(
             "compute.cso",
@@ -1753,7 +1745,7 @@ mod tests {
             std::slice::from_ref(&readable),
             Some(&constant),
             [1, 1, 1],
-            &sampler_state,
+            sampler_state,
         )?;
         Ok(())
     }

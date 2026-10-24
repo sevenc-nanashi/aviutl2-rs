@@ -109,6 +109,157 @@ impl<'a> ProjectFile<'a> {
         Ok(())
     }
 
+    /// プロジェクトに保存されているデータを削除します。
+    pub fn clear_param(&mut self, key: &str) -> Result<(), ProjectFileError> {
+        let c_key = std::ffi::CString::new(key).map_err(ProjectFileError::KeyContainsNull)?;
+        unsafe {
+            ((*self.internal).clear_param)(c_key.as_ptr() as _);
+        }
+        Ok(())
+    }
+
+    /// プロジェクトに保存されているテーブルの文字列を取得します。
+    ///
+    /// # Errors
+    ///
+    /// - `table` または `key` にヌル文字が含まれている場合、失敗します。
+    /// - テーブルが見つからなかった場合は失敗します。
+    pub fn get_param_table_string(
+        &self,
+        table: &str,
+        key: &str,
+    ) -> Result<String, ProjectFileError> {
+        let c_table = std::ffi::CString::new(table).map_err(ProjectFileError::KeyContainsNull)?;
+        let c_key = std::ffi::CString::new(key).map_err(ProjectFileError::KeyContainsNull)?;
+        unsafe {
+            let raw_str = ((*self.internal).get_param_table_string)(
+                c_table.as_ptr() as _,
+                c_key.as_ptr() as _,
+            );
+            if raw_str.is_null() {
+                return Err(ProjectFileError::RetrievalFailed(format!(
+                    "{}:{}",
+                    table, key
+                )));
+            }
+            Ok(std::ffi::CStr::from_ptr(raw_str)
+                .to_string_lossy()
+                .into_owned())
+        }
+    }
+
+    /// プロジェクトに保存されているテーブルのバイナリデータを取得します。
+    ///
+    /// # Errors
+    ///
+    /// - `table` または `key` にヌル文字が含まれている場合、失敗します。
+    /// - `data` の長さが保存されているデータの長さと一致しない場合、失敗します。
+    /// - 指定されたテーブルとキーに対応するデータが存在しない場合、失敗します。
+    pub fn get_param_table_binary(
+        &self,
+        table: &str,
+        key: &str,
+        data: &mut [u8],
+    ) -> Result<(), ProjectFileError> {
+        let c_table = std::ffi::CString::new(table).map_err(ProjectFileError::KeyContainsNull)?;
+        let c_key = std::ffi::CString::new(key).map_err(ProjectFileError::KeyContainsNull)?;
+        let success = unsafe {
+            ((*self.internal).get_param_table_binary)(
+                c_table.as_ptr() as _,
+                c_key.as_ptr() as _,
+                data.as_mut_ptr() as _,
+                data.len() as _,
+            )
+        };
+        if !success {
+            return Err(ProjectFileError::RetrievalFailed(format!(
+                "{}:{}",
+                table, key
+            )));
+        }
+        Ok(())
+    }
+
+    /// プロジェクトのテーブルに文字列を保存します。
+    ///
+    /// # Errors
+    ///
+    /// - `table` または `key` にヌル文字が含まれている場合、失敗します。
+    /// - `value` にヌル文字が含まれている場合、失敗します。
+    pub fn set_param_table_string(
+        &mut self,
+        table: &str,
+        key: &str,
+        value: &str,
+    ) -> Result<(), ProjectFileError> {
+        let c_table = std::ffi::CString::new(table).map_err(ProjectFileError::KeyContainsNull)?;
+        let c_key = std::ffi::CString::new(key).map_err(ProjectFileError::KeyContainsNull)?;
+        let c_value = std::ffi::CString::new(value).map_err(ProjectFileError::ValueContainsNull)?;
+        unsafe {
+            ((*self.internal).set_param_table_string)(
+                c_table.as_ptr() as _,
+                c_key.as_ptr() as _,
+                c_value.as_ptr() as _,
+            );
+        }
+        Ok(())
+    }
+
+    /// プロジェクトのテーブルにバイナリデータを保存します。
+    ///
+    /// # Errors
+    ///
+    /// - `table` または `key` にヌル文字が含まれている場合、失敗します。
+    /// - `data` の長さが4096バイトを超える場合、失敗します。
+    pub fn set_param_table_binary(
+        &mut self,
+        table: &str,
+        key: &str,
+        data: &[u8],
+    ) -> Result<(), ProjectFileError> {
+        if data.len() > 4096 {
+            return Err(ProjectFileError::DataTooLarge(data.len()));
+        }
+        let c_table = std::ffi::CString::new(table).map_err(ProjectFileError::KeyContainsNull)?;
+        let c_key = std::ffi::CString::new(key).map_err(ProjectFileError::KeyContainsNull)?;
+        unsafe {
+            ((*self.internal).set_param_table_binary)(
+                c_table.as_ptr() as _,
+                c_key.as_ptr() as _,
+                data.as_ptr() as _,
+                data.len() as _,
+            );
+        }
+        Ok(())
+    }
+
+    /// プロジェクトのテーブルに保存されているデータを削除します。
+    ///
+    /// # Errors
+    ///
+    /// - `table` または `key` にヌル文字が含まれている場合、失敗します。
+    pub fn clear_param_table(&mut self, table: &str, key: &str) -> Result<(), ProjectFileError> {
+        let c_key = std::ffi::CString::new(format!("{table}[{key}]"))
+            .map_err(ProjectFileError::KeyContainsNull)?;
+        unsafe {
+            ((*self.internal).clear_param)(c_key.as_ptr() as _);
+        }
+        Ok(())
+    }
+
+    /// プロジェクトのテーブルに保存されているデータをすべて削除します。
+    ///
+    /// # Errors
+    ///
+    /// - `table` にヌル文字が含まれている場合、失敗します。
+    pub fn clear_param_table_all(&mut self, table: &str) -> Result<(), ProjectFileError> {
+        let c_table = std::ffi::CString::new(table).map_err(ProjectFileError::KeyContainsNull)?;
+        unsafe {
+            ((*self.internal).clear_param_table)(c_table.as_ptr() as _);
+        }
+        Ok(())
+    }
+
     /// プロジェクトに保存されているデータをすべて削除します。
     pub fn clear_params(&mut self) {
         unsafe { ((*self.internal).clear_params)() }

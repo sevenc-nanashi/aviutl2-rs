@@ -865,7 +865,7 @@ pub struct EDIT_SECTION {
 }
 
 /// 編集ハンドル構造体
-/// get_host_app_window()以外はRegisterPlugin処理内から利用出来ません
+/// get_host_app_window(),get_direct3d_device()以外はRegisterPlugin処理内から利用出来ません
 #[repr(C)]
 pub struct EDIT_HANDLE {
     /// プロジェクトデータの編集をする為のコールバック関数(func_proc_edit)を呼び出します
@@ -1176,6 +1176,10 @@ pub struct EDIT_HANDLE {
     /// 高DPIの拡大比率を取得します
     /// 戻り値 : 高DPIの拡大比率
     pub get_high_dpi_ratio: unsafe extern "C" fn() -> f32,
+
+    /// ホストアプリケーションで利用するDirect3Dデバイスを取得します
+    /// 戻り値 : ID3D11Device3のポインタ
+    pub get_direct3d_device: unsafe extern "C" fn() -> *mut c_void,
 }
 
 impl EDIT_HANDLE {
@@ -1249,6 +1253,7 @@ impl EDIT_HANDLE {
 /// プロジェクトファイル構造体
 /// プロジェクトファイルのロード、セーブのコールバックや編集のコールバック関数内で利用出来ます
 /// プロジェクトの保存データはプラグイン毎のデータ領域になります
+/// ※テーブル指定の関数はキー名を"table\[key\]"に置き換えて処理する形の実装になります
 #[repr(C)]
 pub struct PROJECT_FILE {
     /// プロジェクトに保存されている文字列(UTF-8)を取得します
@@ -1279,6 +1284,44 @@ pub struct PROJECT_FILE {
     /// 戻り値 : プロジェクトファイルパスへのポインタ (ファイルパスは未設定の場合があります)
     /// ※コールバック処理の終了まで有効
     pub get_project_file_path: unsafe extern "C" fn() -> LPCWSTR,
+
+    /// プロジェクトに保存されているデータを削除します
+    /// key : キー名(UTF-8)
+    pub clear_param: unsafe extern "C" fn(key: LPCSTR),
+
+    /// プロジェクトに保存されているテーブルの文字列(UTF-8)を取得します
+    /// table : テーブル名(UTF-8)
+    /// key : キー名(UTF-8)
+    /// 戻り値 : 取得した文字列へのポインタ (未設定の場合はnullptr)
+    /// ※コールバック処理の終了まで有効
+    pub get_param_table_string: unsafe extern "C" fn(table: LPCSTR, key: LPCSTR) -> LPCSTR,
+
+    /// プロジェクトにテーブルの文字列(UTF-8)を保存します
+    /// table : テーブル名(UTF-8)
+    /// key : キー名(UTF-8)
+    /// value : 保存する文字列(UTF-8)
+    pub set_param_table_string: unsafe extern "C" fn(table: LPCSTR, key: LPCSTR, value: LPCSTR),
+
+    /// プロジェクトに保存されているテーブルのバイナリデータを取得します
+    /// table : テーブル名(UTF-8)
+    /// key : キー名(UTF-8)
+    /// data : 取得するデータの格納先へのポインタ
+    /// size : 取得するデータのサイズ (保存されているサイズと異なる場合は失敗します)
+    /// 戻り値 : 正しく取得出来た場合はtrue
+    pub get_param_table_binary:
+        unsafe extern "C" fn(table: LPCSTR, key: LPCSTR, data: *mut c_void, size: i32) -> bool,
+
+    /// プロジェクトにテーブルのバイナリデータを保存します
+    /// table : テーブル名(UTF-8)
+    /// key : キー名(UTF-8)
+    /// data : 保存するデータへのポインタ
+    /// size : 保存するデータのサイズ (4096バイト以下)
+    pub set_param_table_binary:
+        unsafe extern "C" fn(table: LPCSTR, key: LPCSTR, data: *mut c_void, size: i32),
+
+    /// プロジェクトに保存されているテーブルを削除します
+    /// table : テーブル名(UTF-8)
+    pub clear_param_table: unsafe extern "C" fn(table: LPCSTR),
 }
 
 /// ホストアプリケーション構造体

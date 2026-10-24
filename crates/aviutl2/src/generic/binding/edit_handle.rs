@@ -13,6 +13,7 @@ use crate::generic::{EditSection, ReadSection};
 /// - [`Self::get_host_app_window`]
 /// - [`Self::get_host_app_window_raw`]
 /// - [`Self::is_ready`]
+/// - [`Self::get_direct3d_device`]
 ///
 #[derive(Debug)]
 pub struct EditHandle {
@@ -855,6 +856,12 @@ impl EditHandle {
             "get_high_dpi_ratio cannot be called before register_plugin is done"
         );
         unsafe { ((*self.internal).get_high_dpi_ratio)() }
+    }
+
+    /// ホストアプリケーションで利用するDirect3Dデバイスを取得する。
+    pub fn get_direct3d_device(&self) -> *mut windows::Win32::Graphics::Direct3D11::ID3D11Device {
+        let device_ptr = unsafe { ((*self.internal).get_direct3d_device)() };
+        device_ptr as *mut windows::Win32::Graphics::Direct3D11::ID3D11Device
     }
 
     /// 編集状態を取得する。

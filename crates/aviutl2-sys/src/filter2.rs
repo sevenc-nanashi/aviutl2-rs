@@ -1235,6 +1235,16 @@ pub struct FILTER_PROC_AUDIO {
     /// ユーザーデータのポインタ (FLAG_USERDATAが有効の時に設定されます)
     /// func_create()で返却したユーザーデータのポインタ
     pub userdata: *mut c_void,
+
+    /// 現在のオーディオバッファのデータを取得する
+    /// buffer : 音声データの格納先へのポインタ ※音声データはPCM(float)32bit
+    /// channel : 音声データのチャンネル ( 0 = 左チャンネル / 1 = 右チャンネル )
+    pub get_audiobuffer_data: unsafe extern "C" fn(buffer: *mut f32, channel: i32),
+
+    /// 現在のオーディオバッファのデータを設定する
+    /// buffer : 音声データへのポインタ ※音声データはPCM(float)32bit
+    /// channel : 音声データのチャンネル ( 0 = 左チャンネル / 1 = 右チャンネル )
+    pub set_audiobuffer_data: unsafe extern "C" fn(buffer: *const f32, channel: i32),
 }
 
 impl FILTER_PLUGIN_TABLE {
