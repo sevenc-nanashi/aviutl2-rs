@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.51.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.51.0)
+
 - **Breaking**: 最小サポートを2.1.15に引き上げ
 - **Breaking**: COMオブジェクトを返す関数の戻り値をwindows-rsのCOMオブジェクトから`*mut IObject`に変更
 
