@@ -3,7 +3,7 @@ use crate::{
     filter::{
         AudioObjectInfo, FilterConfigItem, FilterPlugin, FilterPluginTable, FilterProcAudio,
         FilterProcVideo, FilterUserdata, FilterUserdataHandle, ObjectInfo, SceneInfo,
-        SceneInfoFlags, VideoObjectInfo,
+        SceneInfoFlag, VideoObjectInfo,
     },
     utils::catch_unwind_with_panic_info,
 };
@@ -75,7 +75,7 @@ impl SceneInfo {
             id: raw.id,
             origin_id: raw.origin_id,
             rendering_id: raw.rendering_id,
-            flags: SceneInfoFlags::from_bits(raw.flag),
+            flag: SceneInfoFlag::from_bits(raw.flag),
         }
     }
 }
@@ -90,7 +90,7 @@ impl ObjectInfo {
             frame_total: raw.frame_total as u32,
             time: raw.time,
             time_total: raw.time_total,
-            flags: crate::filter::ObjectInfoFlags::from_bits(raw.flag),
+            flag: crate::filter::ObjectInfoFlag::from_bits(raw.flag),
             frame_s: raw.frame_s as u32,
             frame_e: raw.frame_e as u32,
             effect_layer: raw.effect_layer as u32,
@@ -328,9 +328,9 @@ fn create_table_impl<T: FilterSingleton>(
         (None, None)
     };
     let flag = if uses_userdata {
-        plugin_info.flags.to_bits() | aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_USERDATA
+        plugin_info.flag.to_bits() | aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_USERDATA
     } else {
-        plugin_info.flags.to_bits()
+        plugin_info.flag.to_bits()
     };
 
     // NOTE: プラグイン名などの文字列はAviUtlが終了するまで解放しない
@@ -657,7 +657,7 @@ mod tests {
                 name: String::new(),
                 label: None,
                 information: String::new(),
-                flags: Default::default(),
+                flag: Default::default(),
                 config_items: Vec::new(),
             }
         }
@@ -686,7 +686,7 @@ mod tests {
                 name: String::new(),
                 label: None,
                 information: String::new(),
-                flags: Default::default(),
+                flag: Default::default(),
                 config_items: Vec::new(),
             }
         }

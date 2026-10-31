@@ -41,7 +41,7 @@ impl aviutl2::filter::FilterPlugin for MetronomeFilter {
                 "Metronome effect, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/metronome-plugin",
                 version = env!("CARGO_PKG_VERSION")
             ),
-            flags: aviutl2::bitflag!(aviutl2::filter::FilterPluginFlags {
+            flag: aviutl2::bitflag!(aviutl2::filter::FilterPluginFlag {
                 audio: true,
                 input: true,
             }),

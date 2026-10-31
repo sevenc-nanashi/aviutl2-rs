@@ -20,7 +20,7 @@ pub struct FilterPluginTable {
     pub information: String,
 
     /// 対応している機能のフラグ。
-    pub flags: FilterPluginFlags,
+    pub flag: FilterPluginFlag,
 
     /// 設定項目。
     pub config_items: Vec<config::FilterConfigItem>,
@@ -34,7 +34,7 @@ define_bitflag! {
     /// - [`crate::bitflag!`]
     #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[non_exhaustive]
-    pub struct FilterPluginFlags: i32 {
+    pub struct FilterPluginFlag: i32 {
         /// 画像フィルタをサポートするかどうか。
         video: aviutl2_sys::filter2::FILTER_PLUGIN_TABLE::FLAG_VIDEO,
 
@@ -223,7 +223,7 @@ pub struct SceneInfo {
     pub rendering_id: i64,
 
     /// シーンの描画処理毎のフラグ。
-    pub flags: SceneInfoFlags,
+    pub flag: SceneInfoFlag,
 }
 
 define_bitflag! {
@@ -234,7 +234,7 @@ define_bitflag! {
     /// - [`crate::bitflag!`]
     #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[non_exhaustive]
-    pub struct SceneInfoFlags: i32 {
+    pub struct SceneInfoFlag: i32 {
         /// シーンチェンジ、モーションブラーの参照フレームの描画処理かどうか。
         reference_frame: aviutl2_sys::filter2::SCENE_INFO::FLAG_REFERENCE_FRAME,
     }
@@ -265,7 +265,7 @@ pub struct ObjectInfo {
     /// オブジェクトの総時間（秒）。
     pub time_total: f64,
     /// フラグ。
-    pub flags: ObjectInfoFlags,
+    pub flag: ObjectInfoFlag,
     /// シーン基準のオブジェクトの開始フレーム。
     pub frame_s: u32,
     /// シーン基準のオブジェクトの終了フレーム。
@@ -288,7 +288,7 @@ define_bitflag! {
     /// - [`crate::bitflag!`]
     #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[non_exhaustive]
-    pub struct ObjectInfoFlags: i32 {
+    pub struct ObjectInfoFlag: i32 {
         /// オブジェクトがフィルタオブジェクトかどうか。
         filter_object: aviutl2_sys::filter2::OBJECT_INFO::FLAG_FILTER_OBJECT,
         /// オブジェクトがグループ制御の対象かどうか。

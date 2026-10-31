@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-（なし）
+- **Breaking**: 最小サポートを2.1.16に引き上げ
+- **Breaking**: `FilterPluginTable`、`SceneInfo`、`ObjectInfo`の`flags`フィールドを`flag`に変更
+- **Breaking**: `FilterPluginFlags`、`SceneInfoFlags`、`ObjectInfoFlags`をそれぞれ`FilterPluginFlag`、`SceneInfoFlag`、`ObjectInfoFlag`に変更
 
 ### デモプラグイン
 

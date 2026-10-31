@@ -98,7 +98,7 @@ pub fn bgra_to_rgba_bytes(data: &mut [u8]) {
 /// # use aviutl2::bitflag;
 ///
 /// let flag = bitflag!(
-///     aviutl2::filter::FilterPluginFlags {
+///     aviutl2::filter::FilterPluginFlag {
 ///         video: true,
 ///     }
 /// );

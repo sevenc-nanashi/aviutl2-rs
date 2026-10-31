@@ -3,7 +3,7 @@ use aviutl2::{
     AnyResult, AviUtl2Info,
     filter::{
         FilterConfigItemSliceExt, FilterConfigItems, FilterConfigSelectItems, FilterPlugin,
-        FilterPluginFlags, FilterPluginTable, FilterProcVideo, RgbaPixel,
+        FilterPluginFlag, FilterPluginTable, FilterProcVideo, RgbaPixel,
     },
     tracing,
 };
@@ -76,7 +76,7 @@ impl FilterPlugin for PixelSortFilter {
                 "Pixel sort filter, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/pixelsort-filter",
                 version = env!("CARGO_PKG_VERSION")
             ),
-            flags: aviutl2::bitflag!(FilterPluginFlags {
+            flag: aviutl2::bitflag!(FilterPluginFlag {
                 video: true,
                 filter: true,
             }),
