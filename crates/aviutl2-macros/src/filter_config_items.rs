@@ -137,7 +137,19 @@ fn expand_groups_in_fields(fields: &syn::Fields) -> Result<syn::Fields, proc_mac
             let inner_fields = syn::parse2::<syn::FieldsNamed>(quote::quote!({
                 #group_content
             }))?;
-            for inner_field in inner_fields.named {
+            let inherited_hide_attrs = f
+                .attrs
+                .iter()
+                .filter(|attr| attr.path().is_ident("hide"))
+                .map(|attr| Ok((attr, ParsedHide::from_attr(attr)?)))
+                .collect::<syn::Result<Vec<_>>>()?;
+            for mut inner_field in inner_fields.named {
+                inner_field.attrs.extend(
+                    inherited_hide_attrs
+                        .iter()
+                        .filter(|(_, hide)| !hide.group_only)
+                        .map(|(attr, _)| (*attr).clone()),
+                );
                 fields.push((FieldType::Content, inner_field));
             }
             fields.push((FieldType::GroupEnd, group_end));
@@ -1186,11 +1198,19 @@ fn filter_config_field(field: &syn::Field) -> Result<Vec<FilterConfigField>, syn
         ));
     }
     let Some(primary_attr) = primary_attrs.first().copied() else {
-        if !separator_attrs.is_empty() && hide_attrs.is_empty() {
-            return separator_attrs
-                .into_iter()
-                .map(|separator_attr| filter_config_field_separator(field, separator_attr))
-                .collect();
+        if !separator_attrs.is_empty() {
+            let mut result = Vec::new();
+            for separator_attr in separator_attrs {
+                let separator = filter_config_field_separator(field, separator_attr)?;
+                let name = filter_config_field_name(&separator)
+                    .expect("separator fields must have a name")
+                    .to_string();
+                result.push(separator);
+                for hide_attr in &hide_attrs {
+                    result.extend(filter_config_field_hide_rules(&name, hide_attr)?);
+                }
+            }
+            return Ok(result);
         }
         return Err(syn::Error::new_spanned(
             field,
@@ -1202,7 +1222,7 @@ fn filter_config_field(field: &syn::Field) -> Result<Vec<FilterConfigField>, syn
     if !hide_attrs.is_empty() && !filter_config_field_can_be_hidden(&primary) {
         return Err(syn::Error::new_spanned(
             hide_attrs[0],
-            "`#[hide]` can only be used on filter config items that have a value",
+            "`#[hide]` can only be used on filter config items that have a value, groups, or separators",
         ));
     }
 
@@ -1227,6 +1247,18 @@ fn filter_config_field(field: &syn::Field) -> Result<Vec<FilterConfigField>, syn
                 .expect("hide attributes must have a target name"),
             hide_attr,
         )?);
+        if !ParsedHide::from_attr(hide_attr)?.field_only {
+            let separator_names = result
+                .iter()
+                .filter_map(|item| match item {
+                    FilterConfigField::Separator { name } => Some(name.clone()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            for name in separator_names {
+                result.extend(filter_config_field_hide_rules(&name, hide_attr)?);
+            }
+        }
     }
     Ok(result)
 }
@@ -1338,6 +1370,8 @@ fn filter_config_field_can_be_hidden(field: &FilterConfigField) -> bool {
             | FilterConfigField::Text { .. }
             | FilterConfigField::Folder { .. }
             | FilterConfigField::Data { .. }
+            | FilterConfigField::GroupStart { .. }
+            | FilterConfigField::Separator { .. }
     )
 }
 
@@ -1421,6 +1455,60 @@ struct ParsedHideRule {
     value: syn::Expr,
 }
 
+#[derive(Default)]
+struct ParsedHide {
+    rule: Option<ParsedHideRule>,
+    group_only: bool,
+    field_only: bool,
+}
+
+impl ParsedHide {
+    fn from_attr(attr: &syn::Attribute) -> syn::Result<Self> {
+        if matches!(attr.meta, syn::Meta::Path(_)) {
+            Ok(Self::default())
+        } else {
+            attr.parse_args()
+        }
+    }
+}
+
+impl Parse for ParsedHide {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut parsed = Self::default();
+        let fork = input.fork();
+        let modifier_only = if fork.peek(syn::Token![$]) {
+            fork.parse::<syn::Token![$]>()?;
+            let ident = fork.parse::<syn::Ident>()?;
+            ident == "group_only" || ident == "field_only"
+        } else {
+            false
+        };
+        if !modifier_only {
+            parsed.rule = Some(input.parse()?);
+            if !input.is_empty() {
+                input.parse::<syn::Token![,]>()?;
+            }
+        }
+        while !input.is_empty() {
+            input.parse::<syn::Token![$]>()?;
+            let modifier = input.parse::<syn::Ident>()?;
+            let flag = match modifier.to_string().as_str() {
+                "group_only" => &mut parsed.group_only,
+                "field_only" => &mut parsed.field_only,
+                _ => return Err(syn::Error::new_spanned(modifier, "Unknown hide modifier")),
+            };
+            if *flag {
+                return Err(syn::Error::new_spanned(modifier, "Duplicate hide modifier"));
+            }
+            *flag = true;
+            if !input.is_empty() {
+                input.parse::<syn::Token![,]>()?;
+            }
+        }
+        Ok(parsed)
+    }
+}
+
 impl Parse for ParsedHideRule {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let negated = if input.peek(syn::Token![!]) {
@@ -1440,7 +1528,7 @@ impl Parse for ParsedHideRule {
             HideRuleSource::Field(input.parse::<syn::Ident>()?)
         };
 
-        if input.is_empty() {
+        if input.is_empty() || input.peek(syn::Token![,]) {
             let value = if negated {
                 syn::parse_quote!(false)
             } else {
@@ -1487,7 +1575,7 @@ impl Parse for ParsedHideRule {
         } else {
             input.parse::<syn::Expr>()?
         };
-        if !input.is_empty() {
+        if !input.is_empty() && !input.peek(syn::Token![,]) {
             return Err(input.error("Unexpected tokens after hide condition value"));
         }
         Ok(Self {
@@ -1502,7 +1590,7 @@ fn filter_config_field_hide_rules(
     target_name: &str,
     attr: &syn::Attribute,
 ) -> Result<Vec<FilterConfigField>, syn::Error> {
-    if matches!(attr.meta, syn::Meta::Path(_)) {
+    let Some(parsed) = ParsedHide::from_attr(attr)?.rule else {
         return Ok(vec![FilterConfigField::HideRule {
             name: target_name.to_string(),
             condition_name: None,
@@ -1510,8 +1598,7 @@ fn filter_config_field_hide_rules(
             condition_operator: HideRuleOperator::Equal,
             condition_value: syn::parse_quote!(0),
         }]);
-    }
-    let parsed = attr.parse_args::<ParsedHideRule>()?;
+    };
     let (condition_name, condition_field_id) = match parsed.source {
         HideRuleSource::Field(ident) => (None, Some(ident.to_string())),
         HideRuleSource::Filter => (Some("filter".to_string()), None),
@@ -2636,9 +2723,9 @@ mod tests {
             mode: Mode,
 
             #[separator(name = "Advanced")]
-            #[hide(!enabled)]
-            #[hide(mode >= Mode::Advanced)]
-            #[hide($filter == false)]
+            #[hide(!enabled, $field_only)]
+            #[hide(mode >= Mode::Advanced, $field_only)]
+            #[hide($filter == false, $field_only)]
             #[track(name = "Gain", range = 0..=100, step = 1, default = 50)]
             gain: i32,
 
@@ -2740,6 +2827,117 @@ mod tests {
         let config = Config::from_config_items(&items);
         assert_eq!(config.target, "");
         assert!(config.condition);
+    }
+
+    #[test]
+    fn test_hide_groups_and_separators() {
+        use aviutl2::filter::{FilterConfigItem, FilterConfigItems};
+
+        #[aviutl2::filter::filter_config_items]
+        struct Config {
+            #[separator(name = "Attached 1", salt = "Salt")]
+            #[separator(name = "Attached 2")]
+            #[check(name = "Target", default = false)]
+            #[hide(!enabled)]
+            #[hide($filter, $field_only)]
+            target: bool,
+
+            #[separator(name = "Standalone 1")]
+            #[separator(name = "Standalone 2")]
+            #[hide]
+            standalone: (),
+
+            #[separator(name = "Before Group")]
+            #[group(name = "Group")]
+            #[hide(!enabled)]
+            #[hide($filter, $group_only)]
+            group: group! {
+                #[separator(name = "Before Child")]
+                #[check(name = "Child", default = false)]
+                #[hide($filter, $field_only)]
+                child: bool,
+                #[separator(name = "Inside Group")]
+                separator: (),
+            },
+
+            #[separator(name = "Before Only Group")]
+            #[group(name = "Only Group")]
+            #[hide($group_only, $field_only)]
+            only_group: group! {
+                #[check(name = "Visible Child", default = false)]
+                visible_child: bool,
+            },
+
+            #[separator(name = "Visible Separator")]
+            #[check(name = "Only Field", default = false)]
+            #[hide($field_only)]
+            only_field: bool,
+
+            #[check(name = "Enabled", salt = "Salt", default = true)]
+            enabled: bool,
+        }
+
+        let items = Config::to_config_items();
+        let rules = items
+            .iter()
+            .filter_map(|item| match item {
+                FilterConfigItem::HideRule(rule) => Some((
+                    rule.name.as_str(),
+                    rule.condition_name.as_deref(),
+                    rule.condition_value,
+                )),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            rules,
+            vec![
+                ("Target", Some("Salt::Enabled"), 0),
+                ("Salt::Attached 1", Some("Salt::Enabled"), 0),
+                ("Attached 2", Some("Salt::Enabled"), 0),
+                ("Target", Some("filter"), 1),
+                ("Standalone 1", None, 0),
+                ("Standalone 2", None, 0),
+                ("Group", Some("Salt::Enabled"), 0),
+                ("Before Group", Some("Salt::Enabled"), 0),
+                ("Group", Some("filter"), 1),
+                ("Before Group", Some("filter"), 1),
+                ("Child", Some("filter"), 1),
+                ("Child", Some("Salt::Enabled"), 0),
+                ("Before Child", Some("Salt::Enabled"), 0),
+                ("Inside Group", Some("Salt::Enabled"), 0),
+                ("Only Group", None, 0),
+                ("Only Field", None, 0),
+            ]
+        );
+        let config = Config::from_config_items(&items);
+        assert!(config.enabled);
+        assert!(!config.target && !config.child && !config.visible_child && !config.only_field);
+    }
+
+    #[test]
+    fn test_hide_modifiers() {
+        for condition in [
+            quote::quote!(condition, $field_only),
+            quote::quote!(!condition, $group_only),
+            quote::quote!(condition >= 2, $field_only, $group_only),
+            quote::quote!(condition == $indeterminate, $group_only),
+            quote::quote!($filter, $group_only),
+            quote::quote!($group_only),
+            quote::quote!($field_only),
+        ] {
+            assert!(syn::parse2::<ParsedHide>(condition).is_ok());
+        }
+        for condition in [
+            quote::quote!(condition, $unknown),
+            quote::quote!(condition, $field_only, $field_only),
+            quote::quote!($group_only, $group_only),
+            quote::quote!(condition $field_only),
+            quote::quote!(condition, field_only),
+            quote::quote!($group_only, condition),
+        ] {
+            assert!(syn::parse2::<ParsedHide>(condition).is_err());
+        }
     }
 
     #[test]
