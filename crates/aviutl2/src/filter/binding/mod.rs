@@ -264,8 +264,8 @@ pub struct ObjectInfo {
     pub time: f64,
     /// オブジェクトの総時間（秒）。
     pub time_total: f64,
-    /// オブジェクトがフィルタオブジェクトかどうか。
-    pub is_filter_object: bool,
+    /// フラグ。
+    pub flags: ObjectInfoFlags,
     /// シーン基準のオブジェクトの開始フレーム。
     pub frame_s: u32,
     /// シーン基準のオブジェクトの終了フレーム。
@@ -278,6 +278,24 @@ pub struct ObjectInfo {
     pub handle: crate::generic::ObjectHandle,
     /// エフェクトのハンドル。
     pub effect_handle: crate::generic::EffectHandle,
+}
+
+define_bitflag! {
+    /// オブジェクト情報のフラグ。
+    ///
+    /// # See Also
+    ///
+    /// - [`crate::bitflag!`]
+    #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[non_exhaustive]
+    pub struct ObjectInfoFlags: i32 {
+        /// オブジェクトがフィルタオブジェクトかどうか。
+        filter_object: aviutl2_sys::filter2::OBJECT_INFO::FLAG_FILTER_OBJECT,
+        /// オブジェクトがグループ制御の対象かどうか。
+        group_target: aviutl2_sys::filter2::OBJECT_INFO::FLAG_GROUP_TARGET,
+        /// オブジェクトがカメラ制御の対象かどうか。
+        camera_target: aviutl2_sys::filter2::OBJECT_INFO::FLAG_CAMERA_TARGET
+    }
 }
 
 impl ObjectInfo {

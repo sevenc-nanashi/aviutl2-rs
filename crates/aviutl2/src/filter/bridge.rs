@@ -90,8 +90,7 @@ impl ObjectInfo {
             frame_total: raw.frame_total as u32,
             time: raw.time,
             time_total: raw.time_total,
-            is_filter_object: (raw.flag & aviutl2_sys::filter2::OBJECT_INFO::FLAG_FILTER_OBJECT)
-                != 0,
+            flags: crate::filter::ObjectInfoFlags::from_bits(raw.flag),
             frame_s: raw.frame_s as u32,
             frame_e: raw.frame_e as u32,
             effect_layer: raw.effect_layer as u32,

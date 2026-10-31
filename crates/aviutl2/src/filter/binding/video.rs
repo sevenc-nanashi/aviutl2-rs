@@ -654,6 +654,35 @@ fn image_data_byte_len(pitch: u32, height: u32) -> FilterProcResult<usize> {
         .ok_or(FilterProcError::ValueOutOfRange)
 }
 
+/// カメラ制御の状態。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CameraMode {
+    /// カメラ制御の対象外。
+    Off = 0,
+    /// カメラ制御の対象。
+    On = 1,
+    /// カメラ制御の対象、ただし編集用視点
+    EditView = 2,
+}
+impl From<CameraMode> for aviutl2_sys::filter2::CAMERA_MODE {
+    fn from(value: CameraMode) -> Self {
+        match value {
+            CameraMode::Off => Self::OFF,
+            CameraMode::On => Self::ON,
+            CameraMode::EditView => Self::EDIT_VIEW,
+        }
+    }
+}
+impl From<aviutl2_sys::filter2::CAMERA_MODE> for CameraMode {
+    fn from(value: aviutl2_sys::filter2::CAMERA_MODE) -> Self {
+        match value {
+            aviutl2_sys::filter2::CAMERA_MODE::OFF => Self::Off,
+            aviutl2_sys::filter2::CAMERA_MODE::ON => Self::On,
+            aviutl2_sys::filter2::CAMERA_MODE::EDIT_VIEW => Self::EditView,
+        }
+    }
+}
+
 impl<U: super::FilterUserdata> FilterProcVideo<U> {
     /// 可変長の汎用データ項目のサイズを変更する。
     ///
@@ -1597,6 +1626,24 @@ impl<U: super::FilterUserdata> FilterProcVideo<U> {
             }
         };
         Ok(matrix.m)
+    }
+
+    /// 現在のオブジェクトのカメラ制御の状態を取得する。
+    pub fn get_camera_mode(&mut self) -> CameraMode {
+        let inner = unsafe { &*self.inner };
+        let mode = unsafe { (inner.get_camera_mode)() };
+        CameraMode::from(mode)
+    }
+
+    /// 現在のオブジェクトに適用されるカメラ制御のオブジェクトを取得する。
+    pub fn get_camera_control_object(&mut self) -> Option<crate::generic::ObjectHandle> {
+        let inner = unsafe { &*self.inner };
+        let handle = unsafe { (inner.get_camera_control_object)() };
+        if handle.is_null() {
+            None
+        } else {
+            Some(crate::generic::ObjectHandle::from(handle))
+        }
     }
 
     /// 定義済みのD3Dの出力ブレンドのリソースのポインタを取得する。

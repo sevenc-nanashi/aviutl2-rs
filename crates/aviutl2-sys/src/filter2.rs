@@ -259,7 +259,7 @@ pub struct FILTER_ITEM_SEPARATOR {
 pub struct FILTER_ITEM_HIDE_RULE {
     /// 設定の種別（`L"hiderule"`）
     pub r#type: LPCWSTR,
-    /// 非表示にする設定名 ※設定値を持つ項目のみ
+    /// 非表示にする設定名 ※設定値を持つ項目,設定グループ項目,セパレーター項目
     pub name: LPCWSTR,
     /// 非表示の条件の設定名
     /// チェックボックス項目,リスト選択項目,ファイル選択項目,フォルダ選択項目
@@ -468,6 +468,17 @@ pub enum BLEND_STATE_MODE {
     ADD = 3,
 }
 
+/// カメラ制御状態の種別
+#[repr(i32)]
+pub enum CAMERA_MODE {
+    /// カメラ制御対象外
+    OFF = 0,
+    /// カメラ制御対象
+    ON = 1,
+    /// カメラ制御対象(編集用視点)
+    EDIT_VIEW = 2,
+}
+
 /// 画像入力のピクセルフォーマット種別
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -591,6 +602,10 @@ pub struct OBJECT_INFO {
 impl OBJECT_INFO {
     /// フィルタオブジェクトか？
     pub const FLAG_FILTER_OBJECT: i32 = 1;
+    /// グループ制御の対象か？
+    pub const FLAG_GROUP_TARGET: i32 = 2;
+    /// カメラ制御の対象か？ (画像フィルタのみ)
+    pub const FLAG_CAMERA_TARGET: i32 = 4;
 }
 
 /// オブジェクトの画像パラメータ構造体
@@ -1170,6 +1185,14 @@ pub struct FILTER_PROC_VIDEO {
     /// 現在のオブジェクトに適用されるグループ制御の座標変換行列を取得します (グループ制御対象を結合した行列)
     /// 戻り値 : グループ制御対象外の場合はfalse
     pub get_group_matrix: unsafe extern "C" fn(matrix: *mut DxmMatrix) -> bool,
+
+    /// 現在のオブジェクトのカメラ制御の状態を取得します
+    /// 戻り値 : カメラ制御状態
+    pub get_camera_mode: unsafe extern "C" fn() -> CAMERA_MODE,
+
+    /// 現在のオブジェクトに影響しているカメラ制御オブジェクトを取得します
+    /// 戻り値 : 取得したカメラ制御オブジェクトのハンドル (カメラ制御対象外の場合はnullptrを返却)
+    pub get_camera_control_object: unsafe extern "C" fn() -> OBJECT_HANDLE,
 }
 
 /// DirectXMathのXMMATRIX構造体の互換構造体
