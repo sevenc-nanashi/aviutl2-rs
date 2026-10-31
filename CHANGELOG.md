@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+（なし）
+
+### デモプラグイン
+
+（なし）
+
+## [0.52.0](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.52.0)
+
 - **Breaking**: 最小サポートを2.1.16に引き上げ
 - **Breaking**: `FilterPluginTable`、`SceneInfo`、`ObjectInfo`の`flags`フィールドを`flag`に変更
 - **Breaking**: `FilterPluginFlags`、`SceneInfoFlags`、`ObjectInfoFlags`をそれぞれ`FilterPluginFlag`、`SceneInfoFlag`、`ObjectInfoFlag`に変更
