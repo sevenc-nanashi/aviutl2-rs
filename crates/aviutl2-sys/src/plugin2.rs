@@ -157,6 +157,8 @@ pub enum EVENT_TYPE {
     CHANGE_FOCUS_OBJECT = 4,
     /// 編集状態の変更(プレビュー再生・ファイル出力の開始終了時)
     CHANGE_EDIT_STATE = 5,
+    /// 言語設定の再読み込み
+    RELOAD_LANGUAGE = 6,
 }
 
 /// オブジェクトフラグ種別

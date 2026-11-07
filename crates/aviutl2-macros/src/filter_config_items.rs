@@ -1432,10 +1432,10 @@ fn resolve_hide_rule_conditions(
             )
             .to_compile_error());
         }
-        if resolved_name == "filter" {
+        if matches!(resolved_name.as_str(), "filter" | "input" | "output") {
             return Err(syn::Error::new(
                 proc_macro2::Span::call_site(),
-                "Using field named `filter` as a hide condition is not allowed because it conflicts with the built-in condition",
+                format!("Using field named `{resolved_name}` as a hide condition is not allowed because it conflicts with the built-in condition"),
             )
             .to_compile_error());
         }
@@ -1446,7 +1446,7 @@ fn resolve_hide_rule_conditions(
 
 enum HideRuleSource {
     Field(syn::Ident),
-    Filter,
+    Keyword(syn::Ident),
 }
 
 struct ParsedHideRule {
@@ -1520,24 +1520,27 @@ impl Parse for ParsedHideRule {
         let source = if input.peek(syn::Token![$]) {
             input.parse::<syn::Token![$]>()?;
             let ident = input.parse::<syn::Ident>()?;
-            if ident != "filter" {
-                return Err(syn::Error::new_spanned(ident, "Expected `$filter`"));
+            if ident != "filter" && ident != "input" && ident != "output" {
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "Expected `$filter`, `$input`, or `$output`",
+                ));
             }
-            HideRuleSource::Filter
+            HideRuleSource::Keyword(ident)
         } else {
             HideRuleSource::Field(input.parse::<syn::Ident>()?)
         };
 
         if input.is_empty() || input.peek(syn::Token![,]) {
-            let value = if negated {
-                syn::parse_quote!(false)
+            let operator = if negated {
+                HideRuleOperator::Equal
             } else {
-                syn::parse_quote!(true)
+                HideRuleOperator::NotEqual
             };
             return Ok(Self {
                 source,
-                operators: vec![HideRuleOperator::Equal],
-                value,
+                operators: vec![operator],
+                value: syn::parse_quote!(0),
             });
         }
         if negated {
@@ -1568,10 +1571,17 @@ impl Parse for ParsedHideRule {
         let value = if input.peek(syn::Token![$]) {
             input.parse::<syn::Token![$]>()?;
             let ident = input.parse::<syn::Ident>()?;
-            if ident != "indeterminate" {
-                return Err(syn::Error::new_spanned(ident, "Expected `$indeterminate`"));
+            match ident.to_string().as_str() {
+                "video_only" => syn::parse_quote!(1),
+                "indeterminate" | "audio_only" => syn::parse_quote!(2),
+                "video_and_audio" => syn::parse_quote!(3),
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        ident,
+                        "Expected `$indeterminate`, `$video_only`, `$audio_only`, or `$video_and_audio`",
+                    ));
+                }
             }
-            syn::parse_quote!(2)
         } else {
             input.parse::<syn::Expr>()?
         };
@@ -1601,7 +1611,7 @@ fn filter_config_field_hide_rules(
     };
     let (condition_name, condition_field_id) = match parsed.source {
         HideRuleSource::Field(ident) => (None, Some(ident.to_string())),
-        HideRuleSource::Filter => (Some("filter".to_string()), None),
+        HideRuleSource::Keyword(ident) => (Some(ident.to_string()), None),
     };
     Ok(parsed
         .operators
@@ -2895,14 +2905,14 @@ mod tests {
                 ("Target", Some("Salt::Enabled"), 0),
                 ("Salt::Attached 1", Some("Salt::Enabled"), 0),
                 ("Attached 2", Some("Salt::Enabled"), 0),
-                ("Target", Some("filter"), 1),
+                ("Target", Some("filter"), 0),
                 ("Standalone 1", None, 0),
                 ("Standalone 2", None, 0),
                 ("Group", Some("Salt::Enabled"), 0),
                 ("Before Group", Some("Salt::Enabled"), 0),
-                ("Group", Some("filter"), 1),
-                ("Before Group", Some("filter"), 1),
-                ("Child", Some("filter"), 1),
+                ("Group", Some("filter"), 0),
+                ("Before Group", Some("filter"), 0),
+                ("Child", Some("filter"), 0),
                 ("Child", Some("Salt::Enabled"), 0),
                 ("Before Child", Some("Salt::Enabled"), 0),
                 ("Inside Group", Some("Salt::Enabled"), 0),
@@ -2923,6 +2933,11 @@ mod tests {
             quote::quote!(condition >= 2, $field_only, $group_only),
             quote::quote!(condition == $indeterminate, $group_only),
             quote::quote!($filter, $group_only),
+            quote::quote!($input == $video_only),
+            quote::quote!($input == $audio_only),
+            quote::quote!($output == $video_and_audio),
+            quote::quote!($input),
+            quote::quote!(!$output),
             quote::quote!($group_only),
             quote::quote!($field_only),
         ] {

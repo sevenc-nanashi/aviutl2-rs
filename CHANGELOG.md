@@ -10,8 +10,9 @@
 
 ## [0.52.1](https://github.com/sevenc-nanashi/aviutl2-rs/releases/tag/0.52.1)
 
-- `#[hide]`をグループと単独のセパレーターに指定できるように変更
+- **Breaking**: 最小サポートを2.1.17に引き上げ
 - **Breaking**: `#[hide]`の条件をグループ内の項目と付属セパレーターにも適用するように変更（`$group_only`、`$field_only`で無効化可能）
+- `#[hide]`をグループと単独のセパレーターに指定できるように変更
 
 ### デモプラグイン
 

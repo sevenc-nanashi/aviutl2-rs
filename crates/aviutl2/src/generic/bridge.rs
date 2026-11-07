@@ -181,6 +181,9 @@ fn register_plugin_impl<T: GenericSingleton>(
     handle.register_event_listener(crate::generic::EventType::ChangeEditState, || {
         <T as GenericSingleton>::with_instance_mut(|instance| instance.event_change_edit_state())
     });
+    handle.register_event_listener(crate::generic::EventType::ReloadLanguage, || {
+        <T as GenericSingleton>::with_instance_mut(|instance| instance.event_reload_language())
+    });
     plugin_state
         .register_plugin_done
         .store(true, std::sync::atomic::Ordering::SeqCst);

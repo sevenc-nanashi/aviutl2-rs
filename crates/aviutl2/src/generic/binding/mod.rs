@@ -89,6 +89,13 @@ pub trait GenericPlugin: Send + Sync + Sized {
     /// イベント用スレッドから呼び出されます。[`crate::generic::EditHandle::call_edit_section`]は利用できません。
     fn event_change_edit_state(&mut self) {}
 
+    /// 言語設定を再読み込みしたときに呼ばれる。
+    ///
+    /// # Note
+    ///
+    /// イベント用スレッドから呼び出されます。[`crate::generic::EditHandle::call_edit_section`]は利用できません。
+    fn event_reload_language(&mut self) {}
+
     /// シングルトンインスタンスを参照するためのヘルパーメソッド。
     ///
     /// # Panics

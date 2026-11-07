@@ -588,6 +588,8 @@ pub enum EventType {
     /// 編集状態の変更。
     /// （プレビュー再生やファイル出力の開始・終了時）
     ChangeEditState,
+    /// 言語設定の再読み込み。
+    ReloadLanguage,
 }
 
 impl From<EventType> for aviutl2_sys::plugin2::EVENT_TYPE {
@@ -598,6 +600,7 @@ impl From<EventType> for aviutl2_sys::plugin2::EVENT_TYPE {
             EventType::ChangeEditScene => aviutl2_sys::plugin2::EVENT_TYPE::CHANGE_EDIT_SCENE,
             EventType::ChangeFocusObject => aviutl2_sys::plugin2::EVENT_TYPE::CHANGE_FOCUS_OBJECT,
             EventType::ChangeEditState => aviutl2_sys::plugin2::EVENT_TYPE::CHANGE_EDIT_STATE,
+            EventType::ReloadLanguage => aviutl2_sys::plugin2::EVENT_TYPE::RELOAD_LANGUAGE,
         }
     }
 }

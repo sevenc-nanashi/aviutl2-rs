@@ -13,6 +13,8 @@ pub type OBJECT_HANDLE = *mut c_void;
 /// エフェクトハンドル
 pub type EFFECT_HANDLE = *mut c_void;
 
+/// 各項目の設定名はフィルタ毎にユニークにする必要があります。(設定値が保存される項目のみ)
+/// 設定名を`yyy::xxx`のように指定すると最後の`::`以降の`xxx`の部分のみ設定画面で表示される形に出来ます。
 #[repr(C)]
 pub union FILTER_ITEM {
     pub track: FILTER_ITEM_TRACK,
@@ -267,6 +269,8 @@ pub struct FILTER_ITEM_HIDE_RULE {
     /// ※ファイル,フォルダ選択項目は選択されているかを返却(0/1)
     /// ※nullptrを指定した場合は常に非表示
     /// ※"filter"を指定した場合はフィルタオブジェクトかを返却(0/1)
+    /// ※"input"を指定した場合はオブジェクト入力項目種別(0=対象外/1=画像用/2=音声用/3=画像・音声対応)
+    /// ※"output"を指定した場合はオブジェクト出力項目種別(0=対象外/1=画像用/2=音声用/3=画像・音声対応)
     pub condition_name: LPCWSTR,
     /// 非表示の条件の比較種別
     pub condition_operator: FILTER_ITEM_HIDE_RULE_OPERATOR,
