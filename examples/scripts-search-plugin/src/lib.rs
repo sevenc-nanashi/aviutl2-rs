@@ -17,7 +17,8 @@ pub struct EffectData {
 pub struct EffectDb {
     effects: Vec<EffectData>,
 }
-pub static EFFECTS: std::sync::OnceLock<EffectDb> = std::sync::OnceLock::new();
+pub static EFFECTS: std::sync::RwLock<Option<std::sync::Arc<EffectDb>>> =
+    std::sync::RwLock::new(None);
 
 pub static EDIT_HANDLE: aviutl2::generic::GlobalEditHandle =
     aviutl2::generic::GlobalEditHandle::new();
@@ -54,7 +55,22 @@ impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
         EDIT_HANDLE.init(edit_handle);
     }
 
+    fn event_reload_language(&mut self) {
+        if EDIT_HANDLE.is_ready() {
+            Self::reload_effects();
+        }
+        if let Ok(ctx) = self.window.egui_ctx() {
+            ctx.request_repaint();
+        }
+    }
+
     fn on_project_load(&mut self, _project: &mut aviutl2::generic::ProjectFile) {
+        Self::reload_effects();
+    }
+}
+
+impl ScriptsSearchPlugin {
+    fn reload_effects() {
         let maybe_config = ScriptsSearchPlugin::load_aviutl2_ini();
         let config = match maybe_config {
             Ok(cfg) => cfg,
@@ -68,7 +84,7 @@ impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
             tracing::warn!("Effect section not found in aviutl2.ini");
             &empty_table
         });
-        EFFECTS.get_or_init(|| {
+        let effects = {
             let effects = EDIT_HANDLE.get_effects();
             let mut has_missing_label = false;
             let effects = effects
@@ -108,7 +124,8 @@ impl aviutl2::generic::GenericPlugin for ScriptsSearchPlugin {
                 })
                 .collect();
             EffectDb { effects }
-        });
+        };
+        *EFFECTS.write().unwrap() = Some(std::sync::Arc::new(effects));
     }
 }
 

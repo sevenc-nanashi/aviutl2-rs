@@ -49,6 +49,12 @@ impl aviutl2::generic::GenericPlugin for MetronomePlugin {
         EDIT_HANDLE.init(edit_handle);
     }
 
+    fn event_reload_language(&mut self) {
+        if let Ok(ctx) = self.window.egui_ctx() {
+            ctx.request_repaint();
+        }
+    }
+
     fn on_clear_cache(&mut self, _edit_section: &aviutl2::generic::EditSection) {
         crate::wav::clear_sample_cache();
     }

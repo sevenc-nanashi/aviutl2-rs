@@ -1,5 +1,4 @@
 [rusty_srt_file.aux2]
-SRTファイル（*.srt）=SRT file (*.srt)
 オブジェクトが選択されていません。=No object is selected.
 選択されたオブジェクトはテキストオブジェクトではありません。=The selected object is not a text object.
 SRTファイル=SRT file
@@ -11,3 +10,6 @@ SRTファイルに字幕が含まれていません。=The SRT file contains no 
 SRTファイルを保存=Save SRT file
 SRTファイルの書き出し完了=SRT export completed
 SRTファイルの書き出しが完了しました。=SRT export completed.
+
+[Menu]
+SRTファイル（*.srt）=SRT file (*.srt)

@@ -16,6 +16,7 @@ pub(crate) struct ScriptsSearchApp {
     matcher: nucleo_matcher::Matcher,
     needle: String,
     last_match: Option<(String, Vec<EffectMatchInfo>)>,
+    effects: Option<std::sync::Arc<crate::EffectDb>>,
 }
 
 fn play_beep() {
@@ -134,6 +135,7 @@ impl ScriptsSearchApp {
             matcher: nucleo_matcher::Matcher::new(config),
             needle: String::new(),
             last_match: None,
+            effects: None,
         }
     }
 }
@@ -256,7 +258,17 @@ impl ScriptsSearchApp {
     }
 
     fn render_main_panel(&mut self, ui: &mut egui::Ui) {
-        egui::CentralPanel::default().show(ui, |ui| match crate::EFFECTS.get() {
+        let effects = crate::EFFECTS.read().unwrap().clone();
+        if let Some(effects) = &effects
+            && !self
+                .effects
+                .as_ref()
+                .is_some_and(|previous| std::sync::Arc::ptr_eq(previous, effects))
+        {
+            self.last_match = None;
+            self.effects = Some(effects.clone());
+        }
+        egui::CentralPanel::default().show(ui, |ui| match effects.as_deref() {
             None => {
                 ui.label(tr("エフェクト情報を読み込み中..."));
 

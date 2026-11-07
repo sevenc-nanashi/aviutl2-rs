@@ -138,6 +138,12 @@ impl aviutl2::generic::GenericPlugin for LocalAliasPlugin {
         }
     }
 
+    fn event_reload_language(&mut self) {
+        if let Ok(ctx) = self.window.egui_ctx() {
+            ctx.request_repaint();
+        }
+    }
+
     fn on_project_load(&mut self, project: &mut aviutl2::generic::ProjectFile) {
         CURRENT_ALIAS.lock().unwrap().take();
         let aliases = project.deserialize("alias_entries").unwrap_or_else(|e| {

@@ -11,6 +11,8 @@
 キャンセル=Cancel
 エイリアス "{}" を削除しますか？=Delete alias "{}"?
 ローカルエイリアスに追加=Add to Local Alias
-ローカルエイリアスを配置=Insert Local Alias
 オブジェクトが選択されていません。=No object is selected.
 エイリアスが選択されていません。=No alias is selected.
+
+[Menu]
+ローカルエイリアスを配置=Insert Local Alias
