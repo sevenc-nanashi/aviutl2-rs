@@ -1012,6 +1012,23 @@ impl ReadSection {
         }
     }
 
+    /// オブジェクトのエフェクトのハンドルを取得する。
+    pub fn get_effect_handle(
+        &self,
+        object: ObjectHandle,
+        effect_index: usize,
+    ) -> EditSectionResult<EffectHandle> {
+        self.ensure_object_exists(object)?;
+        let handle = unsafe {
+            ((*self.internal).get_effect_handle)(object.internal, effect_index.try_into()?)
+        };
+        if handle.is_null() {
+            Err(EditSectionError::ApiCallFailed)
+        } else {
+            Ok(EffectHandle { internal: handle })
+        }
+    }
+
     /// オブジェクトのエフェクト一覧を取得する。
     pub fn get_effects(&self, object: ObjectHandle) -> EditSectionResult<Vec<EffectHandle>> {
         self.ensure_object_exists(object)?;
@@ -1284,6 +1301,30 @@ impl ReadSection {
     pub fn get_effect_id(&self, effect: EffectHandle) -> EditSectionResult<i64> {
         let id = unsafe { ((*self.internal).get_effect_id)(effect.internal) };
         Ok(id)
+    }
+
+    /// エフェクトの種別・フラグを取得する。
+    pub fn get_effect_type_flag(
+        &self,
+        effect: EffectHandle,
+    ) -> EditSectionResult<(crate::generic::EffectType, crate::generic::EffectFlag)> {
+        let mut effect_type = 0;
+        let mut type_flag = 0;
+        let success = unsafe {
+            ((*self.internal).get_effect_type_flag)(
+                effect.internal,
+                &mut effect_type,
+                &mut type_flag,
+            )
+        };
+        if !success {
+            return Err(EditSectionError::ApiCallFailed);
+        }
+        Ok((
+            crate::generic::EffectType::try_from(effect_type)
+                .map_err(|_| EditSectionError::ApiCallFailed)?,
+            crate::generic::EffectFlag::from_bits(type_flag),
+        ))
     }
 
     /// マークされているフレームの一覧を取得する。

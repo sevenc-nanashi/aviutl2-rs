@@ -864,6 +864,21 @@ pub struct EDIT_SECTION {
     /// layer : レイヤー番号
     /// color : レイヤーの背景色 ※aが255以外の場合はデフォルト色になります
     pub set_layer_color: unsafe extern "C" fn(layer: i32, color: PIXEL_RGBA),
+
+    /// エフェクトのハンドルを取得します
+    /// object : エフェクトハンドルを取得するオブジェクトのハンドル
+    /// index : オブジェクトが保持しているエフェクトのインデックス
+    /// 戻り値 : エフェクトのハンドル (取得出来ない場合はnullptrを返却)
+    /// ※エフェクトハンドルはエフェクトが破棄されるかコールバック処理の終了まで有効
+    pub get_effect_handle: unsafe extern "C" fn(object: OBJECT_HANDLE, index: i32) -> EFFECT_HANDLE,
+
+    /// エフェクトの種別・フラグを取得します
+    /// effect : 種別・フラグを取得するエフェクトのハンドル
+    /// type : エフェクト種別の格納先へのポインタ (種別はEDIT_HANDLE::EFFECT_TYPE_XXXX)
+    /// flag : エフェクトフラグの格納先へのポインタ (フラグはEDIT_HANDLE::EFFECT_FLAG_XXXX)
+    /// 戻り値 : 取得出来た場合はtrue
+    pub get_effect_type_flag:
+        unsafe extern "C" fn(effect: EFFECT_HANDLE, r#type: *mut i32, flag: *mut i32) -> bool,
 }
 
 /// 編集ハンドル構造体
@@ -1195,8 +1210,8 @@ impl EDIT_HANDLE {
     /// オブジェクト制御
     pub const EFFECT_TYPE_CONTROL: i32 = 4;
     /// メディア出力
-    /// エフェクトフラグ ※今後追加される可能性があります
     pub const EFFECT_TYPE_OUTPUT: i32 = 5;
+    /// エフェクトフラグ ※今後追加される可能性があります
     /// 画像をサポート
     pub const EFFECT_FLAG_VIDEO: i32 = 1;
     /// 音声をサポート
