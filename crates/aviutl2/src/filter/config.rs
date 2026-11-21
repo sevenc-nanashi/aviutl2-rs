@@ -57,6 +57,8 @@ pub enum FilterConfigItem {
     CheckSection(FilterConfigCheckSection),
     /// 色選択。
     Color(FilterConfigColor),
+    /// 色リスト。
+    ColorList(FilterConfigColorList),
     /// 選択リスト。
     Select(FilterConfigSelect),
     /// ファイル選択。
@@ -91,6 +93,7 @@ pub(crate) enum FilterConfigItemValue {
     Check(bool),
     CheckSection(bool),
     Color(FilterConfigColorValue),
+    ColorList(Vec<FilterConfigColorListValue>),
     Select(i32),
     File(String),
     String(String),
@@ -118,6 +121,7 @@ impl FilterConfigItem {
             FilterConfigItem::Track(item) => &item.name,
             FilterConfigItem::Check(item) => &item.name,
             FilterConfigItem::Color(item) => &item.name,
+            FilterConfigItem::ColorList(item) => &item.name,
             FilterConfigItem::Select(item) => &item.name,
             FilterConfigItem::File(item) => &item.name,
             FilterConfigItem::String(item) => &item.name,
@@ -133,8 +137,12 @@ impl FilterConfigItem {
         }
     }
 
-    pub(crate) fn to_raw(&self, leak_manager: &LeakManager) -> aviutl2_sys::filter2::FILTER_ITEM {
-        match self {
+    pub(crate) fn to_raw(
+        &self,
+        leak_manager: &LeakManager,
+    ) -> *const aviutl2_sys::filter2::FILTER_ITEM {
+        let raw = match self {
+            FilterConfigItem::ColorList(item) => return item.to_raw(leak_manager),
             FilterConfigItem::Track(item) => aviutl2_sys::filter2::FILTER_ITEM {
                 track: aviutl2_sys::filter2::FILTER_ITEM_TRACK {
                     r#type: leak_manager.leak_as_wide_string("track2"),
@@ -282,7 +290,7 @@ impl FilterConfigItem {
                         &FilterConfigItem::Track(item.clone()),
                         leak_manager,
                     );
-                    tracks.push(leak_manager.leak(raw));
+                    tracks.push(raw);
                 }
                 tracks.push(std::ptr::null_mut());
 
@@ -313,7 +321,8 @@ impl FilterConfigItem {
                     },
                 }
             }
-        }
+        };
+        leak_manager.leak(raw)
     }
 
     /// # Safety
@@ -340,6 +349,18 @@ impl FilterConfigItem {
             "color" => {
                 let raw_color = unsafe { &(*raw).color };
                 FilterConfigItemValue::Color(raw_color.value.into())
+            }
+            "colorlist" => {
+                let raw = raw.cast::<aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST<0>>();
+                // SAFETY: ホストの色リストにはnum個の値が連続して格納されます。
+                let values = unsafe {
+                    std::slice::from_raw_parts(
+                        std::ptr::addr_of!((*raw).value)
+                            .cast::<aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST_VALUE>(),
+                        (*raw).num as usize,
+                    )
+                };
+                FilterConfigItemValue::ColorList(values.iter().copied().map(Into::into).collect())
             }
             "select" => {
                 let raw_select = unsafe { &(*raw).select };
@@ -406,6 +427,9 @@ impl FilterConfigItem {
             (FilterConfigItem::Track(item), FilterConfigItemValue::Track(v)) => item.value != v,
             (FilterConfigItem::Check(item), FilterConfigItemValue::Check(v)) => item.value != v,
             (FilterConfigItem::Color(item), FilterConfigItemValue::Color(v)) => item.value != v,
+            (FilterConfigItem::ColorList(item), FilterConfigItemValue::ColorList(v)) => {
+                item.value != v
+            }
             (FilterConfigItem::Select(item), FilterConfigItemValue::Select(v)) => item.value != v,
             (FilterConfigItem::File(item), FilterConfigItemValue::File(v)) => item.value != v,
             (FilterConfigItem::String(item), FilterConfigItemValue::String(v)) => item.value != v,
@@ -460,6 +484,9 @@ impl FilterConfigItem {
                 item.value = v;
             }
             (FilterConfigItem::Color(item), FilterConfigItemValue::Color(v)) => {
+                item.value = v;
+            }
+            (FilterConfigItem::ColorList(item), FilterConfigItemValue::ColorList(v)) => {
                 item.value = v;
             }
             (FilterConfigItem::Select(item), FilterConfigItemValue::Select(v)) => {
@@ -566,6 +593,137 @@ pub struct FilterConfigColor {
     pub name: String,
     /// 設定値。
     pub value: FilterConfigColorValue,
+}
+
+/// 色リスト。
+#[derive(Debug, Clone)]
+pub struct FilterConfigColorList {
+    /// 設定名。`|`区切りで各色の名前を指定できます。
+    pub name: String,
+    /// 設定値。
+    pub value: Vec<FilterConfigColorListValue>,
+    /// 最大色数。1以上、i32::MAX以下で、設定値の数以上である必要があります。
+    pub max_count: usize,
+    /// 色リストのフラグ。
+    pub flag: FilterConfigColorListFlag,
+}
+
+define_bitflag! {
+    /// 色リストのフラグ。
+    ///
+    /// # See Also
+    ///
+    /// - [`crate::bitflag!`]
+    #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[non_exhaustive]
+    pub struct FilterConfigColorListFlag: i32 {
+        /// 未指定を利用するか。
+        use_undefined: aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST_FLAG::USE_UNDEFINED,
+        /// 色の位置を利用するか。
+        use_position: aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST_FLAG::USE_POSITION,
+        /// 色の数を固定するか。
+        fixed_color_num: aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST_FLAG::FIXED_COLOR_NUM,
+        /// アルファ値を利用するか。
+        use_alpha_channel: aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST_FLAG::USE_ALPHA_CHANNEL,
+    }
+}
+
+impl FilterConfigColorList {
+    fn to_raw(&self, leak_manager: &LeakManager) -> *const aviutl2_sys::filter2::FILTER_ITEM {
+        assert!(
+            self.max_count > 0,
+            "Color list must have a positive capacity"
+        );
+        let max_num = i32::try_from(self.max_count).expect("Color list capacity exceeds i32::MAX");
+        assert!(
+            self.value.len() <= self.max_count,
+            "Too many colors in color list"
+        );
+        // usizeの配列でヘッダーのアラインメントを保ち、末尾配列を含む領域を確保します。
+        let size = std::mem::offset_of!(aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST<0>, value)
+            + self.max_count
+                * std::mem::size_of::<aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST_VALUE>();
+        let raw = leak_manager
+            .leak_value_vec(vec![0usize; size.div_ceil(std::mem::size_of::<usize>())])
+            .cast_mut()
+            .cast::<aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST<0>>();
+        let default_value = aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST_VALUE {
+            color: aviutl2_sys::filter2::PIXEL_RGBA::FROM_CODE(0),
+            position_and_is_undefined: 0,
+        };
+        // SAFETY: ヘッダーとmax_count個の値が収まる、適切に整列した領域です。
+        unsafe {
+            raw.write(aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST {
+                r#type: leak_manager.leak_as_wide_string("colorlist"),
+                name: leak_manager.leak_as_wide_string(&self.name),
+                flag: self.flag.to_bits(),
+                max_num,
+                num: self.value.len() as i32,
+                value: [],
+            });
+            let values = std::ptr::addr_of_mut!((*raw).value)
+                .cast::<aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST_VALUE>();
+            for (index, value) in self
+                .value
+                .iter()
+                .copied()
+                .map(Into::into)
+                .chain(std::iter::repeat(default_value))
+                .take(self.max_count)
+                .enumerate()
+            {
+                values.add(index).write(value);
+            }
+        }
+        raw.cast()
+    }
+}
+
+/// 色リストの1色分の設定値。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FilterConfigColorListValue {
+    /// RGBA色。`None`は未指定を表します。
+    pub color: Option<crate::filter::RgbaPixel>,
+    /// 色の位置。0〜10000（0.00〜100.00%）。
+    pub position: u32,
+}
+
+impl From<FilterConfigColorListValue> for aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST_VALUE {
+    fn from(value: FilterConfigColorListValue) -> Self {
+        assert!(
+            value.position <= 10000,
+            "Color position must be in 0..=10000"
+        );
+        Self {
+            color: match value.color {
+                Some(color) => aviutl2_sys::filter2::PIXEL_RGBA {
+                    r: color.r,
+                    g: color.g,
+                    b: color.b,
+                    a: color.a,
+                },
+                // 未指定時にもSDK構造体の色領域は初期化が必要です。
+                None => aviutl2_sys::filter2::PIXEL_RGBA::FROM_CODE(0),
+            },
+            position_and_is_undefined: value.position | (u32::from(value.color.is_none()) << 31),
+        }
+    }
+}
+
+impl From<aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST_VALUE> for FilterConfigColorListValue {
+    fn from(value: aviutl2_sys::filter2::FILTER_ITEM_COLOR_LIST_VALUE) -> Self {
+        Self {
+            color: (value.position_and_is_undefined >> 31 == 0).then_some(
+                crate::filter::RgbaPixel {
+                    r: value.color.r,
+                    g: value.color.g,
+                    b: value.color.b,
+                    a: value.color.a,
+                },
+            ),
+            position: value.position_and_is_undefined & 0x7fff_ffff,
+        }
+    }
 }
 
 /// 色選択の設定値の色。
@@ -1576,8 +1734,8 @@ mod tests {
 
         for item in &mut items {
             let raw = item.to_raw(&leak_manager);
-            assert!(!unsafe { item.should_apply_from_raw(&raw) });
-            unsafe { item.apply_from_raw(&raw) };
+            assert!(!unsafe { item.should_apply_from_raw(raw) });
+            unsafe { item.apply_from_raw(raw) };
         }
     }
 

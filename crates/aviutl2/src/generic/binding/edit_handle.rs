@@ -1,6 +1,8 @@
 use std::num::NonZeroIsize;
 use std::sync::Mutex;
 
+use aviutl2_sys::plugin2::EDIT_HANDLE;
+
 use crate::common::{ChildKillablePointer, KillablePointer};
 use crate::filter::RgbaPixel;
 use crate::generic::{EditSection, ReadSection};
@@ -1384,6 +1386,8 @@ pub enum EffectItemType {
     Group,
     /// セパレーター。
     Separator,
+    /// 色リスト。
+    ColorList,
 }
 
 define_bitflag! {
@@ -1436,25 +1440,26 @@ impl TryFrom<i32> for EffectItemType {
 
     fn try_from(value: i32) -> Result<Self, Self::Error> {
         match value {
-            1 => Ok(EffectItemType::Integer),
-            2 => Ok(EffectItemType::Number),
-            3 => Ok(EffectItemType::Check),
-            4 => Ok(EffectItemType::Text),
-            5 => Ok(EffectItemType::String),
-            6 => Ok(EffectItemType::File),
-            7 => Ok(EffectItemType::Color),
-            8 => Ok(EffectItemType::Select),
-            9 => Ok(EffectItemType::Scene),
-            10 => Ok(EffectItemType::Range),
-            11 => Ok(EffectItemType::Combo),
-            12 => Ok(EffectItemType::Mask),
-            13 => Ok(EffectItemType::Font),
-            14 => Ok(EffectItemType::Figure),
-            15 => Ok(EffectItemType::Data),
-            16 => Ok(EffectItemType::Folder),
-            17 => Ok(EffectItemType::NumberGroup),
-            18 => Ok(EffectItemType::Group),
-            19 => Ok(EffectItemType::Separator),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_INTEGER => Ok(EffectItemType::Integer),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_NUMBER => Ok(EffectItemType::Number),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_CHECK => Ok(EffectItemType::Check),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_TEXT => Ok(EffectItemType::Text),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_STRING => Ok(EffectItemType::String),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_FILE => Ok(EffectItemType::File),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_COLOR => Ok(EffectItemType::Color),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_SELECT => Ok(EffectItemType::Select),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_SCENE => Ok(EffectItemType::Scene),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_RANGE => Ok(EffectItemType::Range),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_COMBO => Ok(EffectItemType::Combo),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_MASK => Ok(EffectItemType::Mask),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_FONT => Ok(EffectItemType::Font),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_FIGURE => Ok(EffectItemType::Figure),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_DATA => Ok(EffectItemType::Data),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_FOLDER => Ok(EffectItemType::Folder),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_NUMBER_GROUP => Ok(EffectItemType::NumberGroup),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_GROUP => Ok(EffectItemType::Group),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_SEPARATOR => Ok(EffectItemType::Separator),
+            EDIT_HANDLE::EFFECT_ITEM_TYPE_COLOR_LIST => Ok(EffectItemType::ColorList),
             _ => Err(()),
         }
     }
@@ -1462,25 +1467,26 @@ impl TryFrom<i32> for EffectItemType {
 impl From<EffectItemType> for i32 {
     fn from(value: EffectItemType) -> Self {
         match value {
-            EffectItemType::Integer => 1,
-            EffectItemType::Number => 2,
-            EffectItemType::Check => 3,
-            EffectItemType::Text => 4,
-            EffectItemType::String => 5,
-            EffectItemType::File => 6,
-            EffectItemType::Color => 7,
-            EffectItemType::Select => 8,
-            EffectItemType::Scene => 9,
-            EffectItemType::Range => 10,
-            EffectItemType::Combo => 11,
-            EffectItemType::Mask => 12,
-            EffectItemType::Font => 13,
-            EffectItemType::Figure => 14,
-            EffectItemType::Data => 15,
-            EffectItemType::Folder => 16,
-            EffectItemType::NumberGroup => 17,
-            EffectItemType::Group => 18,
-            EffectItemType::Separator => 19,
+            EffectItemType::Integer => EDIT_HANDLE::EFFECT_ITEM_TYPE_INTEGER,
+            EffectItemType::Number => EDIT_HANDLE::EFFECT_ITEM_TYPE_NUMBER,
+            EffectItemType::Check => EDIT_HANDLE::EFFECT_ITEM_TYPE_CHECK,
+            EffectItemType::Text => EDIT_HANDLE::EFFECT_ITEM_TYPE_TEXT,
+            EffectItemType::String => EDIT_HANDLE::EFFECT_ITEM_TYPE_STRING,
+            EffectItemType::File => EDIT_HANDLE::EFFECT_ITEM_TYPE_FILE,
+            EffectItemType::Color => EDIT_HANDLE::EFFECT_ITEM_TYPE_COLOR,
+            EffectItemType::Select => EDIT_HANDLE::EFFECT_ITEM_TYPE_SELECT,
+            EffectItemType::Scene => EDIT_HANDLE::EFFECT_ITEM_TYPE_SCENE,
+            EffectItemType::Range => EDIT_HANDLE::EFFECT_ITEM_TYPE_RANGE,
+            EffectItemType::Combo => EDIT_HANDLE::EFFECT_ITEM_TYPE_COMBO,
+            EffectItemType::Mask => EDIT_HANDLE::EFFECT_ITEM_TYPE_MASK,
+            EffectItemType::Font => EDIT_HANDLE::EFFECT_ITEM_TYPE_FONT,
+            EffectItemType::Figure => EDIT_HANDLE::EFFECT_ITEM_TYPE_FIGURE,
+            EffectItemType::Data => EDIT_HANDLE::EFFECT_ITEM_TYPE_DATA,
+            EffectItemType::Folder => EDIT_HANDLE::EFFECT_ITEM_TYPE_FOLDER,
+            EffectItemType::NumberGroup => EDIT_HANDLE::EFFECT_ITEM_TYPE_NUMBER_GROUP,
+            EffectItemType::Group => EDIT_HANDLE::EFFECT_ITEM_TYPE_GROUP,
+            EffectItemType::Separator => EDIT_HANDLE::EFFECT_ITEM_TYPE_SEPARATOR,
+            EffectItemType::ColorList => EDIT_HANDLE::EFFECT_ITEM_TYPE_COLOR_LIST,
         }
     }
 }

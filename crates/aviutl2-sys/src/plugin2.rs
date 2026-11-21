@@ -1265,6 +1265,8 @@ impl EDIT_HANDLE {
     pub const EFFECT_ITEM_TYPE_GROUP: i32 = 18;
     /// セパレーター ※設定値無し
     pub const EFFECT_ITEM_TYPE_SEPARATOR: i32 = 19;
+    /// 色リスト
+    pub const EFFECT_ITEM_TYPE_COLOR_LIST: i32 = 20;
 }
 
 /// プロジェクトファイル構造体

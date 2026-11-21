@@ -282,11 +282,7 @@ fn create_table_impl<T: FilterSingleton>(
     let config_items = plugin_info
         .config_items
         .iter()
-        .map(|item| {
-            plugin_state
-                .global_leak_manager
-                .leak(item.to_raw(&plugin_state.global_leak_manager))
-        })
+        .map(|item| item.to_raw(&plugin_state.global_leak_manager))
         .collect::<Vec<_>>();
     plugin_state.config_pointers = config_items.to_vec();
     // null終端

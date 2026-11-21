@@ -107,6 +107,39 @@ mod utils;
 ///
 /// - 値の型は`From<aviutl2::filter::FilterConfigColorValue>`を実装している必要があります。
 ///
+/// ## `color_list`
+///
+/// ```rust
+/// use aviutl2::filter::{FilterConfigColorListValue, RgbaPixel};
+///
+/// fn default_colors() -> Vec<FilterConfigColorListValue> {
+///     vec![FilterConfigColorListValue {
+///         color: Some(RgbaPixel { r: 72, g: 176, b: 213, a: 255 }),
+///         position: 0,
+///     }]
+/// }
+///
+/// # #[aviutl2_macros::filter_config_items]
+/// # struct S {
+/// #[color_list(
+///     name = "基準色|中間色",
+///     max_count = 8,
+///     default = default_colors,
+///     use_position = true,
+///     use_alpha_channel = true
+/// )]
+/// colors: Vec<aviutl2::filter::FilterConfigColorListValue>,
+/// # }
+/// ```
+///
+/// - `name`: 設定名。`|`区切りで各色の名前を指定できます。省略時はフィールド名になります。
+/// - `max_count`: 最大色数。1以上、`i32::MAX`以下の整数リテラルが必要です。
+/// - `default`: 引数なしの関数。戻り値は`Vec<FilterConfigColorListValue>`に変換できる必要があります。
+///   色数は`max_count`以下である必要があります。
+/// - `use_undefined`、`use_position`、`fixed_color_num`、`use_alpha_channel`:
+///   未指定・位置・色数固定・アルファ値をそれぞれ有効にします。省略時はすべて`false`です。
+/// - 値の型は`From<Vec<aviutl2::filter::FilterConfigColorListValue>>`を実装している必要があります。
+///
 /// ## `select`
 ///
 /// ```rust

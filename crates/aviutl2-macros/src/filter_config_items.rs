@@ -224,6 +224,16 @@ enum FilterConfigField {
         name: String,
         default: u32,
     },
+    ColorList {
+        id: String,
+        name: String,
+        default: syn::Expr,
+        max_count: usize,
+        use_undefined: bool,
+        use_position: bool,
+        fixed_color_num: bool,
+        use_alpha_channel: bool,
+    },
     Select {
         id: String,
         name: String,
@@ -466,6 +476,24 @@ fn impl_to_config_items(fields: &[FilterConfigField]) -> proc_macro2::TokenStrea
                     )
                 }
             }
+            FilterConfigField::ColorList {
+                name, default, max_count, use_undefined, use_position,
+                fixed_color_num, use_alpha_channel, ..
+            } => quote::quote! {
+                ::aviutl2::filter::FilterConfigItem::ColorList(
+                    ::aviutl2::filter::FilterConfigColorList {
+                        name: #name.to_string(),
+                        value: (#default)().into(),
+                        max_count: #max_count,
+                        flag: ::aviutl2::bitflag!(::aviutl2::filter::FilterConfigColorListFlag {
+                            use_undefined: #use_undefined,
+                            use_position: #use_position,
+                            fixed_color_num: #fixed_color_num,
+                            use_alpha_channel: #use_alpha_channel,
+                        }),
+                    }
+                )
+            },
             FilterConfigField::Select {
                 id: _,
                 name,
@@ -869,6 +897,15 @@ fn impl_from_filter_config(config_fields: &[FilterConfigField]) -> proc_macro2::
                     }
                 })
             }
+            FilterConfigField::ColorList { id, .. } => {
+                let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+                Some(quote::quote! {
+                    #id_ident: match items[#i] {
+                        ::aviutl2::filter::FilterConfigItem::ColorList(ref colors) => colors.value.clone().into(),
+                        _ => panic!("expected ColorList at index {}", #i),
+                    }
+                })
+            }
             FilterConfigField::Select {
                 id, items, default, ..
             } => {
@@ -1003,6 +1040,12 @@ fn impl_default(fields: &[FilterConfigField]) -> proc_macro2::TokenStream {
                 #id_ident: #default.into()
             })
         }
+        FilterConfigField::ColorList { id, default, .. } => {
+            let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
+            Some(quote::quote! {
+                #id_ident: (#default)().into()
+            })
+        }
         FilterConfigField::Select { id, default, .. } => {
             let id_ident = syn::Ident::new(id, proc_macro2::Span::call_site());
             Some(match default {
@@ -1127,6 +1170,7 @@ fn validate_filter_config(
 }
 
 static PRIMARY_FIELDS: &[&str] = &[
+    "color_list",
     "track",
     "check",
     "checksection",
@@ -1142,6 +1186,7 @@ static PRIMARY_FIELDS: &[&str] = &[
     "button",
 ];
 static RECOGNIZED_FIELDS: &[&str] = &[
+    "color_list",
     "track",
     "check",
     "checksection",
@@ -1278,6 +1323,7 @@ fn parse_primary_filter_config_field(
         "check" => filter_config_field_check(field, recognized_attr),
         "checksection" => filter_config_field_check_section(field, recognized_attr),
         "color" => filter_config_field_color(field, recognized_attr),
+        "color_list" => filter_config_field_color_list(field, recognized_attr),
         "select" => filter_config_field_select(field, recognized_attr),
         "file" => filter_config_field_file(field, recognized_attr),
         "string" => filter_config_field_string(field, recognized_attr),
@@ -1343,6 +1389,7 @@ fn filter_config_field_name(field: &FilterConfigField) -> Option<&str> {
         | FilterConfigField::Check { name, .. }
         | FilterConfigField::CheckSection { name, .. }
         | FilterConfigField::Color { name, .. }
+        | FilterConfigField::ColorList { name, .. }
         | FilterConfigField::Select { name, .. }
         | FilterConfigField::File { name, .. }
         | FilterConfigField::String { name, .. }
@@ -1364,6 +1411,7 @@ fn filter_config_field_can_be_hidden(field: &FilterConfigField) -> bool {
             | FilterConfigField::Check { .. }
             | FilterConfigField::CheckSection { .. }
             | FilterConfigField::Color { .. }
+            | FilterConfigField::ColorList { .. }
             | FilterConfigField::Select { .. }
             | FilterConfigField::File { .. }
             | FilterConfigField::String { .. }
@@ -1380,6 +1428,7 @@ fn filter_config_condition_source(field: &FilterConfigField) -> Option<(&str, &s
         // 非表示の対象のみになれるもの
         FilterConfigField::Track { id, name, .. }
         | FilterConfigField::Color { id, name, .. }
+        | FilterConfigField::ColorList { id, name, .. }
         | FilterConfigField::String { id, name, .. }
         | FilterConfigField::Text { id, name, .. }
         | FilterConfigField::Data { id, name, .. }
@@ -1833,6 +1882,64 @@ fn filter_config_field_check_section(
         name,
         default,
         multi_section,
+    })
+}
+
+fn filter_config_field_color_list(
+    field: &syn::Field,
+    recognized_attr: &syn::Attribute,
+) -> Result<FilterConfigField, syn::Error> {
+    let mut name = None;
+    let mut salt = None;
+    let mut default = None;
+    let mut max_count = None;
+    let mut use_undefined = false;
+    let mut use_position = false;
+    let mut fixed_color_num = false;
+    let mut use_alpha_channel = false;
+    recognized_attr.parse_nested_meta(|m| {
+        if m.path.is_ident("name") {
+            name = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("salt") {
+            salt = Some(m.value()?.parse::<syn::LitStr>()?.value());
+        } else if m.path.is_ident("default") {
+            default = Some(m.value()?.parse::<syn::Expr>()?);
+        } else if m.path.is_ident("max_count") {
+            let lit = m.value()?.parse::<syn::LitInt>()?;
+            let count = lit.base10_parse::<usize>()?;
+            if count == 0 || count > i32::MAX as usize {
+                return Err(syn::Error::new_spanned(
+                    lit,
+                    "max_count must be in 1..=i32::MAX",
+                ));
+            }
+            max_count = Some(count);
+        } else if m.path.is_ident("use_undefined") {
+            use_undefined = m.value()?.parse::<syn::LitBool>()?.value;
+        } else if m.path.is_ident("use_position") {
+            use_position = m.value()?.parse::<syn::LitBool>()?.value;
+        } else if m.path.is_ident("fixed_color_num") {
+            fixed_color_num = m.value()?.parse::<syn::LitBool>()?.value;
+        } else if m.path.is_ident("use_alpha_channel") {
+            use_alpha_channel = m.value()?.parse::<syn::LitBool>()?.value;
+        } else {
+            return Err(m.error("Unknown attribute for color_list"));
+        }
+        Ok(())
+    })?;
+    let default =
+        default.ok_or_else(|| syn::Error::new_spanned(recognized_attr, "default is required"))?;
+    let max_count = max_count
+        .ok_or_else(|| syn::Error::new_spanned(recognized_attr, "max_count is required"))?;
+    Ok(FilterConfigField::ColorList {
+        id: field.ident.as_ref().unwrap().to_string(),
+        name: with_salt(name, salt, field.ident.as_ref().unwrap()),
+        default,
+        max_count,
+        use_undefined,
+        use_position,
+        fixed_color_num,
+        use_alpha_channel,
     })
 }
 

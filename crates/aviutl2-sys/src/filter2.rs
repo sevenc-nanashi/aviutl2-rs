@@ -22,6 +22,8 @@ pub union FILTER_ITEM {
     pub check: FILTER_ITEM_CHECK,
     pub check_section: FILTER_ITEM_CHECK_SECTION,
     pub color: FILTER_ITEM_COLOR,
+    /// 可変長の値配列を除いた色リスト項目のヘッダー。
+    pub color_list: FILTER_ITEM_COLOR_LIST<0>,
     pub select: FILTER_ITEM_SELECT,
     pub file: FILTER_ITEM_FILE,
     pub data: FILTER_ITEM_DATA,
@@ -112,6 +114,57 @@ pub struct FILTER_ITEM_COLOR {
 pub union FILTER_ITEM_COLOR_VALUE {
     pub code: u32,
     pub bgrx: [u8; 4],
+}
+
+/// 色リスト項目のフラグ
+pub struct FILTER_ITEM_COLOR_LIST_FLAG;
+
+impl FILTER_ITEM_COLOR_LIST_FLAG {
+    /// 未指定を利用するか？
+    pub const USE_UNDEFINED: i32 = 1;
+    /// 色の位置を利用するか？
+    pub const USE_POSITION: i32 = 2;
+    /// 色の数を固定するか？
+    pub const FIXED_COLOR_NUM: i32 = 4;
+    /// アルファ値を利用するか？
+    pub const USE_ALPHA_CHANNEL: i32 = 8;
+}
+
+/// 色リスト項目構造体
+/// 設定値の色の最大数を定数ジェネリック引数で指定出来ます。
+/// 設定名は`|`区切りで2個目以降の項目名を指定出来ます。
+/// 最大数より少ない場合は最後の項目名になります。
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_COLOR_LIST<const N: usize> {
+    /// 設定の種別（`L"colorlist"`）
+    pub r#type: LPCWSTR,
+    /// 設定名
+    pub name: LPCWSTR,
+    /// 設定のフラグ ([`FILTER_ITEM_COLOR_LIST_FLAG`])
+    pub flag: i32,
+    /// 設定値の最大数 (`N`)
+    pub max_num: i32,
+    /// 設定値の数 (フィルタ処理の呼び出し時に現在の値に更新されます)
+    pub num: i32,
+    /// 設定値 (フィルタ処理の呼び出し時に現在の値に更新されます)
+    pub value: [FILTER_ITEM_COLOR_LIST_VALUE; N],
+}
+
+/// 色リストの設定値の色
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct FILTER_ITEM_COLOR_LIST_VALUE {
+    pub color: PIXEL_RGBA,
+    /// 下位31ビット: position (0〜10000)、最上位1ビット: isUndefined。
+    pub position_and_is_undefined: u32,
+}
+
+impl FILTER_ITEM_COLOR_LIST_VALUE {
+    /// 0.0〜100.0の値で位置を取得
+    pub fn getPosition(&self) -> f32 {
+        (self.position_and_is_undefined & 0x7fff_ffff) as f32 / 100.0
+    }
 }
 
 /// 選択リスト項目構造体
@@ -517,11 +570,24 @@ pub enum OUTPUT_PIXEL_FORMAT {
 
 /// RGBA32bit構造体
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct PIXEL_RGBA {
     pub r: u8,
     pub g: u8,
     pub b: u8,
     pub a: u8,
+}
+
+impl PIXEL_RGBA {
+    /// RGBカラーコードから不透明なRGBA色を作成する。
+    pub const fn FROM_CODE(code: i32) -> Self {
+        Self {
+            r: ((code >> 16) & 0xff) as u8,
+            g: ((code >> 8) & 0xff) as u8,
+            b: (code & 0xff) as u8,
+            a: 255,
+        }
+    }
 }
 
 /// シーン情報構造体
@@ -659,6 +725,74 @@ pub struct EFFECT_ITEM_PARAM {
     pub name: LPCWSTR,
     /// 設定値(UTF8) ※エイリアスファイルの設定値と同じフォーマット
     pub value: LPCSTR,
+}
+
+/// アンカー処理セクション構造体
+/// アンカーのドラッグ移動のコールバック関数内で利用出来ます。
+/// コールバック関数内では汎用データ項目を更新出来ます。
+/// ※トラックバー項目の変更は今後追加予定です。
+#[repr(C)]
+pub struct ANCHOR_SECTION {
+    /// ANCHOR_HANDLEの関数で指定したアンカーのインデックス
+    pub index: i32,
+    /// アンカーのドラッグ移動先の座標
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    /// アンカーの今回のドラッグ移動量
+    pub dx: f32,
+    pub dy: f32,
+    pub dz: f32,
+    /// アンカーのドラッグ開始座標
+    pub origin_x: f32,
+    pub origin_y: f32,
+    pub origin_z: f32,
+    /// ANCHOR_HANDLEの関数で指定したパラメータデータのポインタ
+    pub param: *mut c_void,
+    /// ユーザーデータのポインタ (FLAG_USERDATAが有効の時に設定されます)
+    /// func_create()で返却したユーザーデータのポインタ
+    pub userdata: *mut c_void,
+    /// 編集セクション関数 ※アンカー処理中は参照系の関数が利用出来ます
+    pub edit: *mut EDIT_SECTION,
+    /// 自身のオブジェクトのハンドル
+    pub object: OBJECT_HANDLE,
+    /// 自身のエフェクトのハンドル
+    pub effect: EFFECT_HANDLE,
+}
+
+/// アンカー操作ハンドル構造体
+#[repr(C)]
+pub struct ANCHOR_HANDLE {
+    /// ドラッグ移動可能なアンカーのポイントを設定する
+    /// index : 任意のアンカーのインデックス ※ANCHOR_SECTIONに設定されます
+    /// x,y,z : アンカーの座標 ※オブジェクトの座標系
+    /// flag : アンカーのフラグ ※現状は0を設定
+    /// param : 任意のパラメータデータのポインタ ※ANCHOR_SECTIONに設定されます
+    /// func_proc_anchor : アンカーのドラッグ移動処理のコールバック関数
+    pub set_anchor_move_point: unsafe extern "C" fn(
+        index: i32,
+        x: f32,
+        y: f32,
+        z: f32,
+        flag: i32,
+        param: *mut c_void,
+        func_proc_anchor: Option<extern "C" fn(anchor: *mut ANCHOR_SECTION)>,
+    ),
+    /// アンカーのラインを設定する
+    /// x0,y0,z0 : アンカーの開始座標
+    /// x1,y1,z1 : アンカーの終了座標
+    /// flag : アンカーのフラグ ※現状は0を設定
+    /// color : アンカーラインの色
+    pub set_anchor_line: unsafe extern "C" fn(
+        x0: f32,
+        y0: f32,
+        z0: f32,
+        x1: f32,
+        y1: f32,
+        z1: f32,
+        flag: i32,
+        color: PIXEL_RGBA,
+    ),
 }
 
 /// 画像フィルタ処理用構造体
@@ -1197,6 +1331,10 @@ pub struct FILTER_PROC_VIDEO {
     /// 現在のオブジェクトに影響しているカメラ制御オブジェクトを取得します
     /// 戻り値 : 取得したカメラ制御オブジェクトのハンドル (カメラ制御対象外の場合はnullptrを返却)
     pub get_camera_control_object: unsafe extern "C" fn() -> OBJECT_HANDLE,
+
+    /// アンカー操作ハンドル
+    /// アンカーが設定出来ない場合はnullptrが設定されます
+    pub anchor: *mut ANCHOR_HANDLE,
 }
 
 /// DirectXMathのXMMATRIX構造体の互換構造体
