@@ -118,20 +118,26 @@ impl FilterPlugin for RandomColorFilter {
             }
             Shape::Triangle => {
                 if let Some(mut anchor) = video.anchor() {
-                    anchor.set_anchor_move_point(0, triangle_tip, |items, anchor| {
-                        let config: FilterConfig = items.to_struct();
-                        let half_width = config.width as f32 * 0.5;
-                        let half_height = config.height as f32 * 0.5;
-                        *config.triangle_tip_offset.write() = [
-                            anchor.x.clamp(-half_width, half_width),
-                            anchor.y.clamp(-half_height, half_height) + half_height,
-                        ];
-                        Ok(())
-                    });
+                    anchor.set_anchor_move_point(
+                        0,
+                        triangle_tip,
+                        Default::default(),
+                        |items, anchor| {
+                            let config: FilterConfig = items.to_struct();
+                            let half_width = config.width as f32 * 0.5;
+                            let half_height = config.height as f32 * 0.5;
+                            *config.triangle_tip_offset.write() = [
+                                anchor.x.clamp(-half_width, half_width),
+                                anchor.y.clamp(-half_height, half_height) + half_height,
+                            ];
+                            Ok(())
+                        },
+                    );
                     for x in [-(width as f32) * 0.5, width as f32 * 0.5] {
                         anchor.set_anchor_line(
                             triangle_tip,
                             [x, height as f32 * 0.5, 0.0],
+                            Default::default(),
                             (255, 255, 255, 255).into(),
                         );
                     }

@@ -14,7 +14,7 @@ use super::{FilterProcVideo, FilterUserdata, FilterUserdataHandle, RgbaPixel};
 /// fn register(config: &[FilterConfigItem], video: &mut FilterProcVideo<()>) {
 ///     let position = *Config::from_config_items(config).point.read();
 ///     if let Some(mut anchor) = video.anchor() {
-///         anchor.set_anchor_move_point(0, position, |config, anchor| {
+///         anchor.set_anchor_move_point(0, position, Default::default(), |config, anchor| {
 ///             let config = Config::from_config_items(config);
 ///             *config.point.write() = [anchor.x, anchor.y, anchor.z];
 ///             Ok(())
@@ -61,6 +61,24 @@ impl<U: FilterUserdata> FilterProcAnchor<U> {
     }
 }
 
+define_bitflag! {
+    /// アンカーポイントのフラグ。
+    ///
+    /// 現在は指定可能なフラグがありません。
+    #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[non_exhaustive]
+    pub struct AnchorMovePointFlag: i32 {}
+}
+
+define_bitflag! {
+    /// アンカーラインのフラグ。
+    ///
+    /// 現在は指定可能なフラグがありません。
+    #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[non_exhaustive]
+    pub struct AnchorLineFlag: i32 {}
+}
+
 /// 映像処理中だけ利用できるアンカー操作ハンドル。
 pub struct AnchorHandle<'a, U: FilterUserdata> {
     inner: &'a aviutl2_sys::filter2::ANCHOR_HANDLE,
@@ -89,6 +107,7 @@ impl<U: FilterUserdata> AnchorHandle<'_, U> {
     ///
     /// - `index`: アンカーのインデックス。アンカーを複数登録する場合に使用します。
     /// - `position`: アンカーの座標。オブジェクト座標系で指定します。
+    /// - `flag`: アンカーのフラグ。現在は`Default::default()`を指定します。
     /// - `callback`: アンカーがドラッグされたときに呼び出されるコールバック関数。
     ///
     /// 現在、`callback`内では汎用データ項目を更新できます。
@@ -96,6 +115,7 @@ impl<U: FilterUserdata> AnchorHandle<'_, U> {
         &mut self,
         index: i32,
         position: [f32; 3],
+        flag: AnchorMovePointFlag,
         callback: impl Fn(
             &[crate::filter::FilterConfigItem],
             &mut FilterProcAnchor<U>,
@@ -123,7 +143,7 @@ impl<U: FilterUserdata> AnchorHandle<'_, U> {
                 position[0],
                 position[1],
                 position[2],
-                0,
+                flag.to_bits(),
                 param,
                 Some(self.callback),
             );
@@ -131,7 +151,15 @@ impl<U: FilterUserdata> AnchorHandle<'_, U> {
     }
 
     /// アンカーのラインを設定する。
-    pub fn set_anchor_line(&mut self, start: [f32; 3], end: [f32; 3], color: RgbaPixel) {
+    ///
+    /// `flag`には現在`Default::default()`を指定します。
+    pub fn set_anchor_line(
+        &mut self,
+        start: [f32; 3],
+        end: [f32; 3],
+        flag: AnchorLineFlag,
+        color: RgbaPixel,
+    ) {
         unsafe {
             (self.inner.set_anchor_line)(
                 start[0],
@@ -140,7 +168,7 @@ impl<U: FilterUserdata> AnchorHandle<'_, U> {
                 end[0],
                 end[1],
                 end[2],
-                0,
+                flag.to_bits(),
                 aviutl2_sys::filter2::PIXEL_RGBA {
                     r: color.r,
                     g: color.g,

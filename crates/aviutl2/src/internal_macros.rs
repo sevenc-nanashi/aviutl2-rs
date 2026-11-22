@@ -27,34 +27,24 @@ macro_rules! define_bitflag {
 
             impl $name {
                 /// ビットフラグから構造体を生成します。
-                pub fn from_bits(bits: $int) -> Self {
+                pub fn from_bits(_bits: $int) -> Self {
                     Self {
                         $(
-                            $field: (bits & __internal_field_values::$field) != 0,
+                            $field: (_bits & __internal_field_values::$field) != 0,
                         )*
                     }
                 }
 
                 /// 構造体をビットフラグに変換します。
                 pub fn to_bits(&self) -> $int {
-                    let mut bits: $int = 0;
-                    $(
-                        if self.$field {
-                            bits |= __internal_field_values::$field;
-                        }
-                    )*
-                    bits
+                    0 $(| if self.$field { __internal_field_values::$field } else { 0 })*
                 }
             }
 
             impl std::fmt::Display for $name {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    let mut parts = Vec::new();
-                    $(
-                        if self.$field {
-                            parts.push(stringify!($field));
-                        }
-                    )*
+                    let parts: &[(bool, &str)] = &[$((self.$field, stringify!($field))),*];
+                    let parts = parts.iter().filter_map(|(enabled, name)| enabled.then_some(*name)).collect::<Vec<_>>();
                     write!(f, "{}({})", stringify!($name), parts.join(" | "))
                 }
             }
@@ -62,10 +52,10 @@ macro_rules! define_bitflag {
             impl std::ops::BitOr for $name {
                 type Output = Self;
 
-                fn bitor(self, rhs: Self) -> Self::Output {
+                fn bitor(self, _rhs: Self) -> Self::Output {
                     Self {
                         $(
-                            $field: self.$field | rhs.$field,
+                            $field: self.$field | _rhs.$field,
                         )*
                     }
                 }
@@ -74,10 +64,10 @@ macro_rules! define_bitflag {
             impl std::ops::BitAnd for $name {
                 type Output = Self;
 
-                fn bitand(self, rhs: Self) -> Self::Output {
+                fn bitand(self, _rhs: Self) -> Self::Output {
                     Self {
                         $(
-                            $field: self.$field & rhs.$field,
+                            $field: self.$field & _rhs.$field,
                         )*
                     }
                 }
@@ -98,10 +88,10 @@ macro_rules! define_bitflag {
             impl std::ops::BitXor for $name {
                 type Output = Self;
 
-                fn bitxor(self, rhs: Self) -> Self::Output {
+                fn bitxor(self, _rhs: Self) -> Self::Output {
                     Self {
                         $(
-                            $field: self.$field ^ rhs.$field,
+                            $field: self.$field ^ _rhs.$field,
                         )*
                     }
                 }
@@ -110,10 +100,10 @@ macro_rules! define_bitflag {
             impl std::ops::Sub for $name {
                 type Output = Self;
 
-                fn sub(self, rhs: Self) -> Self::Output {
+                fn sub(self, _rhs: Self) -> Self::Output {
                     Self {
                         $(
-                            $field: self.$field & !rhs.$field,
+                            $field: self.$field & !_rhs.$field,
                         )*
                     }
                 }
