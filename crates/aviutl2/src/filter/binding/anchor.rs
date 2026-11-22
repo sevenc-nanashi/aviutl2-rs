@@ -64,7 +64,8 @@ impl<U: FilterUserdata> FilterProcAnchor<U> {
 /// 映像処理中だけ利用できるアンカー操作ハンドル。
 pub struct AnchorHandle<'a, U: FilterUserdata> {
     inner: &'a aviutl2_sys::filter2::ANCHOR_HANDLE,
-    callbacks: &'a std::sync::Mutex<Vec<std::sync::Arc<AnchorCallback<U>>>>,
+    callbacks: &'a std::sync::Mutex<AnchorCallbackMap<U>>,
+    effect_id: i64,
     callback: extern "C" fn(*mut aviutl2_sys::filter2::ANCHOR_SECTION),
 }
 
@@ -76,14 +77,21 @@ impl<U: FilterUserdata> FilterProcVideo<U> {
             inner,
             callback: self.proc_anchor,
             callbacks: &self.anchor_callbacks,
+            effect_id: self.object.effect_id,
         })
     }
 }
 
 impl<U: FilterUserdata> AnchorHandle<'_, U> {
-    /// オブジェクト座標系にドラッグ可能なポイントを登録します。
-    /// callbackには最新の設定値とドラッグ通知が渡されます。
-    /// クロージャは次のproc_video開始時、またはプラグイン終了時に解放されます。
+    ///ドラッグ移動可能なアンカーのポイントを設定する。
+    ///
+    /// # Arguments
+    ///
+    /// - `index`: アンカーのインデックス。アンカーを複数登録する場合に使用します。
+    /// - `position`: アンカーの座標。オブジェクト座標系で指定します。
+    /// - `callback`: アンカーがドラッグされたときに呼び出されるコールバック関数。
+    ///
+    /// 現在、`callback`内では汎用データ項目を更新できます。
     pub fn set_anchor_move_point(
         &mut self,
         index: i32,
@@ -96,11 +104,18 @@ impl<U: FilterUserdata> AnchorHandle<'_, U> {
         + Sync
         + 'static,
     ) {
-        let callback = std::sync::Arc::new(AnchorCallback {
-            callback: Box::new(callback),
-        });
-        let param = std::sync::Arc::as_ptr(&callback).cast_mut().cast();
-        self.callbacks.lock().unwrap().push(callback);
+        let callback = std::sync::Arc::new(callback) as std::sync::Arc<Callback<U>>;
+        let slot = {
+            let mut callbacks = self.callbacks.lock().unwrap();
+            std::sync::Arc::clone(callbacks.entry((self.effect_id, index)).or_insert_with(|| {
+                std::sync::Arc::new(AnchorCallback {
+                    callback: std::sync::RwLock::new(std::sync::Arc::clone(&callback)),
+                })
+            }))
+        };
+        let previous = std::mem::replace(&mut *slot.callback.write().unwrap(), callback);
+        drop(previous);
+        let param = std::sync::Arc::as_ptr(&slot).cast_mut().cast();
 
         unsafe {
             (self.inner.set_anchor_move_point)(
@@ -115,7 +130,7 @@ impl<U: FilterUserdata> AnchorHandle<'_, U> {
         }
     }
 
-    /// オブジェクト座標系にアンカーの線を登録します。
+    /// アンカーのラインを設定する。
     pub fn set_anchor_line(&mut self, start: [f32; 3], end: [f32; 3], color: RgbaPixel) {
         unsafe {
             (self.inner.set_anchor_line)(
@@ -142,13 +157,16 @@ type Callback<U> = dyn Fn(&[crate::filter::FilterConfigItem], &mut FilterProcAnc
     + Sync;
 
 pub(crate) struct AnchorCallback<U: FilterUserdata> {
-    pub(crate) callback: Box<Callback<U>>,
+    pub(crate) callback: std::sync::RwLock<std::sync::Arc<Callback<U>>>,
 }
+
 impl<U: FilterUserdata> std::fmt::Debug for AnchorCallback<U> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AnchorCallback").finish_non_exhaustive()
     }
 }
 
-pub(crate) type AnchorCallbacks<U> =
-    std::sync::Arc<std::sync::Mutex<Vec<std::sync::Arc<AnchorCallback<U>>>>>;
+// shortcut: スロットは終了まで保持する。SDKにアンカー破棄通知が追加されたら個別解放する。
+type AnchorCallbackMap<U> =
+    std::collections::HashMap<(i64, i32), std::sync::Arc<AnchorCallback<U>>>;
+pub(crate) type AnchorCallbacks<U> = std::sync::Arc<std::sync::Mutex<AnchorCallbackMap<U>>>;

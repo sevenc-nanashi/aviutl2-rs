@@ -30,6 +30,9 @@ struct FilterConfig {
 
     #[data]
     color: FilterConfigDataHandle<Color>,
+
+    #[data]
+    triangle_tip_offset: FilterConfigDataHandle<[f32; 2]>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -64,7 +67,7 @@ impl FilterPlugin for RandomColorFilter {
             name: "Rusty Random Color Filter".to_string(),
             label: None,
             information: format!(
-                "Example render filter plugin, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/wgsl-filter",
+                "Example render filter plugin, written in Rust / v{version} / https://github.com/sevenc-nanashi/aviutl2-rs/tree/main/examples/random-color-filter",
                 version = env!("CARGO_PKG_VERSION")
             ),
             flag: aviutl2::bitflag!(aviutl2::filter::FilterPluginFlag {
@@ -83,6 +86,13 @@ impl FilterPlugin for RandomColorFilter {
         let config: FilterConfig = config.to_struct();
         let width = config.width;
         let height = config.height;
+        let tip_offset = *config.triangle_tip_offset.read();
+        let triangle_tip = [
+            tip_offset[0].clamp(-(width as f32) * 0.5, width as f32 * 0.5),
+            (-(height as f32) * 0.5 + tip_offset[1])
+                .clamp(-(height as f32) * 0.5, height as f32 * 0.5),
+            0.0,
+        ];
         let color_handle = config.color.read();
 
         let color = if !color_handle.initialized {
@@ -107,12 +117,31 @@ impl FilterPlugin for RandomColorFilter {
                 video.clear_image_resource(&resource, (color.r, color.g, color.b, 255).into())?;
             }
             Shape::Triangle => {
+                if let Some(mut anchor) = video.anchor() {
+                    anchor.set_anchor_move_point(0, triangle_tip, |items, anchor| {
+                        let config: FilterConfig = items.to_struct();
+                        let half_width = config.width as f32 * 0.5;
+                        let half_height = config.height as f32 * 0.5;
+                        *config.triangle_tip_offset.write() = [
+                            anchor.x.clamp(-half_width, half_width),
+                            anchor.y.clamp(-half_height, half_height) + half_height,
+                        ];
+                        Ok(())
+                    });
+                    for x in [-(width as f32) * 0.5, width as f32 * 0.5] {
+                        anchor.set_anchor_line(
+                            triangle_tip,
+                            [x, height as f32 * 0.5, 0.0],
+                            (255, 255, 255, 255).into(),
+                        );
+                    }
+                }
                 video.draw_poly_to_resource(
                     &resource,
                     &aviutl2::filter::VertexList::TriangleColor(vec![[
                         aviutl2::filter::VertexColor {
-                            x: 0.0,
-                            y: (height as f32) * -0.5,
+                            x: triangle_tip[0],
+                            y: triangle_tip[1],
                             z: 0.0,
                             r: color.r as f32 / 255.0,
                             g: color.g as f32 / 255.0,

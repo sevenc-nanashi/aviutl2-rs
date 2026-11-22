@@ -383,8 +383,6 @@ fn proc_video_impl<T: FilterSingleton>(
 
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
-    // SDKは以前のproc_videoの呼び出しのコールバックを呼ぶことはないと仮定
-    plugin_state.anchor_callbacks.lock().unwrap().clear();
     let mut video = unsafe {
         FilterProcVideo::<T::Userdata>::from_raw(
             video,
@@ -625,12 +623,21 @@ macro_rules! register_filter_plugin {
 fn proc_anchor_impl<T: FilterSingleton>(
     raw: *mut aviutl2_sys::filter2::ANCHOR_SECTION,
 ) -> AnyResult<()> {
+    let raw = unsafe { &*raw };
     let lock = T::__get_singleton_state();
     anyhow::ensure!(!lock.is_poisoned(), "Plugin state lock is poisoned");
     update_configs::<T>(lock);
     let state = lock.read().unwrap();
     let state = state.as_ref().expect("Plugin not initialized");
-    let raw = unsafe { &*raw };
+    let slot = state
+        .anchor_callbacks
+        .lock()
+        .unwrap()
+        .values()
+        .find(|callback| std::sync::Arc::as_ptr(callback).cast::<std::ffi::c_void>() == raw.param)
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("Unknown anchor callback: {:?}", raw.param))?;
+    let callback = std::sync::Arc::clone(&slot.callback.read().unwrap());
     let mut anchor = crate::filter::FilterProcAnchor {
         index: raw.index,
         x: raw.x,
@@ -647,12 +654,7 @@ fn proc_anchor_impl<T: FilterSingleton>(
         userdata: unsafe { userdata_handle_from_raw::<T::Userdata>(raw.userdata) },
         read_section: unsafe { crate::generic::ReadSection::from_raw(raw.edit) },
     };
-    let callback = unsafe {
-        &*raw
-            .param
-            .cast::<crate::filter::AnchorCallback<T::Userdata>>()
-    };
-    (callback.callback)(&state.config_items, &mut anchor)
+    callback(&state.config_items, &mut anchor)
 }
 
 extern "C" fn func_proc_anchor<T: FilterSingleton>(raw: *mut aviutl2_sys::filter2::ANCHOR_SECTION) {
