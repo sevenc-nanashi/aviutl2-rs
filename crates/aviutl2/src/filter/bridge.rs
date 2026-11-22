@@ -29,6 +29,8 @@ impl<T: FilterUserdata> FilterProcAudio<T> {
 impl<T: FilterUserdata> FilterProcVideo<T> {
     unsafe fn from_raw(
         raw_ptr: *const aviutl2_sys::filter2::FILTER_PROC_VIDEO,
+        anchor_callbacks: crate::filter::AnchorCallbacks<T>,
+        proc_anchor: extern "C" fn(*mut aviutl2_sys::filter2::ANCHOR_SECTION),
     ) -> FilterProcVideo<T> {
         let raw = unsafe { &*raw_ptr };
         FilterProcVideo {
@@ -39,6 +41,8 @@ impl<T: FilterUserdata> FilterProcVideo<T> {
             read_section: unsafe { crate::generic::ReadSection::from_raw(raw.edit) },
             userdata: unsafe { userdata_handle_from_raw::<T>(raw.userdata) },
             prevent_post_effect: false,
+            proc_anchor,
+            anchor_callbacks,
             inner: raw_ptr,
         }
     }
@@ -131,6 +135,7 @@ pub struct InternalFilterPluginState<T: Send + Sync + FilterPlugin> {
     plugin_info: FilterPluginTable,
     global_leak_manager: LeakManager,
     leak_manager: LeakManager,
+    anchor_callbacks: crate::filter::AnchorCallbacks<T::Userdata>,
     config_pointers: Vec<*const aviutl2_sys::filter2::FILTER_ITEM>,
     config_items: Vec<FilterConfigItem>,
 
@@ -147,6 +152,7 @@ impl<T: Send + Sync + FilterPlugin> InternalFilterPluginState<T> {
             plugin_info,
             global_leak_manager: LeakManager::new(),
             leak_manager: LeakManager::new(),
+            anchor_callbacks: Default::default(),
             config_pointers: Vec::new(),
             config_items,
 
@@ -367,6 +373,7 @@ pub unsafe fn create_table_unwind<T: FilterSingleton>()
 
 fn proc_video_impl<T: FilterSingleton>(
     video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
+    proc_anchor: extern "C" fn(*mut aviutl2_sys::filter2::ANCHOR_SECTION),
 ) -> AnyResult<bool> {
     let plugin_lock = T::__get_singleton_state();
     anyhow::ensure!(!plugin_lock.is_poisoned(), "Plugin state lock is poisoned");
@@ -376,7 +383,16 @@ fn proc_video_impl<T: FilterSingleton>(
 
     plugin_state.leak_manager.free_leaked_memory();
     let plugin = &plugin_state.instance;
-    let mut video = unsafe { FilterProcVideo::<T::Userdata>::from_raw(video) };
+    // SDKは以前のproc_videoの呼び出しのコールバックを呼ぶことはないと仮定
+    plugin_state.anchor_callbacks.lock().unwrap().clear();
+    let mut video = unsafe {
+        FilterProcVideo::<T::Userdata>::from_raw(
+            video,
+            std::sync::Arc::clone(&plugin_state.anchor_callbacks),
+            proc_anchor,
+        )
+    };
+
     plugin.proc_video(&plugin_state.config_items, &mut video)?;
     video.apply_param();
     Ok(video.prevent_post_effect)
@@ -449,7 +465,7 @@ extern "C" fn func_destroy_unwind<T: FilterSingleton>(
 extern "C" fn func_proc_video<T: FilterSingleton>(
     video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
 ) -> bool {
-    match proc_video_impl::<T>(video) {
+    match proc_video_impl::<T>(video, func_proc_anchor::<T>) {
         Ok(prevent_post_effect) => !prevent_post_effect,
         Err(e) => {
             tracing::error!("Error in proc_video: {}", e);
@@ -460,7 +476,8 @@ extern "C" fn func_proc_video<T: FilterSingleton>(
 extern "C" fn func_proc_video_unwind<T: FilterSingleton>(
     video: *mut aviutl2_sys::filter2::FILTER_PROC_VIDEO,
 ) -> bool {
-    match catch_unwind_with_panic_info(|| proc_video_impl::<T>(video)) {
+    match catch_unwind_with_panic_info(|| proc_video_impl::<T>(video, func_proc_anchor_unwind::<T>))
+    {
         Ok(Ok(prevent_post_effect)) => !prevent_post_effect,
         Ok(Err(e)) => {
             tracing::error!("Error in proc_video: {}", e);
@@ -603,6 +620,55 @@ macro_rules! register_filter_plugin {
     ($struct:ident) => {
         $crate::register_filter_plugin!($struct, );
     };
+}
+
+fn proc_anchor_impl<T: FilterSingleton>(
+    raw: *mut aviutl2_sys::filter2::ANCHOR_SECTION,
+) -> AnyResult<()> {
+    let lock = T::__get_singleton_state();
+    anyhow::ensure!(!lock.is_poisoned(), "Plugin state lock is poisoned");
+    update_configs::<T>(lock);
+    let state = lock.read().unwrap();
+    let state = state.as_ref().expect("Plugin not initialized");
+    let raw = unsafe { &*raw };
+    let mut anchor = crate::filter::FilterProcAnchor {
+        index: raw.index,
+        x: raw.x,
+        y: raw.y,
+        z: raw.z,
+        dx: raw.dx,
+        dy: raw.dy,
+        dz: raw.dz,
+        origin_x: raw.origin_x,
+        origin_y: raw.origin_y,
+        origin_z: raw.origin_z,
+        object: raw.object.into(),
+        effect: raw.effect.into(),
+        userdata: unsafe { userdata_handle_from_raw::<T::Userdata>(raw.userdata) },
+        read_section: unsafe { crate::generic::ReadSection::from_raw(raw.edit) },
+    };
+    let callback = unsafe {
+        &*raw
+            .param
+            .cast::<crate::filter::AnchorCallback<T::Userdata>>()
+    };
+    (callback.callback)(&state.config_items, &mut anchor)
+}
+
+extern "C" fn func_proc_anchor<T: FilterSingleton>(raw: *mut aviutl2_sys::filter2::ANCHOR_SECTION) {
+    if let Err(error) = proc_anchor_impl::<T>(raw) {
+        tracing::error!("Error in proc_anchor: {}", error);
+    }
+}
+
+extern "C" fn func_proc_anchor_unwind<T: FilterSingleton>(
+    raw: *mut aviutl2_sys::filter2::ANCHOR_SECTION,
+) {
+    match catch_unwind_with_panic_info(|| proc_anchor_impl::<T>(raw)) {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => tracing::error!("Error in proc_anchor: {}", error),
+        Err(error) => tracing::error!("Panic in proc_anchor: {}", error),
+    }
 }
 
 #[cfg(test)]
