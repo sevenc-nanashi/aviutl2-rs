@@ -62,40 +62,33 @@ impl<U: FilterUserdata> FilterProcAnchor<U> {
 }
 
 define_bitflag! {
-    /// アンカーポイントのフラグ。
-    ///
-    /// 現在は指定可能なフラグがありません。
+    /// アンカーのフラグ。
     #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[non_exhaustive]
-    pub struct AnchorMovePointFlag: i32 {}
-}
-
-define_bitflag! {
-    /// アンカーラインのフラグ。
-    ///
-    /// 現在は指定可能なフラグがありません。
-    #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-    #[non_exhaustive]
-    pub struct AnchorLineFlag: i32 {}
+    pub struct AnchorFlag: i32 {
+        /// アンカーの座標をスクリーン座標系で指定する。
+        screen_position: aviutl2_sys::filter2::ANCHOR_HANDLE::FLAG_SCREEN_POSITION,
+        /// 小さいアンカーポイントにする。
+        ///
+        /// ドラッグ移動可能なアンカーを設定する場合にのみ有効です。
+        small_point: aviutl2_sys::filter2::ANCHOR_HANDLE::FLAG_SMALL_POINT,
+    }
 }
 
 /// 映像処理中だけ利用できるアンカー操作ハンドル。
 pub struct AnchorHandle<'a, U: FilterUserdata> {
     inner: &'a aviutl2_sys::filter2::ANCHOR_HANDLE,
-    callbacks: &'a std::sync::Mutex<AnchorCallbackMap<U>>,
-    effect_id: i64,
     callback: extern "C" fn(*mut aviutl2_sys::filter2::ANCHOR_SECTION),
+    _phantom: std::marker::PhantomData<U>,
 }
 
 impl<U: FilterUserdata> FilterProcVideo<U> {
     /// アンカーを設定できる場合に操作ハンドルを取得します。
     pub fn anchor(&mut self) -> Option<AnchorHandle<'_, U>> {
-        // SAFETY: SDKのハンドルは現在の映像処理中に有効です。
         unsafe { (*self.inner).anchor.as_ref() }.map(|inner| AnchorHandle {
             inner,
             callback: self.proc_anchor,
-            callbacks: &self.anchor_callbacks,
-            effect_id: self.object.effect_id,
+            _phantom: std::marker::PhantomData,
         })
     }
 }
@@ -107,94 +100,146 @@ impl<U: FilterUserdata> AnchorHandle<'_, U> {
     ///
     /// - `index`: アンカーのインデックス。アンカーを複数登録する場合に使用します。
     /// - `position`: アンカーの座標。オブジェクト座標系で指定します。
-    /// - `flag`: アンカーのフラグ。現在は`Default::default()`を指定します。
+    /// - `flag`: アンカーのフラグ。
     /// - `callback`: アンカーがドラッグされたときに呼び出されるコールバック関数。
     ///
-    /// 現在、`callback`内では汎用データ項目を更新できます。
-    pub fn set_anchor_move_point(
+    /// ドラッグ中はドラッグが終わるまで同じコールバック関数が呼び出されます。
+    pub fn set_anchor_move_point<F>(
         &mut self,
         index: i32,
         position: [f32; 3],
-        flag: AnchorMovePointFlag,
-        callback: impl Fn(
-            &[crate::filter::FilterConfigItem],
-            &mut FilterProcAnchor<U>,
+        flag: AnchorFlag,
+        callback: F,
+    ) where
+        F: (Fn(&[crate::filter::FilterConfigItem], &mut FilterProcAnchor<U>) -> crate::AnyResult<()>)
+            + Copy
+            + Send
+            + Sync
+            + 'static,
+    {
+        unsafe fn invoke<F, U: FilterUserdata>(
+            param: *const std::ffi::c_void,
+            config: &[crate::filter::FilterConfigItem],
+            anchor: &mut FilterProcAnchor<U>,
         ) -> crate::AnyResult<()>
-        + Send
-        + Sync
-        + 'static,
-    ) {
-        let callback = std::sync::Arc::new(callback) as std::sync::Arc<Callback<U>>;
-        let slot = {
-            let mut callbacks = self.callbacks.lock().unwrap();
-            std::sync::Arc::clone(callbacks.entry((self.effect_id, index)).or_insert_with(|| {
-                std::sync::Arc::new(AnchorCallback {
-                    callback: std::sync::RwLock::new(std::sync::Arc::clone(&callback)),
-                })
-            }))
+        where
+            F: Fn(
+                    &[crate::filter::FilterConfigItem],
+                    &mut FilterProcAnchor<U>,
+                ) -> crate::AnyResult<()>
+                + Copy,
+        {
+            let param = unsafe { param.cast::<AnchorCallbackParam<F, U>>().read_unaligned() };
+            (param.callback)(config, anchor)
+        }
+        let param = AnchorCallbackParam {
+            header: AnchorCallbackHeader {
+                invoke: invoke::<F, U>,
+            },
+            callback,
         };
-        let previous = std::mem::replace(&mut *slot.callback.write().unwrap(), callback);
-        drop(previous);
-        let param = std::sync::Arc::as_ptr(&slot).cast_mut().cast();
-
+        let param_size = std::mem::size_of_val(&param);
         unsafe {
-            (self.inner.set_anchor_move_point)(
+            (self.inner.set_anchor_move_point_param)(
                 index,
                 position[0],
                 position[1],
                 position[2],
                 flag.to_bits(),
-                param,
+                std::ptr::from_ref(&param).cast_mut().cast(),
+                param_size as _,
                 Some(self.callback),
             );
         }
     }
 
     /// アンカーのラインを設定する。
-    ///
-    /// `flag`には現在`Default::default()`を指定します。
     pub fn set_anchor_line(
         &mut self,
         start: [f32; 3],
         end: [f32; 3],
-        flag: AnchorLineFlag,
-        color: RgbaPixel,
+        flag: AnchorFlag,
+        color: Option<RgbaPixel>,
     ) {
-        unsafe {
-            (self.inner.set_anchor_line)(
-                start[0],
-                start[1],
-                start[2],
-                end[0],
-                end[1],
-                end[2],
-                flag.to_bits(),
-                aviutl2_sys::filter2::PIXEL_RGBA {
-                    r: color.r,
-                    g: color.g,
-                    b: color.b,
-                    a: color.a,
-                },
-            );
+        if let Some(color) = color {
+            unsafe {
+                (self.inner.set_anchor_line_color)(
+                    start[0],
+                    start[1],
+                    start[2],
+                    end[0],
+                    end[1],
+                    end[2],
+                    flag.to_bits(),
+                    aviutl2_sys::filter2::PIXEL_RGBA {
+                        r: color.r,
+                        g: color.g,
+                        b: color.b,
+                        a: color.a,
+                    },
+                );
+            }
+        } else {
+            unsafe {
+                (self.inner.set_anchor_line)(
+                    start[0],
+                    start[1],
+                    start[2],
+                    end[0],
+                    end[1],
+                    end[2],
+                    flag.to_bits(),
+                );
+            }
+        }
+    }
+
+    /// アンカーの点を設定する。
+    pub fn set_anchor_point(
+        &mut self,
+        position: [f32; 3],
+        flag: AnchorFlag,
+        color: Option<RgbaPixel>,
+    ) {
+        if let Some(color) = color {
+            unsafe {
+                (self.inner.set_anchor_point_color)(
+                    position[0],
+                    position[1],
+                    position[2],
+                    flag.to_bits(),
+                    aviutl2_sys::filter2::PIXEL_RGBA {
+                        r: color.r,
+                        g: color.g,
+                        b: color.b,
+                        a: color.a,
+                    },
+                );
+            }
+        } else {
+            unsafe {
+                (self.inner.set_anchor_point)(
+                    position[0],
+                    position[1],
+                    position[2],
+                    flag.to_bits(),
+                );
+            }
         }
     }
 }
 
-type Callback<U> = dyn Fn(&[crate::filter::FilterConfigItem], &mut FilterProcAnchor<U>) -> crate::AnyResult<()>
-    + Send
-    + Sync;
-
-pub(crate) struct AnchorCallback<U: FilterUserdata> {
-    pub(crate) callback: std::sync::RwLock<std::sync::Arc<Callback<U>>>,
+#[repr(C)]
+pub struct AnchorCallbackHeader<U: FilterUserdata> {
+    pub invoke: unsafe fn(
+        *const std::ffi::c_void,
+        &[crate::filter::FilterConfigItem],
+        &mut FilterProcAnchor<U>,
+    ) -> crate::AnyResult<()>,
 }
 
-impl<U: FilterUserdata> std::fmt::Debug for AnchorCallback<U> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AnchorCallback").finish_non_exhaustive()
-    }
+#[repr(C)]
+struct AnchorCallbackParam<F, U: FilterUserdata> {
+    header: AnchorCallbackHeader<U>,
+    callback: F,
 }
-
-// shortcut: スロットは終了まで保持する。SDKにアンカー破棄通知が追加されたら個別解放する。
-type AnchorCallbackMap<U> =
-    std::collections::HashMap<(i64, i32), std::sync::Arc<AnchorCallback<U>>>;
-pub(crate) type AnchorCallbacks<U> = std::sync::Arc<std::sync::Mutex<AnchorCallbackMap<U>>>;

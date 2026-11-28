@@ -182,7 +182,6 @@ pub struct FilterProcVideo<U: super::FilterUserdata> {
     pub userdata: super::FilterUserdataHandle<U>,
 
     pub(crate) prevent_post_effect: bool,
-    pub(crate) anchor_callbacks: super::AnchorCallbacks<U>,
     pub(crate) proc_anchor: extern "C" fn(*mut aviutl2_sys::filter2::ANCHOR_SECTION),
 
     pub(crate) read_section: crate::generic::ReadSection,

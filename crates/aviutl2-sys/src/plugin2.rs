@@ -1197,6 +1197,20 @@ pub struct EDIT_HANDLE {
     /// ホストアプリケーションで利用するDirect3Dデバイスを取得します
     /// 戻り値 : ID3D11Device3のポインタ
     pub get_direct3d_device: unsafe extern "C" fn() -> *mut c_void,
+    /// 図形名の一覧をコールバック関数で取得します
+    /// param : 任意のユーザーデータのポインタ
+    /// func_proc_enum_figure : 図形名の取得処理のコールバック関数
+    pub enum_figure_name: unsafe extern "C" fn(
+        param: *mut c_void,
+        func_proc_enum_figure: unsafe extern "C" fn(param: *mut c_void, name: LPCWSTR),
+    ),
+    /// ワイプ名の一覧をコールバック関数で取得します
+    /// param : 任意のユーザーデータのポインタ
+    /// func_proc_enum_transition : ワイプ名の取得処理のコールバック関数
+    pub enum_transition_name: unsafe extern "C" fn(
+        param: *mut c_void,
+        func_proc_enum_transition: unsafe extern "C" fn(param: *mut c_void, name: LPCWSTR),
+    ),
 }
 
 impl EDIT_HANDLE {

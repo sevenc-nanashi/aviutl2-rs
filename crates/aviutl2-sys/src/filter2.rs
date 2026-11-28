@@ -124,7 +124,7 @@ impl FILTER_ITEM_COLOR_LIST_FLAG {
     pub const USE_UNDEFINED: i32 = 1;
     /// 色の位置を利用するか？
     pub const USE_POSITION: i32 = 2;
-    /// 色の数を固定するか？
+    /// 色の数を最大数で固定するか？
     pub const FIXED_COLOR_NUM: i32 = 4;
     /// アルファ値を利用するか？
     pub const USE_ALPHA_CHANNEL: i32 = 8;
@@ -729,8 +729,7 @@ pub struct EFFECT_ITEM_PARAM {
 
 /// アンカー処理セクション構造体
 /// アンカーのドラッグ移動のコールバック関数内で利用出来ます。
-/// コールバック関数内では汎用データ項目を更新出来ます。
-/// ※トラックバー項目の変更は今後追加予定です。
+/// コールバック関数内では汎用データ項目のvalueの参照先データを更新出来ます。
 #[repr(C)]
 pub struct ANCHOR_SECTION {
     /// ANCHOR_HANDLEの関数で指定したアンカーのインデックス
@@ -747,7 +746,8 @@ pub struct ANCHOR_SECTION {
     pub origin_x: f32,
     pub origin_y: f32,
     pub origin_z: f32,
-    /// ANCHOR_HANDLEの関数で指定したパラメータデータのポインタ
+    /// set_anchor_move_point_param()で渡されたパラメータデータ
+    /// ドラッグ開始時のパラメータデータが設定されます
     pub param: *mut c_void,
     /// ユーザーデータのポインタ (FLAG_USERDATAが有効の時に設定されます)
     /// func_create()で返却したユーザーデータのポインタ
@@ -758,18 +758,21 @@ pub struct ANCHOR_SECTION {
     pub object: OBJECT_HANDLE,
     /// 自身のエフェクトのハンドル
     pub effect: EFFECT_HANDLE,
+    /// 指定のトラックバー項目の値を設定します
+    /// filter_item_track : 対象のFILTER_ITEM_TRACKへのポインタ
+    /// index : 設定値のインデックス (TRACK_INFO::paramに対応するインデックス)
+    /// value : 設定する値
+    pub set_filter_item_track_value:
+        unsafe extern "C" fn(filter_item_track: *mut c_void, index: i32, value: f32),
 }
 
 /// アンカー操作ハンドル構造体
+/// アンカーの既定の座標系はオブジェクト座標系になります
 #[repr(C)]
 pub struct ANCHOR_HANDLE {
-    /// ドラッグ移動可能なアンカーのポイントを設定する
-    /// index : 任意のアンカーのインデックス ※ANCHOR_SECTIONに設定されます
-    /// x,y,z : アンカーの座標 ※オブジェクトの座標系
-    /// flag : アンカーのフラグ ※現状は0を設定
-    /// param : 任意のパラメータデータのポインタ ※ANCHOR_SECTIONに設定されます
-    /// func_proc_anchor : アンカーのドラッグ移動処理のコールバック関数
-    pub set_anchor_move_point: unsafe extern "C" fn(
+    /// 新しい関数に差し替えるので廃止します
+    #[deprecated(note = "set_anchor_move_point_paramを使用してください")]
+    pub deprecated_set_anchor_move_point: unsafe extern "C" fn(
         index: i32,
         x: f32,
         y: f32,
@@ -778,12 +781,9 @@ pub struct ANCHOR_HANDLE {
         param: *mut c_void,
         func_proc_anchor: Option<extern "C" fn(anchor: *mut ANCHOR_SECTION)>,
     ),
-    /// アンカーのラインを設定する
-    /// x0,y0,z0 : アンカーの開始座標
-    /// x1,y1,z1 : アンカーの終了座標
-    /// flag : アンカーのフラグ ※現状は0を設定
-    /// color : アンカーラインの色
-    pub set_anchor_line: unsafe extern "C" fn(
+    /// 新しい関数に差し替えるので廃止します
+    #[deprecated(note = "set_anchor_line_colorを使用してください")]
+    pub deprecated_set_anchor_line: unsafe extern "C" fn(
         x0: f32,
         y0: f32,
         z0: f32,
@@ -793,6 +793,72 @@ pub struct ANCHOR_HANDLE {
         flag: i32,
         color: PIXEL_RGBA,
     ),
+    /// ドラッグ移動可能なアンカーのポイントを設定する
+    /// index : 任意のアンカーのインデックス ※ANCHOR_SECTIONに設定されます
+    /// x,y,z : アンカーの座標 ※オブジェクトの座標系
+    /// flag : アンカーのフラグ (ANCHOR_HANDLE::FLAG_XXX)
+    /// func_proc_anchor : アンカーのドラッグ移動処理のコールバック関数
+    pub set_anchor_move_point: unsafe extern "C" fn(
+        index: i32,
+        x: f32,
+        y: f32,
+        z: f32,
+        flag: i32,
+        func_proc_anchor: Option<extern "C" fn(anchor: *mut ANCHOR_SECTION)>,
+    ),
+    /// set_anchor_move_point()に任意のパラメータデータを渡せるようにした関数です
+    /// パラメータデータはアンカー制御側で確保された領域に複製されます
+    /// ドラッグ開始時のパラメータデータがANCHOR_SECTIONに設定されます
+    /// param : 任意のパラメータデータへのポインタ
+    /// param_size : データのサイズ (0の場合はparamのポインタがそのまま設定されます)
+    pub set_anchor_move_point_param: unsafe extern "C" fn(
+        index: i32,
+        x: f32,
+        y: f32,
+        z: f32,
+        flag: i32,
+        param: *mut c_void,
+        param_size: i32,
+        func_proc_anchor: Option<extern "C" fn(anchor: *mut ANCHOR_SECTION)>,
+    ),
+    /// 既定色のアンカーのラインを設定する
+    /// x0,y0,z0 : アンカーの開始座標
+    /// x1,y1,z1 : アンカーの終了座標
+    /// flag : アンカーのフラグ (ANCHOR_HANDLE::FLAG_XXX)
+    pub set_anchor_line:
+        unsafe extern "C" fn(x0: f32, y0: f32, z0: f32, x1: f32, y1: f32, z1: f32, flag: i32),
+    /// 指定色のアンカーのライン(破線)を設定する
+    /// x0,y0,z0 : アンカーの開始座標
+    /// x1,y1,z1 : アンカーの終了座標
+    /// flag : アンカーのフラグ (ANCHOR_HANDLE::FLAG_XXX)
+    /// color : アンカーの色
+    pub set_anchor_line_color: unsafe extern "C" fn(
+        x0: f32,
+        y0: f32,
+        z0: f32,
+        x1: f32,
+        y1: f32,
+        z1: f32,
+        flag: i32,
+        color: PIXEL_RGBA,
+    ),
+    /// 既定色のアンカーの点を設定する
+    /// x,y,z : アンカーの座標
+    /// flag : アンカーのフラグ (ANCHOR_HANDLE::FLAG_XXX)
+    pub set_anchor_point: unsafe extern "C" fn(x: f32, y: f32, z: f32, flag: i32),
+    /// 指定色のアンカーの点(中抜き)を設定する
+    /// x,y,z : アンカーの座標
+    /// flag : アンカーのフラグ (ANCHOR_HANDLE::FLAG_XXX)
+    /// color : アンカーの色
+    pub set_anchor_point_color:
+        unsafe extern "C" fn(x: f32, y: f32, z: f32, flag: i32, color: PIXEL_RGBA),
+}
+
+impl ANCHOR_HANDLE {
+    /// スクリーン座標系にする
+    pub const FLAG_SCREEN_POSITION: i32 = 1;
+    /// 小さいアンカーポイントにする ※移動アンカーポイント用
+    pub const FLAG_SMALL_POINT: i32 = 2;
 }
 
 /// 画像フィルタ処理用構造体

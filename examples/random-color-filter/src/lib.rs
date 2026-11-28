@@ -138,7 +138,7 @@ impl FilterPlugin for RandomColorFilter {
                             triangle_tip,
                             [x, height as f32 * 0.5, 0.0],
                             Default::default(),
-                            (255, 255, 255, 255).into(),
+                            Some((255, 255, 255, 255).into()),
                         );
                     }
                 }
