@@ -1306,6 +1306,108 @@ impl EditHandle {
         });
         palette_names
     }
+
+    /// 図形名の一覧をコールバック関数で取得する。
+    pub fn enumerate_figure_names<F>(&self, callback: F)
+    where
+        F: FnMut(String),
+    {
+        assert!(
+            self.is_ready(),
+            "enumerate_figure_names cannot be called before register_plugin is done"
+        );
+        type CallbackParam<F> = ChildKillablePointer<F>;
+
+        unsafe extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            name: aviutl2_sys::common::LPCWSTR,
+        ) where
+            F: FnMut(String),
+        {
+            let callback = unsafe { &mut *(param as *mut CallbackParam<F>) };
+            let callback = unsafe { callback.as_mut() };
+            let name_str = unsafe { crate::common::load_wide_string(name) };
+            callback(name_str);
+        }
+
+        let trampoline_static = trampoline::<F>
+            as unsafe extern "C" fn(*mut std::ffi::c_void, aviutl2_sys::common::LPCWSTR);
+        let callback_guard = KillablePointer::new(callback);
+        let child_param = callback_guard.create_child();
+        let param = Box::new(child_param);
+        let param_ptr = Box::into_raw(param);
+        unsafe {
+            ((*self.internal).enum_figure_name)(
+                param_ptr as *mut std::ffi::c_void,
+                trampoline_static,
+            );
+        }
+        drop(unsafe { Box::from_raw(param_ptr) });
+    }
+
+    /// 図形名の一覧を取得する。
+    pub fn get_figure_names(&self) -> Vec<String> {
+        assert!(
+            self.is_ready(),
+            "get_figure_names cannot be called before register_plugin is done"
+        );
+        let mut figure_names = Vec::new();
+        self.enumerate_figure_names(|name| {
+            figure_names.push(name);
+        });
+        figure_names
+    }
+
+    /// ワイプ名の一覧をコールバック関数で取得する。
+    pub fn enumerate_transition_names<F>(&self, callback: F)
+    where
+        F: FnMut(String),
+    {
+        assert!(
+            self.is_ready(),
+            "enumerate_transition_names cannot be called before register_plugin is done"
+        );
+        type CallbackParam<F> = ChildKillablePointer<F>;
+
+        unsafe extern "C" fn trampoline<F>(
+            param: *mut std::ffi::c_void,
+            name: aviutl2_sys::common::LPCWSTR,
+        ) where
+            F: FnMut(String),
+        {
+            let callback = unsafe { &mut *(param as *mut CallbackParam<F>) };
+            let callback = unsafe { callback.as_mut() };
+            let name_str = unsafe { crate::common::load_wide_string(name) };
+            callback(name_str);
+        }
+
+        let trampoline_static = trampoline::<F>
+            as unsafe extern "C" fn(*mut std::ffi::c_void, aviutl2_sys::common::LPCWSTR);
+        let callback_guard = KillablePointer::new(callback);
+        let child_param = callback_guard.create_child();
+        let param = Box::new(child_param);
+        let param_ptr = Box::into_raw(param);
+        unsafe {
+            ((*self.internal).enum_transition_name)(
+                param_ptr as *mut std::ffi::c_void,
+                trampoline_static,
+            );
+        }
+        drop(unsafe { Box::from_raw(param_ptr) });
+    }
+
+    /// ワイプ名の一覧を取得する。
+    pub fn get_transition_names(&self) -> Vec<String> {
+        assert!(
+            self.is_ready(),
+            "get_transition_names cannot be called before register_plugin is done"
+        );
+        let mut transition_names = Vec::new();
+        self.enumerate_transition_names(|name| {
+            transition_names.push(name);
+        });
+        transition_names
+    }
 }
 
 /// エフェクト情報。
