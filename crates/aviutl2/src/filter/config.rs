@@ -33,6 +33,19 @@ pub trait FilterConfigItems: Sized {
 #[doc(inline)]
 pub use aviutl2_macros::filter_config_items;
 
+#[doc(hidden)]
+pub trait __FilterConfigFieldNames {
+    type FieldName;
+}
+
+/// `#[filter_config_items]` マクロで作成した構造体のフィールドから設定名を取得する。
+#[macro_export]
+macro_rules! filter_config_field_name {
+    ($struct_name:ident, $field_name:ident) => {
+        <$struct_name as $crate::filter::__FilterConfigFieldNames>::FieldName::$field_name
+    };
+}
+
 /// `&[FilterConfigItem]` に対する拡張トレイト。
 pub trait FilterConfigItemSliceExt {
     /// `&[FilterConfigItem]` から指定した構造体に変換します。

@@ -3,6 +3,20 @@ source: crates/aviutl2-macros/src/filter_config_items.rs
 expression: "rustfmt_wrapper::rustfmt(output).unwrap()"
 ---
 struct Config {}
+#[allow(dead_code)]
+const _: () = {
+    #[doc(hidden)]
+    pub struct FieldName;
+    #[allow(non_upper_case_globals)]
+    impl FieldName {
+        pub const reset: &'static str = "Reset";
+        pub const apply: &'static str = "Apply";
+    }
+    #[automatically_derived]
+    impl ::aviutl2::filter::__FilterConfigFieldNames for Config {
+        type FieldName = FieldName;
+    }
+};
 #[automatically_derived]
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {

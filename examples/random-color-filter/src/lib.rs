@@ -31,8 +31,12 @@ struct FilterConfig {
     #[data]
     color: FilterConfigDataHandle<Color>,
 
-    #[data]
-    triangle_tip_offset: FilterConfigDataHandle<[f32; 2]>,
+    #[track(name = "Triangle Tip X", range = -2048..=2048, step = 0.1, default = 0)]
+    #[hide(shape != Shape::Triangle)]
+    triangle_tip_x: f32,
+    #[track(name = "Triangle Tip Y Offset", range = 0..=4096, step = 0.1, default = 0)]
+    #[hide(shape != Shape::Triangle)]
+    triangle_tip_y_offset: f32,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -86,10 +90,11 @@ impl FilterPlugin for RandomColorFilter {
         let config: FilterConfig = config.to_struct();
         let width = config.width;
         let height = config.height;
-        let tip_offset = *config.triangle_tip_offset.read();
         let triangle_tip = [
-            tip_offset[0].clamp(-(width as f32) * 0.5, width as f32 * 0.5),
-            (-(height as f32) * 0.5 + tip_offset[1])
+            config
+                .triangle_tip_x
+                .clamp(-(width as f32) * 0.5, width as f32 * 0.5),
+            (-(height as f32) * 0.5 + config.triangle_tip_y_offset)
                 .clamp(-(height as f32) * 0.5, height as f32 * 0.5),
             0.0,
         ];
@@ -126,10 +131,19 @@ impl FilterPlugin for RandomColorFilter {
                             let config: FilterConfig = items.to_struct();
                             let half_width = config.width as f32 * 0.5;
                             let half_height = config.height as f32 * 0.5;
-                            *config.triangle_tip_offset.write() = [
+                            anchor.set_filter_item_track_value(
+                                aviutl2::filter_config_field_name!(FilterConfig, triangle_tip_x),
+                                0,
                                 anchor.x.clamp(-half_width, half_width),
+                            );
+                            anchor.set_filter_item_track_value(
+                                aviutl2::filter_config_field_name!(
+                                    FilterConfig,
+                                    triangle_tip_y_offset
+                                ),
+                                0,
                                 anchor.y.clamp(-half_height, half_height) + half_height,
-                            ];
+                            );
                             Ok(())
                         },
                     );

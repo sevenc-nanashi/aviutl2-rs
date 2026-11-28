@@ -613,7 +613,7 @@ macro_rules! register_filter_plugin {
 fn proc_anchor_impl<T: FilterSingleton>(
     raw: *mut aviutl2_sys::filter2::ANCHOR_SECTION,
 ) -> AnyResult<()> {
-    let raw = unsafe { &*raw };
+    let raw = unsafe { &mut *raw };
     let lock = T::__get_singleton_state();
     anyhow::ensure!(!lock.is_poisoned(), "Plugin state lock is poisoned");
     update_configs::<T>(lock);
@@ -640,6 +640,9 @@ fn proc_anchor_impl<T: FilterSingleton>(
         effect: raw.effect.into(),
         userdata: unsafe { userdata_handle_from_raw::<T::Userdata>(raw.userdata) },
         read_section: unsafe { crate::generic::ReadSection::from_raw(raw.edit) },
+        inner: raw as *mut aviutl2_sys::filter2::ANCHOR_SECTION,
+        config_items: state.config_items.as_slice(),
+        config_pointers: state.config_pointers.as_slice(),
     };
     unsafe { (header.invoke)(raw.param, &state.config_items, &mut anchor) }
 }

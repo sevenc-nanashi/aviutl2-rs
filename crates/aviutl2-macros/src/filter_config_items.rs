@@ -25,9 +25,30 @@ pub fn filter_config_items(
     let to_config_items = impl_to_config_items(&fields);
     let from_config_items = impl_from_filter_config(&fields);
     let default = impl_default(&fields);
+    let (field_ids, field_names): (Vec<_>, Vec<_>) = fields
+        .iter()
+        .filter_map(filter_config_condition_source)
+        .map(|(id, name, _)| (syn::parse_str::<syn::Ident>(id).unwrap(), name))
+        .unzip();
 
     let expanded = quote::quote! {
         #item
+
+        #[allow(dead_code)]
+        const _: () = {
+            #[doc(hidden)]
+            pub struct FieldName;
+
+            #[allow(non_upper_case_globals)]
+            impl FieldName {
+                #(pub const #field_ids: &'static str = #field_names;)*
+            }
+
+            #[automatically_derived]
+            impl ::aviutl2::filter::__FilterConfigFieldNames for #name {
+                type FieldName = FieldName;
+            }
+        };
 
         #[automatically_derived]
         impl ::aviutl2::filter::FilterConfigItems for #name {

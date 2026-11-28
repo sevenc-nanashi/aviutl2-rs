@@ -52,9 +52,48 @@ pub struct FilterProcAnchor<U: FilterUserdata> {
     /// エフェクト毎のユーザーデータ。
     pub userdata: FilterUserdataHandle<U>,
     pub(crate) read_section: crate::generic::ReadSection,
+    pub(crate) inner: *mut aviutl2_sys::filter2::ANCHOR_SECTION,
+    pub(crate) config_items: *const [crate::filter::FilterConfigItem],
+    pub(crate) config_pointers: *const [*const aviutl2_sys::filter2::FILTER_ITEM],
 }
 
 impl<U: FilterUserdata> FilterProcAnchor<U> {
+    /// 指定のトラックバー項目の値を設定する。
+    ///
+    /// # Arguments
+    ///
+    /// - `item_name`: トラックバー項目の名前。
+    /// - `index`: 何番目の値を設定するか。例えば始点の値を設定する場合は0になります。
+    /// - `value`: 設定する値。
+    ///
+    /// # Panics
+    ///
+    /// `item_name`に対応するトラックバー項目が見つからなかった場合にパニックします。
+    ///
+    /// # See Also
+    ///
+    /// [`crate::filter_config_field_name`]
+    pub fn set_filter_item_track_value(&mut self, item_name: &str, index: usize, value: f32) {
+        // SAFETY: bridge側でこの値が生存していることが保証されている
+        let (items, pointers) = unsafe { (&*self.config_items, &*self.config_pointers) };
+        let candidates = items
+            .iter()
+            .filter(|item| item.name() == item_name)
+            .collect::<Vec<_>>();
+        if candidates.is_empty() {
+            panic!("Unknown config item name: {}", item_name);
+        }
+        let position = items
+            .iter()
+            .position(|item| matches!(item, crate::filter::FilterConfigItem::Track(track) if track.name == item_name))
+            .unwrap_or_else(|| panic!("The config item is not a track: {}", item_name));
+
+        let track = pointers[position]
+            .cast::<aviutl2_sys::filter2::FILTER_ITEM_TRACK>()
+            .cast_mut();
+        unsafe { ((*self.inner).set_filter_item_track_value)(track.cast(), index as _, value) };
+    }
+
     /// コールバック中に利用できる参照専用の編集セクション。
     pub fn read_section(&mut self) -> &crate::generic::ReadSection {
         &self.read_section

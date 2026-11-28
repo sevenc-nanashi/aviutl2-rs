@@ -7,6 +7,21 @@ struct Config {
     str_color: u32,
     tuple_color: u32,
 }
+#[allow(dead_code)]
+const _: () = {
+    #[doc(hidden)]
+    pub struct FieldName;
+    #[allow(non_upper_case_globals)]
+    impl FieldName {
+        pub const int_color: &'static str = "IntColor";
+        pub const str_color: &'static str = "StrColor";
+        pub const tuple_color: &'static str = "TupleColor";
+    }
+    #[automatically_derived]
+    impl ::aviutl2::filter::__FilterConfigFieldNames for Config {
+        type FieldName = FieldName;
+    }
+};
 #[automatically_derived]
 impl ::aviutl2::filter::FilterConfigItems for Config {
     fn to_config_items() -> Vec<::aviutl2::filter::FilterConfigItem> {
